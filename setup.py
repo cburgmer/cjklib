@@ -14,12 +14,7 @@ LICENSE = cjklib.__license__
 setup(name='cjklib',
     version=VERSION,
     description='Han character related methods for CJKV languages',
-    long_description="Cjklib provides language routines related to Han
-characters (characters based on Chinese characters named Hanzi, Kanji, Hanja and
-chu Han respectively) used in writing of the Chinese, the Japanese, infrequently
-the Korean and formerly the Vietnamese language(s). Functionality is included
-for character pronunciations, radicals, glyph components, stroke decomposition
-and variant information.",
+    long_description="Cjklib provides language routines related to Han characters (characters based on Chinese characters named Hanzi, Kanji, Hanja and chu Han respectively) used in writing of the Chinese, the Japanese, infrequently the Korean and formerly the Vietnamese language(s). Functionality is included for character pronunciations, radicals, glyph components, stroke decomposition and variant information.",
     author=AUTHOR,
     author_email=EMAIL,
     url=URL,
