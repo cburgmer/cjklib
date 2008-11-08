@@ -3399,8 +3399,8 @@ class GROperator(TonalRomanisationOperator):
         else:
             column = self.DB_RHOTACISED_FINAL_MAPPING[baseTone]
 
-        tonalFinal = self.db.selectSingleEntrySoleValue("GRErhuaFinals", column,
-            {'GRFinal': v + c2})
+        tonalFinal = self.db.selectSingleEntrySoleValue("GRRhotacisedFinals",
+            column, {'GRFinal': v + c2})
         if not tonalFinal:
             raise UnsupportedError("No Erlhuah form for '" \
                 + plainEntity + "' and tone '" + tone + "'")
