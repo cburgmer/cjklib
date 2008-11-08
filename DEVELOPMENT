@@ -1,0 +1,31 @@
+Test cases
+------------
+Run
+  python runtest.py
+to run the test cases included in cjklib/test.py.
+
+Coverage
+------------
+Using the coverage tool by Gareth Rees included in Debian as python-coverage
+code coverage can be derived by using the unit tests:
+  python-coverage -x runtest.py
+
+Coverage results can be shown for each file with e.g.:
+  python-coverage -a cjklib/reading.py
+which creates the file cjklib/reading.py,coverage.
+
+The accumulated coverage in file .coverage can be deleted using
+  python-coverage -e
+
+Profiling
+------------
+Profiling is mostely used to learn about the runtime behaviour of a program
+and find inefficient parts of the code. It also allows epydoc to generate call
+graphs for inclusion in the API documentation:
+  python -m cProfile -o unittest.pstat runtest.py
+generates the file unittest.pstat that is used for further processing.
+
+Documentation
+------------
+Epydoc is used to generate the API documentation:
+  epydoc -v --config epydoc_config

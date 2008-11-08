@@ -1,0 +1,44 @@
+# This file is part of cjklib.
+#
+# cjklib is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# cjklib is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# Chinese character stroke order table
+#
+# Z-Variant information is synchronised with tables StrokeOrder and
+# LocaleCharacterVariant.
+# Field 'StrokeOrder' uses abbreviated stroke names as found in table 'Strokes'
+# with strokes separated by a space or by a hyphen allowing for grouping of
+# parts.
+#
+# Column 'Flags' holds the following flags:
+#   * 'O': Checked, which means the entry has been through a quick check
+#   * 'S': The character variant described is only found as a subpart in another
+#          character
+#
+# ChineseCharacter, StrokeOrder, ZVariant, Flags
+"⻏",HP-WG-S,0,
+"⻏",HPWG-S,1,
+"⻝",SP-N-D-HZ-H-H-ST-P-D,1,
+"⻝",SP-N-D-HZ-H-H-ST-P-N,0,
+"⾷",SP-N-D-HZ-H-H-ST-P-D,1,
+"⾷",SP-N-D-HZ-H-H-ST-P-N,0,
+"⻊","S-HZ-H S-H-H-T",0,
+"⻃",H-S-HZ-S-S-H,0,
+"⺿","H-S S-H",0,
+"⺾",H-S-S,0,
+"艹",H-S-S,0,
+"艹","H-S S-H",1,
+"⺷",D-P-H-H-H-S,0,
+"⺶",D-P-H-H-H-SP,0,

@@ -1,0 +1,14 @@
+include cjklib/data/*.csv
+include cjklib/data/*.sql
+include cjklib/*.py
+include *.py
+include cjknife
+include buildcjkdb
+include examples/*.py
+include scripts/*.py
+include README
+include COPYING
+include changelog
+include cjklib.conf
+include epydoc_config
+include cjklib.db

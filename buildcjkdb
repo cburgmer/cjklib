@@ -1,0 +1,329 @@
+#!/usr/bin/python
+# -*- coding: utf-8  -*-
+# This file is part of cjklib.
+#
+# cjklib is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# cjklib is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+Builds the database for cjklib.
+
+For the Unihan data only characters in the Basic Multilingual Plane (BMP) with
+code values between U+0000 and U+FFFF are currently included, as MySQL < 6
+doesn't support 4-byte UTF-8. To include characters outside the BMP change
+C{'UnihanBMPBuilder'} and C{'SlimUnihanBMPBuilder'} to C{'UnihanBuilder'} and
+C{'SlimUnihanBuilder'} respectively.
+
+Some L{TableBuilder}s make an assumption about the file names being loaded (the
+builder only knows the directory of the data files), so naming the input files
+according to the builder's setting is necessary.
+
+@copyright: Copyright (C) 2006-2008 Christoph Burgmer.
+
+@todo Impl: Add option for rebuilding dependencies by setting
+    rebuildDepending=False/True (True by default). Consider asking the user if
+    all dependencies should be rebuilt.
+"""
+
+import getopt
+import locale
+import sys
+import os
+import re
+
+from cjklib import build
+from cjklib import exception
+import cjklib
+
+DEFAULT_DATA_PATH = ['~', 'cjklib/data/']
+
+BUILD_GROUPS = {
+    # source based
+    'packaged': ['PinyinSyllables', 'WadeGilesSyllables',
+        'WadeGilesPinyinMapping', 'PinyinIPAMapping', 'GRSyllables',
+        'GRAbbreviation', 'GRRhotacisedFinals', 'PinyinGRMapping',
+        'MandarinIPAInitialFinal', 'PinyinBrailleInitialMapping',
+        'PinyinBrailleFinalMapping', 'PinyinInitialFinal', 'JyutpingSyllables',
+        'JyutpingInitialFinal', 'CantoneseYaleSyllables',
+        'CantoneseYaleInitialNucleusCoda', 'JyutpingYaleMapping',
+        'JyutpingIPAMapping', 'CantoneseIPAInitialFinal',
+        'KangxiRadical', 'KangxiRadicalIsolatedCharacter',
+        'RadicalEquivalentCharacter', 'Strokes', 'StrokeOrder',
+        'CharacterDecomposition', 'LocaleCharacterVariant', 'StrokeCount',
+        'ComponentLookup', 'CharacterRadicalResidualStrokeCount'],
+    'UnihanCharacterSets': ['IICoreSet', 'GB2312Set'],
+    'UnihanData': ['UnihanCharacterSets', 'CharacterKangxiRadical',
+        'CharacterPinyin', 'CharacterJyutping', 'CharacterHangul',
+        'CharacterVietnamese', 'CharacterJapaneseKun',
+        'CharacterJapaneseOn', 'CharacterKanWaRadical',
+        'CharacterJapaneseRadical', 'CharacterKoreanRadical',
+        'CharacterVariant'],
+    # library based
+    'Readings': ['PinyinSyllables', 'WadeGilesSyllables',
+        'WadeGilesPinyinMapping', 'PinyinIPAMapping', 'GRSyllables',
+        'GRAbbreviation', 'GRRhotacisedFinals', 'PinyinGRMapping',
+        'MandarinIPAInitialFinal', 'PinyinBrailleInitialMapping',
+        'PinyinBrailleFinalMapping', 'PinyinInitialFinal', 'JyutpingSyllables',
+        'JyutpingInitialFinal', 'CantoneseYaleSyllables',
+        'CantoneseYaleInitialNucleusCoda', 'JyutpingYaleMapping',
+        'JyutpingIPAMapping', 'CantoneseIPAInitialFinal'],
+    'SupportedCharacterReadings': ['CharacterPinyin', 'CharacterJyutping',
+        'CharacterHangul'],
+    'KangxiRadicalData': ['CharacterKangxiRadical', 'KangxiRadical',
+        'KangxiRadicalIsolatedCharacter', 'RadicalEquivalentCharacter',
+        'CharacterRadicalResidualStrokeCount', 'CharacterResidualStrokeCount'],
+    'ShapeLookupData': ['Strokes', 'StrokeOrder', 'CharacterDecomposition',
+        'LocaleCharacterVariant', 'StrokeCount', 'ComponentLookup',
+        'CharacterVariant'],
+    'cjklibData': ['Readings', 'SupportedCharacterReadings',
+        'KangxiRadicalData', 'ShapeLookupData'],
+    # language based
+    'fullMandarin': ['KangxiRadicalData', 'ShapeLookupData',
+        'CharacterPinyin', 'PinyinSyllables', 'WadeGilesSyllables',
+        'WadeGilesPinyinMapping', 'GRSyllables', 'GRRhotacisedFinals',
+        'GRAbbreviation', 'PinyinGRMapping', 'PinyinIPAMapping',
+        'MandarinIPAInitialFinal', 'PinyinBrailleInitialMapping',
+        'PinyinBrailleFinalMapping', 'PinyinInitialFinal'],
+    'fullCantonese': ['KangxiRadicalData', 'ShapeLookupData',
+        'CharacterJyutping', 'JyutpingSyllables', 'CantoneseYaleSyllables',
+        'CantoneseYaleInitialNucleusCoda', 'JyutpingYaleMapping',
+        'JyutpingIPAMapping', 'CantoneseIPAInitialFinal',
+        'JyutpingInitialFinal'],
+    'fullJapanese': ['KangxiRadicalData', 'ShapeLookupData'],
+    'fullKorean': ['KangxiRadicalData', 'ShapeLookupData', 'CharacterHangul'],
+    'fullVietnamese': ['KangxiRadicalData', 'ShapeLookupData'],
+    # additional data for cjknife
+    'fullDictionaries': ['fullCEDICT', 'fullHanDeDict', 'fullEDICT'],
+    'fullCEDICT': ['CEDICT', 'CEDICT_Words'],
+    'fullHanDeDict': ['HanDeDict', 'HanDeDict_Words'],
+    'fullEDICT': ['EDICT', 'EDICT_Words'],
+}
+"""
+Definition of build groups available to the user. Recursive definitions are not
+allowed and will lead to a lock up.
+"""
+
+def version():
+    """
+    Prints the version of this script.
+    """
+    print "buildcjkdb " + str(cjklib.__version__) \
+        + """\nCopyright (C) 2006-2008 Christoph Burgmer
+The library and all parts are distributed under the terms of the LGPL
+Version 2.1, February 1999 (http://www.fsf.org/licensing/licenses/lgpl.html)
+if not otherwise noted. See the data files for their specific licenses.
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law."""
+
+def usage():
+    """
+    Prints the usage for this script.
+    """
+    print u"""Usage: buildcjkdb COMMAND
+buildcjkdb builds the database for the cjklib library.
+
+Data can come from two different sources: packaged in the library or
+additionally supplied data of a type the build process understands.
+Example: buildcjkdb -b allAvail
+
+The database is stored according to the setting of the cjklib and can be changed
+by setting the cjklib.conf. Additionally all SQL commands can be printed to
+stdout specifying --dump.
+
+General commands:
+  -b, --build=BUILD_GROUPS   adds a build group or a specific table to the build
+                               list
+  -r, --rebuild              tells the build process to rebuild tables even if
+                               they already exist
+  -l, --list-groups          list all available build groups and exists
+  --dataPath=PATH            path to data files
+  --dump                     dumps all SQL statements to stdout; no support for
+                             builders that depend on a database being present
+  -V, --version              prints the version information and exits
+  -h, --help                 prints this help and exits"""
+
+def printFormattedLine(outputString, lineLength=80, subsequentPrefix=''):
+    """
+    Formats the given input string to fit to a output with a limited line
+    length and prints it to stdout with the systems encoding.
+
+    @type outputString: string
+    @param outputString: a string that is formated to fit to the screen
+    @type lineLength: integer
+    @param lineLength: with of screen
+    @type subsequentPrefix: string
+    @param subsequentPrefix: prefix used after line break
+    """
+    outputLines = []
+    for line in outputString.split("\n"):
+        outputEntityList = line.split()
+        outputEntityList.reverse()
+        column = 0
+        output = ''
+        while outputEntityList:
+            entity = outputEntityList.pop()
+            # if the next entity including one trailing space will reach over,
+            # break the line
+            if column > 0 and len(entity) + column >= lineLength:
+                output = output + "\n" + subsequentPrefix + entity
+                column = len(subsequentPrefix) + len(entity)
+            else:
+                if column > 0:
+                    output = output + ' '
+                    column = column + 1
+                column = column + len(entity)
+                output = output + entity
+            #if len(column) >= lineLength and outputEntityList:
+                #output = output + "\n" + subsequentPrefix
+                #column = len(subsequentPrefix)
+        outputLines.append(output)
+    # get output encoding
+    language, system_encoding = locale.getdefaultlocale()
+    print ("\n".join(outputLines)).encode(system_encoding)
+
+def main():
+    """
+    Main method of script
+    """
+    # parse command line parameters
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "b:rlqVh", ["help", "version",
+            "dataPath=", "build=", "rebuild", "list-groups", "quiet", "dump"])
+    except getopt.GetoptError:
+        # print help information and exit
+        usage()
+        sys.exit(2)
+
+    buildGroupList = []
+    dataPathList = []
+    rebuild = False
+    quiet = False
+    dump = False
+
+    # get encoding
+    language, system_encoding = locale.getdefaultlocale()
+    # start to check parameters
+    if len(opts) == 0:
+        printFormattedLine("use parameter -h for a short summary on " \
+            + "supported parameters")
+    for o, a in opts:
+        a = a.decode(system_encoding)
+        # help screen
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        # version message
+        elif o in ("-V", "--version"):
+            version()
+            sys.exit()
+        # build group
+        elif o in ("-b", "--build"):
+            buildGroupList.extend([groupName.strip() for groupName \
+                in a.split(',')])
+        # set rebuild mode to true
+        elif o in ("-r", "--rebuild"):
+            rebuild = True
+        # set quiet mode to true
+        elif o in ("-q", "--quiet"):
+            quiet = True
+        # set dump mode to true
+        elif o in ("--dump"):
+            dump = True
+        # list build groups
+        elif o in ("-l", "--list-groups"):
+            printFormattedLine("Generic groups:\n" \
+                + "all, for all tables understood by the build script\n" \
+                + "allAvail, for all data available to the build script\n")
+            printFormattedLine("Standard groups:")
+            groupList = BUILD_GROUPS.keys()
+            groupList.sort()
+            for groupName in groupList:
+                content = []
+                # get group content, add apostrophes for "sub"groups
+                for member in BUILD_GROUPS[groupName]:
+                    if BUILD_GROUPS.has_key(member):
+                        content.append("'" + member + "'")
+                    else:
+                        content.append(member)
+                printFormattedLine(groupName + ": " + ', '.join(content),
+                    subsequentPrefix='  ')
+            printFormattedLine("\nGroup names and table names can either be " \
+                "given to the build process.")
+            sys.exit()
+        # data path
+        elif o in ("--dataPath"):
+            dataPathList.append(a)
+
+    # if no path set, assume default
+    if not dataPathList:
+        dataPathList = DEFAULT_DATA_PATH
+
+    dataPath = []
+    for pathEntry in dataPathList:
+        dataPath.extend(pathEntry.split(':'))
+
+    if buildGroupList:
+        # by default fail if a table couldn't be built
+        noFail = False
+        if 'all' in buildGroupList or 'allAvail' in buildGroupList:
+            if 'allAvail' in buildGroupList:
+                if len(buildGroupList) == 1:
+                    # don't fail on non available
+                    noFail = True
+                else:
+                    # allAvail not compatible with others, as allAvail means not
+                    # failing if build fails, but others will need failing when
+                    # explicitly named
+                    raise ValueError("group 'allAvail' can't be specified " \
+                        + "together with other groups.")
+            # if generic group given get list
+            buildGroupList = build.DatabaseBuilder.getSupportedTables()
+
+        # unpack groups
+        groups = []
+        while len(buildGroupList) != 0:
+            group = buildGroupList.pop()
+            if BUILD_GROUPS.has_key(group):
+                buildGroupList.extend(BUILD_GROUPS[group])
+            else:
+                groups.append(group)
+
+        # choose preferred builders
+        prefer = ['CharacterVariantBMPBuilder', 'CombinedStrokeCountBuilder',
+            'CombinedCharacterResidualStrokeCountBuilder',
+            'HanDeDictFulltextSearchBuilder']
+        if 'Unihan' in buildGroupList:
+            prefer.append('UnihanBMPBuilder')
+        else:
+            prefer.append('SlimUnihanBMPBuilder')
+        # create builder instance
+        databaseSettings = {}
+        if dump:
+            databaseSettings = {'dump': True}
+        dbBuilder = build.DatabaseBuilder(dataPath=dataPath,
+            databaseSettings=databaseSettings, quiet=quiet,
+            rebuildExisting=rebuild, noFail=noFail, prefer=prefer)
+
+        try:
+            dbBuilder.build(groups)
+        except exception.UnsupportedError:
+            printFormattedLine("error building local tables, some names " \
+                + "do not exist")
+            raise
+        except KeyboardInterrupt:
+            print >>sys.stderr, "Keyboard interrupt."
+
+        print "finished"
+
+if __name__ == "__main__":
+    main()

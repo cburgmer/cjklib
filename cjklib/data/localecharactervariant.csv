@@ -1,0 +1,34 @@
+# This file is part of cjklib.
+#
+# cjklib is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# cjklib is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# Chinese character z-Variant to locale mapping.
+#
+# This table supplements tables CharacterDecomposition and StrokeOrder to map
+# each locale to exactly one z-Variant (glyph).
+#
+# ChineseCharacter, ZVariant, Locale
+"⻏",0,T
+"⻏",1,CJK
+"⻝",1,CJK
+"⻝",0,T
+"⾷",1,CJK
+"⾷",0,T
+"⼾",1,C
+"⼾",0,TJK
+"⾓",0,TJK
+"⾓",1,C
+"角",0,TJK
+"角",1,C

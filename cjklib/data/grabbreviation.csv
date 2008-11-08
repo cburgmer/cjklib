@@ -1,0 +1,43 @@
+# This file is part of cjklib.
+#
+# cjklib is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# cjklib is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# Abbreviated spellings for romanisation Gwoyeu Romatzyh.
+#
+# Source:
+#   * Yuen Ren Chao: A Grammar of Spoken Chinese. University of California
+#     Press, Berkeley, 1968, ISBN 0-520-00219-9.
+#
+#ChineseCharacter,GR,GRAbbreviation
+啊,.a,a
+吧,.ba,ba
+罢,.ba,ba
+不,bu,bwu
+不,bu,buh
+的,.de,de
+个,ₒgeh,g
+一,i,yi
+一,i,yih
+呀,.ia,ia
+着,.jy,j
+着,.je,j
+了,.le,le
+嗎,.ma,ma
+么,.me,me
+嚜,.me,me
+们,.men,men
+呐,.ne,ne
+是,ₒshyh,sh
+子,.tzy,tz
