@@ -102,7 +102,7 @@ Currently supported are:
 
 @author: Christoph Burgmer <cburgmer@ira.uka.de>
 @requires: Python 2.5+, SQLite 3+ and pysqlite2 or MySQL 5+ and MySQL-Python
-@version: 0.1alpha1
+@version: 0.1alpha
 
 @copyright: Copyright (C) 2006-2008 Christoph Burgmer
 
@@ -143,13 +143,13 @@ Currently supported are:
 Version 3, 29 June 2007 (U{http://www.gnu.org/licenses/lgpl.html}) if not
 otherwise noted.
 """
-__version__ = '0.1alpha1'
+__version__ = '0.1alpha'
 """The version of cjklib"""
 
 __author__ = 'Christoph Burgmer <cburgmer@ira.uka.de>'
 """The primary author of cjklib"""
 
-__url__ = 'http://cjklib.berlios.de/'
+__url__ = 'http://code.google.com/p/cjklib/'
 """The URL for cjklib's homepage"""
 
 __license__ = 'LGPL'

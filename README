@@ -72,9 +72,9 @@ SQLite
 SQLite support should work out of the box. SQLite 3 is currently known to
 work.
 
-Currently only characters from the Basic Mutilingual Plane (BMP) of Unicode
+Currently only characters from the Basic Multilingual Plane (BMP) of Unicode
 are supported, due to missing support in MySQL (see below). To enable full
-support buildcjkdb needs to be told to use the apropriate building methods. 
+support buildcjkdb needs to be told to use the appropriate building methods.
 
 SQLite offers a full-text search with extension FTS3 which needs to be
 compiled in to used. cjknife uses the full-text capabilities for the
@@ -90,7 +90,7 @@ character set using the general Unicode collation:
 CREATE DATABASE cjklib DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 MySQL < 6 doesn't support true UTF-8, and uses a Version with max 3 bytes, so
-characters outside the Basic Mutilingual Plane (BMP) can't be encoded. Building
+characters outside the Basic Multilingual Plane (BMP) can't be encoded. Building
 the Unihan database thus might result in Warnings, Characters above 0x20000
 can't be built at all.
 

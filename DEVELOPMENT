@@ -19,7 +19,7 @@ The accumulated coverage in file .coverage can be deleted using
 
 Profiling
 ------------
-Profiling is mostely used to learn about the runtime behaviour of a program
+Profiling is mostly used to learn about the runtime behaviour of a program
 and find inefficient parts of the code. It also allows epydoc to generate call
 graphs for inclusion in the API documentation:
   python -m cProfile -o unittest.pstat runtest.py
