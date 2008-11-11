@@ -1141,8 +1141,8 @@ def main():
 
         # character information table
         if command in ("-i", "--information"):
-            if len(a) == 1:
-                infoDict = charInfo.getCharacterInformation(a)
+            if len(parameter) == 1:
+                infoDict = charInfo.getCharacterInformation(parameter)
 
                 print ("Information for character " + infoDict['char'] + " (" \
                     + infoDict['locale name'] + " locale)")\
@@ -1220,7 +1220,7 @@ def main():
             # character to reading conversion
             if command in ("-q", "-r", "--get-reading"):
                 try:
-                    readingList = charInfo.getReadingForCharacters(a)
+                    readingList = charInfo.getReadingForCharacters(parameter)
                     print getPrintableList(readingList, " ")\
                         .encode(default_encoding, "replace")
                 except exception.UnsupportedError:
@@ -1232,9 +1232,10 @@ def main():
 
             # conversion between simplified/traditional forms
             if command in ("-q", "-f", "--convert-form"):
-                simplified = getPrintableList(charInfo.getSimplified(a))
-                traditional= getPrintableList(charInfo.getTraditional(a))
-                if not a in (simplified, traditional):
+                simplified = getPrintableList(charInfo.getSimplified(parameter))
+                traditional= getPrintableList(charInfo.getTraditional(
+                    parameter))
+                if not parameter in (simplified, traditional):
                     print "warning: input string has mixed simplified and " \
                         + "traditional forms"
                 if simplified == traditional:
@@ -1249,7 +1250,7 @@ def main():
         # character lookup by reading
         elif command in ("-a", "--by-reading"):
             try:
-                characterList = charInfo.getCharactersForReading(a,
+                characterList = charInfo.getCharactersForReading(parameter,
                     sourceReading)
                 print "".join(characterList).encode(default_encoding, "replace")
             except ValueError:
@@ -1265,7 +1266,8 @@ def main():
         # character lookup by Kangxi radical index
         elif command in ("-k", "--by-radicalidx"):
             try:
-                charList = charInfo.getCharactersForKangxiRadicalIndex(int(a))
+                charList = charInfo.getCharactersForKangxiRadicalIndex(
+                    int(parameter))
                 print ''.join(charList).encode(default_encoding, "replace")
             except ValueError:
                 print "error: bad parameter"
@@ -1273,15 +1275,16 @@ def main():
 
         # character lookup by components
         elif command in ("-p", "--by-components"):
-            componentLookupResult = charInfo.getCharactersForComponents(a)
+            componentLookupResult = charInfo.getCharactersForComponents(
+                parameter)
             charList = set([char for char, var in componentLookupResult])
             print ''.join(charList).encode(default_encoding, "replace")
 
         # TODO
         ## character lookup by stroke order
         #elif command in ("-o", "--by-strokes"):
-            #strokeLookupResult = charInfo.getCharactersForStrokeOrderFuzzy(a,
-                #charLocale, 0.46)
+            #strokeLookupResult = charInfo.getCharactersForStrokeOrderFuzzy(
+                #parameter, charLocale, 0.46)
             #strokeLookupResult.sort(reverse=True, key=operator.itemgetter(2))
             #charList = [char for char, _, _ in strokeLookupResult]
             #print ''.join(charList).encode(default_encoding, "replace")
@@ -1289,8 +1292,8 @@ def main():
         # reading conversion
         elif command in ("-m", "--convert-reading"):
             try:
-                print charInfo.convertReading(a, sourceReading, targetReading)\
-                    .encode(default_encoding, "replace")
+                print charInfo.convertReading(parameter, sourceReading,
+                    targetReading).encode(default_encoding, "replace")
             except exception.DecompositionError, m:
                 print "error: invalid input string:", \
                     unicode(m.message).encode(default_encoding, "replace")
@@ -1312,7 +1315,8 @@ def main():
                 print "error: no dictionary available"
                 sys.exit(1)
             try:
-                results = charInfo.searchDictionaryExact(a, sourceReading)
+                results = charInfo.searchDictionaryExact(parameter,
+                    sourceReading)
                 for c, r, t in results:
                     print (c + ", " + r + ", " + t)\
                         .encode(default_encoding, "replace")
@@ -1325,8 +1329,8 @@ def main():
                 print "error: no dictionary available"
                 sys.exit(1)
             try:
-                results = charInfo.searchDictionaryContaining(a, sourceReading,
-                    command[1])
+                results = charInfo.searchDictionaryContaining(parameter,
+                    sourceReading, command[1])
                 for c, r, t in results:
                     print (c + ", " + r + ", " + t)\
                         .encode(default_encoding, "replace")

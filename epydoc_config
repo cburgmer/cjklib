@@ -80,7 +80,7 @@ name: cjklib
 css: white
 
 # The documented project's URL.
-url: http://cjklib.berlios.de/
+url: http://code.google.com/p/cjklib/
 
 # HTML code for the project link in the navigation bar.  If left
 # unspecified, the project link will be generated based on the
