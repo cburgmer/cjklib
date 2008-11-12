@@ -2462,8 +2462,17 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
 
 class WordIndexBuilder(EntryGeneratorBuilder):
-    """Builds a translation word index for a given dictionary.
+    """
+    Builds a translation word index for a given dictionary.
+
+    Searching for a word will return a headword and reading. This allows to find
+    several dictionary entries with same headword and reading, with only one
+    including the translation word.
+
     @todo Fix:  Word regex is specialised for HanDeDict.
+    @todo Fix:  Using a row_id for joining instead of Headword(Traditional) and
+        Reading would maybe speed up table joins. Needs a workaround to include
+        multiple rows for one actual headword entry though.
     """
     class WordEntryGenerator:
         """Generates words for a list of dictionary entries."""
@@ -2483,22 +2492,27 @@ class WordIndexBuilder(EntryGeneratorBuilder):
 
         def __iter__(self):
             """Provides all data of one word per entry."""
+            # remember seen entries to prevent double entries
             seenWordEntries = set()
             newEntryDict = {}
-            for headword, translation in self.entries:
+
+            for headword, reading, translation in self.entries:
                 newEntryDict['Headword'] = headword
+                newEntryDict['Reading'] = reading
                 for word in self.wordRegex.findall(translation):
                     word = word.strip()
                     if not word:
                         continue
-                    if word and (headword, word) not in seenWordEntries:
-                        seenWordEntries.add((headword, word))
+                    if word \
+                        and (headword, reading, word) not in seenWordEntries:
+                        seenWordEntries.add((headword, reading, word))
                         newEntryDict['Word'] = word
                         yield newEntryDict
 
-    COLUMNS = ['Headword', 'Word']
-    COLUMN_TYPES = {'Headword': 'VARCHAR(255)', 'Word': 'VARCHAR(255)'}
-    INDEX_KEYS = [['Headword'], ['Word']]
+    COLUMNS = ['Headword', 'Reading', 'Word']
+    COLUMN_TYPES = {'Headword': 'VARCHAR(255)', 'Reading': 'VARCHAR(255)',
+        'Word': 'VARCHAR(255)'}
+    INDEX_KEYS = [['Word']]
 
     TABLE_SOURCE = None
     """Dictionary source"""

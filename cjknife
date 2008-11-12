@@ -582,11 +582,12 @@ class CharacterInfo:
 
         # translation string
         table = self.dictionary + '_Words w JOIN ' + self.dictionary \
-            + ' d ON d.HeadwordTraditional = w.Headword'
+            + ' d ON (d.HeadwordTraditional = w.Headword ' \
+            + 'AND d.Reading = w.Reading)'
         # use LIKE to match upper/lower case (SQLite)
         selectCommands.append(
             DatabaseConnector.getDBConnector().getSelectCommand(
-                table, [self.cedictHeadword, 'Reading', 'Translation'],
+                table, [self.cedictHeadword, 'd.Reading', 'Translation'],
                 {'Word': "LIKE '" + searchString  +"'"}, distinctValues=True,
                 orderBy=['Reading'], limit=limit))
             # TODO hack: LIMIT and ORDER BY incorporated over last select
