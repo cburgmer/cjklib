@@ -2523,7 +2523,7 @@ class WordIndexBuilder(EntryGeneratorBuilder):
         super(WordIndexBuilder, self).__init__(dataPath, dbConnectInst, quiet)
 
         entries = self.db.select(self.TABLE_SOURCE, [self.HEADWORD_SOURCE,
-            'Translation'])
+            'Reading', 'Translation'])
 
         self.ENTRY_GENERATOR = WordIndexBuilder.WordEntryGenerator(entries)
 
