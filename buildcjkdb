@@ -316,14 +316,14 @@ def main():
 
         try:
             dbBuilder.build(groups)
+
+            print "finished"
         except exception.UnsupportedError:
             printFormattedLine("error building local tables, some names " \
                 + "do not exist")
             raise
         except KeyboardInterrupt:
             print >>sys.stderr, "Keyboard interrupt."
-
-        print "finished"
 
 if __name__ == "__main__":
     main()

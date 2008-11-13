@@ -1527,103 +1527,96 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             self.cjk = characterlookup.CharacterLookup(
                 dbConnectInst=dbConnectInst)
 
-        def getStrokeCount(self, component, strokeCountDict,
+        def getStrokeCount(self, char, zVariant, strokeCountDict,
             unihanStrokeCountDict):
             """
-            Gets the stroke count by querying the components stroke count. The
-            query order is important: first the component is tested in the
-            strokeCountDict. If it's not found there the unihanStrokeCountDict
-            is checked. If the component can't be found at all the parent
-            character is checked.
+            Gets the stroke count of the given character by summing up the
+            stroke count of its components and using the Unihan table as
+            fallback.
 
-            @type component: tree structure
-            @param component: decomposition of a character
+            For the sake of consistency this method doesn't take the stroke
+            count given by Unihan directly but sums up the stroke counts of the
+            components to make sure the sum of component's stroke count will
+            always give the characters stroke count. The result yielded will be
+            in many cases even more precise than the value given in Unihan (not
+            depending on the actual glyph form).
+
+            Once calculated the stroke count will be cached in the given
+            strokeCountDict object.
+
+            @type char: character
+            @param char: Chinese character
+            @type zVariant: number
+            @param zVariant: Z-variant of character
             @rtype: number
             @return: stroke count
             @raise ValueError: if stroke count is ambiguous due to inconsistent
                 values wrt Unihan vs. own data.
             @raise NoInformationError: if decomposition is incomplete
             """
-            accumulatedStrokeCount = 0
-            for entry in component[:]:
-                if type(entry)==types.TupleType:
-                    char, zVariant, decompositionList = entry
-                    if char == u'？':
-                        # we have an incomplete decomposition, can't build
-                        raise exception.NoInformationError(
-                            "incomplete decomposition")
-                    else:
-                        # try all decompositions of this character, all need to
-                        #   return the same count for sake of consistency
-                        lastStrokeCount = None
-                        for decomposition in decompositionList:
-                            try:
-                                c = self.getStrokeCount(decomposition,
-                                    strokeCountDict, unihanStrokeCountDict)
-                            except exception.NoInformationError:
-                                continue
-                            if lastStrokeCount != None and lastStrokeCount != c:
+            if char == u'？':
+                # we have an incomplete decomposition, can't build
+                raise exception.NoInformationError("incomplete decomposition")
+
+            if (char, zVariant) not in strokeCountDict:
+                decompositionList = self.cjk.getDecompositionEntries(char,
+                    zVariant=zVariant)
+
+                lastStrokeCount = None
+                if decompositionList:
+                    # try all decompositions of this character, all need to
+                    #   return the same count for sake of consistency
+                    for decomposition in decompositionList:
+                        try:
+                            accumulatedStrokeCount = 0
+
+                            for entry in decomposition:
+                                if type(entry) == types.TupleType:
+                                    component, componentZVariant = entry
+
+                                    accumulatedStrokeCount += \
+                                        self.getStrokeCount(component,
+                                            componentZVariant, strokeCountDict,
+                                            unihanStrokeCountDict)
+
+                            if lastStrokeCount != None \
+                                and lastStrokeCount != accumulatedStrokeCount:
                                 # different stroke counts taken from different
                                 #   decompositions, can't build at all
                                 raise ValueError("ambiguous stroke count " \
                                     + "information, due to various stroke " \
-                                    + "count sources")
+                                    + "count sources for " \
+                                    + repr((char, ZVariant)))
                             else:
                                 # first run or equal to previous calculation
-                                lastStrokeCount = c
-                        if lastStrokeCount != None:
-                            accumulatedStrokeCount = accumulatedStrokeCount \
-                                + lastStrokeCount
-                        else:
-                            # couldn't get stroke counts from components, look
-                            #   for parent char
-                            if char in strokeCountDict:
-                                # own sources have info
-                                accumulatedStrokeCount = \
-                                    accumulatedStrokeCount \
-                                    + strokeCountDict[char]
-                            elif char in unihanStrokeCountDict:
-                                # take Unihan info
-                                accumulatedStrokeCount = \
-                                    accumulatedStrokeCount \
-                                    + unihanStrokeCountDict[char]
-                            else:
-                                raise exception.NoInformationError(
-                                    "missing stroke count information")
+                                lastStrokeCount = accumulatedStrokeCount
 
-            return accumulatedStrokeCount
+                        except exception.NoInformationError:
+                            continue
 
-        def getConsistentStrokeCount(self, char, zVariant, strokeCountDict,
-            unihanStrokeCountDict):
-            decompositionList = self.cjk.getDecompositionTreeList(char,
-                zVariant=zVariant)
-            # Try all decompositions of this character. For the sake of
-            #   consistency don't take the stroke count given by Unihan directly
-            #   but sum up the stroke counts of the components to make sure the
-            #   sum of components will always give the characters stroke count.
-            lastStrokeCount = None
-            for decomposition in decompositionList:
-                try:
-                    c = self.getStrokeCount(decomposition, strokeCountDict,
-                        unihanStrokeCountDict)
+                if lastStrokeCount != None:
+                    strokeCountDict[(char, zVariant)] = lastStrokeCount
+                else:
+                    # couldn't get stroke counts from components, check fallback
+                    #   resources
+                    if (char, 0) in strokeCountDict:
+                        # own sources have info for fallback zVariant
+                        strokeCountDict[(char, zVariant)] \
+                            = strokeCountDict[(char, 0)]
 
-                    if lastStrokeCount != None and lastStrokeCount != c:
-                        # different stroke counts taken from different
-                        #   decompositions, can't build at all
-                        raise ValueError("ambiguous stroke count information " \
-                            + "for character '" + char + "'")
-                    lastStrokeCount = c
-                except exception.NoInformationError:
-                    pass
-            if lastStrokeCount != None:
-                return lastStrokeCount
-            elif char in unihanStrokeCountDict:
-                # questioning components didn't give any result, use Unihan data
-                return unihanStrokeCountDict[char]
-            else:
+                    elif char in unihanStrokeCountDict:
+                        # take Unihan info
+                        strokeCountDict[(char, zVariant)] \
+                            = unihanStrokeCountDict[char]
+
+                    else:
+                        strokeCountDict[(char, zVariant)] = None
+
+            if strokeCountDict[(char, zVariant)] == None:
                 raise exception.NoInformationError(
-                    "missing stroke count information for character '" + char \
-                    + "'")
+                    "missing stroke count information")
+            else:
+                return strokeCountDict[(char, zVariant)]
 
         def __iter__(self):
             """Provides one entry per character, z-Variant and locale subset."""
@@ -1631,11 +1624,10 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             strokeCountDict = {}
             for entry in self.preferredBuilder:
                 yield entry
+
                 # save stroke count for later processing, prefer Z-variant 0
-                if entry['ChineseCharacter'] not in strokeCountDict \
-                    or entry['ZVariant'] == 0:
-                    strokeCountDict[entry['ChineseCharacter']] \
-                        = entry['StrokeCount']
+                key = (entry['ChineseCharacter'], entry['ZVariant'])
+                strokeCountDict[key] = entry['StrokeCount']
 
             # now get stroke counts from Unihan table
             unihanStrokeCountDict = {}
@@ -1646,23 +1638,24 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             # finally fill up with characters from Unihan, proper locale and
             #   Z-variant missing though in some cases.
             for char in unihanStrokeCountDict:
-                warningLocales = []
+                warningZVariants = []
                 for zVariant in self.cjk.getCharacterZVariants(char):
                     try:
                         # build stroke count from mixed source
-                        strokeCount = self.getConsistentStrokeCount(char,
-                            zVariant, strokeCountDict, unihanStrokeCountDict)
-                        yield {'ChineseCharacter': char,
-                            'StrokeCount': strokeCount, 'ZVariant': zVariant}
-                    except ValueError:
-                        warningLocales.append(locale)
+                        strokeCount = self.getStrokeCount(char, zVariant,
+                            strokeCountDict, unihanStrokeCountDict)
+
+                        yield {'ChineseCharacter': char, 'ZVariant': zVariant,
+                            'StrokeCount': strokeCount}
+                    except ValueError, e:
+                        warningZVariants.append(zVariant)
                     except exception.NoInformationError:
                         pass
 
-                if not self.quiet and warningLocales:
+                if not self.quiet and warningZVariants:
                     warn("ambiguous stroke count information (mixed sources) " \
-                        "for character '" + char + "' under locale(s) '" \
-                        + ''.join(warningLocales) + "'")
+                        "for character '" + char + "' for Z-variant(s) '" \
+                        + ''.join([str(z) for z in warningZVariants]) + "'")
 
     DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Unihan']
     COLUMN_SOURCE = 'kTotalStrokes'
@@ -1713,7 +1706,7 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
             """
             componentList = []
             for entry in component[:]:
-                if type(entry)==types.TupleType:
+                if type(entry) == types.TupleType:
                     char, zVariant, decompositionList = entry
                     if char != u'？':
                         componentList.append((char, zVariant))
