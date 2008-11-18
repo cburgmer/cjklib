@@ -55,8 +55,8 @@ package.
         >>> dbBuilder.build(['JyutpingSyllables'])
         building table 'JyutpingSyllables' with builder
         'JyutpingSyllablesBuilder'...
-        reading table definition from file './cjklib/data/jyutpingsyllables.sql'
-        reading table 'JyutpingSyllables' from file
+        Reading table definition from file './cjklib/data/jyutpingsyllables.sql'
+        Reading table 'JyutpingSyllables' from file
         './cjklib/data/jyutpingsyllables.csv'
 
 @todo Impl: Further character domains: BIG5 (Taiwan), kIRG_GSource (Unicode,
@@ -533,7 +533,7 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
 
     def build(self):
         if not self.quiet:
-            warn("reading table content from Unihan column '" \
+            warn("Reading table content from Unihan column '" \
                 + self.COLUMN_SOURCE + "'")
         super(UnihanDerivedBuilder, self).build()
 
@@ -736,7 +736,7 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
 
     def build(self):
         if not self.quiet:
-            warn("reading table content from Unihan columns '" \
+            warn("Reading table content from Unihan columns '" \
                 + ', '.join(self.COLUMN_SOURCE_ABBREV.keys()) + "'")
         super(CharacterVariantBuilder, self).build()
 
@@ -810,7 +810,7 @@ class UnihanCharacterSetBuilder(EntryGeneratorBuilder):
 
     def build(self):
         if not self.quiet:
-            warn("reading table content from Unihan column '" \
+            warn("Reading table content from Unihan column '" \
                 + self.COLUMN_SOURCE + "'")
         super(UnihanCharacterSetBuilder, self).build()
 
@@ -1128,7 +1128,7 @@ class CSVFileLoader(TableBuilder):
         filePath = self.findFile([self.TABLE_DECLARATION_FILE_MAPPING],
             "SQL table definition file")
         if not self.quiet:
-            warn("reading table definition from file '" + filePath + "'")
+            warn("Reading table definition from file '" + filePath + "'")
 
         fileHandle = codecs.open(filePath, 'r', 'utf-8')
         createStatement = ''.join(fileHandle.readlines()).strip("\n")
@@ -1143,7 +1143,7 @@ class CSVFileLoader(TableBuilder):
         # write table content
         filePath = self.findFile([self.TABLE_CSV_FILE_MAPPING], "table")
         if not self.quiet:
-            warn("reading table '" + self.PROVIDES + "' from file '" \
+            warn("Reading table '" + self.PROVIDES + "' from file '" \
                 + filePath + "'")
         fileHandle = codecs.open(filePath, 'r', 'utf-8')
 
@@ -2390,7 +2390,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         filePath = self.findFile(self.FILE_NAMES)
         handle = self.getFileHandle(filePath, self.ZIP_CONTENT_NAME)
         if not self.quiet:
-            warn("reading table from file '" + filePath + "'")
+            warn("Reading table from file '" + filePath + "'")
         # ignore starting lines
         for i in range(0, self.IGNORE_LINES):
             handle.readline()
@@ -2763,7 +2763,7 @@ class DatabaseBuilder:
         self.tableBuilderLookup = {}
         for tableBuilder in tableBuilderClasses.values():
             if self.tableBuilderLookup.has_key(tableBuilder.PROVIDES):
-                raise Exception("table '" + tableBuilder.PROVIDES \
+                raise Exception("Table '" + tableBuilder.PROVIDES \
                     + "' provided by several builders")
             self.tableBuilderLookup[tableBuilder.PROVIDES] = tableBuilder
 
@@ -2794,14 +2794,14 @@ class DatabaseBuilder:
         filteredTables = []
         for table in tables:
             if table not in self.tableBuilderLookup:
-                raise exception.UnsupportedError("table '" + table \
+                raise exception.UnsupportedError("Table '" + table \
                     + "' not provided")
 
             if self.needsRebuild(table):
                 filteredTables.append(table)
             else:
                 if not self.quiet:
-                    warn("skipping table '" + table + "' as it already exists")
+                    warn("Skipping table '" + table + "' as it already exists")
         tables = filteredTables
 
         # get depending tables that need to be updated when dependencies change
@@ -2809,7 +2809,7 @@ class DatabaseBuilder:
         if self.rebuildDepending:
             dependingTables = self.getRebuiltDependingTables(tables)
             if dependingTables:
-                warn("tables rebuilt because of dependencies updated: '" \
+                warn("Tables rebuilt because of dependencies updated: '" \
                     +"', '".join(dependingTables) + "'")
                 tables.extend(dependingTables)
 
@@ -2825,7 +2825,7 @@ class DatabaseBuilder:
             noBuild = set()
             for builder in builderClasses:
                 if builder.DEPENDS:
-                    message = "builder '" + builder.__name__ \
+                    message = "Builder '" + builder.__name__ \
                         + "' depends on table(s) '" \
                         + "', '".join(builder.DEPENDS) \
                         + "' and needs to be built with database support"
@@ -2849,7 +2849,7 @@ class DatabaseBuilder:
             # dependencies and note it down for deletion
             try:
                 if not self.quiet:
-                    warn("building table '" + builder.PROVIDES \
+                    warn("Building table '" + builder.PROVIDES \
                         + "' with builder '" + builder.__name__ + "'...")
                 instance = builder(self.dataPath, self.db, self.quiet)
                 # mark tables as deletable if its only provided because of
@@ -2862,7 +2862,7 @@ class DatabaseBuilder:
                 # data not available, can't build table
                 if self.noFail:
                     if not self.quiet:
-                        warn("building table '" + builder.PROVIDES \
+                        warn("Building table '" + builder.PROVIDES \
                             + "' failed: '" + str(e) + "', skipping")
                     dependingTables = [builder.PROVIDES]
                     remainingBuilderClasses = []
@@ -2873,7 +2873,7 @@ class DatabaseBuilder:
                         else:
                             remainingBuilderClasses.append(clss)
                     if not self.quiet and len(dependingTables) > 1:
-                        warn("ignoring depending table(s) '" \
+                        warn("Ignoring depending table(s) '" \
                             + "', '".join(dependingTables[1:]) + "'")
                     builderClasses = remainingBuilderClasses
                 else:
@@ -2884,7 +2884,7 @@ class DatabaseBuilder:
             from dbconnector import DatabaseConnector
             for instance in instancesUnrequestedTable:
                 if not self.quiet:
-                    warn("removing table '" + instance.PROVIDES \
+                    warn("Removing table '" + instance.PROVIDES \
                         + "' as it was only created to solve build " \
                         + "dependencies")
                 dropStatement = getDropTableStatement(instance.PROVIDES)
@@ -2956,7 +2956,7 @@ class DatabaseBuilder:
                 solveDependencyRecursive(depededTable)
 
         if not self.quiet and skippedTables:
-            warn("depending on table(s) '" + "', '".join(skippedTables) \
+            warn("Depending on table(s) '" + "', '".join(skippedTables) \
                 + "' but skipping as already existent")
         return dependedTablesNames
 
