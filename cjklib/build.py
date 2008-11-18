@@ -63,6 +63,8 @@ package.
     Simplified Chinese), kIRG_JSource (Unicode, Japanese), kIRG_KPSource and
     kIRG_KSource (Unicode, Korean), kIRG_TSource (Unicode, Traditional Chinese),
     kIRG_VSource (Unicode, Vietnamese)
+@todo Fix:  On interruption (Ctrl+C) remove tables that were only created
+    because of dependencies.
 """
 
 import types
@@ -714,7 +716,7 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
     """
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(EntryGeneratorBuilder, self).__init__(dataPath, dbConnectInst,
+        super(CharacterVariantBuilder, self).__init__(dataPath, dbConnectInst,
             quiet)
         # create name mappings
         self.COLUMNS = ['ChineseCharacter', 'Variant', 'Type']
@@ -1435,6 +1437,40 @@ class MandarinBraileFinalBuilder(CSVFileLoader):
 #}
 #{ Library dependant
 
+class ZVariantBuilder(EntryGeneratorBuilder):
+    """
+    Builds a list of glyph indices for characters.
+    @todo Impl: Check if all Z-variants in LocaleCharacterVariant are included.
+    """
+    PROVIDES = 'ZVariants'
+    DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Unihan']
+    # TODO 'LocaleCharacterVariant'
+
+    COLUMNS = ['ChineseCharacter', 'ZVariant']
+    PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant']
+    INDEX_KEYS = [['ChineseCharacter']]
+    COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)', 'ZVariant': 'INTEGER'}
+
+    def __init__(self, dataPath, dbConnectInst, quiet=False):
+        super(ZVariantBuilder, self).__init__(dataPath, dbConnectInst, quiet)
+        self.ENTRY_GENERATOR = self.getGenerator()
+
+    def getGenerator(self):
+        characterSet = set(self.db.select('CharacterDecomposition',
+            ['ChineseCharacter', 'ZVariant'], distinctValues=True))
+        characterSet.update(self.db.select('StrokeOrder',
+            ['ChineseCharacter', 'ZVariant']))
+        # TODO
+        #characterSet.update(self.db.select('LocaleCharacterVariant',
+            #['ChineseCharacter', 'ZVariant']))
+        # Add characters from Unihan as Z-variant 0
+        unihanCharacters = self.db.selectSoleValue('Unihan', 'ChineseCharacter',
+            [{'kTotalStrokes': 'IS NOT NULL'}, {'kRSKangXi': 'IS NOT NULL'}])
+        characterSet.update([(char, 0) for char in unihanCharacters])
+
+        return ListGenerator(characterSet)
+
+
 class StrokeCountBuilder(EntryGeneratorBuilder):
     """
     Builds a mapping between characters and their stroke count.
@@ -1501,17 +1537,18 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
     Builds a mapping between characters and their stroke count. Includes stroke
     count data from the Unihan database to make up for missing data in own data
     files.
-    @bug: Slow
     """
     class CombinedStrokeCountGenerator:
         """Generates the character stroke count mapping."""
-        def __init__(self, dbConnectInst, tableEntries, preferredBuilder,
-            quiet=False):
+        def __init__(self, dbConnectInst, characterSet, tableEntries,
+            preferredBuilder, quiet=False):
             """
             Initialises the CombinedStrokeCountGenerator.
 
             @type dbConnectInst: object
             @param dbConnectInst: instance of a L{DatabaseConnector}.
+            @type characterSet: set
+            @param characterSet: set of characters to generate the table for
             @type tableEntries: list of lists
             @param tableEntries: list of characters with Z-variant
             @type preferredBuilder: enumerator
@@ -1521,11 +1558,13 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             @param quiet: if true no status information will be printed to
                 stderr
             """
+            self.characterSet = characterSet
             self.tableEntries = tableEntries
             self.preferredBuilder = preferredBuilder
             self.quiet = quiet
             self.cjk = characterlookup.CharacterLookup(
                 dbConnectInst=dbConnectInst)
+            self.db = dbConnectInst
 
         def getStrokeCount(self, char, zVariant, strokeCountDict,
             unihanStrokeCountDict):
@@ -1630,27 +1669,32 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                 strokeCountDict[key] = entry['StrokeCount']
 
             # now get stroke counts from Unihan table
+
+            # get Unihan table stroke count data
             unihanStrokeCountDict = {}
             for char, strokeCount in self.tableEntries:
-                if char not in strokeCountDict:
+                if (char, 0) not in strokeCountDict:
                     unihanStrokeCountDict[char] = strokeCount
 
-            # finally fill up with characters from Unihan, proper locale and
-            #   Z-variant missing though in some cases.
-            for char in unihanStrokeCountDict:
-                warningZVariants = []
-                for zVariant in self.cjk.getCharacterZVariants(char):
-                    try:
-                        # build stroke count from mixed source
-                        strokeCount = self.getStrokeCount(char, zVariant,
-                            strokeCountDict, unihanStrokeCountDict)
+            # finally fill up with characters from Unihan; proper glyph
+            #   information missing though in some cases.
 
-                        yield {'ChineseCharacter': char, 'ZVariant': zVariant,
-                            'StrokeCount': strokeCount}
-                    except ValueError, e:
-                        warningZVariants.append(zVariant)
-                    except exception.NoInformationError:
-                        pass
+            # remove glyphs we already have an entry for
+            self.characterSet.difference_update(strokeCountDict.keys())
+
+            for char, zVariant in self.characterSet:
+                warningZVariants = []
+                try:
+                    # build stroke count from mixed source
+                    strokeCount = self.getStrokeCount(char, zVariant,
+                        strokeCountDict, unihanStrokeCountDict)
+
+                    yield {'ChineseCharacter': char, 'ZVariant': zVariant,
+                        'StrokeCount': strokeCount}
+                except ValueError, e:
+                    warningZVariants.append(zVariant)
+                except exception.NoInformationError:
+                    pass
 
                 if not self.quiet and warningZVariants:
                     warn("ambiguous stroke count information (mixed sources) " \
@@ -1671,8 +1715,14 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
         # get main builder
         tableEntries = self.db.select('Unihan', ['ChineseCharacter',
             self.COLUMN_SOURCE], {self.COLUMN_SOURCE: 'IS NOT NULL'})
+
+        # get characters to build combined stroke count for. Some characters
+        #   from the CharacterDecomposition table might not have a stroke count
+        #   entry in Unihan though their components do have.
+        characterSet.update([(char, 0) for char, totalCount in tableEntries])
+
         return CombinedStrokeCountBuilder.CombinedStrokeCountGenerator(self.db,
-            tableEntries, preferredBuilder, self.quiet)
+            characterSet, tableEntries, preferredBuilder, self.quiet)
 
 
 class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
@@ -1832,7 +1882,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                 character
             @raise ValueError: if IDS is malformed or ambiguous residual stroke
                 count is calculated
-            @raise Fix : Remove validity check, only needed as long
+            @todo Fix:  Remove validity check, only needed as long
                 decomposition entries aren't checked against stroke order
                 entries.
             """
@@ -2056,6 +2106,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(CharacterRadicalStrokeCountBuilder, self).__init__(dataPath,
             dbConnectInst, quiet)
+        # get all characters we have component information for
         characterSet = set(self.db.select('CharacterDecomposition',
             ['ChineseCharacter', 'ZVariant'], distinctValues=True)) 
         self.ENTRY_GENERATOR = CharacterRadicalStrokeCountBuilder\

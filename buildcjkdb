@@ -67,7 +67,7 @@ BUILD_GROUPS = {
         'CharacterVietnamese', 'CharacterJapaneseKun',
         'CharacterJapaneseOn', 'CharacterKanWaRadical',
         'CharacterJapaneseRadical', 'CharacterKoreanRadical',
-        'CharacterVariant'],
+        'CharacterVariant', 'ZVariants'],
     # library based
     'Readings': ['PinyinSyllables', 'WadeGilesSyllables',
         'WadeGilesPinyinMapping', 'PinyinIPAMapping', 'GRSyllables',
@@ -84,7 +84,7 @@ BUILD_GROUPS = {
         'CharacterRadicalResidualStrokeCount', 'CharacterResidualStrokeCount'],
     'ShapeLookupData': ['Strokes', 'StrokeOrder', 'CharacterDecomposition',
         'LocaleCharacterVariant', 'StrokeCount', 'ComponentLookup',
-        'CharacterVariant'],
+        'CharacterVariant', 'ZVariants'],
     'cjklibData': ['Readings', 'SupportedCharacterReadings',
         'KangxiRadicalData', 'ShapeLookupData'],
     # language based

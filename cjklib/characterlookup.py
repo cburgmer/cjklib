@@ -247,6 +247,8 @@ class CharacterLookup:
     @todo Fix:  How to handle character forms (either decomposition or stroke
         order), that can only be found as a component in other characters? We
         already mark them by flagging it with an 'S'.
+    @todo Impl: Think about applying locale at object creation time and not
+        passing it on every method call. Would make the class easier to use.
     @todo Lang: Add option to component decomposition methods to stop on Kangxi
         radical forms without breaking further down beyond those.
     """
@@ -519,6 +521,7 @@ class CharacterLookup:
         @param locale: I{character locale} (one out of TCJKV)
         @rtype: number
         @return: Z-variant
+        @raise NoInformationError: if no Z-variant information is available
         @raise ValueError: if invalid I{character locale} specified
         """
         zVariant = self.db.selectSingleEntrySoleValue('LocaleCharacterVariant',
@@ -528,29 +531,31 @@ class CharacterLookup:
             return zVariant
         else:
             # if no entry given, assume default
-            return 0
+            return self.getCharacterZVariants(char)[0]
 
     def getCharacterZVariants(self, char):
         """
-        Gets a list of character Z-variants (glyphs) supported by the database.
+        Gets a list of character Z-variant indices (glyphs) supported by the
+        database.
 
-        This Z-variant indices can be applied for several methods which result
-        in glyph-dependant return values.
+        A Z-variant index specifies a particular character glyph which is needed
+        by several glyph-dependant methods instead of the abstract character
+        defined by Unicode.
 
         @type char: char
         @param char: Chinese character
         @rtype: list of numbers
         @return: list of supported Z-variants
+        @raise NoInformationError: if no Z-variant information is available
         """
-        # use stroke count table, as this unifies all entries from StrokeOrder
-        #   and CharacterDecomposition
-        result = self.db.selectSoleValue('StrokeCount', 'ZVariant',
-            {'ChineseCharacter': char})
-        if result:
-            return result
-        else:
-            # if no entries given, assume default
-            return [0]
+        # return all known variant indices, order to be deterministic
+        result = self.db.selectSoleValue('ZVariants', 'ZVariant',
+            {'ChineseCharacter': char}, orderBy=['ZVariant'])
+        if not result:
+            raise NoInformationError("No Z-variant information available for " \
+                + "'" + char + "'")
+
+        return result
 
     #}
     #{ Character stroke functions
