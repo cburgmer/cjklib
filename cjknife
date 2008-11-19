@@ -847,33 +847,41 @@ class CharacterInfo:
                     infoDict['variants'][self.VARIANT_TYPE_NAMES[variantType]] \
                         = variants
 
-        # character decomposition and stroke order
-        infoDict['default glyph'] \
-            = self.characterLookup.getLocaleDefaultZVariant(char, self.locale)
+        try:
+            # character decomposition and stroke order
+            infoDict['default glyph'] \
+                = self.characterLookup.getLocaleDefaultZVariant(char,
+                    self.locale)
+        except exception.NoInformationError:
+            pass
 
-        infoDict['glyphs'] = {}
+        try:
+            infoDict['glyphs'] = {}
 
-        perVariantInfo = []
-        for zVariant in self.characterLookup.getCharacterZVariants(char):
-            infoDict['glyphs'][zVariant] = {}
-            variantInfo = ""
-            # character decomposition
-            decomposition = self.characterLookup.getDecompositionTreeList(char,
-                zVariant=zVariant)
+            perVariantInfo = []
+            for zVariant in self.characterLookup.getCharacterZVariants(char):
+                infoDict['glyphs'][zVariant] = {}
+                variantInfo = ""
+                # character decomposition
+                decomposition = self.characterLookup.getDecompositionTreeList(
+                    char, zVariant=zVariant)
 
-            if decomposition:
-                infoDict['glyphs'][zVariant]['decomposition'] = decomposition
+                if decomposition:
+                    infoDict['glyphs'][zVariant]['decomposition'] \
+                        = decomposition
 
-            # stroke order
-            try:
-                infoDict['glyphs'][zVariant]['stroke count'] \
-                    =  self.characterLookup.getStrokeCount(char,
-                        zVariant=zVariant)
-                infoDict['glyphs'][zVariant]['stroke order'] \
-                    =  self.characterLookup.getStrokeOrder(char,
-                        zVariant=zVariant)
-            except exception.NoInformationError:
-                pass
+                # stroke order
+                try:
+                    infoDict['glyphs'][zVariant]['stroke count'] \
+                        =  self.characterLookup.getStrokeCount(char,
+                            zVariant=zVariant)
+                    infoDict['glyphs'][zVariant]['stroke order'] \
+                        =  self.characterLookup.getStrokeOrder(char,
+                            zVariant=zVariant)
+                except exception.NoInformationError:
+                    pass
+        except exception.NoInformationError:
+            pass
 
         return infoDict
 

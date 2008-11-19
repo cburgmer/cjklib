@@ -193,14 +193,14 @@ class EntryGeneratorBuilder(TableBuilder):
                 try:
                     self.db.getCursor().execute(insertStatement)
                 except _mysql_exceptions.IntegrityError:
-                    print insertStatement
+                    warn(insertStatement)
                     raise
             elif self.target == 'SQLite':
                 import pysqlite2.dbapi2
                 try:
                     self.db.getCursor().execute(insertStatement)
                 except pysqlite2.dbapi2.IntegrityError:
-                    print insertStatement
+                    warn(insertStatement)
                     raise
 
         if self.target != 'dump':
@@ -1043,6 +1043,8 @@ class CSVFileLoader(TableBuilder):
     """csv file path"""
     TABLE_DECLARATION_FILE_MAPPING = ''
     """file path containing SQL create table code."""
+    INDEX_KEYS = []
+    """Index keys (not unique) of the created table"""
 
     class DefaultDialect(csv.Dialect):
         """Defines a default dialect for the case sniffing fails."""
@@ -1158,6 +1160,16 @@ class CSVFileLoader(TableBuilder):
                     warn("Error '" + str(strerr) \
                         + "' inserting line with following code: '" \
                         + insertStatement + "'")
+
+        # get create index statement
+        indexStatements = getCreateIndexStatement(self.PROVIDES,
+            self.INDEX_KEYS)
+        if self.target == 'dump':
+            for statement in indexStatements:
+                output(statement)
+        else:
+            for statement in indexStatements:
+                self.db.getCursor().execute(statement)
 
         if self.target != 'dump':
             self.db.getConnection().commit()
@@ -1400,6 +1412,7 @@ class CharacterDecompositionBuilder(CSVFileLoader):
 
     TABLE_CSV_FILE_MAPPING = 'characterdecomposition.csv'
     TABLE_DECLARATION_FILE_MAPPING = 'characterdecomposition.sql'
+    INDEX_KEYS = [['ChineseCharacter', 'ZVariant']]
 
 
 class LocaleCharacterVariantBuilder(CSVFileLoader):
@@ -1567,7 +1580,7 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             self.db = dbConnectInst
 
         def getStrokeCount(self, char, zVariant, strokeCountDict,
-            unihanStrokeCountDict):
+            unihanStrokeCountDict, decompositionDict):
             """
             Gets the stroke count of the given character by summing up the
             stroke count of its components and using the Unihan table as
@@ -1598,14 +1611,11 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                 raise exception.NoInformationError("incomplete decomposition")
 
             if (char, zVariant) not in strokeCountDict:
-                decompositionList = self.cjk.getDecompositionEntries(char,
-                    zVariant=zVariant)
-
                 lastStrokeCount = None
-                if decompositionList:
+                if (char, zVariant) in decompositionDict:
                     # try all decompositions of this character, all need to
                     #   return the same count for sake of consistency
-                    for decomposition in decompositionList:
+                    for decomposition in decompositionDict[(char, zVariant)]:
                         try:
                             accumulatedStrokeCount = 0
 
@@ -1616,7 +1626,8 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                                     accumulatedStrokeCount += \
                                         self.getStrokeCount(component,
                                             componentZVariant, strokeCountDict,
-                                            unihanStrokeCountDict)
+                                            unihanStrokeCountDict,
+                                            decompositionDict)
 
                             if lastStrokeCount != None \
                                 and lastStrokeCount != accumulatedStrokeCount:
@@ -1682,12 +1693,16 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             # remove glyphs we already have an entry for
             self.characterSet.difference_update(strokeCountDict.keys())
 
+            # get character decompositions
+            decompositionDict = self.cjk.getDecompositionEntriesDict()
+
             for char, zVariant in self.characterSet:
                 warningZVariants = []
                 try:
                     # build stroke count from mixed source
                     strokeCount = self.getStrokeCount(char, zVariant,
-                        strokeCountDict, unihanStrokeCountDict)
+                        strokeCountDict, unihanStrokeCountDict,
+                        decompositionDict)
 
                     yield {'ChineseCharacter': char, 'ZVariant': zVariant,
                         'StrokeCount': strokeCount}
@@ -1711,7 +1726,7 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             ['ChineseCharacter', 'ZVariant'], distinctValues=True))
         preferredBuilder = \
             CombinedStrokeCountBuilder.StrokeCountGenerator(self.db,
-                characterSet)
+                characterSet, self.quiet)
         # get main builder
         tableEntries = self.db.select('Unihan', ['ChineseCharacter',
             self.COLUMN_SOURCE], {self.COLUMN_SOURCE: 'IS NOT NULL'})
@@ -1745,35 +1760,44 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
             self.cjk = characterlookup.CharacterLookup(
                 dbConnectInst=dbConnectInst)
 
-        def getComponents(self, component):
+        def getComponents(self, char, zVariant, decompositionDict,
+            componentDict):
             """
-            Gets all character components from the given decomposition.
+            Gets all character components for the given glyph.
 
-            @type component: tree structure
-            @param component: decomposition of a character
-            @rtype: list
+            @type char: character
+            @param char: Chinese character
+            @type zVariant: number
+            @param zVariant: Z-variant of character
+            @rtype: set
             @return: all components of the character
             """
-            componentList = []
-            for entry in component[:]:
-                if type(entry) == types.TupleType:
-                    char, zVariant, decompositionList = entry
-                    if char != u'？':
-                        componentList.append((char, zVariant))
-                        for decomposition in decompositionList:
-                            componentList.extend(
-                                self.getComponents(decomposition))
-            return componentList
+            if (char, zVariant) not in componentDict:
+                componentDict[(char, zVariant)] = set()
+
+                if (char, zVariant) in decompositionDict:
+                    for decomposition in decompositionDict[(char, zVariant)]:
+                        componentDict[(char, zVariant)].update(
+                            [entry for entry in decomposition \
+                                if type(entry) == types.TupleType])
+
+            componentSet = set()
+            for component, componentZVariant in componentDict[(char, zVariant)]:
+                componentSet.add((component, componentZVariant))
+                # get sub-components
+                componentSet.update(self.getComponents(component,
+                    componentZVariant, decompositionDict, componentDict))
+
+            return componentSet
 
         def __iter__(self):
             """Provides the component entries."""
+            decompositionDict = self.cjk.getDecompositionEntriesDict()
+            componentDict = {}
             for char, zVariant in self.characterSet:
-                decompositionList = self.cjk.getDecompositionTreeList(char,
-                    zVariant=zVariant)
-                componentSet = set()
-                for decomposition in decompositionList:
-                    componentSet.update(self.getComponents(decomposition))
-                for component, componentZVariant in componentSet:
+                for component, componentZVariant \
+                    in self.getComponents(char, zVariant, decompositionDict,
+                        componentDict):
                     yield {'ChineseCharacter': char, 'ZVariant': zVariant,
                         'Component': component,
                         'ComponentZVariant': componentZVariant}
@@ -1868,15 +1892,12 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
             """
             return formSet
 
-        def getEntries(self, mainChar, component):
+        def getEntries(self, char, zVariant, strokeCountDict, decompositionDict,
+            entriesDict):
             u"""
             Gets all radical/residual stroke count combinations from the given
             decomposition.
 
-            @type mainChar: char
-            @param mainChar: decomposed Chinese character
-            @type component: tree structure
-            @param component: decomposition of a character
             @rtype: list
             @return: all radical/residual stroke count combinations for the
                 character
@@ -1931,159 +1952,157 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                     # radical component has complex position
                     return (u'⿻', 0)
 
-            componentEntries = {} # contains all entries given by a recursive
-                #   call for each unique component
-            componentRadicalForms = [] # contains a set of entries per component
-                # if a radical is found in a subcharacter an entry is added
-                #   containing the radical form, its variant, the stroke count
-                #   of residual characters in this main character and it's
-                #   position in the main char (e.g. for 鸺 contains
-                #   Form 鸟, Z-variant 0, residual stroke count 6, main
-                #   layout ⿰ and position 1 (right side), as 亻 and 木 together
-                #   form the residual components, and the simplified structure
-                #   of 鸺 applies to a left/right model, with 鸟 being at the
-                #   2nd position.
-            formCount = {}  # save count of multiple same forms
+            # if no decomposition available then there is nothing to do
+            if (char, zVariant) not in decompositionDict:
+                return []
 
-            # aggregate component radical entries
-            layoutStack = [(None, None)] # saves last IDC and position
-            for entry in component:
-                try:
-                    layout, position = layoutStack.pop()
-                except IndexError:
-                    raise ValueError("malformed IDS for character '" \
-                        + mainChar + "'")
+            if (char, zVariant) not in entriesDict:
+                entriesDict[(char, zVariant)] = set()
 
-                if type(entry) != types.TupleType:
-                    # ideographic description character found, derive layout
-                    #   from ids and parent character and store in layout stack
-                    #   to be consumed by following Chinese characters
-                    if self.cjk.isTrinaryIDSOperator(entry):
-                        posRange = range(3)
-                    else:
-                        posRange = range(2)
-                    posRange.reverse()
-                    for componentPos in posRange:
-                        # append to stack one per following element, adapt
-                        #   layout to parent one
-                        layoutStack.append(getCharLayout(layout, position,
-                            entry, componentPos))
-                else:
-                    # Chinese character found, use layout information from stack
-                    char, zVariant, decompositionList = entry
+                for decomposition in decompositionDict[(char, zVariant)]:
+                    componentRadicalForms = []
+                    # if a radical is found in a subcharacter an entry is added
+                    #   containing the radical form, its variant, the stroke
+                    #   count of residual characters in this main character and
+                    #   it's position in the main char (e.g. for 鸺 contains
+                    #   Form 鸟, Z-variant 0, residual stroke count 6, main
+                    #   layout ⿰ and position 1 (right side), as 亻 and 木
+                    #   together form the residual components, and the
+                    #   simplified structure of 鸺 applies to a left/right
+                    #   model, with 鸟 being at the 2nd position.
 
-                    # get all radical forms for this entry from components
-                    key = (char, zVariant)
-                    if key not in componentEntries:
-                        componentEntries[key] = set()
-                        for decomposition in decompositionList:
-                            componentSet = self.getEntries(mainChar,
-                                decomposition)
-                            componentEntries[key].update(componentSet)
-                        formCount[key] = 1
-                    else:
-                        formCount[key] = formCount[key] + 1
+                    # get all radical entries
 
-                    # create entries for this component
-                    radicalIndex = self.getFormRadicalIndex(char)
-                    if radicalIndex != None:
-                        # main component is radical, no residual stroke count,
-                        #   save relative position in main character
-                        radicalEntry = {'Key': key, 'Form': char,
-                            'Z-variant': zVariant, 'ResidualStrokeCount': 0,
-                            'CharacterLayout': layout,
-                            'RadicalIndex': radicalIndex,
-                            'RadicalPosition': position}
-                        componentRadicalForms.append(radicalEntry)
-                    # create an entry for all components
-                    for radicalEntry in componentEntries[key]:
-                        # get layout for this character wrt parent character
-                        charLayout, charPosition = getCharLayout(layout,
-                            position, radicalEntry['CharacterLayout'],
-                            radicalEntry['RadicalPosition'])
-                        componentEntry = radicalEntry.copy()
-                        componentEntry['Key'] = key
-                        componentEntry['CharacterLayout'] = charLayout
-                        componentEntry['RadicalPosition'] = charPosition
-                        componentRadicalForms.append(componentEntry)
+                    # layout stack which holds the IDS operators and a position
+                    #   in the IDS operator itself for each Chinese character
+                    layoutStack = [(None, None)]
 
-            # aggregate stroke counts
-            residualStrokeCount = dict([(key, 0) for key in componentEntries])
-            for key in residualStrokeCount.keys():
-                char, zVariant = key
-                try:
-                    strokeCount = self.cjk.getStrokeCount(char,
-                    zVariant=zVariant)
-                    # add this stroke count to all other forms
-                    for otherKey in residualStrokeCount:
-                        if otherKey != key:
-                            residualStrokeCount[otherKey] = \
-                                residualStrokeCount[otherKey] \
-                                    + formCount[key] * strokeCount
-                    # add stroke count to own residual count, if multiple
-                    #   occurrences
-                    if key in residualStrokeCount:
-                        residualStrokeCount[key] \
-                            = residualStrokeCount[key] \
-                                + (formCount[key] - 1) * strokeCount
-                except exception.NoInformationError:
-                    # remove all other forms, cause stroke count can't be
-                    #   completely calculated
-                    for otherKey in residualStrokeCount.keys():
-                        if otherKey != key:
-                            del residualStrokeCount[otherKey]
+                    for entry in decomposition:
+                        try:
+                            layout, position = layoutStack.pop()
+                        except IndexError:
+                            raise ValueError("malformed IDS for character '" \
+                                + mainChar + "'")
 
-            # create set for entry
-            radicalStrokeCountEntries = set()
-            for entry in componentRadicalForms:
-                # if we have a residual stroke count create an entry
-                if entry['Key'] in residualStrokeCount:
-                    # add residual stroke count of subform and current levels
-                    #   residual stroke count
-                    residualCount = entry['ResidualStrokeCount'] \
-                        + residualStrokeCount[entry['Key']]
-                    entry['ResidualStrokeCount'] = residualCount
-                    del entry['Key']
+                        if type(entry) != types.TupleType:
+                            # ideographic description character found, derive
+                            #   layout from IDS and parent character and store
+                            #   in layout stack to be consumed by following
+                            #   Chinese characters
+                            if self.cjk.isTrinaryIDSOperator(entry):
+                                posRange = [2, 1, 0]
+                            else:
+                                posRange = [1, 0]
 
-                    radicalStrokeCountEntries.add(ImmutableDict(entry))
+                            for componentPos in posRange:
+                                # append to stack one per following element,
+                                #   adapt layout to parent one
+                                layoutStack.append(getCharLayout(layout,
+                                    position, entry, componentPos))
+                        else:
+                            # Chinese character found
+                            componentChar, componentZVariant = entry
 
-            # validity check # TODO only needed as long decomposition and
-            #   stroke order entries aren't checked for validity
-            entryDict = {}
-            for entry in radicalStrokeCountEntries:
-                keyEntry = (entry['Form'], entry['Z-variant'],
-                    entry['CharacterLayout'], entry['RadicalIndex'],
-                    entry['RadicalPosition'])
-                if keyEntry in entryDict \
-                    and entryDict[keyEntry] != entry['ResidualStrokeCount']:
-                    raise ValueError("ambiguous residual stroke count for " \
-                        + "character '" + mainChar + "' with entry '" \
-                        + "', '".join(list([unicode(column) \
-                            for column in keyEntry])) \
-                        + "': '" + str(entryDict[keyEntry]) + "'/'" \
-                        + str(entry['ResidualStrokeCount']) + "'")
-                entryDict[keyEntry] = entry['ResidualStrokeCount']
+                            # create entries for this component
+                            radicalIndex \
+                                = self.getFormRadicalIndex(componentChar)
+                            if radicalIndex != None:
+                                # main component is radical, no residual stroke
+                                #   count, save relative position in main
+                                #   character
+                                componentRadicalForms.append(
+                                    {'Component': entry,
+                                    'Form': componentChar,
+                                    'Z-variant': componentZVariant,
+                                    'ResidualStrokeCount': 0,
+                                    'CharacterLayout': layout,
+                                    'RadicalIndex': radicalIndex,
+                                    'RadicalPosition': position})
+
+                            # get all radical forms for this entry from
+                            #   sub-components
+                            for radicalEntry in self.getEntries(componentChar,
+                                componentZVariant, strokeCountDict,
+                                decompositionDict, entriesDict):
+
+                                # get layout for this character wrt parent char
+                                charLayout, charPosition = getCharLayout(layout,
+                                    position, radicalEntry['CharacterLayout'],
+                                    radicalEntry['RadicalPosition'])
+                                componentEntry = radicalEntry.copy()
+                                componentEntry['Component'] = entry
+                                componentEntry['CharacterLayout'] = charLayout
+                                componentEntry['RadicalPosition'] = charPosition
+                                componentRadicalForms.append(componentEntry)
+
+                    # for each character get the residual characters first
+                    residualCharacters = {}
+                    charactersSeen = []
+                    for entry in decomposition:
+                        # get Chinese characters
+                        if type(entry) == types.TupleType:
+                            # fill up already seen characters with next found
+                            for seenEntry in residualCharacters:
+                                residualCharacters[seenEntry].append(entry)
+
+                            # set current character to already seen ones
+                            residualCharacters[entry] = charactersSeen[:]
+
+                            charactersSeen.append(entry)
+
+                    # calculate residual stroke count and create entries
+                    for componentEntry in componentRadicalForms:
+                        # residual stroke count is the sum of the component's
+                        #   residual stroke count (with out radical) and count
+                        #   of the other components
+                        for entry in \
+                            residualCharacters[componentEntry['Component']]:
+
+                            if entry not in strokeCountDict:
+                                break
+
+                            componentEntry['ResidualStrokeCount'] \
+                                += strokeCountDict[entry]
+                        else:
+                            # all stroke counts available
+                            del componentEntry['Component']
+                            entriesDict[(char, zVariant)].add(
+                                ImmutableDict(componentEntry))
+
+                # validity check # TODO only needed as long decomposition and
+                #   stroke order entries aren't checked for validity
+                entryDict = {}
+                for entry in entriesDict[(char, zVariant)]:
+                    keyEntry = (entry['Form'], entry['Z-variant'],
+                        entry['CharacterLayout'], entry['RadicalIndex'],
+                        entry['RadicalPosition'])
+                    if keyEntry in entryDict \
+                        and entryDict[keyEntry] != entry['ResidualStrokeCount']:
+                        raise ValueError("ambiguous residual stroke count for " \
+                            + "character '" + mainChar + "' with entry '" \
+                            + "', '".join(list([unicode(column) \
+                                for column in keyEntry])) \
+                            + "': '" + str(entryDict[keyEntry]) + "'/'" \
+                            + str(entry['ResidualStrokeCount']) + "'")
+                    entryDict[keyEntry] = entry['ResidualStrokeCount']
 
             # filter forms, i.e. for multiple radical occurrences prefer one
-            return self.filterForms(radicalStrokeCountEntries)
+            return self.filterForms(entriesDict[(char, zVariant)])
 
         def __iter__(self):
             """Provides the radical/stroke count entries."""
+            strokeCountDict = self.cjk.getStrokeCountDict()
+            decompositionDict = self.cjk.getDecompositionEntriesDict()
+            entryDict = {}
+
             for char, zVariant in self.characterSet:
                 if self.cjk.isRadicalChar(char):
                     # ignore Unicode radical forms
                     continue
-                decompositionList = self.cjk.getDecompositionTreeList(char,
-                    zVariant=zVariant)
-                entrySet = set()
-                for decomposition in decompositionList:
-                    try:
-                        entrySet.update(self.getEntries(char, decomposition))
-                    except ValueError, e:
-                        if not self.quiet:
-                            warn(unicode(e.message))
 
-                for entry in entrySet:
+                for entry in self.getEntries(char, zVariant, strokeCountDict,
+                    decompositionDict, entryDict):
+
                     yield [char, zVariant, entry['RadicalIndex'], entry['Form'],
                         entry['Z-variant'], entry['CharacterLayout'],
                         entry['RadicalPosition'], entry['ResidualStrokeCount']]
@@ -2134,10 +2153,11 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
             @type characterSet: set
             @param characterSet: set of characters to generate the table for
             """
-            self.db = dbConnectInst
             self.characterSet = characterSet
+            self.cjk = characterlookup.CharacterLookup(
+                dbConnectInst=dbConnectInst)
 
-        def getEntries(self, char, zVariant):
+        def getEntries(self, char, zVariant, radicalDict):
             u"""
             Gets a list of radical residual entries. For multiple radical
             occurrences (e.g. 伦) only returns the residual stroke count for the
@@ -2176,30 +2196,22 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
                 >>> cjk.getCharacterKangxiRadicalResidualStrokeCount(u'缧')
                 [(u'\u7cf8', 0, u'\u2ffb', 0, 8), (u'\u7e9f', 0, u'\u2ff0', 0, 11)]
             """
-            entries = self.db.select('CharacterRadicalResidualStrokeCount',
-                ['RadicalIndex', 'ResidualStrokeCount'],
-                {'ChineseCharacter': char, 'ZVariant': zVariant},
-                orderBy=['RadicalIndex', 'RadicalForm', 'RadicalZVariant',
-                'MainCharacterLayout', 'RadicalRelativePosition'],
-                distinctValues=True)
             # filter entries to return only the main radical form
             # TODO provisional solution, take first entry per radical index
             filteredEntries = []
-            seenIndices = set()
-            for radicalIdx, residualStrokeCount in entries:
-                if radicalIdx not in seenIndices:
-                    seenIndices.add(radicalIdx)
-                    # generate entry
-                    filteredEntries.append([char, zVariant, radicalIdx,
-                        residualStrokeCount])
+            for radicalIdx in radicalDict[(char, zVariant)]:
+                _, _, _, _, residualStrokeCount \
+                    = radicalDict[(char, zVariant)][radicalIdx][0]
+                filteredEntries.append((radicalIdx, residualStrokeCount))
 
             return filteredEntries
 
         def __iter__(self):
             """Provides one entry per character, z-Variant and locale subset."""
+            radicalDict = self.cjk.getCharacterRadicalResidualStrokeCountDict()
             for char, zVariant in self.characterSet:
-                for char, zVariant, radicalIndex, residualStrokeCount \
-                    in self.getEntries(char, zVariant):
+                for radicalIndex, residualStrokeCount in self.getEntries(char,
+                    zVariant, radicalDict):
                     yield [char, zVariant, radicalIndex, residualStrokeCount]
 
     PROVIDES = 'CharacterResidualStrokeCount'
@@ -2260,7 +2272,8 @@ class CombinedCharacterResidualStrokeCountBuilder(
                 char = entry[0]
                 radicalIdx = entry[2]
                 seenCharactersSet.add((char, radicalIdx))
-            # now fill up with characters from Unihan zVariant missing though
+
+            # now fill up with characters from Unihan, Z-variant missing though
             for char, radicalStroke in self.tableEntries:
                 matchObj = self.RADICAL_REGEX.match(radicalStroke)
                 if matchObj:
@@ -3434,8 +3447,8 @@ def getCreateIndexStatement(tableName, indexKeyColumns):
     if not indexKeyColumns:
         return []
     for columns in indexKeyColumns:
-        return ['CREATE INDEX ' + tableName + '_' + '-'.join(columns) + ' ON ' \
-            + tableName + ' (' + ', '.join(columns) + ');' \
+        return ['CREATE INDEX ' + tableName + '__' + '_'.join(columns) \
+            + ' ON ' + tableName + ' (' + ', '.join(columns) + ');' \
                 for columns in indexKeyColumns]
 
 def getFTS3CreateIndexStatement(tableName, indexKeyColumns):
@@ -3455,9 +3468,9 @@ def getFTS3CreateIndexStatement(tableName, indexKeyColumns):
         return []
     normalColumnsTableName = tableName + '_Normal'
     for columns in indexKeyColumns:
-        return ['CREATE INDEX ' + tableName + '_' + '-'.join(columns) + ' ON ' \
-            + normalColumnsTableName + ' (' + ', '.join(columns) + ');' \
-                for columns in indexKeyColumns]
+        return ['CREATE INDEX ' + tableName + '__' + '_'.join(columns) \
+            + ' ON ' + normalColumnsTableName + ' (' + ', '.join(columns) \
+            + ');' for columns in indexKeyColumns]
 
 def prepareData(valueList):
     """

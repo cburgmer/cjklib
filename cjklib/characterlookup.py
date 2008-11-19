@@ -552,8 +552,8 @@ class CharacterLookup:
         result = self.db.selectSoleValue('ZVariants', 'ZVariant',
             {'ChineseCharacter': char}, orderBy=['ZVariant'])
         if not result:
-            raise NoInformationError("No Z-variant information available for " \
-                + "'" + char + "'")
+            raise exception.NoInformationError(
+                "No Z-variant information available for '" + char + "'")
 
         return result
 
@@ -603,6 +603,21 @@ class CharacterLookup:
                 raise exception.NoInformationError(
                     "Character has no stroke count information")
 
+    def getStrokeCountDict(self):
+        """
+        Gets the full stroke count table from the database.
+
+        @rtype: dict
+        @return: dictionary of key pair character, Z-variant and value stroke
+            count
+        @attention: The quality of the returned data depends on the sources used
+            when compiling the database. Unihan itself only gives very general
+            stroke order information without being bound to a specific glyph.
+        """
+        return dict([((char, zVariant), strokeCount) \
+            for char, zVariant, strokeCount in self.db.select('StrokeCount',
+                ['ChineseCharacter', 'ZVariant', 'StrokeCount'])])
+
     #_strokeIndexLookup = {}
     #"""A dictionary containing the stroke indices for a set index length."""
     #def getStrokeIndexLookup(self, indexLength):
@@ -615,7 +630,7 @@ class CharacterLookup:
 
         #@type indexLength: number
         #@param indexLength: length of the index
-        #@rtype: dictionary
+        #@rtype: dict
         #@return: dictionary for performing stroke lookups
         #"""
         #if not self._strokeIndexLookup.has_key(indexLength):
@@ -671,7 +686,7 @@ class CharacterLookup:
 
         #@type indexLength: number
         #@param indexLength: length of the index
-        #@rtype: dictionary
+        #@rtype: dict
         #@return: dictionary for performing bigram lookups
         #"""
         #if not self._bigramIndexLookup.has_key(indexLength):
@@ -1211,6 +1226,49 @@ class CharacterLookup:
             raise exception.NoInformationError(
                 "Character has no radical form information")
 
+    def getCharacterRadicalResidualStrokeCountDict(self):
+        """
+        Gets the full table of radical forms (either a I{Unicode radical form}
+        or a I{Unicode radical variant}) found as a component in the character
+        and the stroke count of the residual character components from the
+        database.
+
+        A typical entry looks like
+        C{(u'众', 0): {9: [(u'人', 0, u'⿱', 0, 4), (u'人', 0, u'⿻', 0, 4)]}},
+        and can be accessed as C{radicalDict[(u'众', 0)][9]} with the Chinese
+        character, its Z-variant and Kangxi radical index. The values are given
+        in the order I{radical form}, I{radical Z-variant}, I{character layout},
+        I{relative position of the radical} and finally the
+        I{residual stroke count}.
+
+        @rtype: dict
+        @return: dictionary of radical/residual stroke count entries.
+        """
+        radicalDict = {}
+        # get entries from database
+        for entry in self.db.select('CharacterRadicalResidualStrokeCount',
+            ['ChineseCharacter', 'ZVariant', 'RadicalIndex', 'RadicalForm',
+            'RadicalZVariant', 'MainCharacterLayout', 'RadicalRelativePosition',
+            'ResidualStrokeCount'],
+            orderBy = ['ResidualStrokeCount', 'RadicalZVariant', 'RadicalForm',
+            'MainCharacterLayout', 'RadicalRelativePosition']):
+
+            char, zVariant, radicalIndex, radicalForm, radicalZVariant, \
+                mainCharacterLayout, radicalReladtivePosition, \
+                residualStrokeCount = entry
+
+            if (char, zVariant) not in radicalDict:
+                radicalDict[(char, zVariant)] = {}
+
+            if radicalIndex  not in radicalDict[(char, zVariant)]:
+                radicalDict[(char, zVariant)][radicalIndex] = []
+
+            radicalDict[(char, zVariant)][radicalIndex].append(
+                (radicalForm, radicalZVariant, mainCharacterLayout, \
+                    radicalReladtivePosition, residualStrokeCount))
+
+        return radicalDict
+
     def getCharacterKangxiResidualStrokeCount(self, char, locale=None,
         zVariant=0):
         u"""
@@ -1283,6 +1341,35 @@ class CharacterLookup:
         else:
             raise exception.NoInformationError(
                 "Character has no residual stroke count information")
+
+    def getCharacterResidualStrokeCountDict(self):
+        """
+        Gets the full table of stroke counts of the residual character
+        components from the database.
+
+        A typical entry looks like C{(u'众', 0): {9: [4]}},
+        and can be accessed as C{residualCountDict[(u'众', 0)][9]} with the
+        Chinese character, its Z-variant and Kangxi radical index which then
+        gives the I{residual stroke count}.
+
+        @rtype: dict
+        @return: dictionary of radical/residual stroke count entries.
+        """
+        residualCountDict = {}
+        # get entries from database
+        for entry in self.db.select('CharacterResidualStrokeCount',
+            ['ChineseCharacter', 'ZVariant', 'RadicalIndex',
+            'ResidualStrokeCount']):
+
+            char, zVariant, radicalIndex, residualStrokeCount = entry
+
+            if (char, zVariant) not in residualCountDict:
+                residualCountDict[(char, zVariant)] = {}
+
+            residualCountDict[(char, zVariant)][radicalIndex] \
+                = residualStrokeCount
+
+        return residualCountDict
 
     def getCharactersForKangxiRadicalIndex(self, radicalIndex):
         """
@@ -1759,37 +1846,74 @@ class CharacterLookup:
         """
         if locale != None:
             zVariant = self.getLocaleDefaultZVariant(char, locale)
-        # get forms for once char, include radical equivalents
-        forms = [char]
+
         # get entries from database
         result = self.db.selectSoleValue('CharacterDecomposition',
-            'Decomposition', {'ChineseCharacter': forms, 'ZVariant': zVariant},
-            orderBy = ['SubIndex'], distinctValues=True)
+            'Decomposition', {'ChineseCharacter': char, 'ZVariant': zVariant},
+            orderBy = ['SubIndex'])
+
         # extract character Z-variant information (example entry: '⿱卜[1]尸')
-        returnList = []
-        for decomposition in result:
-            componentsList = []
-            index = 0
-            while index < len(decomposition):
-                char = decomposition[index]
-                if self.isIDSOperator(char):
-                    componentsList.append(char)
+        return [self._getDecompositionFromString(decomposition) \
+            for decomposition in result]
+
+    def getDecompositionEntriesDict(self):
+        """
+        Gets the full decomposition table from the database.
+
+        @rtype: dict
+        @return: dictionary with key pair character, Z-variant and the first
+            layer decomposition as value
+        """
+        decompDict = {}
+        # get entries from database
+        for char, zVariant, decomposition in self.db.select(
+            'CharacterDecomposition',
+            ['ChineseCharacter', 'ZVariant', 'Decomposition'],
+            orderBy = ['SubIndex']):
+
+            if (char, zVariant) not in decompDict:
+                decompDict[(char, zVariant)] = []
+
+            decompDict[(char, zVariant)].append(
+                self._getDecompositionFromString(decomposition))
+
+        return decompDict
+
+    def _getDecompositionFromString(self, decomposition):
+        """
+        Gets a tuple representation with character/Z-variant of the given
+        character's decomposition into components.
+
+        Example: Entry C{⿱尚[1]儿} will be returned as
+        C{[u'⿱', (u'尚', 1), (u'儿', 0)]}.
+
+        @type decomposition: string
+        @param decomposition: character decomposition with IDS operator,
+            compontens and optional Z-variant index
+        @rtype: list
+        @return: decomposition with character/Z-variant tuples
+        """
+        componentsList = []
+        index = 0
+        while index < len(decomposition):
+            char = decomposition[index]
+            if self.isIDSOperator(char):
+                componentsList.append(char)
+            else:
+                # is Chinese character
+                if index+1 < len(decomposition)\
+                    and decomposition[index+1] == '[':
+
+                    endIndex = decomposition.index(']', index+1)
+                    # extract Z-variant information
+                    charZVariant = int(decomposition[index+2:endIndex])
+                    index = endIndex
                 else:
-                    # is Chinese character
-                    if index+1 < len(decomposition)\
-                        and decomposition[index+1] == '[':
-                        endIndex = decomposition.index(']', index+1)
-                        # extract Z-variant information
-                        charZVariant = \
-                            int(decomposition[index+2:endIndex])
-                        index = endIndex
-                    else:
-                        # take default Z-variant if none specified
-                        charZVariant = 0
-                    componentsList.append((char, charZVariant))
-                index = index + 1
-            returnList.append(componentsList)
-        return returnList
+                    # take default Z-variant if none specified
+                    charZVariant = 0
+                componentsList.append((char, charZVariant))
+            index = index + 1
+        return componentsList
 
     def getDecompositionTreeList(self, char, locale=None, zVariant=0):
         """
@@ -1873,7 +1997,6 @@ class CharacterLookup:
             zVariants = self.db.selectSoleValue('ComponentLookup',
                 'ComponentZVariant', {'ChineseCharacter': char,
                     'ZVariant': zVariant, 'Component': component})
-            print zVariants
             return zVariants and (componentZVariant == None \
                 or componentZVariant in zVariants)
         else:
