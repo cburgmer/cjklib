@@ -64,7 +64,7 @@ class DatabaseConnector:
         """
         Returns a shared L{DatabaseConnector} instance.
 
-        @type databaseSettings: dictionary
+        @type databaseSettings: dict
         @param databaseSettings: database settings passed to the
             L{DatabaseConnector}, see there for feasible values.
         """
@@ -93,10 +93,10 @@ class DatabaseConnector:
         """
         Gets the SQL connection parameters from a config file.
 
-        @type projectName: string
+        @type projectName: str
         @param projectName: name of project which will be used as name of the
             config file
-        @rtype: dictionary
+        @rtype: dict
         @return: settings that can be used as I{databaseSettings} for making a
             connection to the SQL server
         """
@@ -131,7 +131,7 @@ class DatabaseConnector:
         Constructs the DatabaseConnector object and connects to the database
         specified by the options given in databaseSettings.
 
-        @type databaseSettings: dictionary
+        @type databaseSettings: dict
         @param databaseSettings: This dictionary takes the settings for the
             selected database.
 
@@ -179,7 +179,7 @@ class DatabaseConnector:
     def getConnection(self):
         """
         Get the SQL connection object.
-        @rtype: object
+        @rtype: instance
         @return: the SQL connection object
         """
         return self.con
@@ -188,7 +188,7 @@ class DatabaseConnector:
         """
         Get the SQL cursor object.
 
-        @rtype: object
+        @rtype: instance
         @return: the SQL cursor object
         """
         return self.cur
@@ -197,8 +197,8 @@ class DatabaseConnector:
         """
         Gets the SQL connection type. Values can be I{MySQL} and I{SQLite}.
 
-        @rtype: object
-        @return: the SQL connection object
+        @rtype: str
+        @return: SQL connection type
         """
         return self.dbType
 
@@ -216,9 +216,9 @@ class DatabaseConnector:
         """
         Returns true if the given table or view exists in the database.
 
-        @type tableName: string
+        @type tableName: str
         @param tableName: name of table to check
-        @rtype: boolean
+        @rtype: bool
         @return: True, if table exists
         """
         if self.getDatabaseType() == 'MySQL':
@@ -236,11 +236,11 @@ class DatabaseConnector:
         """
         Construct the SQL select command from the given parameters.
 
-        @type tableNames: string or list of strings
+        @type tableNames: str/list of str
         @param tableNames: name(s) of table(s) to query
-        @type columnList: list of strings
+        @type columnList: list of str
         @param columnList: name of columns to include in response
-        @type clauses: dictionary
+        @type clauses: dict
         @param clauses: key, value pairs to query the given tables; The key
             represents a column and the corresponding value represents it's
             value that has to be satisfied.
@@ -249,17 +249,17 @@ class DatabaseConnector:
             operator (e.g. C{E{lb}'name': "<> 'Smith'"E{rb}}). Simple values
             like C{'Apple'} or C{'%pple'} are automatically transformed to
             C{"key = 'Apple'"} and C{"key like '%pple'"} correspondingly.
-        @type orderBy: list of strings
+        @type orderBy: list of str
         @param orderBy: name of columns for ordering output
-        @type orderDescending: boolean
+        @type orderDescending: bool
         @param orderDescending: indicates that the output is sorted in
             descending order. If not specified but orderBy is given the sort
             order is ascending.
-        @type limit: number
+        @type limit: int
         @param limit: specify the maximum count of entries returned
-        @type distinctValues: boolean
+        @type distinctValues: bool
         @param distinctValues: if true only distinct values will be returned
-        @rtype: string
+        @rtype: str
         @return: SQL select command
 
         @todo Fix:  Escape all column and table names to prevent SQL injection
@@ -269,15 +269,15 @@ class DatabaseConnector:
             """
             Construct a SQL where clause for a given column and clause.
 
-            @type column: string
+            @type column: str
             @param column: name of the column
-            @type whereClause: string or list of strings
+            @type whereClause: str/list of str
             @param whereClause: SQL clause for the given column. If an array is
                 passed multiple clauses are created concatenated by an C{or}
                 clause.
                 Simple values (non strings, or strings without an operator) are
                 transformed to a clause including an C{=} or C{like} operator.
-            @rtype: string
+            @rtype: str
             @return: SQL where clause
             @todo Fix:  Don't automatically interpret _ or % as placeholders.
             """
@@ -342,11 +342,11 @@ class DatabaseConnector:
         """
         Run a general SQL select query for the specified parameters.
 
-        @type tableNames: string or list of strings
+        @type tableNames: str/list of str
         @param tableNames: name(s) of table(s) to query
-        @type columnList: list of strings
+        @type columnList: list of str
         @param columnList: name of columns to include in response
-        @type clauses: dictionary
+        @type clauses: dict
         @param clauses: key, value pairs to query the given tables; The key
             represents a column and the corresponding value represents it's
             value that has to be satisfied.
@@ -355,17 +355,17 @@ class DatabaseConnector:
             operator (e.g. C{E{lb}'name': "<> 'Smith'"E{rb}}). Simple values
             like C{'Apple'} or C{'%pple'} are automatically transformed to
             C{"key = 'Apple'"} and C{"key like '%pple'"} correspondingly.
-        @type orderBy: list of strings
+        @type orderBy: list of str
         @param orderBy: name of columns for ordering output
-        @type orderDescending: boolean
+        @type orderDescending: bool
         @param orderDescending: indicates that the output is sorted in
             descending order. If not specified but orderBy is given the sort
             order is ascending.
-        @type limit: number
+        @type limit: int
         @param limit: specify the maximum count of entries returned
-        @type distinctValues: boolean
+        @type distinctValues: bool
         @param distinctValues: if true only distinct values will be returned
-        @rtype: list of string tuples
+        @rtype: list of tuple
         @return: multiple found entries with multiple columns
         """
         searchCmd = self.getSelectCommand(tableNames, columnList, clauses,
@@ -385,11 +385,11 @@ class DatabaseConnector:
         """
         Run a SQL select query for only one column for the specified parameters.
 
-        @type tableNames: string or list of strings
+        @type tableNames: str/list of str
         @param tableNames: name(s) of table(s) to query
-        @type column: string
+        @type column: str
         @param column: name of column for response
-        @type clauses: dictionary
+        @type clauses: dict
         @param clauses: key, value pairs to query the given tables; The key
             represents a column and the corresponding value represents it's
             value that has to be satisfied.
@@ -398,17 +398,17 @@ class DatabaseConnector:
             operator (e.g. C{E{lb}'name': "<> 'Smith'"E{rb}}). Simple values
             like C{'Apple'} or C{'%pple'} are automatically transformed to
             C{"key = 'Apple'"} and C{"key like '%pple'"} correspondingly.
-        @type orderBy: list of strings
+        @type orderBy: list of str
         @param orderBy: name of columns for ordering output
-        @type orderDescending: boolean
+        @type orderDescending: bool
         @param orderDescending: indicates that the output is sorted in
             descending order. If not specified but orderBy is given the sort
             order is ascending.
-        @type limit: number
+        @type limit: int
         @param limit: specify the maximum count of entries returned
-        @type distinctValues: boolean
+        @type distinctValues: bool
         @param distinctValues: if true only distinct values will be returned
-        @rtype: list of strings
+        @rtype: list of str
         @return: multiple found entries with one column each
         """
         resultList = []
@@ -423,11 +423,11 @@ class DatabaseConnector:
         Run a SQL select query resulting in only one entry for the specified
         parameters.
 
-        @type tableNames: string or list of strings
+        @type tableNames: str/list of str
         @param tableNames: name(s) of table(s) to query
-        @type columnList: list of strings
+        @type columnList: list of str
         @param columnList: name of columns to include in response
-        @type clauses: dictionary
+        @type clauses: dict
         @param clauses: key, value pairs to query the given tables; The key
             represents a column and the corresponding value represents it's
             value that has to be satisfied.
@@ -436,9 +436,9 @@ class DatabaseConnector:
             operator (e.g. C{E{lb}'name': "<> 'Smith'"E{rb}}). Simple values
             like C{'Apple'} or C{'%pple'} are automatically transformed to
             C{"key = 'Apple'"} and C{"key like '%pple'"} correspondingly.
-        @type distinctValues: boolean
+        @type distinctValues: bool
         @param distinctValues: if true only distinct values will be returned
-        @rtype: string tuple
+        @rtype: tuple of str
         @return: one found entry with multiple columns
         """
         # make sure the user doesn't specify a string, e.g. using wrong method
@@ -456,11 +456,11 @@ class DatabaseConnector:
         Run a SQL select query for only one column resulting in only one entry
         for the specified parameters.
 
-        @type tableNames: string or list of strings
+        @type tableNames: str/list of str
         @param tableNames: name(s) of table(s) to query
-        @type column: string
+        @type column: str
         @param column: name of column for response
-        @type clauses: dictionary
+        @type clauses: dict
         @param clauses: key, value pairs to query the given tables; The key
             represents a column and the corresponding value represents it's
             value that has to be satisfied.
@@ -469,9 +469,9 @@ class DatabaseConnector:
             operator (e.g. C{E{lb}'name': "<> 'Smith'"E{rb}}). Simple values
             like C{'Apple'} or C{'%pple'} are automatically transformed to
             C{"key = 'Apple'"} and C{"key like '%pple'"} correspondingly.
-        @type distinctValues: boolean
+        @type distinctValues: bool
         @param distinctValues: if true only distinct values will be returned
-        @rtype: string
+        @rtype: str
         @return: one found entry with one column
         """
         row = self.selectSingleEntry(tableNames, [column], clauses,

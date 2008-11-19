@@ -157,11 +157,11 @@ def printFormattedLine(outputString, lineLength=80, subsequentPrefix=''):
     Formats the given input string to fit to a output with a limited line
     length and prints it to stdout with the systems encoding.
 
-    @type outputString: string
+    @type outputString: str
     @param outputString: a string that is formated to fit to the screen
-    @type lineLength: integer
+    @type lineLength: int
     @param lineLength: with of screen
-    @type subsequentPrefix: string
+    @type subsequentPrefix: str
     @param subsequentPrefix: prefix used after line break
     """
     outputLines = []

@@ -244,9 +244,9 @@ class ReadingOperator(object):
 
         The default implementation will raise a NotImplementedError.
 
-        @type string: string
+        @type string: str
         @param string: reading string
-        @rtype: list of strings
+        @rtype: list of str
         @return: a list of basic entities of the input string
         @raise DecompositionError: if the string can not be decomposed.
         """
@@ -258,9 +258,9 @@ class ReadingOperator(object):
 
         The default implementation will raise a NotImplementedError.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of basic entities or other content
-        @rtype: string
+        @rtype: str
         @return: composed entities
         """
         raise NotImplementedError
@@ -273,9 +273,9 @@ class ReadingOperator(object):
 
         The default implementation will raise a NotImplementedError.
 
-        @type entity: string
+        @type entity: str
         @param entity: entity to check
-        @rtype: boolean
+        @rtype: bool
         @return: true if string is an entity of the reading, false otherwise.
         """
         raise NotImplementedError
@@ -384,13 +384,13 @@ class ReadingConverter(object):
         """
         Converts a string in the source reading to the given target reading.
 
-        @type string: string
+        @type string: str
         @param string: string written in the source reading
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
-        @rtype: string
+        @rtype: str
         @returns: the input string converted to the C{toReading}
         @raise DecompositionError: if the string can not be decomposed into
             basic entities with regards to the source reading or the given
@@ -416,13 +416,13 @@ class ReadingConverter(object):
 
         The default implementation will raise a NotImplementedError.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of entities written in source reading
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
-        @rtype: list of strings
+        @rtype: list of str
         @return: list of entities written in target reading
         @raise ConversionError: on operations specific to the conversion between
             the two readings (e.g. error on converting entities).
@@ -436,9 +436,9 @@ class ReadingConverter(object):
         """
         Gets a reading operator instance for conversion from the given reading.
 
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
-        @rtype: object
+        @rtype: instance
         @return: a L{ReadingOperator} instance
         @raise UnsupportedError: if the given reading is not supported.
         """
@@ -451,9 +451,9 @@ class ReadingConverter(object):
         """
         Gets a reading operator instance for conversion to the given reading.
 
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
-        @rtype: object
+        @rtype: instance
         @return: a L{ReadingOperator} instance
         @raise UnsupportedError: if the given reading is not supported.
         """
@@ -560,9 +560,9 @@ class RomanisationOperator(ReadingOperator):
         of basic reading entities and other characters e.g. spaces and
         punctuation marks.
 
-        @type string: string
+        @type string: str
         @param string: reading string
-        @rtype: list of strings
+        @rtype: list of str
         @return: a list of basic entities of the input string
         @raise AmbiguousDecompositonError: if decomposition is ambiguous.
         @raise DecompositionError: if the given string has a wrong format.
@@ -605,9 +605,9 @@ class RomanisationOperator(ReadingOperator):
         one Chinese character each for all possible decompositions and returns
         the possible decompositions as a lattice.
 
-        @type string: string
+        @type string: str
         @param string: reading string
-        @rtype: list construct
+        @rtype: list
         @return: a list of all possible decompositions consisting of basic
             entities as a lattice construct.
         @raise DecompositionError: if the given string has a wrong format.
@@ -636,9 +636,9 @@ class RomanisationOperator(ReadingOperator):
         The returned list construction consists of two entity types: entities of
         the romanisation and other strings.
 
-        @type string: string
+        @type string: str
         @param string: reading string
-        @rtype: list of lists of strings
+        @rtype: list of list of str
         @return: a list of all possible decompositions consisting of basic
             entities.
         @raise DecompositionError: if the given string has a wrong format.
@@ -666,9 +666,9 @@ class RomanisationOperator(ReadingOperator):
         will not be dealt with, this is the task of the more general decompose
         method.
 
-        @type string: string
+        @type string: str
         @param string: reading string
-        @rtype: list of lists of strings
+        @rtype: list of list of str
         @return: a list of possible segmentations (several if ambiguous) into
             single syllables
         @raise DecompositionError: if the given string has an invalid format.
@@ -692,9 +692,9 @@ class RomanisationOperator(ReadingOperator):
 
         The tree is represented by tuples C{(syllable, subtree)}.
 
-        @type string: string
+        @type string: str
         @param string: reading string
-        @rtype: list of recursive tuples
+        @rtype: list of tuple
         @return: a tree of possible segmentations (if ambiguous) into single
             syllables
         """
@@ -724,9 +724,9 @@ class RomanisationOperator(ReadingOperator):
         segmentations are only secondary and the segmentation with the longer
         syllables will be the one to take.
 
-        @type decomposition: list of strings
+        @type decomposition: list of str
         @param decomposition: decomposed reading string
-        @rtype: boolean
+        @rtype: bool
         @return: True if following syllables make up a syllable
         """
         for startIndex in range(0, len(decomposition)-1):
@@ -751,9 +751,9 @@ class RomanisationOperator(ReadingOperator):
         with this protocol has to be implemented here. Thus this method can only
         return true for one and only one possible decomposition for all strings.
 
-        @type decomposition: list of strings
+        @type decomposition: list of str
         @param decomposition: decomposed reading string
-        @rtype: boolean
+        @rtype: bool
         @return: False, as this methods needs to be implemented by the sub class
         """
         return False
@@ -763,9 +763,9 @@ class RomanisationOperator(ReadingOperator):
         Checks if the given string is a syllable supported by this romanisation
         or a substring of one.
 
-        @type string: string
+        @type string: str
         @param string: romanisation syllable or substring
-        @rtype: boolean
+        @rtype: bool
         @return: true if this string is a substring of a syllable, false
             otherwise
         """
@@ -785,9 +785,9 @@ class RomanisationOperator(ReadingOperator):
 
         Reading entities will be handled as being case insensitive.
 
-        @type entity: string
+        @type entity: str
         @param entity: entity to check
-        @rtype: boolean
+        @rtype: bool
         @return: C{True} if string is an entity of the reading, C{False}
             otherwise.
         """
@@ -809,7 +809,7 @@ class RomanisationOperator(ReadingOperator):
         The list is used in the segmentation process to find entity boundaries.
         The default implementation will raise a NotImplementedError.
 
-        @rtype: set of strings
+        @rtype: set of str
         @return: set of supported syllables
         """
         raise NotImplementedError
@@ -824,9 +824,9 @@ class RomanisationOperator(ReadingOperator):
             >>> RomanisationOperator._crossProduct([['A', 'B'], [1, 2, 3]])
             [['A', 1], ['A', 2], ['A', 3], ['B', 1], ['B', 2], ['B', 3]]
 
-        @type singleLists: list of lists
+        @type singleLists: list of list
         @param singleLists: a list of list entries containing various elements
-        @rtype: list of lists
+        @rtype: list of list
         @return: the cross product of the given sets
         """
         # get repeat index for whole set
@@ -868,10 +868,10 @@ class RomanisationOperator(ReadingOperator):
             ...     ('A', [('B', None), ('C', [('D', None), ('E', None)])]))
             [['A', 'B'], ['A', 'C', 'D'], ['A', 'C', 'E']]
 
-        @type tupleTree: recursive tuples
+        @type tupleTree: tuple
         @param tupleTree: a tree realised through a tuple of a node and a
             subtree
-        @rtype: list of lists
+        @rtype: list of list
         @return: a list of all paths contained by the given tree
         """
         resultList = []
@@ -924,13 +924,13 @@ class EntityWiseReadingConverter(ReadingConverter):
 
         The default implementation will raise a NotImplementedError.
 
-        @type entity: string
+        @type entity: str
         @param entity: string written in the source reading
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
-        @rtype: string
+        @rtype: str
         @returns: the entity converted to the C{toReading}
         @raise AmbiguousConversionError: if conversion for this entity of the
             source reading is ambiguous.
@@ -982,13 +982,13 @@ class RomanisationConverter(EntityWiseReadingConverter):
         (e.g. syllable) is respected. Entities like C{"HaO"} will degenerate to
         C{"Hao"} though.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of entities written in source reading
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
-        @rtype: list of strings
+        @rtype: list of str
         @return: list of entities written in target reading
         @raise AmbiguousConversionError: if conversion for a specific entity of
             the source reading is ambiguous.
@@ -1075,14 +1075,14 @@ class RomanisationConverter(EntityWiseReadingConverter):
 
         The default implementation will raise a NotImplementedError.
 
-        @type entity: string
+        @type entity: str
         @param entity: string written in the source reading in lower case
             letters
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
-        @rtype: string
+        @rtype: str
         @returns: the entity converted to the C{toReading} in lower case
         @raise AmbiguousConversionError: if conversion for this entity of the
             source reading is ambiguous.
@@ -1133,10 +1133,10 @@ class TonalFixedEntityOperator(ReadingOperator):
 
         The default implementation will raise a NotImplementedError.
 
-        @type plainEntity: string
+        @type plainEntity: str
         @param plainEntity: entity without tonal information
         @param tone: tone
-        @rtype: string
+        @rtype: str
         @return: entity with appropriate tone
         @raise InvalidEntityError: if the entity is invalid.
         @raise UnsupportedError: if the operation is not supported for the given
@@ -1151,7 +1151,7 @@ class TonalFixedEntityOperator(ReadingOperator):
 
         The default implementation will raise a NotImplementedError.
 
-        @type entity: string
+        @type entity: str
         @param entity: entity with tonal information
         @rtype: tuple
         @return: plain entity without tone mark and entity's tone
@@ -1167,7 +1167,7 @@ class TonalFixedEntityOperator(ReadingOperator):
 
         The list is used in the segmentation process to find entity boundaries.
 
-        @rtype: list of strings
+        @rtype: list of str
         @return: list of supported syllables
         """
         syllableSet = set()
@@ -1183,7 +1183,7 @@ class TonalFixedEntityOperator(ReadingOperator):
 
         The default implementation will raise a NotImplementedError.
 
-        @rtype: set of strings
+        @rtype: set of str
         @return: set of supported syllables
         """
         raise NotImplementedError
@@ -1194,9 +1194,9 @@ class TonalFixedEntityOperator(ReadingOperator):
         recognised by the romanisation operator, i.e. it is a valid entity of
         the reading returned by the segmentation method.
 
-        @type entity: string
+        @type entity: str
         @param entity: entity to check
-        @rtype: boolean
+        @rtype: bool
         @return: C{True} if string is an entity of the reading, C{False}
             otherwise.
         """
@@ -1248,7 +1248,7 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
 
         The list is used in the segmentation process to find entity boundaries.
 
-        @rtype: list of strings
+        @rtype: list of str
         @return: list of supported syllables
         """
         return TonalFixedEntityOperator.getReadingEntities(self)
@@ -1261,9 +1261,9 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
 
         Reading entities will be handled as being case insensitive.
 
-        @type entity: string
+        @type entity: str
         @param entity: entity to check
-        @rtype: boolean
+        @rtype: bool
         @return: C{True} if string is an entity of the reading, C{False}
             otherwise.
         """
@@ -1395,9 +1395,9 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         Single syllables can only be found if distinguished by a period or
         whitespace, such as L{compose()} would return.
 
-        @type string: string
+        @type string: str
         @param string: reading string
-        @rtype: list of strings
+        @rtype: list of str
         @return: a list of basic entities of the input string
         """
         return self.splitRegex.split(string)
@@ -1407,9 +1407,9 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         Composes the given list of basic entities to a string. IPA syllables are
         separated by a period.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of basic entities or other content
-        @rtype: string
+        @rtype: str
         @return: composed entities
         """
         newReadingEntities = []
@@ -1437,11 +1437,11 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         I{Normalization Form C} (NFC, see
         U{http://www.unicode.org/reports/tr15/}).
 
-        @type plainEntity: string
+        @type plainEntity: str
         @param plainEntity: entity without tonal information
-        @type tone: string
+        @type tone: str
         @param tone: tone
-        @rtype: string
+        @rtype: str
         @return: entity with appropriate tone
         @raise InvalidEntityError: if the entity is invalid.
         @todo Impl: Place diacritics on main vowel, derive from IPA
@@ -1466,9 +1466,9 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         I{Normalization Form C} (NFC, see
         U{http://www.unicode.org/reports/tr15/}).
 
-        @type entity: string
+        @type entity: str
         @param entity: entity with tonal information
-        @rtype: string tuple
+        @rtype: tuple
         @return: plain entity without tone mark and additionally the tone
         @raise InvalidEntityError: if the entity is invalid.
         """
@@ -1496,9 +1496,9 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         """
         Gets the tone for the given tone mark.
 
-        @type toneMark: string
+        @type toneMark: str
         @param toneMark: tone mark representation of the tone
-        @rtype: string
+        @rtype: str
         @return: tone
         @raise InvalidEntityError: if the toneMark does not exist.
         """
@@ -1807,7 +1807,7 @@ class PinyinOperator(TonalRomanisationOperator):
         The alternative for vowel ü does not need diacritical forms as the
         standard form doesn't allow changing the vowel.
 
-        @rtype: list of strings
+        @rtype: list of str
         @return: list of Pinyin vowels with diacritical marks
         """
         vowelList = []
@@ -1829,9 +1829,9 @@ class PinyinOperator(TonalRomanisationOperator):
         C{'twoSyllables'} by default and only tested when C{'toneMarkType'} is
         assumed to be set to C{'Numbers'}.
 
-        @type string: string
+        @type string: str
         @param string: Pinyin string
-        @rtype: dictionary
+        @rtype: dict
         @return: dictionary of basic keyword settings
         """
         Y_VOWEL_LIST = [u'ü', 'v', 'u:']
@@ -1921,9 +1921,9 @@ class PinyinOperator(TonalRomanisationOperator):
         apostrophe between syllables if needed using default implementation
         L{aeoApostropheRule()}.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of basic syllables or other content
-        @rtype: string
+        @rtype: str
         @return: composed entities
         """
         newReadingEntities = []
@@ -1941,9 +1941,9 @@ class PinyinOperator(TonalRomanisationOperator):
         """
         Removes apostrophes between two syllables for a given decomposition.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of basic syllables or other content
-        @rtype: list of strings
+        @rtype: list of str
         @return: the given entity list without separating apostrophes
         """
         if len(readingEntities) == 0:
@@ -1974,11 +1974,11 @@ class PinyinOperator(TonalRomanisationOperator):
 
         This function serves as the default apostrophe rule.
 
-        @type precedingEntity: string
+        @type precedingEntity: str
         @param precedingEntity: the preceding syllable or any other content
-        @type followingEntity: string
+        @type followingEntity: str
         @param followingEntity: the following syllable or any other content
-        @rtype: boolean
+        @rtype: bool
         @return: true if the syllables need to be separated, false otherwise
         """
         # if both following entities are syllables they have to be separated if
@@ -2008,9 +2008,9 @@ class PinyinOperator(TonalRomanisationOperator):
         The function stored given as option C{'PinyinApostropheFunction'} is
         used to check if a apostrophe should have been placed.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: decomposed reading string
-        @rtype: boolean
+        @rtype: bool
         @return: true if decomposition is strict, false otherwise
         """
         precedingEntity = None
@@ -2075,11 +2075,11 @@ class PinyinOperator(TonalRomanisationOperator):
         @see: Pinyin.info - Where do the tone marks go?,
             U{http://www.pinyin.info/rules/where.html}.
 
-        @type nucleus: string
+        @type nucleus: str
         @param nucleus: syllable nucleus
-        @type tone: number
+        @type tone: int
         @param tone: tone index (starting with 1)
-        @rtype: string
+        @rtype: str
         @return: nucleus with appropriate tone
         """
         # only tone mark to place for tones 0 - 3
@@ -2109,9 +2109,9 @@ class PinyinOperator(TonalRomanisationOperator):
         I{Normalization Form C} (NFC, see
         U{http://www.unicode.org/reports/tr15/}).
 
-        @type entity: string
+        @type entity: str
         @param entity: entity with tonal information
-        @rtype: tuple of string and number
+        @rtype: tuple
         @return: plain entity without tone mark and entity's tone index
             (starting with 1)
         """
@@ -2161,7 +2161,7 @@ class PinyinOperator(TonalRomanisationOperator):
         an ending -r are added, or a single I{r} is included. The user specified
         character for vowel I{ü} will be used.
 
-        @rtype: set of strings
+        @rtype: set of str
         @return: set of supported syllables
         """
         # set used syllables
@@ -2226,9 +2226,9 @@ class PinyinOperator(TonalRomanisationOperator):
         the following three examples: I{yi}, I{zhi} and I{zi} to express
         phonological difference.
 
-        @type plainSyllable: string
+        @type plainSyllable: str
         @param plainSyllable: syllable without tone marks
-        @rtype: tuple of strings
+        @rtype: tuple of str
         @return: tuple of entity onset and rhyme
         @raise InvalidEntityError: if the entity is invalid.
         @raise UnsupportedError: for entity I{r} when Erhua is handled as
@@ -2407,13 +2407,13 @@ class PinyinDialectConverter(ReadingConverter):
         Converts a list of entities in the source reading to the given target
         reading.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of entities written in source reading
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
-        @rtype: list of strings
+        @rtype: list of str
         @return: list of entities written in target reading
         @raise AmbiguousConversionError: if conversion for a specific entity of
             the source reading is ambiguous.
@@ -2500,9 +2500,9 @@ class PinyinDialectConverter(ReadingConverter):
         a representation with one syllable, e.g. C{['tou2', 'r5']} to
         C{['tour2']}.
 
-        @type entityTuples: list of tuples/strings
+        @type entityTuples: list of tuple/str
         @param entityTuples: list of tuples with plain syllable and tone
-        @rtype: list of tuples/strings
+        @rtype: list of tuple/str
         @return: list of tuples with plain syllable and tone
         """
         convertedTuples = []
@@ -2536,9 +2536,9 @@ class PinyinDialectConverter(ReadingConverter):
         a representation with two syllable, e.g. C{['tour2']} to
         C{['tou2', 'r5']}.
 
-        @type entityTuples: list of tuples/strings
+        @type entityTuples: list of tuple/str
         @param entityTuples: list of tuples with plain syllable and tone
-        @rtype: list of tuples/strings
+        @rtype: list of tuple/str
         @return: list of tuples with plain syllable and tone
         """
         convertedTuples = []
@@ -2562,9 +2562,9 @@ class PinyinDialectConverter(ReadingConverter):
         """
         Checks the given entities for Erhua forms and raises a ConversionError.
 
-        @type entityTuples: list of tuples/strings
+        @type entityTuples: list of tuple/str
         @param entityTuples: list of tuples with plain syllable and tone
-        @rtype: list of tuples/strings
+        @rtype: list of tuple/str
         @return: list of tuples with plain syllable and tone
         @raise ConversionError: when an Erhua form is found
         """
@@ -2692,9 +2692,9 @@ class WadeGilesOperator(TonalRomanisationOperator):
         Composes the given list of basic entities to a string by applying a
         hyphen between syllables.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of basic syllables or other content
-        @rtype: string
+        @rtype: str
         @return: composed entities
         """
         newReadingEntities = []
@@ -2714,9 +2714,9 @@ class WadeGilesOperator(TonalRomanisationOperator):
         """
         Removes hyphens between two syllables for a given decomposition.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of basic syllables or other content
-        @rtype: list of strings
+        @rtype: list of str
         @return: the given entity list without separating hyphens
         """
         if len(readingEntities) == 0:
@@ -2790,7 +2790,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
         Syllables will use the user specified apostrophe to mark aspiration.
 
-        @rtype: set of strings
+        @rtype: set of str
         @return: set of supported syllables
         """
         plainSyllables = set(self.db.selectSoleValue("WadeGilesSyllables",
@@ -3066,9 +3066,9 @@ class GROperator(TonalRomanisationOperator):
         same value which derives from a list of different apostrophes and
         similar characters.
 
-        @type string: string
+        @type string: str
         @param string: GR string
-        @rtype: dictionary
+        @rtype: dict
         @return: dictionary of basic keyword settings
         """
         APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
@@ -3092,9 +3092,9 @@ class GROperator(TonalRomanisationOperator):
         Composes the given list of basic entities to a string. Applies an
         apostrophe between syllables if the second syllable has a zero-initial.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of basic syllables or other content
-        @rtype: string
+        @rtype: str
         @return: composed entities
         """
         newReadingEntities = []
@@ -3150,9 +3150,9 @@ class GROperator(TonalRomanisationOperator):
         """
         Removes apostrophes between two syllables for a given decomposition.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of basic syllables or other content
-        @rtype: list of strings
+        @rtype: list of str
         @return: the given entity list without separating apostrophes
         """
         if len(readingEntities) == 0:
@@ -3176,9 +3176,9 @@ class GROperator(TonalRomanisationOperator):
         Gets the tone number of the tone or the etymological tone if it is a
         neutral or optional neutral tone.
 
-        @type tone: string
+        @type tone: str
         @param tone: tone
-        @rtype: number
+        @rtype: int
         @return: base tone number
         @raise InvalidEntityError: if an invalid tone is passed.
         """
@@ -3195,9 +3195,9 @@ class GROperator(TonalRomanisationOperator):
         """
         Splits the given plain syllable into consonants-vowels-consonants.
 
-        @type plainSyllable: string
+        @type plainSyllable: str
         @param plainSyllable: entity without tonal information
-        @rtype: tuple of strings
+        @rtype: tuple of str
         @return: syllable CVC triple
         @raise InvalidEntityError: if the entity is invalid.
         """
@@ -3220,11 +3220,11 @@ class GROperator(TonalRomanisationOperator):
         different syllables. Use L{getRhotacisedTonalEntity()} to get the tonal
         entity for a given etymological (base) syllable.
 
-        @type plainEntity: string
+        @type plainEntity: str
         @param plainEntity: entity without tonal information
-        @type tone: string
+        @type tone: str
         @param tone: tone
-        @rtype: string
+        @rtype: str
         @return: entity with appropriate tone
         @raise InvalidEntityError: if the entity is invalid.
         @raise UnsupportedError: if the given entity is an Erlhuah form.
@@ -3363,11 +3363,11 @@ class GROperator(TonalRomanisationOperator):
         Gets the r-coloured entity (Erlhuah form) with tone mark for the given
         plain entity and tone. Not all entity-tone combinations are supported.
 
-        @type plainEntity: string
+        @type plainEntity: str
         @param plainEntity: entity without tonal information
-        @type tone: string
+        @type tone: str
         @param tone: tone
-        @rtype: string
+        @rtype: str
         @return: entity with appropriate tone
         @raise InvalidEntityError: if the entity is invalid.
         @raise UnsupportedError: if the given entity is an Erlhuah form or the
@@ -3463,9 +3463,9 @@ class GROperator(TonalRomanisationOperator):
 
         Reading entities will be handled as being case insensitive.
 
-        @type entity: string
+        @type entity: str
         @param entity: entity to check
-        @rtype: boolean
+        @rtype: bool
         @return: C{True} if entity is an abbreviated form.
         """
         return entity in self._getAbbreviatedLookup()
@@ -3476,9 +3476,9 @@ class GROperator(TonalRomanisationOperator):
         Non-abbreviated forms will returned unchanged. Takes care of
         capitalisation.
 
-        @type entity: string
+        @type entity: str
         @param entity: reading entity.
-        @rtype: string
+        @rtype: str
         @return: original entity
         @raise AmbiguousConversionError: if conversion is ambiguous.
         """
@@ -3503,7 +3503,7 @@ class GROperator(TonalRomanisationOperator):
         r-coloured forms (Erlhuah forms). Different to L{getReadingEntities()}
         the entities will carry no tone mark.
 
-        @rtype: set of strings
+        @rtype: set of str
         @return: set of supported syllables
         """
         return set(self.db.selectSoleValue("GRSyllables", "GR"))
@@ -3513,7 +3513,7 @@ class GROperator(TonalRomanisationOperator):
         Gets a set of full entities supported by the reading excluding
         abbreviated forms.
 
-        @rtype: set of strings
+        @rtype: set of str
         @return: set of supported syllables
         """
         plainSyllables = self.getPlainReadingEntities()
@@ -3870,7 +3870,7 @@ class MandarinIPAOperator(TonalIPAOperator):
         Gets the list of plain entities supported by this reading. These
         entities will carry no tone mark.
 
-        @rtype: set of strings
+        @rtype: set of str
         @return: set of supported syllables
         """
         return set(self.db.selectSoleValue("MandarinIPAInitialFinal", "IPA"))
@@ -3879,9 +3879,9 @@ class MandarinIPAOperator(TonalIPAOperator):
         """
         Splits the given plain syllable into onset (initial) and rhyme (final).
 
-        @type plainSyllable: string
+        @type plainSyllable: str
         @param plainSyllable: syllable in IPA without tone marks
-        @rtype: tuple of strings
+        @rtype: tuple of str
         @return: tuple of syllable onset and rhyme
         @raise InvalidEntityError: if the entity is invalid (e.g. syllable
             nucleus or tone invalid).
@@ -4113,11 +4113,11 @@ class PinyinIPAConverter(ReadingConverter):
         """
         Converts a single syllable from Pinyin to IPA.
 
-        @type plainSyllable: string
+        @type plainSyllable: str
         @param plainSyllable: plain syllable in the source reading
-        @type tone: number
+        @type tone: int
         @param tone: the syllable's tone
-        @rtype: string
+        @rtype: str
         @return: IPA representation
         """
         # lookup in database
@@ -4146,7 +4146,7 @@ class PinyinIPAConverter(ReadingConverter):
         This function serves as the default rule and can be overwritten by
         giving a function as option C{sandhiFunction} on instantiation.
 
-        @type entityTuples: list of tuples/strings
+        @type entityTuples: list of tuple/str
         @param entityTuples: a list of tuples and strings. An IPA entity is
             given as a tuple with the plain syllable and its tone, other content
             is given as plain string.
@@ -4201,17 +4201,17 @@ class PinyinIPAConverter(ReadingConverter):
         Běijīng Yǔyán Dàxué Chūbǎnshè (北京语言大学出版社), 2003,
         ISBN 7-5619-0622-6.
 
-        @type leftContext: list of tuples/strings
+        @type leftContext: list of tuple/str
         @param leftContext: syllables preceding the syllable in question in the
             source reading
-        @type plainSyllable: string
+        @type plainSyllable: str
         @param plainSyllable: plain syllable in the source reading
-        @type tone: number
+        @type tone: int
         @param tone: the syllable's tone
-        @type rightContext: list of tuples/strings
+        @type rightContext: list of tuple/str
         @param rightContext: syllables following the syllable in question in the
             source reading
-        @rtype: string
+        @rtype: str
         @return: IPA representation
         """
         if tone == 5:
@@ -4283,9 +4283,9 @@ class MandarinBrailleOperator(ReadingOperator):
         The returned list contains a mix of basic reading entities and other
         characters e.g. spaces and punctuation marks.
 
-        @type string: string
+        @type string: str
         @param string: reading string
-        @rtype: list of strings
+        @rtype: list of str
         @return: a list of basic entities of the input string
         """
         def buildList(entityList):
@@ -4308,9 +4308,9 @@ class MandarinBrailleOperator(ReadingOperator):
         L{getSpaceSeparatedEntities()} to insert spaces between two Braille
         syllables.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of basic entities or other content
-        @rtype: string
+        @rtype: str
         @return: composed entities
         """
         return "".join(readingEntities)
@@ -4324,9 +4324,9 @@ class MandarinBrailleOperator(ReadingOperator):
         reflected here and instead a space will be added between single
         syllables.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of basic entities or other content
-        @rtype: list of strings
+        @rtype: list of str
         @return: entities with spaces inserted between Braille sequences
         """
         def isBrailleChar(char):
@@ -4348,11 +4348,11 @@ class MandarinBrailleOperator(ReadingOperator):
         """
         Gets the entity with tone mark for the given plain entity and tone.
 
-        @type plainEntity: string
+        @type plainEntity: str
         @param plainEntity: entity without tonal information
-        @type tone: string
+        @type tone: str
         @param tone: tone
-        @rtype: string
+        @rtype: str
         @return: entity with appropriate tone
         @raise InvalidEntityError: if the entity is invalid.
         """
@@ -4366,9 +4366,9 @@ class MandarinBrailleOperator(ReadingOperator):
         Splits the entity into an entity without tone mark and the name of the
         entity's tone.
 
-        @type entity: string
+        @type entity: str
         @param entity: entity with tonal information
-        @rtype: string tuple
+        @rtype: tuple
         @return: plain entity without tone mark and additionally the tone
         @raise InvalidEntityError: if the entity is invalid.
         """
@@ -4405,9 +4405,9 @@ class MandarinBrailleOperator(ReadingOperator):
         """
         Splits the given plain syllable into onset (initial) and rhyme (final).
 
-        @type plainSyllable: string
+        @type plainSyllable: str
         @param plainSyllable: syllable without tone marks
-        @rtype: tuple of strings
+        @rtype: tuple of str
         @return: tuple of syllable onset and rhyme
         @raise InvalidEntityError: if the entity is invalid.
         """
@@ -4614,15 +4614,15 @@ class PinyinBrailleConverter(ReadingConverter):
         there is no guarantee that any entity of a reading recognised by
         L{ReadingOperator.isReadingEntity()} will be mapped here.
 
-        @type entity: string
+        @type entity: str
         @param entity: string written in the source reading in lower case
             letters
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading, different from the source
             reading
-        @rtype: string
+        @rtype: str
         @returns: the entity converted to the C{toReading} in lower case
         @raise AmbiguousConversionError: if conversion for this entity of the
             source reading is ambiguous.
@@ -4791,9 +4791,9 @@ class JyutpingOperator(TonalRomanisationOperator):
 
         The syllabic nasals I{m}, I{ng} will be regarded as being finals.
 
-        @type plainSyllable: string
+        @type plainSyllable: str
         @param plainSyllable: syllable without tone marks
-        @rtype: tuple of strings
+        @rtype: tuple of str
         @return: tuple of entity onset and rhyme
         @raise InvalidEntityError: if the entity is invalid.
         @todo Impl: Finals I{ing, ik, ung, uk} differ from other finals with
@@ -5010,7 +5010,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         The list includes characters I{m}, I{n} and I{h} for nasal forms.
 
-        @rtype: list of strings
+        @rtype: list of str
         @return: list of Cantonese Yale vowels with diacritical marks
         """
         vowelList = set([])
@@ -5033,9 +5033,9 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         C{'Diacritics'} and C{'Numbers'} are considered as the latter one can
         also represent the state of missing tones.
 
-        @type string: string
+        @type string: str
         @param string: Cantonese Yale string
-        @rtype: dictionary
+        @rtype: dict
         @return: dictionary of basic keyword settings
         """
         readingStr = unicodedata.normalize("NFC", unicode(string))
@@ -5129,9 +5129,9 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         I{Normalization Form C} (NFC, see
         U{http://www.unicode.org/reports/tr15/}).
 
-        @type entity: string
+        @type entity: str
         @param entity: entity with tonal information
-        @rtype: tuple of string and number
+        @rtype: tuple
         @return: plain entity without tone mark and entity's tone index
             (starting with 1)
         """
@@ -5176,9 +5176,9 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         The syllabic nasals I{m}, I{ng} will be returned as final. Syllables yu,
         yun, yut will fall into (y, yu, ), (y, yu, n) and (y, yu, t).
 
-        @type plainSyllable: string
+        @type plainSyllable: str
         @param plainSyllable: syllable without tone marks
-        @rtype: tuple of strings
+        @rtype: tuple of str
         @return: tuple of entity onset and rhyme
         @raise InvalidEntityError: if the entity is invalid.
         """
@@ -5193,10 +5193,10 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         The syllabic nasals I{m}, I{ng} will be returned as coda. Syllables yu,
         yun, yut will fall into (y, yu, ), (y, yu, n) and (y, yu, t).
 
-        @type plainSyllable: string
+        @type plainSyllable: str
         @param plainSyllable: syllable in the Yale romanisation system without
             tone marks
-        @rtype: tuple of strings
+        @rtype: tuple of str
         @return: tuple of syllable onset, nucleus and coda
         @raise InvalidEntityError: if the entity is invalid (e.g. syllable
             nucleus or tone invalid).
@@ -5518,9 +5518,9 @@ class CantoneseIPAOperator(TonalIPAOperator):
         """
         Splits the given plain syllable into onset (initial) and rhyme (final).
 
-        @type plainSyllable: string
+        @type plainSyllable: str
         @param plainSyllable: syllable in IPA without tone marks
-        @rtype: tuple of strings
+        @rtype: tuple of str
         @return: tuple of syllable onset and rhyme
         @raise InvalidEntityError: if the entity is invalid (e.g. syllable
             nucleus or tone invalid).
@@ -5577,11 +5577,11 @@ class CantoneseIPAOperator(TonalIPAOperator):
         more precise in denoting the vowel length that influences the tone
         contour.
 
-        @type plainSyllable: string
+        @type plainSyllable: str
         @param plainSyllable: syllable without tonal information
-        @type baseTone: string
+        @type baseTone: str
         @param baseTone: tone
-        @rtype: string
+        @rtype: str
         @return: explicit tone
         @raise InvalidEntityError: if the entity is invalid.
         """
@@ -5606,9 +5606,9 @@ class CantoneseIPAOperator(TonalIPAOperator):
         Gets the base tone (one of the 6/7 general tones) for the given tone
         mark.
 
-        @type toneMark: string
+        @type toneMark: str
         @param toneMark: tone mark representation of the tone
-        @rtype: string
+        @rtype: str
         @return: base tone
         @raise InvalidEntityError: if the toneMark does not exist.
         """
@@ -5649,10 +5649,10 @@ class BridgeConverter(ReadingConverter):
         Extracts all conversion directions implicitly stored in the bridge
         definition.
 
-        @type bridge: list of tuples
+        @type bridge: list of tuple
         @param bridge: 3-tuples indicating conversion direction over a third
             reading (bridge)
-        @rtype: list of tuples
+        @rtype: list of tuple
         @return: conversion directions
         """
         dirSet = set()
@@ -5729,12 +5729,12 @@ class SimpleReadingConverterAdaptor(object):
         """
         Creates an instance of the SimpleReadingConverterAdaptor.
 
-        @type converterInst: object
+        @type converterInst: instance
         @param converterInst: L{ReadingConverter} instance doing the actual
             conversion work.
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of reading converted from
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of reading converted to
         """
         self.converterInst = converterInst
@@ -5749,13 +5749,13 @@ class SimpleReadingConverterAdaptor(object):
         If parameters fromReading or toReading are not given the class's default
         values will be applied.
 
-        @type string: string
+        @type string: str
         @param string: string written in the source reading
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
-        @rtype: string
+        @rtype: str
         @returns: the input string converted to the C{toReading}
         @raise DecompositionError: if the string can not be decomposed into
             basic entities with regards to the source reading.
@@ -5778,13 +5778,13 @@ class SimpleReadingConverterAdaptor(object):
         If parameters fromReading or toReading are not given the class's default
         values will be applied.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of entities written in source reading
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
-        @rtype: list of strings
+        @rtype: list of str
         @return: list of entities written in target reading
         @raise ConversionError: on operations specific to the conversion between
             the two readings (e.g. error on converting entities).
@@ -5870,10 +5870,10 @@ class ReadingFactory(object):
         databaseSettings, or as an instantiated L{DatabaseConnector} given to
         dbConnectInst, the latter one will be preferred.
 
-        @type databaseSettings: dictionary
+        @type databaseSettings: dict
         @param databaseSettings: database settings passed to the
             L{DatabaseConnector}, see there for feasible values
-        @type dbConnectInst: object
+        @type dbConnectInst: instance
         @param dbConnectInst: instance of a L{DatabaseConnector}
         @bug: Specifying another database connector overwrites settings
             of other instances.
@@ -5904,7 +5904,7 @@ class ReadingFactory(object):
         Publishes a L{ReadingOperator} to the list and thus makes it available
         for other methods in the library.
 
-        @type readingOperator: object
+        @type readingOperator: classobj
         @param readingOperator: a new L{ReadingOperator} to be published
         """
         self.sharedState['readingOperatorClasses']\
@@ -5914,7 +5914,7 @@ class ReadingFactory(object):
         """
         Gets a list of all supported readings.
 
-        @rtype: list of strings
+        @rtype: list of str
         @return: a list of readings a L{ReadingOperator} is available for
         """
         return self.sharedState['readingOperatorClasses'].keys()
@@ -5923,9 +5923,9 @@ class ReadingFactory(object):
         """
         Gets the L{ReadingOperator}'s class for the given reading.
 
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of a supported reading
-        @rtype: object
+        @rtype: classobj
         @return: a L{ReadingOperator} class
         @raise UnsupportedError: if the given reading is not supported.
         """
@@ -5937,10 +5937,10 @@ class ReadingFactory(object):
         """
         Creates an instance of a L{ReadingOperator} for the given reading.
 
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of a supported reading
         @param options: options for the created instance
-        @rtype: object
+        @rtype: instance
         @return: a L{ReadingOperator} instance
         @raise UnsupportedError: if the given reading is not supported.
         """
@@ -5952,7 +5952,7 @@ class ReadingFactory(object):
         Publishes a L{ReadingConverter} to the list and thus makes it available
         for other methods in the library.
 
-        @type readingConverter: object
+        @type readingConverter: classobj
         @param readingConverter: a new L{readingConverter} to be published
         """
         for fromReading, toReading in readingConverter.CONVERSION_DIRECTIONS:
@@ -5964,11 +5964,11 @@ class ReadingFactory(object):
         Gets the L{ReadingConverter}'s class for the given source and target
         reading.
 
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
-        @rtype: object
+        @rtype: classobj
         @return: a L{ReadingConverter} class
         @raise UnsupportedError: if conversion for the given readings is not
             supported.
@@ -5992,9 +5992,9 @@ class ReadingFactory(object):
         that on conversion the source and target readings don't have to be
         specified. Other methods signatures remain unchanged.
 
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
         @param args: optional list of L{RomanisationOperator}s to use for
             handling source and target readings.
@@ -6013,7 +6013,7 @@ class ReadingFactory(object):
             L{ReadingOperator}s used for handling target readings. If an
             operator for the target reading is explicitly specified, no options
             can be given.
-        @rtype: object
+        @rtype: instance
         @return: a L{SimpleReadingConverterAdaptor} or L{ReadingConverter}
             instance
         @raise UnsupportedError: if conversion for the given readings is not
@@ -6035,7 +6035,7 @@ class ReadingFactory(object):
         """
         Checks if the conversion from reading A to reading B is supported.
 
-        @rtype: boolean
+        @rtype: bool
         @return: true if conversion is supported, false otherwise
         """
         return (fromReading, toReading) \
@@ -6067,10 +6067,10 @@ class ReadingFactory(object):
         Returns an instance of a L{ReadingOperator} for the given reading from
         the internal cache and creates it if it doesn't exist yet.
 
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of a supported reading
         @param options: additional options for instance
-        @rtype: object
+        @rtype: instance
         @return: a L{ReadingOperator} instance
         @raise UnsupportedError: if the given reading is not supported.
         """
@@ -6090,9 +6090,9 @@ class ReadingFactory(object):
         target reading from the internal cache and creates it if it doesn't
         exist yet.
 
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
         @param args: optional list of L{RomanisationOperator}s to use for
             handling source and target readings.
@@ -6109,7 +6109,7 @@ class ReadingFactory(object):
             L{ReadingOperator}s used for handling target readings. If an
             operator for the target reading is explicitly specified, no options
             can be given.
-        @rtype: object
+        @rtype: instance
         @return: an L{ReadingConverter} instance
         @raise UnsupportedError: if conversion for the given readings are not
             supported.
@@ -6139,9 +6139,9 @@ class ReadingFactory(object):
         Checks for special operators requested for the given source and target
         reading.
 
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
         @param args: optional list of L{RomanisationOperator}s to use for
             handling source and target readings.
@@ -6201,9 +6201,8 @@ class ReadingFactory(object):
         Constructs a unique hashable key for a given main key and a dictionary.
         The dictionary's contents have to be hashable.
 
-        @type mainKey: object
         @param mainKey: hashable object as main key
-        @type dictionary: dictionary
+        @type dictionary: dict
         @param dictionary: dictionary used for the hash
         @rtype: tuple
         @return: a tuple key containing the given parameters
@@ -6237,11 +6236,11 @@ class ReadingFactory(object):
         Converts the given string in the source reading to the given target
         reading.
 
-        @type readingStr: string
+        @type readingStr: str
         @param readingStr: string that needs to be converted
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
         @param args: optional list of L{RomanisationOperator}s to use for
             handling source and target readings.
@@ -6258,7 +6257,7 @@ class ReadingFactory(object):
             L{ReadingOperator}s used for handling target readings. If an
             operator for the target reading is explicitly specified, no options
             can be given.
-        @rtype: string
+        @rtype: str
         @return: the converted string
         @raise DecompositionError: if the string can not be decomposed into
             basic entities with regards to the source reading or the given
@@ -6278,11 +6277,11 @@ class ReadingFactory(object):
         Converts a list of entities in the source reading to the given target
         reading.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of entities written in source reading
-        @type fromReading: string
+        @type fromReading: str
         @param fromReading: name of the source reading
-        @type toReading: string
+        @type toReading: str
         @param toReading: name of the target reading
         @param args: optional list of L{RomanisationOperator}s to use for
             handling source and target readings.
@@ -6299,7 +6298,7 @@ class ReadingFactory(object):
             L{ReadingOperator}s used for handling target readings. If an
             operator for the target reading is explicitly specified, no options
             can be given.
-        @rtype: list of strings
+        @rtype: list of str
         @return: list of entities written in target reading
         @raise ConversionError: on operations specific to the conversion between
             the two readings (e.g. error on converting entities).
@@ -6326,12 +6325,12 @@ class ReadingFactory(object):
         The returned list contains a mix of basic reading entities and other
         characters e.g. spaces and punctuation marks.
 
-        @type string: string
+        @type string: str
         @param string: reading string
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
-        @rtype: list of strings
+        @rtype: list of str
         @return: a list of basic entities of the input string
         @raise DecompositionError: if the string can not be decomposed.
         @raise UnsupportedError: if the given reading is not supported.
@@ -6344,12 +6343,12 @@ class ReadingFactory(object):
         Composes the given list of basic entities to a string for the given
         reading.
 
-        @type readingEntities: list of strings
+        @type readingEntities: list of str
         @param readingEntities: list of basic syllables or other content
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
-        @rtype: string
+        @rtype: str
         @return: composed entities
         @raise UnsupportedError: if the given reading is not supported.
         """
@@ -6360,12 +6359,12 @@ class ReadingFactory(object):
         """
         Checks if the given string is an entity of the given reading.
 
-        @type entity: string
+        @type entity: str
         @param entity: entity to check
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
-        @rtype: boolean
+        @rtype: bool
         @return: true if string is an entity of the reading, false otherwise.
         @raise UnsupportedError: if the given reading is not supported.
         """
@@ -6384,12 +6383,12 @@ class ReadingFactory(object):
         The returned list construction consists of two entity types: entities of
         the romanisation and other strings.
 
-        @type string: string
+        @type string: str
         @param string: reading string
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
-        @rtype: list of lists of strings
+        @rtype: list of list of str
         @return: a list of all possible decompositions consisting of basic
             entities.
         @raise DecompositionError: if the given string has a wrong format.
@@ -6411,12 +6410,12 @@ class ReadingFactory(object):
         will not be dealt with, this is the task of the more general decompose
         method.
 
-        @type string: string
+        @type string: str
         @param string: reading string
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
-        @rtype: list of lists of strings
+        @rtype: list of list of str
         @return: a list of possible segmentations (several if ambiguous) into
             single syllables
         @raise DecompositionError: if the given string has an invalid format.
@@ -6439,12 +6438,12 @@ class ReadingFactory(object):
         with this protocol has to be implemented here. Thus this method can only
         return true for one and only one possible decomposition for all strings.
 
-        @type decomposition: list of strings
+        @type decomposition: list of str
         @param decomposition: decomposed reading string
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
-        @rtype: boolean
+        @rtype: bool
         @return: False, as this methods needs to be implemented by the sub class
         @raise UnsupportedError: if the given reading is not supported or the
             reading doesn't support the specified method.
@@ -6461,10 +6460,10 @@ class ReadingFactory(object):
 
         The list is used in the segmentation process to find entity boundaries.
 
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
-        @rtype: set of strings
+        @rtype: set of str
         @return: set of supported syllables
         @raise UnsupportedError: if the given reading is not supported or the
             reading doesn't support the specified method.
@@ -6481,7 +6480,7 @@ class ReadingFactory(object):
         """
         Returns a set of tones supported by the reading.
 
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
         @rtype: list
@@ -6498,13 +6497,13 @@ class ReadingFactory(object):
         """
         Gets the entity with tone mark for the given plain entity and tone.
 
-        @type plainEntity: string
+        @type plainEntity: str
         @param plainEntity: entity without tonal information
         @param tone: tone
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
-        @rtype: string
+        @rtype: str
         @return: entity with appropriate tone
         @raise InvalidEntityError: if the entity is invalid.
         @raise UnsupportedError: if the given reading is not supported or the
@@ -6520,9 +6519,9 @@ class ReadingFactory(object):
         Splits the entity into an entity without tone mark (plain entity) and
         the entity's tone.
 
-        @type entity: string
+        @type entity: str
         @param entity: entity with tonal information
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
         @rtype: tuple
@@ -6541,10 +6540,10 @@ class ReadingFactory(object):
         Gets the list of plain entities supported by this reading. Different to
         L{getReadingEntities()} the entities will carry no tone mark.
 
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
-        @rtype: set of strings
+        @rtype: set of str
         @return: set of supported syllables
         @raise UnsupportedError: if the given reading is not supported or the
             reading doesn't support the specified method.
@@ -6563,12 +6562,12 @@ class ReadingFactory(object):
 
         Reading entities will be handled as being case insensitive.
 
-        @type entity: string
+        @type entity: str
         @param entity: entity to check
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the input
-        @rtype: boolean
+        @rtype: bool
         @return: C{True} if string is an entity of the reading, C{False}
             otherwise.
         @raise UnsupportedError: if the given reading is not supported or the

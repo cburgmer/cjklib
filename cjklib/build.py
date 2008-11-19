@@ -95,12 +95,12 @@ class TableBuilder(object):
         """
         Constructs the TableBuilder.
 
-        @type dataPath: list of strings
+        @type dataPath: list of str
         @param dataPath: optional list of paths to the data file(s)
-        @type dbConnectInst: object
+        @type dbConnectInst: instance
         @param dbConnectInst: instance of a L{DatabaseConnector}. If not given
             all sql code will be printed to stdout.
-        @type quiet: boolean
+        @type quiet: bool
         @param quiet: if true no status information will be printed to stderr
         """
         self.dataPath = dataPath
@@ -131,11 +131,11 @@ class TableBuilder(object):
         For each file name every given path is checked and the first match is
         returned.
 
-        @type fileNames: list of strings or string
+        @type fileNames: str/list of str
         @param fileNames: possible file names
-        @type fileType: string
+        @type fileType: str
         @param fileType: textual type of file used in error msg
-        @rtype: string
+        @rtype: str
         @return: path to file of first match in search for existing file
         @raise IOError: if no file found
         """
@@ -223,7 +223,7 @@ class ListGenerator:
         """
         Initialises the ListGenerator.
 
-        @type entryList: list of strings
+        @type entryList: list of str
         @param entryList: user defined entry
         """
         self.entryList = entryList
@@ -247,12 +247,12 @@ class UnihanGenerator:
         """
         Constructs the UnihanGenerator.
 
-        @type fileName: String
+        @type fileName: str
         @param fileName: path to the Unihan database file
         @type useKeys: list
         @param useKeys: if given only these keys will be read from the table,
             otherwise all keys will be returned
-        @type quiet: boolean
+        @type quiet: bool
         @param quiet: if true no status information will be printed to stderr
         """
         self.ENTRY_REGEX = re.compile(ur"U\+([0-9A-F]+)\s+(\w+)\s+(.+)\s*$")
@@ -311,7 +311,7 @@ class UnihanGenerator:
         """ 
         Returns a handle of the Unihan database file.
 
-        @rtype: handle
+        @rtype: file
         @return: file handle of the Unihan file
         """
         import zipfile
@@ -361,7 +361,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
             """
             Initialises the EntryGenerator.
 
-            @type generator: object
+            @type generator: instance
             @param generator: a L{UnihanGenerator} instance
             """
             self.generator = generator
@@ -402,7 +402,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
         """
         Returns the L{UnihanGenerator}. Constructs it if needed.
 
-        @rtype: object
+        @rtype: instance
         @return: instance of a L{UnihanGenerator}
         """
         if not self.generator:
@@ -429,7 +429,7 @@ class UnihanBMPBuilder(UnihanBuilder):
             """
             Initialises the EntryGenerator.
 
-            @type generator: object
+            @type generator: instance
             @param generator: a L{UnihanGenerator} instance
             """
             self.entryGen = UnihanBuilder.EntryGenerator(generator)
@@ -549,9 +549,9 @@ class UnihanStrokeCountBuilder(UnihanDerivedBuilder):
             """
             Initialises the StrokeCountExtractor.
 
-            @type entries: list of string tuples
+            @type entries: list of tuple
             @param entries: character entries from the Unihan database
-            @type quiet: boolean
+            @type quiet: bool
             @param quiet: if true no status information will be printed
             """
             self.entries = entries
@@ -580,9 +580,9 @@ class CharacterRadicalBuilder(UnihanDerivedBuilder):
             """
             Initialises the RadicalExtractor.
 
-            @type rsEntries: list of string tuples
+            @type rsEntries: list of tuple
             @param rsEntries: character radical entries from the Unihan database
-            @type quiet: boolean
+            @type quiet: bool
             @param quiet: if true no status information will be printed
             """
             self.RADICAL_REGEX = re.compile(ur"(\d+)\.(\d+)")
@@ -670,12 +670,12 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
             """
             Initialises the VariantGenerator.
 
-            @type variantEntries: list of string tuples
+            @type variantEntries: list of tuple
             @param variantEntries: character variant entries from the Unihan
                 database
-            @type typeList: list of strings
+            @type typeList: list of str
             @param typeList: variant types in the order given in tableEntries
-            @type quiet: boolean
+            @type quiet: bool
             @param quiet: if true no status information will be printed
             """
             self.variantEntries = variantEntries
@@ -756,12 +756,12 @@ class CharacterVariantBMPBuilder(CharacterVariantBuilder):
             """
             Initialises the BMPVariantGenerator.
 
-            @type variantEntries: list of string tuples
+            @type variantEntries: list of tuple
             @param variantEntries: character variant entries from the Unihan
                 database
-            @type typeList: list of strings
+            @type typeList: list of str
             @param typeList: variant types in the order given in tableEntries
-            @type quiet: boolean
+            @type quiet: bool
             @param quiet: if true no status information will be printed
             """
             self.variantGen = CharacterVariantBuilder.VariantGenerator( \
@@ -849,10 +849,10 @@ class CharacterReadingBuilder(UnihanDerivedBuilder):
             """
             Initialises the ReadingSplitter.
 
-            @type readingEntries: list of string tuples
+            @type readingEntries: list of tuple
             @param readingEntries: character reading entries from the Unihan
                 database
-            @type quiet: boolean
+            @type quiet: bool
             @param quiet: if true no status information will be printed
             """
             self.readingEntries = readingEntries
@@ -953,10 +953,10 @@ class CharacterXHCReadingBuilder(CharacterReadingBuilder):
             """
             Initialises the XHCReadingSplitter.
 
-            @type readingEntries: list of string tuples
+            @type readingEntries: list of tuple
             @param readingEntries: character reading entries from the Unihan
                 database
-            @type quiet: boolean
+            @type quiet: bool
             @param quiet: if true no status information will be printed
             """
             CharacterReadingBuilder.SimpleReadingSplitter.__init__(self,
@@ -969,9 +969,9 @@ class CharacterXHCReadingBuilder(CharacterReadingBuilder):
             Converts the entity with diacritics into an entity with tone mark
             as appended number.
 
-            @type entity: string
+            @type entity: str
             @param entity: entity with tonal information
-            @rtype: tuple of string and number
+            @rtype: tuple
             @return: plain entity without tone mark and entity's tone index
                 (starting with 1)
             """
@@ -1093,9 +1093,9 @@ class CSVFileLoader(TableBuilder):
         be ignored. The first line after the leading comments will be used to
         guess the csv file's format.
 
-        @type fileHandle: handle
+        @type fileHandle: file
         @param fileHandle: file handle of the CSV file
-        @rtype: iterator
+        @rtype: instance
         @return: CSV reader object returning one entry per line
         """
         def prependLineGenerator(line, data):
@@ -1494,11 +1494,11 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
             """
             Initialises the StrokeCountGenerator.
 
-            @type dbConnectInst: object
+            @type dbConnectInst: instance
             @param dbConnectInst: instance of a L{DatabaseConnector}.
             @type characterSet: set
             @param characterSet: set of characters to generate the table for
-            @type quiet: boolean
+            @type quiet: bool
             @param quiet: if true no status information will be printed to
                 stderr
             """
@@ -1558,16 +1558,16 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             """
             Initialises the CombinedStrokeCountGenerator.
 
-            @type dbConnectInst: object
+            @type dbConnectInst: instance
             @param dbConnectInst: instance of a L{DatabaseConnector}.
             @type characterSet: set
             @param characterSet: set of characters to generate the table for
-            @type tableEntries: list of lists
+            @type tableEntries: list of list
             @param tableEntries: list of characters with Z-variant
-            @type preferredBuilder: enumerator
+            @type preferredBuilder: instance
             @param preferredBuilder: TableBuilder which forms are preferred over
                 entries from the Unihan table
-            @type quiet: boolean
+            @type quiet: bool
             @param quiet: if true no status information will be printed to
                 stderr
             """
@@ -1596,11 +1596,11 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             Once calculated the stroke count will be cached in the given
             strokeCountDict object.
 
-            @type char: character
+            @type char: str
             @param char: Chinese character
-            @type zVariant: number
+            @type zVariant: int
             @param zVariant: Z-variant of character
-            @rtype: number
+            @rtype: int
             @return: stroke count
             @raise ValueError: if stroke count is ambiguous due to inconsistent
                 values wrt Unihan vs. own data.
@@ -1751,7 +1751,7 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
             """
             Initialises the CharacterComponentGenerator.
 
-            @type dbConnectInst: object
+            @type dbConnectInst: instance
             @param dbConnectInst: instance of a L{DatabaseConnector}
             @type characterSet: set
             @param characterSet: set of characters to generate the table for
@@ -1765,9 +1765,9 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
             """
             Gets all character components for the given glyph.
 
-            @type char: character
+            @type char: str
             @param char: Chinese character
-            @type zVariant: number
+            @type zVariant: int
             @param zVariant: Z-variant of character
             @rtype: set
             @return: all components of the character
@@ -1840,11 +1840,11 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
             """
             Initialises the CharacterRadicalStrokeCountGenerator.
 
-            @type dbConnectInst: object
+            @type dbConnectInst: instance
             @param dbConnectInst: instance of a L{DatabaseConnector}
             @type characterSet: set
             @param characterSet: set of characters to generate the table for
-            @type quiet: boolean
+            @type quiet: bool
             @param quiet: if true no status information will be printed to
                 stderr
             """
@@ -1858,9 +1858,9 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
             """
             Returns the Kangxi radical index for the given component.
 
-            @type form: char
+            @type form: str
             @param form: component
-            @rtype: number
+            @rtype: int
             @return: radical index of the given radical form.
             """
             if self.radicalForms == None:
@@ -1881,10 +1881,10 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
             Filters the set of given radical form entries to return only one
             single occurrence of a radical.
 
-            @type formSet: set of dictionaries
+            @type formSet: set of dict
             @param formSet: radical/residual stroke count entries as generated
                 by L{getEntries()}.
-            @rtype: set of dictionaries
+            @rtype: set of dict
             @return: subset of input
             @todo Lang: On multiple occurrences of same radical (may be in
                 different forms): Which one to choose? Implement to turn down
@@ -2148,7 +2148,7 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
             """
             Initialises the ResidualStrokeCountExtractor.
 
-            @type dbConnectInst: object
+            @type dbConnectInst: instance
             @param dbConnectInst: instance of a L{DatabaseConnector}
             @type characterSet: set
             @param characterSet: set of characters to generate the table for
@@ -2163,11 +2163,11 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
             occurrences (e.g. 伦) only returns the residual stroke count for the
             "main" radical form.
 
-            @type char: character
+            @type char: str
             @param char: Chinese character
-            @type zVariant: number
+            @type zVariant: int
             @param zVariant: I{Z-variant} of given character
-            @rtype: list of tuples
+            @rtype: list of tuple
             @return: list of residual stroke count entries
             @todo Lang: Implement, find a good algorithm to turn down unwanted
                 forms, don't just choose random one. See the following list::
@@ -2220,6 +2220,7 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
     COLUMNS = ['ChineseCharacter', 'ZVariant', 'RadicalIndex',
         'ResidualStrokeCount']
     PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant', 'RadicalIndex']
+    INDEX_KEYS = [['RadicalIndex']]
     COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)', 'RadicalIndex': 'INTEGER',
         'ZVariant': 'INTEGER', 'ResidualStrokeCount': 'INTEGER'}
 
@@ -2250,12 +2251,12 @@ class CombinedCharacterResidualStrokeCountBuilder(
             """
             Initialises the CombinedResidualStrokeCountExtractor.
 
-            @type tableEntries: list of lists
+            @type tableEntries: list of list
             @param tableEntries: list of characters with Z-variant
-            @type preferredBuilder: enumerator
+            @type preferredBuilder: instance
             @param preferredBuilder: TableBuilder which forms are preferred over
                 entries from the Unihan table
-            @type quiet: boolean
+            @type quiet: bool
             @param quiet: if true no status information will be printed
             """
             self.RADICAL_REGEX = re.compile(ur"(\d+)\.(\d+)")
@@ -2324,13 +2325,13 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             """
             Initialises the TableGenerator.
 
-            @type fileHandle: handle
+            @type fileHandle: file
             @param fileHandle: handle of file to read from
-            @type quiet: boolean
+            @type quiet: bool
             @param quiet: if true no status information will be printed
-            @type entryRegex: object
+            @type entryRegex: instance
             @param entryRegex: regular expression object for entry pattern
-            @type columns: list of strings
+            @type columns: list of str
             @param columns: column names of generated data
             @type filterFunc: function
             @param filterFunc: function used to filter entry content
@@ -2417,12 +2418,12 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
         The file can be either normal content, zip, tar, .tar.gz, tar.bz2
 
-        @type filePath: string
+        @type filePath: str
         @param filePath: path of file
-        @type compressedContent: string
+        @type compressedContent: str
         @param compressedContent: file name to extract from compressed file, if
             filePath represents a container format
-        @rtype: handle
+        @rtype: file
         @return: handle to file's content
         """
         import zipfile
@@ -2538,7 +2539,7 @@ class WordIndexBuilder(EntryGeneratorBuilder):
             """
             Initialises the WordEntryGenerator.
 
-            @type entries: list of tuples
+            @type entries: list of tuple
             @param entries: a list of headword and its translation
             """
             self.entries = entries
@@ -2635,9 +2636,9 @@ class CEDICTBuilder(CEDICTFormatBuilder):
         """
         Converts the C{'u:'} to C{'ü'}.
 
-        @type entry: string tuple
+        @type entry: tuple
         @param entry: a dictionary entry
-        @rtype: string tuple
+        @rtype: tuple
         @return: the given entry with corrected ü-voul
         """
         if type(entry) == type({}):
@@ -2727,27 +2728,27 @@ class DatabaseBuilder:
         """
         Constructs the DatabaseBuilder.
 
-        @type dataPath: list of strings
+        @type dataPath: list of str
         @param dataPath: optional list of paths to the data file(s)
-        @type databaseSettings: dictionary
+        @type databaseSettings: dict
         @param databaseSettings: dictionary holding the database options for the
             dbconnector module. If key 'dump' is given all sql code will be
             printed to stdout.
-        @type quiet: boolean
+        @type quiet: bool
         @param quiet: if true no status information will be printed to stderr
-        @type rebuildDepending: boolean
+        @type rebuildDepending: bool
         @param rebuildDepending: if true existing tables that depend on updated
             tables will be dropped and built from scratch
-        @type rebuildExisting: boolean
+        @type rebuildExisting: bool
         @param rebuildExisting: if true existing tables will be dropped and
             built from scratch
-        @type noFail: boolean
+        @type noFail: bool
         @param noFail: if true build process won't terminate even if one table
             fails to build
         @type prefer: list
         @param prefer: list of L{TableBuilder} names to prefer in conflicting
             cases
-        @type additionalBuilders: list of classes
+        @type additionalBuilders: list of classobj
         @param additionalBuilders: list of externally provided TableBuilders
         """
         if not dataPath:
@@ -2784,7 +2785,7 @@ class DatabaseBuilder:
         """
         Changes the data path.
 
-        @type dataPath: list of strings
+        @type dataPath: list of str
         @param dataPath: list of paths to the data file(s)
         """
         if type(dataPath) == type([]):
@@ -2908,9 +2909,9 @@ class DatabaseBuilder:
         Returns true if either rebuild is turned on by default or we build into
         database and the table doesn't exist yet.
 
-        @type tableName: class
+        @type tableName: classobj
         @param tableName: L{TableBuilder} class
-        @rtype: boolean
+        @rtype: bool
         @return: True, if table needs to be rebuilt
         """
         if self.rebuildExisting or not self.db:
@@ -2923,9 +2924,9 @@ class DatabaseBuilder:
         Gets the name of the tables that needs to be built to resolve
         dependencies.
 
-        @type tableNames: list of strings
+        @type tableNames: list of str
         @param tableNames: list of tables to build
-        @rtype: list of strings
+        @rtype: list of str
         @return: names of tables needed to resolve dependencies
         """
         def solveDependencyRecursive(table):
@@ -2935,7 +2936,7 @@ class DatabaseBuilder:
 
             Uses parent's variables to store data.
 
-            @type table: string
+            @type table: str
             @param table: table name for which to solve dependencies
             """
             if table in tableNames:
@@ -2980,9 +2981,9 @@ class DatabaseBuilder:
 
         Dependencies depend on the choice of table builders and thus may vary.
 
-        @type tableNames: list of strings
+        @type tableNames: list of str
         @param tableNames: list of tables
-        @rtype: list of strings
+        @rtype: list of str
         @return: names of tables that depend on given tables
         """
         dependencyTables = set(tableNames)
@@ -3008,9 +3009,9 @@ class DatabaseBuilder:
         Gets the name of the tables that depend on the given tables to be built
         and already exist, thus need to be rebuilt.
 
-        @type tableNames: list of strings
+        @type tableNames: list of str
         @param tableNames: list of tables
-        @rtype: list of strings
+        @rtype: list of str
         @return: names of tables that need to be rebuilt because of dependencies
         """
         dependingTables = self.getDependingTables(tableNames)
@@ -3028,9 +3029,9 @@ class DatabaseBuilder:
         """
         Gets the build order for the given table names.
 
-        @type tableNames: list of strings
+        @type tableNames: list of str
         @param tableNames: list of names of tables to build
-        @rtype: list of classes
+        @rtype: list of classobj
         @return: L{TableBuilder}s in build order
         """
         # get dependencies and save order
@@ -3051,9 +3052,9 @@ class DatabaseBuilder:
         """
         Create order in which the tables have to be created.
 
-        @type tableBuilderClasses: list of classes
+        @type tableBuilderClasses: list of classobj
         @param tableBuilderClasses: list of L{TableBuilder} classes
-        @rtype: list of classes
+        @rtype: list of classobj
         @return: the given classes ordered in build dependency order
         """
         dependencyOrder = []
@@ -3090,18 +3091,18 @@ class DatabaseBuilder:
         """
         Gets all classes in module that implement L{TableBuilder}.
 
-        @type preferClassSet: set
+        @type preferClassSet: set of str
         @param preferClassSet: set of L{TableBuilder} names to prefer in
             conflicting cases, resolveConflicting must be True to take effect
             (default)
-        @type resolveConflicts: boolean
+        @type resolveConflicts: bool
         @param resolveConflicts: if true conflicting builders will be removed
             so that only one builder is left per Table.
-        @type quiet: boolean
+        @type quiet: bool
         @param quiet: if true no status information will be printed to stderr
-        @type additionalBuilders: list of classes
+        @type additionalBuilders: list of classobj
         @param additionalBuilders: list of externally provided TableBuilders
-        @rtype: dictionary of string class pairs
+        @rtype: dict
         @return: dictionary of all classes inheriting form L{TableBuilder} that
             provide a table (i.d. non abstract implementations), with its name
             as key
@@ -3154,7 +3155,7 @@ class DatabaseBuilder:
         """
         Gets names of supported tables.
 
-        @rtype: list of strings
+        @rtype: list of str
         @return: names of tables
         """
         classDict = DatabaseBuilder.getTableBuilderClasses(
@@ -3168,7 +3169,7 @@ def output(message):
     """
     Prints the given message to stdout with the system's default encoding.
 
-    @type message: string
+    @type message: str
     @param message: message to print
     """
     language, default_encoding = locale.getdefaultlocale()
@@ -3178,7 +3179,7 @@ def warn(message):
     """
     Prints the given message to stderr with the system's default encoding.
 
-    @type message: string
+    @type message: str
     @param message: message to print
     """
     language, default_encoding = locale.getdefaultlocale()
@@ -3189,9 +3190,9 @@ def getDropTableStatement(tableName):
     Returns the SQL remove table statement for removing a table with the given
     name if it exists.
 
-    @type tableName: string
+    @type tableName: str
     @param tableName: name of table to add data to
-    @rtype: string
+    @rtype: str
     @return: SQL drop table statement
     """
     return 'DROP TABLE IF EXISTS ' + tableName + ';'
@@ -3201,9 +3202,9 @@ def getFTS3DropTableStatement(tableName):
     Returns the SQL remove table statement for removing a table with the given
     name if it exists.
 
-    @type tableName: string
+    @type tableName: str
     @param tableName: name of table to add data to
-    @rtype: string
+    @rtype: str
     @return: SQL drop table statement
     """
     normalColumnsTableName = tableName + '_Normal'
@@ -3218,21 +3219,21 @@ def getCreateTableStatement(tableName, columnList, columnTypes={},
     Returns the SQL create table statement for creating a new table for the
     given columns.
 
-    @type tableName: string
+    @type tableName: str
     @param tableName: name of table to add data to
-    @type columnList: list of strings
+    @type columnList: list of str
     @param columnList: name of columns to include in table
-    @type columnTypes: dictionary of string pairs
+    @type columnTypes: dict
     @param columnTypes: sql type of columns
-    @type columnDefaults: dictionary
+    @type columnDefaults: dict
     @param columnDefaults: default value for columns, if omitted NOT NULL
         will be assumed
-    @type primaryKeyColumns: list of strings
+    @type primaryKeyColumns: list of str
     @param primaryKeyColumns: column names that build the default key
-    @type uniqueKeyColumns: list of lists of strings
+    @type uniqueKeyColumns: list of list of str
     @param uniqueKeyColumns: several lists of column names, each list
         building a unique key
-    @rtype: string
+    @rtype: str
     @return: SQL create table statement
     """
     # construct column definitions
@@ -3272,7 +3273,7 @@ def testFTS3(cur):
     Tests if the SQLite FTS3 extension is supported on the build system.
 
     @param cur: db cursor object
-    @rtype: boolean
+    @rtype: bool
     @return: C{True} if the FTS3 extension exists, C{False} otherwise.
     """
     # Until #3436 is fixed (http://www.sqlite.org/cvstrac/tktview?tn=3436,5)
@@ -3297,23 +3298,23 @@ def getFTS3CreateTableStatement(tableName, columnList, columnTypes={},
     Returns the SQL create table statement for creating a new table for the
     given columns using the SQLite FTS3 extension for fulltext searching.
 
-    @type tableName: string
+    @type tableName: str
     @param tableName: name of table to add data to
-    @type columnList: list of strings
+    @type columnList: list of str
     @param columnList: name of columns to include in table
-    @type columnTypes: dictionary of string pairs
+    @type columnTypes: dict
     @param columnTypes: sql type of columns
-    @type columnDefaults: dictionary
+    @type columnDefaults: dict
     @param columnDefaults: default value for columns, if omitted NOT NULL
         will be assumed
-    @type primaryKeyColumns: list of strings
+    @type primaryKeyColumns: list of str
     @param primaryKeyColumns: column names that build the default key
-    @type uniqueKeyColumns: list of lists of strings
+    @type uniqueKeyColumns: list of list of str
     @param uniqueKeyColumns: several lists of column names, each list
         building a unique key
-    @type fullTextColumns: list of strings
+    @type fullTextColumns: list of str
     @param fullTextColumns: column names that are indexed for fulltext search
-    @rtype: string
+    @rtype: str
     @return: SQL create table statement
     """
     # construct column definitions
@@ -3371,12 +3372,12 @@ def getInsertStatement(tableName, data):
     have the order compatible to the table definition, or as a dictionary where
     the keys are the columns to write.
 
-    @type tableName: string
+    @type tableName: str
     @param tableName: name of table to add data to
-    @type data: dictionary or list
+    @type data: dict/list
     @param data: key value pairs, with keys giving the column names or a simple
         list of values
-    @rtype: string
+    @rtype: str
     @return: SQL insert values statement
     """
     if type(data) == type({}):
@@ -3397,14 +3398,14 @@ def getFTS3InsertStatement(tableName, data, fullTextColumns=[]):
     have the order compatible to the table definition, or as a dictionary where
     the keys are the columns to write.
 
-    @type tableName: string
+    @type tableName: str
     @param tableName: name of table to add data to
-    @type data: dictionary or list
+    @type data: dict/list
     @param data: key value pairs, with keys giving the column names or a simple
         list of values
-    @type fullTextColumns: list of strings
+    @type fullTextColumns: list of str
     @param fullTextColumns: column names that are indexed for fulltext search
-    @rtype: string
+    @rtype: str
     @return: SQL insert values statement
     """
     normalColumnsTableName = tableName + '_Normal'
@@ -3436,12 +3437,12 @@ def getCreateIndexStatement(tableName, indexKeyColumns):
     Returns the SQL create index statement for creating indices for the
     given columns.
 
-    @type tableName: string
+    @type tableName: str
     @param tableName: name of table to add data to
-    @type indexKeyColumns: list of lists of strings
+    @type indexKeyColumns: list of list of str
     @param indexKeyColumns: several lists of column names, each list
         building index key
-    @rtype: list of strings
+    @rtype: list of str
     @return: SQL create index statements
     """
     if not indexKeyColumns:
@@ -3456,12 +3457,12 @@ def getFTS3CreateIndexStatement(tableName, indexKeyColumns):
     Returns the SQL create index statement for creating indices for the
     given columns for tables created with the FTS3 extension in mind.
 
-    @type tableName: string
+    @type tableName: str
     @param tableName: name of table to add data to
-    @type indexKeyColumns: list of lists of strings
+    @type indexKeyColumns: list of list of str
     @param indexKeyColumns: several lists of column names, each list
         building index key
-    @rtype: list of strings
+    @rtype: list of str
     @return: SQL create index statements
     """
     if not indexKeyColumns:

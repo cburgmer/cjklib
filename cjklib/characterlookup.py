@@ -275,10 +275,10 @@ class CharacterLookup:
         databaseSettings, or as an instantiated L{DatabaseConnector} given to
         dbConnectInst, the latter one will be preferred.
 
-        @type databaseSettings: dictionary
+        @type databaseSettings: dict
         @param databaseSettings: database settings passed to the
             L{DatabaseConnector}, see there for feasible values
-        @type dbConnectInst: object
+        @type dbConnectInst: instance
         @param dbConnectInst: instance of a L{DatabaseConnector}
         """
         # get connector to database
@@ -297,7 +297,7 @@ class CharacterLookup:
         """
         Gets the L{ReadingFactory} instance.
 
-        @rtype: object
+        @rtype: instance
         @return: a L{ReadingFactory} instance.
         """
         # get reading factory
@@ -311,12 +311,12 @@ class CharacterLookup:
         """
         Gets all know characters for the given reading.
 
-        @type entity: string
+        @type entity: str
         @param entity: reading entity for lookup
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the reading input
-        @rtype: list of chars
+        @rtype: list of str
         @return: list of characters for the given reading
         @raise ValueError: if invalid reading entity or several entities are
             given.
@@ -349,12 +349,12 @@ class CharacterLookup:
         """
         Gets all know readings for the character in the given target reading.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character for lookup
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of target reading
         @param options: additional options for handling the reading output
-        @rtype: string
+        @rtype: str
         @return: list of reading entities for the given character
         @raise UnsupportedError: if no mapping between characters and target
             reading exists.
@@ -392,12 +392,12 @@ class CharacterLookup:
         Gets a reading where a mapping from to Chinese characters is supported
         and that is compatible (a conversion is supported) to the given reading.
 
-        @type readingN: string
+        @type readingN: str
         @param readingN: name of reading
-        @type toCharReading: boolean
+        @type toCharReading: bool
         @param toCharReading: C{True} if conversion is done in direction to the
             given reading, C{False} otherwise
-        @rtype: string
+        @rtype: str
         @return: a reading that is compatible to the given one and where
             character lookup is supported
         @raise UnsupportedError: if no mapping between characters and target
@@ -426,9 +426,9 @@ class CharacterLookup:
         Gets the locale search value for a database lookup on databases with
         I{character locale} dependant content.
 
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV)
-        @rtype: string
+        @rtype: str
         @return: search locale used for SQL select
         @raise ValueError: if invalid I{character locale} specified
         """
@@ -462,11 +462,11 @@ class CharacterLookup:
         some of the returned characters might be only be variants under some
         locales.
 
-        @type char: char
+        @type char: str
         @param char: Chinese character
-        @type variantType: char
+        @type variantType: str
         @param variantType: type of variant(s) to be returned
-        @rtype: list of chars
+        @rtype: list of str
         @return: list of character variant(s) of given type
 
         @todo Docu: Write about different kinds of variants
@@ -498,9 +498,9 @@ class CharacterLookup:
         some of the returned characters might be only be variants under some
         locales.
 
-        @type char: char
+        @type char: str
         @param char: Chinese character
-        @rtype: list of tuples
+        @rtype: list of tuple
         @return: list of character variant(s) with their type
         """
         return self.db.select('CharacterVariant', ['Variant', 'Type'],
@@ -515,11 +515,11 @@ class CharacterLookup:
         character glyphs and represents the most common glyph used under the
         given locale.
 
-        @type char: char
+        @type char: str
         @param char: Chinese character
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV)
-        @rtype: number
+        @rtype: int
         @return: Z-variant
         @raise NoInformationError: if no Z-variant information is available
         @raise ValueError: if invalid I{character locale} specified
@@ -542,9 +542,9 @@ class CharacterLookup:
         by several glyph-dependant methods instead of the abstract character
         defined by Unicode.
 
-        @type char: char
+        @type char: str
         @param char: Chinese character
-        @rtype: list of numbers
+        @rtype: list of int
         @return: list of supported Z-variants
         @raise NoInformationError: if no Z-variant information is available
         """
@@ -564,16 +564,16 @@ class CharacterLookup:
         """
         Gets the stroke count for the given character.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV). Giving the locale
             will apply the default I{Z-variant} defined by
             L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
             C{zVariant} will be ignored.
-        @type zVariant: number
+        @type zVariant: int
         @param zVariant: I{Z-variant} of the first character
-        @rtype: number
+        @rtype: int
         @return: stroke count of given character
         @raise NoInformationError: if no stroke count information available
         @raise ValueError: if an invalid I{character locale} is specified
@@ -628,7 +628,7 @@ class CharacterLookup:
         #The first M{indexLength-1} most frequent strokes are taken into account,
         #all other strokes are rejected from the index.
 
-        #@type indexLength: number
+        #@type indexLength: int
         #@param indexLength: length of the index
         #@rtype: dict
         #@return: dictionary for performing stroke lookups
@@ -654,11 +654,11 @@ class CharacterLookup:
         #other strokes are assigned to position M{bitLength}. Bits for strokes
         #present are set to 1 all others to 0.
 
-        #@type strokeSet: list of strings
+        #@type strokeSet: list of str
         #@param strokeSet: set of stroke types
-        #@type bitLength: number
+        #@type bitLength: int
         #@param bitLength: length of the bit field
-        #@rtype: number
+        #@rtype: int
         #@return: bit field with bits for present strokes set to 1
         #"""
         #strokeIndexLookup = self.getStrokeIndexLookup(bitLength-1)
@@ -684,7 +684,7 @@ class CharacterLookup:
         #The first M{indexLength-1} most frequent bigrams are taken into account,
         #all other bigrams are rejected from the index.
 
-        #@type indexLength: number
+        #@type indexLength: int
         #@param indexLength: length of the index
         #@rtype: dict
         #@return: dictionary for performing bigram lookups
@@ -710,11 +710,11 @@ class CharacterLookup:
         #other bigrams are assigned to position M{bitLength}. Bits for bigrams
         #present are set to 1 all others to 0.
 
-        #@type strokeList: list of strings
+        #@type strokeList: list of str
         #@param strokeList: list of stroke
-        #@type bitLength: number
+        #@type bitLength: int
         #@param bitLength: length of the bit field
-        #@rtype: number
+        #@rtype: int
         #@return: bit field with bits for present bigrams set to 1
         #"""
         #bigramIndexLookup = self._getBigramIndexLookup(bitLength-1)
@@ -737,17 +737,17 @@ class CharacterLookup:
  
         #Stroke are given as abbreviated form.
 
-        #@type strokeOrderListA: list of strings
+        #@type strokeOrderListA: list of str
         #@param strokeOrderListA: strokes A ordered in list form
-        #@type strokeOrderListB: list of strings
+        #@type strokeOrderListB: list of str
         #@param strokeOrderListB: strokes B ordered in list form
-        #@type substitutionPenalty: number
+        #@type substitutionPenalty: float
         #@param substitutionPenalty: penalty for substituting elements
-        #@type insertionPenalty: number
+        #@type insertionPenalty: float
         #@param insertionPenalty: penalty for inserting elements
-        #@type deletionPenalty: number
+        #@type deletionPenalty: float
         #@param deletionPenalty: penalty for deleting elements
-        #@rtype: number
+        #@rtype: float
         #@return: Levenshtein distance of both stroke orders
         #"""
         #n = len(strokeOrderListA)
@@ -775,11 +775,11 @@ class CharacterLookup:
  
         #Stroke types are given as abbreviated form.
 
-        #@type strokeList: list of strings
+        #@type strokeList: list of str
         #@param strokeList: list of stroke types
-        #@type locale: character
+        #@type locale: str
         #@param locale: I{character locale} (one out of TCJKV)
-        #@rtype: list of tuples
+        #@rtype: list of tuple
         #@return: list of character, Z-variant pairs having the same stroke types
         #@raise ValueError: if an invalid I{character locale} is specified
         #"""
@@ -796,12 +796,12 @@ class CharacterLookup:
         #Strokes are given as abbreviated form and can be separated by a
         #space or a hyphen.
 
-        #@type strokeOrder: string
+        #@type strokeOrder: str
         #@param strokeOrder: stroke order consisting of stroke abbreviations
             #separated by a space or hyphen
-        #@type locale: character
+        #@type locale: str
         #@param locale: I{character locale} (one out of TCJKV)
-        #@rtype: list of tuples
+        #@rtype: list of tuple
         #@return: list of character, Z-variant pairs
         #@raise ValueError: if an invalid I{character locale} is specified
         #@bug:  Table 'strokebitfield' doesn't seem to include entries from
@@ -857,21 +857,21 @@ class CharacterLookup:
         #An estimate on the first search results is calculated and only entries
         #reaching over the specified minimum estimate are included in the output.
 
-        #@type strokeOrder: string
+        #@type strokeOrder: str
         #@param strokeOrder: stroke order consisting of stroke abbreviations
             #separated by a space or hyphen
-        #@type locale: character
+        #@type locale: str
         #@param locale: I{character locale} (one out of TCJKV)
-        #@type minEstimate: number
+        #@type minEstimate: int
         #@param minEstimate: minimum estimate that entries in output have to
             #reach
-        #@type strokeCountVariance: number
+        #@type strokeCountVariance: int
         #@param strokeCountVariance: variance of stroke count
-        #@type strokeVariance: number
+        #@type strokeVariance: int
         #@param strokeVariance: variance of stroke types
-        #@type bigramVariance: number
+        #@type bigramVariance: int
         #@param bigramVariance: variance of stroke bigrams
-        #@rtype: list of tuples
+        #@rtype: list of tuple
         #@return: list of character, Z-variant pairs
         #@raise ValueError: if an invalid I{character locale} is specified
         #"""
@@ -910,9 +910,9 @@ class CharacterLookup:
         """
         Gets the stroke form for the given abbreviated name (e.g. 'HZ').
 
-        @type abbrev: string
+        @type abbrev: str
         @param abbrev: abbreviated stroke name
-        @rtype: character
+        @rtype: str
         @return: Unicode stroke character
         @raise ValueError: if invalid stroke abbreviation is specified
         """
@@ -931,9 +931,9 @@ class CharacterLookup:
         u"""
         Gets the stroke form for the given name (e.g. '横折').
 
-        @type name: string
+        @type name: str
         @param name: Chinese name of stroke
-        @rtype: character
+        @rtype: str
         @return: Unicode stroke char
         @raise ValueError: if invalid stroke name is specified
         """
@@ -952,16 +952,16 @@ class CharacterLookup:
         components. As the stroke order information for some components might be
         not obtainable the returned stroke order might be partial.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV). Giving the locale
             will apply the default I{Z-variant} defined by
             L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
             C{zVariant} will be ignored.
-        @type zVariant: number
+        @type zVariant: int
         @param zVariant: I{Z-variant} of the first character
-        @rtype: string
+        @rtype: str
         @return: string of stroke abbreviations separated by spaces and hyphens.
         @raise ValueError: if an invalid I{character locale} is specified
         @raise NoInformationError: if no stroke order information available
@@ -972,11 +972,11 @@ class CharacterLookup:
             Gets the stroke order sequence for the given character from the
             database's stroke order lookup table.
 
-            @type char: character
+            @type char: str
             @param char: Chinese character
-            @type zVariant: number
+            @type zVariant: int
             @param zVariant: I{Z-variant} of the first character
-            @rtype: string
+            @rtype: str
             @return: string of stroke abbreviations separated by spaces and
                 hyphens.
             @raise NoInformationError: if no stroke order information available
@@ -997,10 +997,10 @@ class CharacterLookup:
             """
             Gets stroke order from the tree of a single partition entry.
 
-            @type decompositionTreeList: tree list structure
+            @type decompositionTreeList: list
             @param decompositionTreeList: list of decomposition trees to derive
                 the stroke order from
-            @rtype: string
+            @rtype: str
             @return: string of stroke abbreviations separated by spaces and
                 hyphens.
             @raise NoInformationError: if no stroke order information available
@@ -1010,12 +1010,12 @@ class CharacterLookup:
                 """
                 Goes through a single layer of a tree recursively.
 
-                @type subTree: tree list structure
+                @type subTree: list
                 @param subTree: decomposition tree to derive the stroke order
                     from
-                @type index: number
+                @type index: int
                 @param index: index of current layer
-                @rtype: string
+                @rtype: str
                 @return: string of stroke abbreviations separated by spaces and
                     hyphens.
                 @raise NoInformationError: if no stroke order information
@@ -1107,9 +1107,9 @@ class CharacterLookup:
         Gets the Kangxi radical index for the given character as defined by the
         I{Unihan} database.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @rtype: number
+        @rtype: int
         @return: Kangxi radical index
         @raise NoInformationError: if no Kangxi radical index information for
             given character
@@ -1144,16 +1144,16 @@ class CharacterLookup:
         e.g. radical ⻔ is returned for character 间, though this variant form is
         not recognised under a traditional locale (like the character itself).
 
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV). Giving the locale
             will apply the default I{Z-variant} defined by
             L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
             C{zVariant} will be ignored.
-        @type zVariant: number
+        @type zVariant: int
         @param zVariant: I{Z-variant} of the first character
-        @rtype: list of tuples
+        @rtype: list of tuple
         @return: list of radical/variant form, its Z-variant, the main layout of
             the character (using a I{IDS operator}), the position of the radical
             wrt. layout (0, 1 or 2) and the residual stroke count.
@@ -1180,18 +1180,18 @@ class CharacterLookup:
         L{getCharacterKangxiRadicalResidualStrokeCount()} which is not limited
         to the mapping of characters to a Kangxi radical as done by Unihan.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @type radicalIndex: integer
+        @type radicalIndex: int
         @param radicalIndex: radical index
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV). Giving the locale
             will apply the default I{Z-variant} defined by
             L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
             C{zVariant} will be ignored.
-        @type zVariant: number
+        @type zVariant: int
         @param zVariant: I{Z-variant} of the first character
-        @rtype: list of tuples
+        @rtype: list of tuple
         @return: list of radical/variant form, its Z-variant, the main layout of
             the character (using a I{IDS operator}), the position of the radical
             wrt. layout (0, 1 or 2) and the residual stroke count.
@@ -1280,16 +1280,16 @@ class CharacterLookup:
         more entries after all, as their might exists information only about
         the residual stroke count, but not about the concrete radical form.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV). Giving the locale
             will apply the default I{Z-variant} defined by
             L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
             C{zVariant} will be ignored.
-        @type zVariant: number
+        @type zVariant: int
         @param zVariant: I{Z-variant} of the first character
-        @rtype: number
+        @rtype: int
         @return: residual stroke count
         @raise NoInformationError: if no stroke count information available
         @raise ValueError: if an invalid I{character locale} is specified
@@ -1311,18 +1311,18 @@ class CharacterLookup:
         L{getCharacterKangxiResidualStrokeCount()} which is not limited to the
         mapping of characters to a Kangxi radical as done by Unihan.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @type radicalIndex: integer
+        @type radicalIndex: int
         @param radicalIndex: radical index
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV). Giving the locale
             will apply the default I{Z-variant} defined by
             L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
             C{zVariant} will be ignored.
-        @type zVariant: number
+        @type zVariant: int
         @param zVariant: I{Z-variant} of the first character
-        @rtype: number
+        @rtype: int
         @return: residual stroke count
         @raise NoInformationError: if no stroke count information available
         @raise ValueError: if an invalid I{character locale} is specified
@@ -1375,14 +1375,31 @@ class CharacterLookup:
         """
         Gets all characters for the given Kangxi radical index.
 
-        @type radicalIndex: number
+        @type radicalIndex: int
         @param radicalIndex: Kangxi radical index
-        @rtype: list of characters
+        @rtype: list of str
         @return: list of matching Chinese characters
         @todo Docu: Write about how Unihan maps characters to a Kangxi radical.
             Especially Chinese simplified characters.
         """
         return self.db.selectSoleValue('CharacterKangxiRadical',
+            'ChineseCharacter', {'RadicalIndex': radicalIndex})
+
+    def getCharactersForRadicalIndex(self, radicalIndex):
+        """
+        Gets all characters for the given radical index.
+
+        This is a more general version of
+        L{getCharactersForKangxiRadicalIndex()} which is not limited to the
+        mapping of characters to a Kangxi radical as done by Unihan and one
+        character can show up under several different radical indices.
+
+        @type radicalIndex: int
+        @param radicalIndex: Kangxi radical index
+        @rtype: list of str
+        @return: list of matching Chinese characters
+        """
+        return self.db.selectSoleValue('CharacterResidualStrokeCount',
             'ChineseCharacter', {'RadicalIndex': radicalIndex})
 
     def getKangxiRadicalForm(self, radicalIdx, locale):
@@ -1392,11 +1409,11 @@ class CharacterLookup:
         This method will always return a single non null value, even if there
         are several radical forms for one index.
 
-        @type radicalIdx: number
+        @type radicalIdx: int
         @param radicalIdx: Kangxi radical index
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV)
-        @rtype: character
+        @rtype: str
         @return: I{Unicode radical form}
         @raise ValueError: if an invalid I{character locale} or radical index is
             specified
@@ -1423,11 +1440,11 @@ class CharacterLookup:
         I{Unicode radical variant} forms. There might be non
         I{Unicode radical variant}s for this radial as character forms though.
 
-        @type radicalIdx: number
+        @type radicalIdx: int
         @param radicalIdx: Kangxi radical index
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV)
-        @rtype: list of characters
+        @rtype: list of str
         @return: list of I{Unicode radical variant}s
         @raise ValueError: if an invalid I{character locale} is specified
         @todo Lang: Narrow locales, not all variant forms are valid under all
@@ -1449,11 +1466,11 @@ class CharacterLookup:
         radical under the given character locale. So specifying a locale allows
         strict radical handling.
 
-        @type radicalForm: char
+        @type radicalForm: str
         @param radicalForm: radical form
-        @type locale: character
+        @type locale: str
         @param locale: optional I{character locale} (one out of TCJKV)
-        @rtype: number
+        @rtype: int
         @return: Kangxi radical index
         @raise ValueError: if invalid I{character locale} or radical form is
             specified
@@ -1498,11 +1515,11 @@ class CharacterLookup:
         E.g. character for I{to speak/to say/talk/word} (Pinyin I{yán}):
         ⾔ (0x2f94), 言 (0x8a00), ⻈ (0x2ec8), 讠 (0x8ba0), 訁 (0x8a01)
 
-        @type radicalIdx: number
+        @type radicalIdx: int
         @param radicalIdx: Kangxi radical index
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV)
-        @rtype: list of characters
+        @rtype: list of str
         @return: list of Chinese characters representing the radical for the
             given index, including Unicode radical and variant forms and their
             equivalent real character forms
@@ -1537,11 +1554,11 @@ class CharacterLookup:
         radical under the given character locale. So specifying a locale allows
         strict radical handling.
 
-        @type form: character
+        @type form: str
         @param form: Chinese character
-        @type locale: character
+        @type locale: str
         @param locale: optional I{character locale} (one out of TCJKV)
-        @rtype: boolean
+        @rtype: bool
         @return: C{True} if given form is a radical or I{equivalent character},
             C{False} otherwise
         @raise ValueError: if an invalid I{character locale} is specified
@@ -1560,9 +1577,9 @@ class CharacterLookup:
         This method does a quick Unicode code index checking. So there is no
         guarantee this form has actually a radical entry in the database.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @rtype: boolean
+        @rtype: bool
         @return: C{True} if given form is a radical form, C{False} otherwise
         """
         # check if Unicode code point of character lies in between U+2e80 and
@@ -1584,11 +1601,11 @@ class CharacterLookup:
         This method may raise a UnsupportedError if there is no supported
         I{equivalent character} form.
 
-        @type radicalForm: char
+        @type radicalForm: str
         @param radicalForm: I{Unicode radical form}
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV)
-        @rtype: character
+        @rtype: str
         @return: I{equivalent character} form
         @raise UnsupportedError: if there is no supported
             I{equivalent character} form
@@ -1618,12 +1635,12 @@ class CharacterLookup:
         Several radical forms can be mapped to the same equivalent character
         and thus this method in general returns several values.
 
-        @type equivalentForm: char
+        @type equivalentForm: str
         @param equivalentForm: Equivalent character of I{Unicode radical form}
             or I{Unicode radical variant}
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV)
-        @rtype: list of characters
+        @rtype: list of str
         @return: I{equivalent character} forms
         @raise ValueError: if invalid I{character locale} or equivalent
             character is specified
@@ -1655,9 +1672,9 @@ class CharacterLookup:
         """
         Checks if given character is a I{binary IDS operator}.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @rtype: boolean
+        @rtype: bool
         @return: C{True} if I{binary IDS operator}, C{False} otherwise
         """
         return char in set(cls.IDS_BINARY)
@@ -1667,9 +1684,9 @@ class CharacterLookup:
         """
         Checks if given character is a I{trinary IDS operator}.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @rtype: boolean
+        @rtype: bool
         @return: C{True} if I{trinary IDS operator}, C{False} otherwise
         """
         return char in set(cls.IDS_TRINARY)
@@ -1679,9 +1696,9 @@ class CharacterLookup:
         """
         Checks if given character is an I{IDS operator}.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @rtype: boolean
+        @rtype: bool
         @return: C{True} if I{IDS operator}, C{False} otherwise
         """
         return cls.isBinaryIDSOperator(char) or cls.isTrinaryIDSOperator(char)
@@ -1694,19 +1711,19 @@ class CharacterLookup:
         If option C{includeEquivalentRadicalForms} is set, all equivalent forms
         will be search for when a Kangxi radical is given.
 
-        @type componentList: list of characters
+        @type componentList: list of str
         @param componentList: list of character components
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV)
-        @type includeEquivalentRadicalForms: boolean
+        @type includeEquivalentRadicalForms: bool
         @param includeEquivalentRadicalForms: if C{True} then characters in the
             given component list are interpreted as representatives for their
             radical and all radical forms are included in the search. E.g. 肉
             will include ⺼ as a possible component.
-        @type resultIncludeRadicalForms: boolean
+        @type resultIncludeRadicalForms: bool
         @param resultIncludeRadicalForms: if C{True} the result will include
             I{Unicode radical forms} and I{Unicode radical variants}
-        @rtype: list of tuples
+        @rtype: list of tuple
         @return: list of pairs of matching characters and their Z-variants
         @raise ValueError: if an invalid I{character locale} is specified
         @todo Impl: Table of same character glyphs, including special radical
@@ -1770,15 +1787,15 @@ class CharacterLookup:
         for which the locale's default I{Z-variant}'s decomposition will apply
         to the given components. Otherwise all Z-variants will be considered.
 
-        @type componentConstruct: list of list of characters
+        @type componentConstruct: list of list of str
         @param componentConstruct: list of character components given as single
             characters or, for alternative characters, given as a list
-        @type resultIncludeRadicalForms: boolean
+        @type resultIncludeRadicalForms: bool
         @param resultIncludeRadicalForms: if C{True} the result will include
             I{Unicode radical forms} and I{Unicode radical variants}
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV)
-        @rtype: list of tuples
+        @rtype: list of tuple
         @return: list of pairs of matching characters and their Z-variants
         @raise ValueError: if an invalid I{character locale} is specified
         """
@@ -1831,16 +1848,16 @@ class CharacterLookup:
         Each entry in the result list consists of a list of characters (with its
         Z-variant) and IDS operators.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character that is to be decomposed into components
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV). Giving the locale
             will apply the default I{Z-variant} defined by
             L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
             C{zVariant} will be ignored.
-        @type zVariant: number
+        @type zVariant: int
         @param zVariant: I{Z-variant} of the first character
-        @rtype: list structure
+        @rtype: list
         @return: list of first layer decompositions
         @raise ValueError: if an invalid I{character locale} is specified
         """
@@ -1887,7 +1904,7 @@ class CharacterLookup:
         Example: Entry C{⿱尚[1]儿} will be returned as
         C{[u'⿱', (u'尚', 1), (u'儿', 0)]}.
 
-        @type decomposition: string
+        @type decomposition: str
         @param decomposition: character decomposition with IDS operator,
             compontens and optional Z-variant index
         @rtype: list
@@ -1929,16 +1946,16 @@ class CharacterLookup:
         and includes yet another list of trees for the decomposition of the
         component.
 
-        @type char: character
+        @type char: str
         @param char: Chinese character that is to be decomposed into components
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV). Giving the locale
             will apply the default I{Z-variant} defined by
             L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
             C{zVariant} will be ignored.
-        @type zVariant: number
+        @type zVariant: int
         @param zVariant: I{Z-variant} of the first character
-        @rtype: tree list structure
+        @rtype: list
         @return: list of decomposition trees
         @raise ValueError: if an invalid I{character locale} is specified
         """
@@ -1970,21 +1987,21 @@ class CharacterLookup:
         Checks if the given character contains the second character as a
         component.
 
-        @type component: character
+        @type component: str
         @param component: character questioned to be a component
-        @type char: character
+        @type char: str
         @param char: Chinese character
-        @type locale: character
+        @type locale: str
         @param locale: I{character locale} (one out of TCJKV). Giving the locale
             will apply the default I{Z-variant} defined by
             L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
             C{zVariant} will be ignored.
-        @type zVariant: number
+        @type zVariant: int
         @param zVariant: I{Z-variant} of the first character
-        @type componentZVariant: number
+        @type componentZVariant: int
         @param componentZVariant: Z-variant of the component; if left out every
             Z-variant matches for that character.
-        @rtype: boolean
+        @rtype: bool
         @return: C{True} if C{component} is a component of the given character,
             C{False} otherwise
         @raise ValueError: if an invalid I{character locale} is specified
