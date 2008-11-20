@@ -439,15 +439,24 @@ class CharacterInfo:
 
     def getCharactersForKangxiRadicalIndex(self, radicalIndex):
         """
-        Gets all characters for the given Kangxi radical index.
+        Gets all characters for the given Kangxi radical index grouped by their
+        residual stroke count.
 
         @type radicalIndex: int
         @param radicalIndex: Kangxi radical index
         @rtype: list of str
         @return: list of matching Chinese characters
         """
-        return self.characterLookup.getCharactersForKangxiRadicalIndex(
-            radicalIndex)
+        strokeCountDict = {}
+        for char, residualStrokeCount \
+            in self.characterLookup.getResidualStrokeCountForKangxiRadicalIndex(
+                radicalIndex):
+
+            if residualStrokeCount not in strokeCountDict:
+                strokeCountDict[residualStrokeCount] = set()
+            strokeCountDict[residualStrokeCount].add(char)
+
+        return strokeCountDict
 
     def getCharactersForReading(self, readingString, readingN=None):
         """
@@ -1275,9 +1284,12 @@ def main():
         # character lookup by Kangxi radical index
         elif command in ("-k", "--by-radicalidx"):
             try:
-                charList = charInfo.getCharactersForKangxiRadicalIndex(
+                strokeCountDict = charInfo.getCharactersForKangxiRadicalIndex(
                     int(parameter))
-                print ''.join(charList).encode(default_encoding, "replace")
+                for residualStrokeCount in strokeCountDict:
+                    print '+' + str(residualStrokeCount) + ': ' \
+                        + ''.join(strokeCountDict[residualStrokeCount])\
+                            .encode(default_encoding, "replace")
             except ValueError:
                 print "error: bad parameter"
                 sys.exit(1)

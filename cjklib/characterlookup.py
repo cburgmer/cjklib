@@ -1100,7 +1100,7 @@ class CharacterLookup:
         return strokeOrder
 
     #}
-    #{ Kangxi radical functions
+    #{ Character radical functions
 
     def getCharacterKangxiRadicalIndex(self, char):
         """
@@ -1401,6 +1401,52 @@ class CharacterLookup:
         """
         return self.db.selectSoleValue('CharacterResidualStrokeCount',
             'ChineseCharacter', {'RadicalIndex': radicalIndex})
+
+    def getResidualStrokeCountForKangxiRadicalIndex(self, radicalIndex):
+        """
+        Gets all characters and residual stroke count for the given Kangxi
+        radical index.
+
+        This brings together methods L{getCharactersForKangxiRadicalIndex()} and
+        L{getCharacterResidualStrokeCountDict()} and reports all characters
+        including the given Kangxi radical, additionally supplying the residual
+        stroke count.
+
+        @type radicalIndex: int
+        @param radicalIndex: Kangxi radical index
+        @rtype: list of tuple
+        @return: list of matching Chinese characters with residual stroke count
+        """
+        tables = ['KangxiRadical r', 'RadicalEquivalentCharacter e']
+        return self.db.select(
+            ['CharacterKangxiRadical k', 'CharacterResidualStrokeCount r'],
+            ['r.ChineseCharacter', 'r.ResidualStrokeCount'],
+            {'r.ChineseCharacter': '=k.ChineseCharacter',
+            'r.RadicalIndex': '=k.RadicalIndex',
+            'k.RadicalIndex': radicalIndex})
+
+    def getResidualStrokeCountForRadicalIndex(self, radicalIndex):
+        """
+        Gets all characters and residual stroke count for the given radical
+        index.
+
+        This brings together methods L{getCharactersForRadicalIndex()} and
+        L{getCharacterResidualStrokeCountDict()} and reports all characters
+        including the given radical without being limited to the mapping of
+        characters to a Kangxi radical as done by Unihan, additionally supplying
+        the residual stroke count.
+
+        @type radicalIndex: int
+        @param radicalIndex: Kangxi radical index
+        @rtype: list of tuple
+        @return: list of matching Chinese characters with residual stroke count
+        """
+        return self.db.select('CharacterResidualStrokeCount',
+            ['ChineseCharacter', 'ResidualStrokeCount'],
+            {'RadicalIndex': radicalIndex})
+
+    #}
+    #{ Radical form functions
 
     def getKangxiRadicalForm(self, radicalIdx, locale):
         u"""
