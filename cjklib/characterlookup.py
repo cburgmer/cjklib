@@ -1908,7 +1908,11 @@ class CharacterLookup:
         @raise ValueError: if an invalid I{character locale} is specified
         """
         if locale != None:
-            zVariant = self.getLocaleDefaultZVariant(char, locale)
+            try:
+                zVariant = self.getLocaleDefaultZVariant(char, locale)
+            except exception.NoInformationError:
+                # no decomposition available
+                return []
 
         # get entries from database
         result = self.db.selectSoleValue('CharacterDecomposition',
@@ -2006,7 +2010,12 @@ class CharacterLookup:
         @raise ValueError: if an invalid I{character locale} is specified
         """
         if locale != None:
-            zVariant = self.getLocaleDefaultZVariant(char, locale)
+            try:
+                zVariant = self.getLocaleDefaultZVariant(char, locale)
+            except exception.NoInformationError:
+                # no decomposition available
+                return []
+
         decompositionTreeList = []
         # get tree for each decomposition
         for componentsList in self.getDecompositionEntries(char,
@@ -2051,9 +2060,15 @@ class CharacterLookup:
         @return: C{True} if C{component} is a component of the given character,
             C{False} otherwise
         @raise ValueError: if an invalid I{character locale} is specified
+        @todo Impl: Implement means to check if the component is really not
+            found, or if our data is just insufficient.
         """
         if locale != None:
-            zVariant = self.getLocaleDefaultZVariant(char, locale)
+            try:
+                zVariant = self.getLocaleDefaultZVariant(char, locale)
+            except exception.NoInformationError:
+                # TODO no way to check if our data is insufficent
+                return False
 
         # if table exists use it to speed up look up
         if self.hasComponentLookup:

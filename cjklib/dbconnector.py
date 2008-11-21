@@ -296,13 +296,13 @@ class DatabaseConnector:
                 + '<|>|<=|>=)', whereClause) \
                 or whereClause == '':
                 value = "'" + whereClause.replace("'", "''") + "'"
-                #if value.find('%') >= 0 or value.find('_')>=0:
-                    #eqStatement = " like " + value
-                    #return column + eqStatement
-                #else:
-                    #eqStatement = "=" + value
-                    #return column + eqStatement
-                eqStatement = " like " + value
+                if value.find('%') >= 0 or value.find('_')>=0:
+                    eqStatement = " like " + value
+                    return column + eqStatement
+                else:
+                    eqStatement = "=" + value
+                    return column + eqStatement
+                # TODO eqStatement = " like " + value
                 return column + eqStatement
             else:
                 return column + ' ' + whereClause
