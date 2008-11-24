@@ -24,7 +24,9 @@ archive first. Then the files needed can be installed on the system by running:
 
 # python setup.py install
 
-This step isn't needed when installing from a binary package (.deb, .rpm)
+This step isn't needed when installing from a binary package (.deb, .rpm).
+Furthermore it is possible to run cjknife and buildcjkdb from the source
+directory.
 
 In either case the database needs to be created according to one's needs. The
 build steps will take some minutes, depending on the tables created.
@@ -41,10 +43,10 @@ and run
 
 # buildcjkdb -b cjklibData
 
-from the directory containing the Unihan table and the pre-packaged data to
-build all tables needed by the cjklib package, or instead use e.g.
-'fullMandarin' for all data needed by the library's functions for the
-Mandarin language.
+from the directory containing the Unihan table and the pre-packaged data (the
+source package's directory should suffice) to build all tables needed by the
+cjklib package. Alternatively use e.g. 'fullMandarin' for data needed by the
+library's functions for the Mandarin language.
 
 For the installed library run:
 # buildcjkdb -b cjklibData \

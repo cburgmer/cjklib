@@ -257,7 +257,7 @@ def main():
                         content.append(member)
                 printFormattedLine(groupName + ": " + ', '.join(content),
                     subsequentPrefix='  ')
-            printFormattedLine("\nGroup names and table names can either be " \
+            printFormattedLine("\nBoth Group names and table names can be " \
                 "given to the build process.")
             sys.exit()
         # data path
