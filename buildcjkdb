@@ -45,7 +45,7 @@ from cjklib import build
 from cjklib import exception
 import cjklib
 
-DEFAULT_DATA_PATH = ['~', 'cjklib/data/']
+DEFAULT_DATA_PATH = ['~', 'cjklib/data/', '.']
 
 BUILD_GROUPS = {
     # source based
