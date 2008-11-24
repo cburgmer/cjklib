@@ -155,7 +155,6 @@ flexible switching between reading dialects.
     RomanisationConverter, PinyinWadeGilesConverter, GRPinyinConverter,
     PinyinIPAConverter, PinyinBrailleConverter, JyutpingYaleConverter,
     BridgeConverter
-@group Others: ImmutableDict
 @sort: ReadingFactory
 """
 import re
@@ -5803,26 +5802,6 @@ class SimpleReadingConverterAdaptor(object):
         return getattr(self.converterInst, name)
 
 
-class ImmutableDict(dict):
-    """A hashable dict."""
-    def __init__(self, *args, **kwds):
-        dict.__init__(self, *args, **kwds)
-    def __setitem__(self, key, value):
-        raise NotImplementedError, "dict is immutable"
-    def __delitem__(self, key):
-        raise NotImplementedError, "dict is immutable"
-    def clear(self):
-        raise NotImplementedError, "dict is immutable"
-    def setdefault(self, k, default=None):
-        raise NotImplementedError, "dict is immutable"
-    def popitem(self):
-        raise NotImplementedError, "dict is immutable"
-    def update(self, other):
-        raise NotImplementedError, "dict is immutable"
-    def __hash__(self):
-        return hash(tuple(self.iteritems()))
-
-
 class ReadingFactory(object):
     """
     Provides an abstract factory for creating L{ReadingOperator}s and
@@ -6073,9 +6052,12 @@ class ReadingFactory(object):
         @rtype: instance
         @return: a L{ReadingOperator} instance
         @raise UnsupportedError: if the given reading is not supported.
+        @todo Impl: Get all options when calculating key for an instance and use
+            the information on standard parameters thus minimising instances in
+            cache. Same for L{_getReadingConverterInstance()}.
         """
         # construct key for lookup in cache
-        cacheKey = self._getKey(readingN, options)
+        cacheKey = (readingN, self._getHashableCopy(options))
         # get cache
         instanceCache = self.sharedState[self.db]['readingOperatorInstances']
         if cacheKey not in instanceCache:
@@ -6120,7 +6102,7 @@ class ReadingFactory(object):
         self._checkSpecialOperators(fromReading, toReading, args, options)
 
         # construct key for lookup in cache
-        cacheKey = self._getKey((fromReading, toReading), options)
+        cacheKey = ((fromReading, toReading), self._getHashableCopy(options))
         # get cache
         instanceCache = self.sharedState[self.db]['readingConverterInstances']
         if cacheKey not in instanceCache:
@@ -6128,8 +6110,8 @@ class ReadingFactory(object):
                 hideComplexConverter=False, *args, **options)
             # use instance for all supported conversion directions
             for convFromReading, convToReading in conv.CONVERSION_DIRECTIONS:
-                oCacheKey = self._getKey((convFromReading, convToReading),
-                    options)
+                oCacheKey = ((convFromReading, convToReading),
+                    self._getHashableCopy(options))
                 if oCacheKey not in instanceCache:
                     instanceCache[oCacheKey] = conv
         return instanceCache[cacheKey]
@@ -6196,37 +6178,34 @@ class ReadingFactory(object):
                 options['targetOperators'] = []
             options['targetOperators'].append(readingOp)
 
-    def _getKey(self, mainKey, dictionary):
+    @staticmethod
+    def _getHashableCopy(data):
         """
-        Constructs a unique hashable key for a given main key and a dictionary.
-        The dictionary's contents have to be hashable.
+        Constructs a unique hashable deep-copy for a given instance, replacing
+        non-hashable datatypes C{set}, C{dict} and C{list} recursively.
 
-        @param mainKey: hashable object as main key
-        @type dictionary: dict
-        @param dictionary: dictionary used for the hash
-        @rtype: tuple
-        @return: a tuple key containing the given parameters
-        @todo Impl: Get standard parameters when calculating key for instance,
-            minimise instances in cache, let user specify any option even if not
-            supported by concrete class
+        @param data: non-hashable object
+        @return: hashable object, C{set} converted to a C{frozenset}, C{dict}
+            converted to a C{frozenset} of key-value-pairs (tuple), and C{list}
+            converted to a C{tuple}.
         """
-        def makeDictImmutable(data):
-            if type(data) == type([]):
-                for i, entry in enumerate(data):
-                    data[i] = makeDictImmutable(entry)
-                data = tuple(data)
-            elif type(data) == type(set([])):
-                newSet = set([])
-                for entry in data:
-                    newSet.add(makeDictImmutable(entry))
-                data = newSet
-            elif type(data) == type({}):
-                for key in data:
-                    data[key] = makeDictImmutable(data[key])
-                data = ImmutableDict(data)
+        if type(data) == type([]):
+            newList = []
+            for i, entry in enumerate(data):
+                newList.append(ReadingFactory._getHashableCopy(entry))
+            return tuple(newList)
+        elif type(data) == type(set([])):
+            newSet = set([])
+            for entry in data:
+                newSet.add(ReadingFactory._getHashableCopy(entry))
+            return frozenset(newSet)
+        elif type(data) == type({}):
+            newDict = {}
+            for key in data:
+                newDict[key] = ReadingFactory._getHashableCopy(data[key])
+            return frozenset(newDict.items())
+        else:
             return data
-
-        return mainKey, makeDictImmutable(dictionary)
 
     #}
     #{ ReadingConverter methods

@@ -597,7 +597,7 @@ class CharacterInfo:
         selectCommands.append(
             DatabaseConnector.getDBConnector().getSelectCommand(
                 table, [self.cedictHeadword, 'd.Reading', 'Translation'],
-                {'Word': "LIKE '" + searchString  +"'"}, distinctValues=True,
+                {'Word': searchString.lower()}, distinctValues=True,
                 orderBy=['Reading'], limit=limit))
             # TODO hack: LIMIT and ORDER BY incorporated over last select
             #  statement

@@ -2067,27 +2067,29 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                             # all stroke counts available
                             del componentEntry['Component']
                             entriesDict[(char, zVariant)].add(
-                                ImmutableDict(componentEntry))
+                                frozenset(componentEntry.items()))
 
                 # validity check # TODO only needed as long decomposition and
                 #   stroke order entries aren't checked for validity
-                entryDict = {}
-                for entry in entriesDict[(char, zVariant)]:
+                seenEntriesDict = {}
+                for entry in [dict(d) for d in entriesDict[(char, zVariant)]]:
                     keyEntry = (entry['Form'], entry['Z-variant'],
                         entry['CharacterLayout'], entry['RadicalIndex'],
                         entry['RadicalPosition'])
-                    if keyEntry in entryDict \
-                        and entryDict[keyEntry] != entry['ResidualStrokeCount']:
+                    if keyEntry in seenEntriesDict \
+                        and seenEntriesDict[keyEntry] \
+                            != entry['ResidualStrokeCount']:
                         raise ValueError("ambiguous residual stroke count for " \
                             + "character '" + mainChar + "' with entry '" \
                             + "', '".join(list([unicode(column) \
                                 for column in keyEntry])) \
-                            + "': '" + str(entryDict[keyEntry]) + "'/'" \
+                            + "': '" + str(seenEntriesDict[keyEntry]) + "'/'" \
                             + str(entry['ResidualStrokeCount']) + "'")
-                    entryDict[keyEntry] = entry['ResidualStrokeCount']
+                    seenEntriesDict[keyEntry] = entry['ResidualStrokeCount']
 
             # filter forms, i.e. for multiple radical occurrences prefer one
-            return self.filterForms(entriesDict[(char, zVariant)])
+            return self.filterForms(
+                [dict(d) for d in entriesDict[(char, zVariant)]])
 
         def __iter__(self):
             """Provides the radical/stroke count entries."""
@@ -2558,7 +2560,7 @@ class WordIndexBuilder(EntryGeneratorBuilder):
                 newEntryDict['Headword'] = headword
                 newEntryDict['Reading'] = reading
                 for word in self.wordRegex.findall(translation):
-                    word = word.strip()
+                    word = word.strip().lower()
                     if not word:
                         continue
                     if word \
@@ -2693,26 +2695,6 @@ class HanDeDictWordIndexBuilder(WordIndexBuilder):
 
 #}
 #{ DatabaseBuilder
-
-class ImmutableDict(dict):
-    """A hashable dict."""
-    def __init__(self, *args, **kwds):
-        dict.__init__(self, *args, **kwds)
-    def __setitem__(self, key, value):
-        raise NotImplementedError, "dict is immutable"
-    def __delitem__(self, key):
-        raise NotImplementedError, "dict is immutable"
-    def clear(self):
-        raise NotImplementedError, "dict is immutable"
-    def setdefault(self, k, default=None):
-        raise NotImplementedError, "dict is immutable"
-    def popitem(self):
-        raise NotImplementedError, "dict is immutable"
-    def update(self, other):
-        raise NotImplementedError, "dict is immutable"
-    def __hash__(self):
-        return hash(tuple(self.iteritems()))
-
 
 class DatabaseBuilder:
     """
