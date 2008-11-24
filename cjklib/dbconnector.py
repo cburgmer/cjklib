@@ -78,10 +78,10 @@ class DatabaseConnector:
             if len(databaseSettings.keys()) == 0:
                 # try to read from config
                 databaseSettings = DatabaseConnector.getConfigSettings('cjklib')
-                if not ((databaseSettings.has_key('sqliteDatabase') \
-                    and databaseSettings['sqliteDatabase']) \
-                    or (databaseSettings.has_key('mysqlServer') \
-                    and databaseSettings['mysqlServer'])):
+                if not (('sqliteDatabase' in databaseSettings \
+                        and databaseSettings['sqliteDatabase']) \
+                    or ('mysqlServer' in databaseSettings \
+                        and databaseSettings['mysqlServer'])):
                     # default
                     databaseSettings['sqliteDatabase'] = 'cjklib.db'
             cls.dbconnectInst = DatabaseConnector(databaseSettings)
@@ -100,31 +100,41 @@ class DatabaseConnector:
         @return: settings that can be used as I{databaseSettings} for making a
             connection to the SQL server
         """
-        databaseSettings = {}
-        import ConfigParser
-        import os
-        import os.path
-        config = ConfigParser.ConfigParser()
-        config.read([os.path.join(os.path.expanduser('~'), '.' + projectName \
-                + '.conf'), os.path.join('/', 'etc', projectName + '.conf')])
-        dbType = config.get("General", "database_type")
-        if dbType == 'SQLite':
-            databaseSettings['sqliteDatabase'] = config.get("SQLite", "db_path")
-        elif dbType == 'MySQL':
-            try:
-                databaseSettings['mysqlServer'] = config.get("MySQL",
-                    "hostname")
-                databaseSettings['mysqlUser'] = config.get("MySQL", "user")
-                databaseSettings['mysqlDatabase'] = config.get("MySQL",
-                    "database")
-                databaseSettings['mysqlPassword'] = config.get("MySQL",
-                    "password")
-            except ConfigParser.NoOptionError:
-                pass
-        else:
-            raise Error("Error reading config file, database type '" + dbType \
-                + "' not recognised")
-        return databaseSettings
+        try:
+            databaseSettings = {}
+            import ConfigParser
+            import os
+            import os.path
+            config = ConfigParser.SafeConfigParser()
+            config.read([os.path.join(os.path.expanduser('~'), '.' \
+                    + projectName + '.conf'),
+                os.path.join('/', 'etc', projectName + '.conf')])
+
+            dbType = config.get("General", "database_type")
+            if dbType == 'SQLite':
+                databaseSettings['sqliteDatabase'] = config.get("SQLite",
+                    "db_path")
+            elif dbType == 'MySQL':
+                try:
+                    databaseSettings['mysqlServer'] = config.get("MySQL",
+                        "hostname")
+                    databaseSettings['mysqlUser'] = config.get("MySQL", "user")
+                    databaseSettings['mysqlDatabase'] = config.get("MySQL",
+                        "database")
+                    databaseSettings['mysqlPassword'] = config.get("MySQL",
+                        "password")
+                except ConfigParser.NoOptionError:
+                    pass
+            else:
+                raise ValueError("Error reading config file, database type '" \
+                    + dbType + "' not recognised")
+
+            return databaseSettings
+
+        except ConfigParser.NoSectionError:
+            return {}
+        except ConfigParser.NoOptionError:
+            return {}
 
     def __init__(self, databaseSettings):
         """
