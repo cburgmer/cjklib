@@ -63,7 +63,7 @@ there is a small command line tool cjknife that offers some of the library's
 functions. See "cjknife --help" for an overview.
 
 This tool also offers simple access to dictionaries which have to be built
-before use (e.g. buildcjkdb -b CEDICT). Currently supported are CEDICT,
+before use (e.g. buildcjkdb -b fullCEDICT). Currently supported are CEDICT,
 HanDeDict.
 
 To create the needed tables and indices for the CEDICT dictionary run

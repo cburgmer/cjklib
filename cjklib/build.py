@@ -32,6 +32,11 @@ Building is supported (i.e. tested) for the following storage methods:
 Some L{TableBuilder} implementations aren't used by the CJK library but are
 provided here for additional usage.
 
+For MS Windows default versions provided seem to be a "X{narrow build}" and not
+support characters outside the BMP (see e.g.
+U{http://wordaligned.org/articles/narrow-python}). Currently no Unicode
+characters outside the BMP will thus be supported on Windows platforms.
+
 Examples
 ========
 The following examples should give a quick view into how to use this
@@ -294,17 +299,26 @@ class UnihanGenerator:
                 continue
             # check if new character entry found
             if entryIndex != unicodeHexIndex and entryIndex != -1:
-                # yield old one
-                char = unichr(int(entryIndex, 16))
-                yield(char, entry)
+                try:
+                    # yield old one
+                    char = unichr(int(entryIndex, 16))
+                    yield(char, entry)
+                except ValueError:
+                    # catch for Unicode characters outside BMP for narrow builds
+                    pass
                 # empty old entry
                 entry = {}
             entryIndex = unicodeHexIndex
             entry[key] = value
         # generate last entry
-        char = unichr(int(entryIndex, 16))
         if entry:
-            yield(char, entry)
+            try:
+                # yield old one
+                char = unichr(int(entryIndex, 16))
+                yield(char, entry)
+            except ValueError:
+                # catch for Unicode characters outside BMP for narrow builds
+                pass
         handle.close()
 
     def getHandle(self):
@@ -695,8 +709,13 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
                             # get all hex indices
                             variantIndices = findR.findall(variantInfo)
                             for unicodeHexIndex in variantIndices:
-                                variant = unichr(int(unicodeHexIndex, 16))
-                                yield(character, variant, variantType)
+                                try:
+                                    variant = unichr(int(unicodeHexIndex, 16))
+                                    yield(character, variant, variantType)
+                                except ValueError:
+                                    # catch for Unicode characters outside BMP
+                                    #   for narrow builds
+                                    pass
                         elif not self.quiet:
                             # didn't match the regex
                             warn('unable to read variant information of ' \
@@ -3154,8 +3173,7 @@ def output(message):
     @type message: str
     @param message: message to print
     """
-    language, default_encoding = locale.getdefaultlocale()
-    print message.encode(default_encoding)
+    print message.encode(locale.getpreferredencoding(), 'replace')
 
 def warn(message):
     """
@@ -3164,8 +3182,8 @@ def warn(message):
     @type message: str
     @param message: message to print
     """
-    language, default_encoding = locale.getdefaultlocale()
-    print >> sys.stderr, message.encode(default_encoding)
+    print >> sys.stderr, message.encode(locale.getpreferredencoding(),
+        'replace')
 
 def getDropTableStatement(tableName):
     """

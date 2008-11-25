@@ -62,6 +62,8 @@ def getConfigSettings():
         configSettings['reading'] = config.get("cjknife", "reading")
     except ConfigParser.NoOptionError:
         pass
+    except ConfigParser.NoSectionError:
+        pass
     return configSettings
 
 
@@ -1041,7 +1043,7 @@ def main():
         'WadeGiles': ['wade-giles', 'wg'], 'Jyutping': ['lshk', 'jp'],
         'CantoneseYale': ['cy']}
 
-    _, default_encoding = locale.getdefaultlocale()
+    default_encoding = locale.getpreferredencoding()
 
     # parse command line parameters
     try:

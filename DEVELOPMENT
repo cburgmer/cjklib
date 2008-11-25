@@ -22,7 +22,7 @@ Profiling
 Profiling is mostly used to learn about the runtime behaviour of a program
 and find inefficient parts of the code. It also allows epydoc to generate call
 graphs for inclusion in the API documentation:
-  python -m cProfile -o unittest.pstat runtest.py
+  python -m profile -o unittest.pstat runtest.py
 generates the file unittest.pstat that is used for further processing.
 
 Documentation

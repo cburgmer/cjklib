@@ -24,6 +24,11 @@ doesn't support 4-byte UTF-8. To include characters outside the BMP change
 C{'UnihanBMPBuilder'} and C{'SlimUnihanBMPBuilder'} to C{'UnihanBuilder'} and
 C{'SlimUnihanBuilder'} respectively.
 
+For MS Windows default versions provided seem to be a "narrow build" and not
+support characters outside the BMP (see e.g.
+U{http://wordaligned.org/articles/narrow-python}). Currently no Unicode
+characters outside the BMP will thus be supported on Windows platforms.
+
 Some L{TableBuilder}s make an assumption about the file names being loaded (the
 builder only knows the directory of the data files), so naming the input files
 according to the builder's setting is necessary.
@@ -187,9 +192,9 @@ def printFormattedLine(outputString, lineLength=80, subsequentPrefix=''):
                 #output = output + "\n" + subsequentPrefix
                 #column = len(subsequentPrefix)
         outputLines.append(output)
-    # get output encoding
-    language, system_encoding = locale.getdefaultlocale()
-    print ("\n".join(outputLines)).encode(system_encoding)
+
+    print "\n".join(outputLines).encode(locale.getpreferredencoding(),
+        'replace')
 
 def main():
     """
@@ -210,14 +215,12 @@ def main():
     quiet = False
     dump = False
 
-    # get encoding
-    language, system_encoding = locale.getdefaultlocale()
     # start to check parameters
     if len(opts) == 0:
         printFormattedLine("use parameter -h for a short summary on " \
             + "supported parameters")
     for o, a in opts:
-        a = a.decode(system_encoding)
+        a = a.decode(locale.getpreferredencoding())
         # help screen
         if o in ("-h", "--help"):
             usage()

@@ -157,6 +157,8 @@ class DatabaseConnector:
         # get default user name from environment var USER
         if os.environ.has_key('USER'):
             defaultUser = os.environ['USER']
+        else:
+            defaultUser = ''
         # set default settings for parameters
         defaultValueDic = {'mysqlServer' : 'localhost',
             'mysqlUser': defaultUser, 'mysqlPassword': '',
