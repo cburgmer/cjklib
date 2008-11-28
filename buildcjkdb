@@ -108,8 +108,10 @@ BUILD_GROUPS = {
     'fullKorean': ['KangxiRadicalData', 'ShapeLookupData', 'CharacterHangul'],
     'fullVietnamese': ['KangxiRadicalData', 'ShapeLookupData'],
     # additional data for cjknife
-    'fullDictionaries': ['fullCEDICT', 'fullHanDeDict', 'fullEDICT'],
+    'fullDictionaries': ['fullCEDICT', 'fullCEDICTGR', 'fullHanDeDict',
+        'fullEDICT'],
     'fullCEDICT': ['CEDICT', 'CEDICT_Words'],
+    'fullCEDICTGR': ['CEDICTGR', 'CEDICTGR_Words'],
     'fullHanDeDict': ['HanDeDict', 'HanDeDict_Words'],
     'fullEDICT': ['EDICT', 'EDICT_Words'],
 }

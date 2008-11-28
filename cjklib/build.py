@@ -2688,6 +2688,26 @@ class CEDICTWordIndexBuilder(WordIndexBuilder):
     HEADWORD_SOURCE = 'HeadwordTraditional'
 
 
+class CEDICTGRBuilder(EDICTFormatBuilder):
+    """
+    Builds the CEDICT-GR dictionary.
+    """
+    PROVIDES = 'CEDICTGR'
+    FILE_NAMES = ['cedictgr.zip', 'cedictgr.b5']
+    ZIP_CONTENT_NAME = 'cedictgr.b5'
+    ENCODING = 'big5hkscs'
+
+
+class CEDICTGRWordIndexBuilder(WordIndexBuilder):
+    """
+    Builds the word index of the CEDICT-GR dictionary.
+    """
+    PROVIDES = 'CEDICTGR_Words'
+    DEPENDS = ['CEDICTGR']
+    TABLE_SOURCE = 'CEDICTGR'
+    HEADWORD_SOURCE = 'Headword'
+
+
 class HanDeDictBuilder(CEDICTFormatBuilder):
     """
     Builds the HanDeDict dictionary.
