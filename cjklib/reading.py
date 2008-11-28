@@ -3987,7 +3987,7 @@ class PinyinIPAConverter(ReadingConverter):
     CONVERSION_DIRECTIONS = [('Pinyin', 'MandarinIPA')]
 
     PINYIN_OPTIONS = {'Erhua': 'ignore', 'toneMarkType': 'Numbers',
-        'missingToneMark': 'noinfo'}
+        'missingToneMark': 'noinfo', 'case': 'lower'}
     """Options for the PinyinOperator."""
 
     TONEMARK_MAPPING = {1: '1stTone', 2: '2ndTone', 3: '3rdToneRegular',

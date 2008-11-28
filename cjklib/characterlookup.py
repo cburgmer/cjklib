@@ -249,6 +249,11 @@ class CharacterLookup:
         already mark them by flagging it with an 'S'.
     @todo Impl: Think about applying locale at object creation time and not
         passing it on every method call. Would make the class easier to use.
+    @todo Impl: Create a method for specifying which character range is of
+        interest for the return values of methods. Narrowing the return results
+        is a further way to locale dependant responses. E.g. cjknife could take
+        this into account when only displaying characters that can be displayed
+        with the current locale (BIG5, GBK...).
     @todo Lang: Add option to component decomposition methods to stop on Kangxi
         radical forms without breaking further down beyond those.
     """
