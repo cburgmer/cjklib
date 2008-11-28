@@ -145,7 +145,7 @@ class CharacterInfo:
         if self.dictionary:
             # check for FTS3 table (only SQLite)
             self.dictionaryHasFTS3 = DatabaseConnector.getDBConnector()\
-                .tableExists(self.dictionary + 'FulltextSearch')
+                .tableExists(self.dictionary + '_Text')
 
         if self.locale == 'C':
             self.cedictHeadword = 'HeadwordSimplified'
