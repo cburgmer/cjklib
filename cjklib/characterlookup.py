@@ -1828,7 +1828,8 @@ class CharacterLookup:
     def getCharactersForEquivalentComponents(self, componentConstruct,
         locale=None, resultIncludeRadicalForms=False):
         u"""
-        Gets all characters that contain at least one component per list entry.
+        Gets all characters that contain at least one component per list entry,
+        sorted by stroke count if available.
 
         This is the general form of L{getCharactersForComponents()} and allows a
         set of characters per list entry of which at least one character must be
@@ -1852,8 +1853,46 @@ class CharacterLookup:
         """
         # create where clauses
         tableList = ['ComponentLookup s' + str(i)
-            for i in range(0, len(componentConstruct))]
+            for i in range(1, len(componentConstruct))]
+
+        if locale:
+            # join with LocaleCharacterVariant and allow only forms matching the
+            #   given locale, unless no locale entry exists
+            if self.hasStrokeCount:
+                tableList.append('ComponentLookup s0 LEFT JOIN StrokeCount c ' \
+                    + 'ON (s0.ChineseCharacter = c.ChineseCharacter) ' \
+                    + 'LEFT JOIN LocaleCharacterVariant l ON ' \
+                    + '(s0.ChineseCharacter = l.ChineseCharacter AND ' \
+                    + 's0.ZVariant = l.ZVariant) ' \
+                    + 'LEFT JOIN LocaleCharacterVariant l2 ON ' \
+                    + '(s0.ChineseCharacter = l2.ChineseCharacter)')
+                orderBy = ['c.StrokeCount']
+            else:
+                tableList.append('ComponentLookup s0 LEFT JOIN ' \
+                    + 'LocaleCharacterVariant l ON ' \
+                    + '(s0.ChineseCharacter = l.ChineseCharacter AND '\
+                    + 's0.ZVariant = l.ZVariant) ' \
+                    + 'LEFT JOIN LocaleCharacterVariant l2 ON ' \
+                    + '(s0.ChineseCharacter = l2.ChineseCharacter)')
+                orderBy = []
+            # TODO locale clauses look like: "a OR (b AND C)". The database
+            #   abstraction layer only works with normal forms and thus we need
+            #   to work around extensively. Furthermore a UNION is needed for
+            #   SQLite as with an alternative realisation as OR it slows down
+            #   tremendously
+            localeClauses = [{'l.Locale': self._locale(locale)},
+                {'l2.Locale': 'IS NULL', 'l.Locale': 'IS NULL'}]
+        else:
+            if self.hasStrokeCount:
+                tableList.append('ComponentLookup s0 LEFT JOIN StrokeCount c ' \
+                    + 'ON (s0.ChineseCharacter = c.ChineseCharacter)')
+                orderBy = ['c.StrokeCount']
+            else:
+                tableList.append('ComponentLookup s0')
+                orderBy = []
+
         whereClauses = {}
+
         for i, characterList in enumerate(componentConstruct):
             whereClauses['s'+str(i)+'.Component'] = characterList
             if i > 0:
@@ -1861,30 +1900,43 @@ class CharacterLookup:
                     + str(i) + '.ZVariant'
                 whereClauses['s' + str(i-1) + '.ChineseCharacter'] = '= s' \
                     + str(i) + '.ChineseCharacter'
-        result = self.db.select(tableList,
-            ['s0.ChineseCharacter', 's0.ZVariant'], whereClauses,
-            distinctValues=True)
-        # The same query with INTERSECT, which MYSQL doesn't support
-        #self.db.getCursor().execute(u' INTERSECT '.join(\
-            #[self.db.getSelectCommand('ComponentLookup',
-            #['ChineseCharacter', 'ZVariant'],
-            #{'Component': characterList}) \
-            #for characterList in componentConstruct]) + ';')
+
+        if locale:
+            selectCommands = []
+            for localeClause in localeClauses[:-1]:
+                localeClause.update(whereClauses)
+                selectCommands.append(self.db.getSelectCommand(tableList,
+                    ['s0.ChineseCharacter', 's0.ZVariant', 'StrokeCount'],
+                    localeClause, distinctValues=True))
+
+            localeClauses[-1].update(whereClauses)
+            selectCommands.append(self.db.getSelectCommand(tableList,
+                ['s0.ChineseCharacter', 's0.ZVariant', 'StrokeCount'],
+                localeClauses[-1], orderBy=['StrokeCount'],
+                distinctValues=True))
+
+            cur = DatabaseConnector.getDBConnector().getCursor()
+            cur.execute(' UNION '.join(selectCommands))
+            result = list(cur.fetchall())
+            for i, entry in enumerate(result): # TODO bug in python-mysql
+                entry = list(entry)
+                for j, cell in enumerate(entry):
+                    if type(cell) == type(""):
+                        entry[j] = cell.decode('utf8')
+                result[i] = tuple(entry)
+
+            result = [(char, zVariant) for char, zVariant, _ in result]
+        else:
+            result = self.db.select(tableList,
+                ['s0.ChineseCharacter', 's0.ZVariant'], whereClauses,
+                orderBy=orderBy, distinctValues=True)
 
         if not resultIncludeRadicalForms:
             # exclude radical characters found in decomposition
             result = [(char, zVariant) for char, zVariant in result \
                 if not self.isRadicalChar(char)]
 
-        if locale == None:
-            return result
-        else:
-            filteredResult = []
-            for char, ZVariant in result:
-                # check if Z-variant is valid under given locale
-                if self.getLocaleDefaultZVariant(char, locale) == ZVariant:
-                    filteredResult.append((char, ZVariant))
-            return filteredResult
+        return result
 
     def getDecompositionEntries(self, char, locale=None, zVariant=0):
         """

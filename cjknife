@@ -736,8 +736,10 @@ class CharacterInfo:
         """
         equivCharTable = self.getEquivalentCharTable(componentList,
             includeEquivalentRadicalForms)
-        return self.characterLookup.getCharactersForEquivalentComponents(
-            equivCharTable, self.locale)
+        componentLookupResult \
+            = self.characterLookup.getCharactersForEquivalentComponents(
+                equivCharTable, self.locale)
+        return [char for char, _ in componentLookupResult]
 
     def getCharacterInformation(self, char):
         """
@@ -1298,9 +1300,7 @@ def main():
 
         # character lookup by components
         elif command in ("-p", "--by-components"):
-            componentLookupResult = charInfo.getCharactersForComponents(
-                parameter)
-            charList = set([char for char, var in componentLookupResult])
+            charList = charInfo.getCharactersForComponents(parameter)
             print ''.join(charList).encode(default_encoding, "replace")
 
         # TODO

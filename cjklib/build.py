@@ -2380,8 +2380,9 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
                     continue
                 # parse line
                 matchObj = self.entryRegex.match(line)
-                if not matchObj and not self.quiet:
-                    warn("error reading line '" + line + "'")
+                if not matchObj:
+                    if line.strip() != '':
+                        warn("error reading line '" + line + "'")
                     continue
                 # get entries
                 entry = matchObj.groups()
