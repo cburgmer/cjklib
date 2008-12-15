@@ -2795,6 +2795,7 @@ class DatabaseBuilder:
         tableBuilderClasses = DatabaseBuilder.getTableBuilderClasses(
             set(prefer), quiet=self.quiet,
             additionalBuilders=additionalBuilders)
+
         # build lookup
         self.tableBuilderLookup = {}
         for tableBuilder in tableBuilderClasses.values():
@@ -3010,7 +3011,7 @@ class DatabaseBuilder:
         """
         dependencyTables = set(tableNames)
         dependingTablesNames = set()
-        residualTables = set(self.getSupportedTables()) - dependencyTables
+        residualTables = self.getCurrentSupportedTables() - dependencyTables
 
         while dependencyTables:
             dependencyTable = dependencyTables.pop()
@@ -3145,13 +3146,14 @@ class DatabaseBuilder:
         # group builders first
         tableToBuilderMapping = {}
         for clssName, clss in tableBuilderClasses.iteritems():
-            if tableToBuilderMapping.has_key(clss.PROVIDES):
-                tableToBuilderMapping[clss.PROVIDES].add(clssName)
-            else:
-                tableToBuilderMapping[clss.PROVIDES] = set([clssName])
+            if clss.PROVIDES not in tableToBuilderMapping:
+                tableToBuilderMapping[clss.PROVIDES] = set()
+
+            tableToBuilderMapping[clss.PROVIDES].add(clssName)
+
         if resolveConflicts:
             # now check conflicting and choose preferred if given
-            for tableName, builderClssSet in tableToBuilderMapping.iteritems():
+            for tableName, builderClssSet in tableToBuilderMapping.items():
                 preferredBuilders = builderClssSet & preferClassSet
                 if preferredBuilders:
                     if len(preferredBuilders) > 1:
@@ -3183,6 +3185,18 @@ class DatabaseBuilder:
         classDict = DatabaseBuilder.getTableBuilderClasses(
             resolveConflicts=False)
         return set([clss.PROVIDES for clss in classDict.values()])
+
+    def getCurrentSupportedTables(self):
+        """
+        Gets names of tables supported by this instance of the database builder.
+
+        This list can have more entries then L{getSupportedTables()} as
+        additional external builders can be supplied on instantiation.
+
+        @rtype: list of str
+        @return: names of tables
+        """
+        return set(self.tableBuilderLookup.keys())
 
 #}
 #{ Global methods

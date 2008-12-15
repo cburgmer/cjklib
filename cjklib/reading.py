@@ -55,7 +55,7 @@ package.
         classes in the background: convert the given Gwoyeu Romatzyh syllables
         to their pronunciation in IPA:
 
-        >>> readingFact.convert('liow shu', 'Pinyin', 'MandarinIPA')
+        >>> readingFact.convert('liow shu', 'GR', 'MandarinIPA')
         u'li\u0259u\u02e5\u02e9 \u0282u\u02e5\u02e5'
 
 Readings
