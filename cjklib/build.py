@@ -1886,10 +1886,10 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                 self.radicalForms = {}
                 for loc in ['T', 'C', 'J', 'K', 'V']:
                     for radicalIdx in range(1, 215):
-                        for form in \
+                        for f in \
                             self.cjk.getKangxiRadicalRepresentativeCharacters(
                                 radicalIdx, loc):
-                            self.radicalForms[form] = radicalIdx
+                            self.radicalForms[f] = radicalIdx
 
             if form not in self.radicalForms:
                 return None
