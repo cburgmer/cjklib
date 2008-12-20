@@ -2712,16 +2712,57 @@ class CEDICTGRWordIndexBuilder(WordIndexBuilder):
 class HanDeDictBuilder(CEDICTFormatBuilder):
     """
     Builds the HanDeDict dictionary.
+    @todo Fix: Improve file name handling to find older downloads of HanDeDict.
     """
-    def ts():
-        from datetime import date
-        return date.today().strftime("%Y%m%d")
+    def filterSpacing(self, entry):
+        """
+        Converts wrong spacing in readings of entries in HanDeDict.
+
+        @type entry: tuple
+        @param entry: a dictionary entry
+        @rtype: tuple
+        @return: the given entry with corrected spacing
+        """
+        if type(entry) == type({}):
+            headword = entry['HeadwordTraditional']
+            reading = entry['Reading']
+        else:
+            headword, headwordSimplified, reading, translation = entry
+
+        readingEntities = []
+        precedingIsNonReading = False
+        for idx, entity in enumerate(reading.split(' ')):
+            if idx < len(headword) and entity == headword[idx]:
+                # for entities showing up in both strings, ommit spaces
+                #   (e.g. "IC卡", "I C kǎ")
+                if not precedingIsNonReading:
+                    readingEntities.append(' ')
+
+                precedingIsNonReading = True
+            elif idx != 0:
+                readingEntities.append(' ')
+                precedingIsNonReading = False
+
+            readingEntities.append(entity)
+
+        reading = ''.join(readingEntities)
+
+        if type(entry) == type({}):
+            entry['Reading'] = reading
+            return entry
+        else:
+            return [headword, headwordSimplified, reading, translation]
+
+    def timestamp(minusDays=0):
+        from datetime import date, timedelta
+        return (date.today() - timedelta(minusDays)).strftime("%Y%m%d")
 
     PROVIDES = 'HanDeDict'
-    FILE_NAMES = ['handedict-' + ts() + '.zip',
-        'handedict-' + ts() + '.tar.bz2', 'handedict.u8']
-    ZIP_CONTENT_NAME = 'handedict-' + ts() + '/handedict.u8'
+    FILE_NAMES = ['handedict-' + timestamp() + '.zip',
+        'handedict-' + timestamp() + '.tar.bz2', 'handedict.u8']
+    ZIP_CONTENT_NAME = 'handedict-' + timestamp() + '/handedict.u8'
     ENCODING = 'utf-8'
+    FILTER = filterSpacing
 
 
 class HanDeDictWordIndexBuilder(WordIndexBuilder):
