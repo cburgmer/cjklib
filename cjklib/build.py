@@ -80,9 +80,9 @@ import warnings
 import os.path
 import csv
 
-from .dbconnector import DatabaseConnector
-from . import characterlookup
-from . import exception
+from cjklib import dbconnector
+from cjklib import characterlookup
+from cjklib import exception
 
 #{ TableBuilder and generic classes
 
@@ -2831,7 +2831,8 @@ class DatabaseBuilder:
         if databaseSettings and databaseSettings.has_key('dump'):
             self.db = None
         else:
-            self.db = DatabaseConnector.getDBConnector(databaseSettings)
+            self.db = dbconnector.DatabaseConnector.getDBConnector(
+                databaseSettings)
         # get TableBuilder classes
         tableBuilderClasses = DatabaseBuilder.getTableBuilderClasses(
             set(prefer), quiet=self.quiet,
@@ -2959,7 +2960,6 @@ class DatabaseBuilder:
 
         # remove tables that where only created as build dependencies
         if instancesUnrequestedTable:
-            from dbconnector import DatabaseConnector
             for instance in instancesUnrequestedTable:
                 if not self.quiet:
                     warn("Removing table '" + instance.PROVIDES \

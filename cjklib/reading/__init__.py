@@ -151,8 +151,8 @@ flexible switching between reading dialects.
 
 __all__ = ['operator', 'converter', 'ReadingFactory']
 
-from ..exception import UnsupportedError
-from ..dbconnector import DatabaseConnector
+from cjklib.exception import UnsupportedError
+from cjklib.dbconnector import DatabaseConnector
 import operator
 import converter
 

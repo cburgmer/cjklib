@@ -23,9 +23,9 @@ import re
 import unicodedata
 import copy
 
-from ..exception import (AmbiguousConversionError, DecompositionError,
+from cjklib.exception import (AmbiguousConversionError, DecompositionError,
     AmbiguousDecompositonError, InvalidEntityError, UnsupportedError)
-from ..dbconnector import DatabaseConnector
+from cjklib.dbconnector import DatabaseConnector
 
 class ReadingOperator(object):
     """

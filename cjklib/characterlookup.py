@@ -20,10 +20,9 @@ Provides the central Chinese character based functions.
 """
 
 # import math
-from .dbconnector import DatabaseConnector
-from . import reading
-from . import exception
-from . import dbconnector
+from cjklib import reading
+from cjklib import exception
+from cjklib import dbconnector
 
 class CharacterLookup:
     u"""
@@ -290,7 +289,8 @@ class CharacterLookup:
         if dbConnectInst:
             self.db = dbConnectInst
         else:
-            self.db = DatabaseConnector.getDBConnector(databaseSettings)
+            self.db = dbconnector.DatabaseConnector.getDBConnector(
+                databaseSettings)
 
         self.readingFactory = None
 
@@ -1916,7 +1916,7 @@ class CharacterLookup:
                 localeClauses[-1], orderBy=['StrokeCount'],
                 distinctValues=True))
 
-            cur = DatabaseConnector.getDBConnector().getCursor()
+            cur = dbconnector.DatabaseConnector.getDBConnector().getCursor()
             cur.execute(' UNION '.join(selectCommands))
             result = list(cur.fetchall())
             for i, entry in enumerate(result): # TODO bug in python-mysql

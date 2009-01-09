@@ -22,9 +22,9 @@ reading to another reading.
 import re
 import copy
 
-from ..exception import (ConversionError, AmbiguousConversionError,
+from cjklib.exception import (ConversionError, AmbiguousConversionError,
     InvalidEntityError, UnsupportedError)
-from ..dbconnector import DatabaseConnector
+from cjklib.dbconnector import DatabaseConnector
 import operator
 import cjklib.reading
 
