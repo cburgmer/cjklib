@@ -37,7 +37,7 @@ package.
         >>> from cjklib import reading
         >>> readingFact = reading.ReadingFactory()
 
-    - Create an operator for Chinese romanisation Pinyin:
+    - Create an operator for Mandarin romanisation Pinyin:
 
         >>> pinyinOp = readingFact.createReadingOperator('Pinyin')
 
@@ -171,12 +171,12 @@ class ReadingOperator(object):
     Defines an abstract operator on text written in a I{character reading}.
 
     The two basic methods are L{decompose()} and L{compose()}. L{decompose()}
-    breaks down a text into the basic entities of that reading which each
-    relate to one Chinese character (additional non reading substrings are
-    accepted though). L{compose()} joins these entities together again and
-    applies formating rules needed by the reading. Additionally the method
-    L{isReadingEntity()} is provided to check which of the strings returned
-    by L{decompose()} are supported entities for the given reading.
+    breaks down a text into the basic entities of that reading (additional non
+    reading substrings are accepted though). L{compose()} joins these entities
+    together again and applies formating rules needed by the reading.
+    Additionally the method L{isReadingEntity()} is provided to check which of
+    the strings returned by L{decompose()} are supported entities for the given
+    reading.
 
     The methods L{getDefaultOptions()} and L{getOption()} provide means to
     handle the I{reading dialect}'s specific settings.
@@ -1523,7 +1523,7 @@ class TonalIPAOperator(TonalFixedEntityOperator):
 
 
 class HangulOperator(ReadingOperator):
-    """Provides a L{ReadingOperator} on text written in Hangul."""
+    """Provides an operator on Korean text written in X{Hangul}."""
     READING_NAME = "Hangul"
 
     def decompose(self, string):
@@ -1551,7 +1551,7 @@ class HangulOperator(ReadingOperator):
 
 class PinyinOperator(TonalRomanisationOperator):
     ur"""
-    Provides a L{ReadingOperator} for the Mandarin romanisation X{Hanyu Pinyin}.
+    Provides an operator for the Mandarin romanisation X{Hanyu Pinyin}.
     It can be configured to cope with different representations (I{"dialects"})
     of X{Pinyin}. For conversion between different representations the
     L{PinyinDialectConverter} can be used.
@@ -1649,6 +1649,12 @@ class PinyinOperator(TonalRomanisationOperator):
         used.
     @todo Impl: Strict testing of tone mark placement. Currently it doesn't
         matter where tones are placed. All combinations are recognised.
+    @todo Impl: Special marker for neutral tone: 'mȧ' (u'm\u0227', reported by
+        Ching-song Gene Hsiao: A Manual of Transcription Systems For Chinese,
+        中文拼音手册. Far Eastern Publications, Yale University, New Haven,
+        Connecticut, 1985, ISBN 0-88710-141-0.), and '·ma' (u'\xb7ma', check!:
+        现代汉语词典（第5版）[Xiàndài Hànyǔ Cídiǎn 5. Edition]. 商务印书馆
+        [Shāngwù Yìnshūguǎn], Beijing, 2005, ISBN 7-100-04385-9.)
     """
     READING_NAME = 'Pinyin'
 
@@ -2292,8 +2298,7 @@ class PinyinDialectConverter(ReadingConverter):
             u'n\u01dah\xe1izi'
 
         - Decompose the reading of a dictionary entry from CEDICT into syllables
-            and convert them to a more standard form (including two syllables
-            for I{Erhua sound}):
+            and convert the ü-vowel and forms of I{Erhua sound}:
 
             >>> pinyinFrom = reading.PinyinOperator(toneMarkType='Numbers',
             ...     yVowel='u:', Erhua='oneSyllable')
@@ -2307,13 +2312,11 @@ class PinyinDialectConverter(ReadingConverter):
             >>> pinyinConv.convertEntities(syllables, 'Pinyin', 'Pinyin')
             [u'sun1', u'n\xfc3', u'r5']
 
-        - Or more elegantly:
+        - Or more elegantly with entities already decomposed:
 
-            >>> options = {'toneMarkType': 'Numbers', 'yVowel': 'u:',
-            ...     'Erhua': 'oneSyllable'}
-            >>> syllables = f.decompose('sun1nu:r3', 'Pinyin', **options)
-            >>> f.convertEntities(syllables, 'Pinyin', 'Pinyin',
-            ...     sourceOptions=options,
+            >>> f.convertEntities(['sun1', 'nu:r3'], 'Pinyin', 'Pinyin',
+            ...     sourceOptions={'toneMarkType': 'Numbers', 'yVowel': 'u:',
+            ...        'Erhua': 'oneSyllable'},
             ...     targetOptions={'toneMarkType': 'Numbers',
             ...        'Erhua': 'twoSyllables'})
             [u'sun1', u'n\xfc3', u'r5']
@@ -2581,7 +2584,7 @@ class PinyinDialectConverter(ReadingConverter):
 
 class WadeGilesOperator(TonalRomanisationOperator):
     u"""
-    Provides a L{ReadingOperator} for the X{Wade-Giles} romanisation.
+    Provides an operator for the Mandarin X{Wade-Giles} romanisation.
 
     Features:
         - tones marked by either standard numbers or subscripts,
@@ -2809,7 +2812,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
 class WadeGilesDialectConverter(EntityWiseReadingConverter):
     u"""
-    Provides a converter for different representations of the Mandarin Chinese
+    Provides a converter for different representations of the Chinese
     romanisation I{Wade-Giles}.
 
     The converter has very limited possibilities for conversion at this time,
@@ -2926,7 +2929,7 @@ class PinyinWadeGilesConverter(RomanisationConverter):
 
 class GROperator(TonalRomanisationOperator):
     u"""
-    Provides a L{ReadingOperator} for the X{Gwoyeu Romatzyh} system.
+    Provides an operator for the Mandarin X{Gwoyeu Romatzyh} romanisation.
 
     Features:
         - support of abbreviated forms (zh, j, g),
@@ -2938,7 +2941,8 @@ class GROperator(TonalRomanisationOperator):
 
     Limitations:
         - abbreviated forms for multiple syllables are not supported,
-        - syllable repetition markers as reported by some will not be parsed.
+        - syllable repetition markers as reported by some will currently not be
+          parsed.
 
     R-colouring
     ===========
@@ -2972,9 +2976,17 @@ class GROperator(TonalRomanisationOperator):
 
     @todo Impl: Initial, medial, head, ending (ending1, ending2=l?)
     @todo Lang: Which character to use for optional neutral tone: C{'ₒ'} ?
+    @todo Impl: Implement Erhua forms as stated in W. Simon: A Beginner's
+        Chinese-English Dictionary.
+    @todo Impl: Implement repetition markers as stated in W. Simon: A Beginner's
+        Chinese-English Dictionary.
     @todo Impl: Implement a GRIPAConverter once IPA values are obtained for
         the PinyinIPAConverter. GRIPAConverter can work around missing Erhua
         conversion to Pinyin.
+    @todo Lang: Special rule for non-Chinese names with initial r- to be
+        transcribed with an r- cited by Ching-song Gene Hsiao: A Manual of
+        Transcription Systems For Chinese, 中文拼音手册. Far Eastern Publications,
+        Yale University, New Haven, Connecticut, 1985, ISBN 0-88710-141-0.
     """
     READING_NAME = 'GR'
 
@@ -3480,6 +3492,8 @@ class GROperator(TonalRomanisationOperator):
         @rtype: str
         @return: original entity
         @raise AmbiguousConversionError: if conversion is ambiguous.
+        @todo Fix: Move this method to the Converter, AmbiguousConversionError
+            not needed for import here then
         """
         if self.isAbbreviatedEntity(entity):
             if self._getAbbreviatedLookup()[entity] == None:
@@ -4180,7 +4194,7 @@ class PinyinIPAConverter(ReadingConverter):
 
     def finalECoarticulation(self, leftContext, plainSyllable, tone,
         rightContext):
-        """
+        u"""
         Example function for handling coarticulation of final I{e} for the
         neutral tone.
 
@@ -4686,8 +4700,8 @@ class PinyinBrailleConverter(ReadingConverter):
 
 class JyutpingOperator(TonalRomanisationOperator):
     """
-    Provides a L{ReadingOperator} for the Cantonese romanisation X{Jyutping}
-    made by the Linguistic Society of Hong Kong (X{LSHK}).
+    Provides an operator for the Cantonese romanisation X{Jyutping} made by the
+    X{Linguistic Society of Hong Kong} (X{LSHK}).
 
     @see:
         - The Linguistic Society of Hong Kong Cantonese Romanization Scheme:
@@ -4838,7 +4852,7 @@ class JyutpingDialectConverter(EntityWiseReadingConverter):
 
 class CantoneseYaleOperator(TonalRomanisationOperator):
     u"""
-    Provides a L{ReadingOperator} for the X{Cantonese Yale} romanisation system.
+    Provides an operator for the X{Cantonese Yale} romanisation.
 
     Features:
         - tones marked by either diacritics or numbers,
@@ -5823,6 +5837,11 @@ class ReadingFactory(object):
         need to be used on creating a operator. How to raise errors to save user
         of specifying an operator twice, one per options, one per concrete
         instance (similar to sourceOptions and targetOptions)?
+    @todo Bug: Non standard reading options seem to be accepted when default in
+        converter:
+
+        >>> print f.convert('lao3shi1', 'Pinyin', 'MandarinIPA')
+        lau˨˩.ʂʅ˥˥
     """
     READING_OPERATORS = [HangulOperator, PinyinOperator, WadeGilesOperator,
         GROperator, MandarinIPAOperator, MandarinBrailleOperator,
