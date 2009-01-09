@@ -1,0 +1,1011 @@
+#!/usr/bin/python
+# -*- coding: utf8 -*-
+# This file is part of cjklib.
+#
+# cjklib is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# cjklib is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
+
+u"""
+Provides the Chinese character reading based functions.
+This includes L{ReadingOperator}s used to handle basic operations like
+decomposing strings written in a reading into their basic entities (e.g.
+syllables) and for some languages getting tonal information, syllable onset and
+rhyme and other features. Furthermore it includes L{ReadingConverter}s which
+offer the conversion of strings from one reading to another.
+
+All basic functionality can be accessed using the L{ReadingFactory} which
+provides factory methods for creating instances of the supplied classes and also
+acts as a façade for the functions defined there.
+
+Examples
+========
+The following examples should give a quick view into how to use this
+package.
+    - Create the ReadingFactory object with default settings
+        (read from cjklib.conf or using cjklib.db in same directory as default):
+
+        >>> from cjklib.reading import ReadingFactory
+        >>> readingFact = ReadingFactory()
+
+    - Create an operator for Mandarin romanisation Pinyin:
+
+        >>> pinyinOp = readingFact.createReadingOperator('Pinyin')
+
+    - Construct a Pinyin syllable with second tone:
+
+        >>> pinyinOp.getTonalEntity(u'han', 2)
+        u'hán'
+
+    - Segments the given Pinyin string into a list of syllables:
+
+        >>> pinyinOp.decompose(u"tiān'ānmén")
+        [u'ti\u0101n', u"'", u'\u0101n', u'm\xe9n']
+
+    - Use the factory class as a façade to easily access functions provided by
+        classes in the background: convert the given Gwoyeu Romatzyh syllables
+        to their pronunciation in IPA:
+
+        >>> readingFact.convert('liow shu', 'GR', 'MandarinIPA')
+        u'li\u0259u\u02e5\u02e9 \u0282u\u02e5\u02e5'
+
+Readings
+========
+Han-characters give only few visual hints about how they are pronounced. The big
+number of homophones further increases the problem of deriving the character's
+actual pronunciation from the given glyph. This module implements a framework
+and desirable functionality to deal with the characteristics of
+X{character reading}s.
+
+From a programmatical view point readings in languages making use of Chinese
+characters differ in many ways. Some use the Roman alphabet, some have tonal
+information, some can be mapped character-wise, some map from one Chinese
+character to a sequence of characters in the target system while some map only
+to one character.
+
+One mayor group in the topic of readings are X{romanisations}, which are
+transcriptions into the Roman alphabet (Cyrillic respectively). Romanisations
+of tonal languages are a subgroup that ask for even more detailed functions. The
+interface implemented here tries to grasp similar factors on different
+abstraction levels while trying to maintain flexibility.
+
+In the context of this library the term I{reading} will refer to two things: the
+realisation of expressing the pronunciation (e.g. the specific romanisation) on
+the one hand, and the specific reading of a given character on the other hand.
+
+Technical Implementation
+========================
+While module L{characterlookup} includes the functions for mapping a character
+to its potential reading, module C{reading} is specialised on all functionality
+that is primarily connected to the reading of characters.
+
+The main functions implemented here provide ways of handling text written in a
+reading and converting between different readings.
+
+Handling text written in a reading
+----------------------------------
+Text written in a I{character reading} is special to other text, as it consists
+of entities which map to corresponding Chinese characters. They can be deduced
+from the text through breaking the whole string down into a sequence of single
+entities. This functionality is provided by all operators on readings by
+providing the interface L{ReadingOperator}. The process of breaking input down
+(called decomposition) can be reversed by composing the single entities to a
+string.
+
+Many L{ReadingOperator}s provide additional functions, each depending on the
+characteristics of the implemented reading. For readings of tonal languages for
+example they might allow to question the tone of the given reading of a
+character.
+
+G{classtree operator.ReadingOperator}
+
+Converting between readings
+---------------------------
+The second part provided are means to provide support for conversion between
+different readings.
+
+What all CJK languages seem to have in common is their irreversibility of the
+mapping from a character to its reading, as these languages are rich in
+homophones. Thus the highest degree in information for a text is obtained by the
+pair of characters and their reading (aside from the meaning).
+
+If one has a text written in reading A and one wants to obtain the text written
+in B instead then it is not feasible to obtain the reading from the
+corresponding characters even if present, as many characters have several
+pronunciations. Instead one wants to convert the reading through conversion from
+A to B.
+
+Simple means to convert between readings is provided by classes implementing
+L{ReadingConverter}. This conversion might neither be surjective nor injective,
+and several L{exception}s can occur.
+
+G{classtree converter.ReadingConverter}
+
+Configurable X{Reading Dialect}s
+--------------------------------
+Many readings come in specific representations even if standardised. This may
+start with simple difference in type setting (e.g. punctuation) or include
+special entities and derivatives.
+
+Instead of selecting one default form as a global standard cjklib lets the user
+choose the preferred dialect, though still trying to offer good default values.
+It does so by offering a wide range of options for handling and conversion of
+readings. These options can be given optionally in many places and are handed
+down by the system to the component knowing about this specific configuration
+option. Furthermore each class implements a method that states which options it
+uses by default.
+
+A special notion of X{dialect converters} is used for L{ReadingConverter}s that
+convert between two different representations of the same reading. These allow
+flexible switching between reading dialects.
+"""
+
+__all__ = ['operator', 'converter', 'ReadingFactory']
+
+from ..exception import UnsupportedError
+from ..dbconnector import DatabaseConnector
+import operator
+import converter
+
+class ReadingFactory(object):
+    """
+    Provides an abstract factory for creating L{ReadingOperator}s and
+    L{ReadingConverter}s. Furthermore acts as a façade to the conversion methods
+    offered by these classes.
+
+    Instances of other classes are cached in the background and reused on later
+    calls for methods accessed through the façade.
+    L{createReadingOperator()} and L{createReadingConverter} can be used to
+    create new instances for use outside of the ReadingFactory.
+    @todo Impl: What about hiding of inner classes?
+        L{_checkSpecialOperators()} method is called for internal converters and
+        for external ones delivered by L{createReadingConverter()}. Latter
+        method doesn't return internal cached copies though, but creates new
+        instances. L{ReadingOperator} also gets copies from ReadingFactory
+        objects for internal instances. Sharing saves memory but changing one
+        object will affect all other objects using this instance.
+    @todo Impl: General reading options given for a converter with **options
+        need to be used on creating a operator. How to raise errors to save user
+        of specifying an operator twice, one per options, one per concrete
+        instance (similar to sourceOptions and targetOptions)?
+    @todo Bug: Non standard reading options seem to be accepted when default in
+        converter:
+
+        >>> print f.convert('lao3shi1', 'Pinyin', 'MandarinIPA')
+        lau˨˩.ʂʅ˥˥
+    """
+    READING_OPERATORS = [operator.HangulOperator, operator.PinyinOperator,
+        operator.WadeGilesOperator, operator.GROperator,
+        operator.MandarinIPAOperator, operator.MandarinBrailleOperator,
+        operator.JyutpingOperator, operator.CantoneseYaleOperator,
+        operator.CantoneseIPAOperator]
+    """A list of supported reading operators."""
+    READING_CONVERTERS = [converter.PinyinDialectConverter,
+        converter.WadeGilesDialectConverter, converter.PinyinWadeGilesConverter,
+        converter.GRDialectConverter, converter.GRPinyinConverter,
+        converter.PinyinIPAConverter, converter.PinyinBrailleConverter,
+        converter.JyutpingDialectConverter,
+        converter.CantoneseYaleDialectConverter,
+        converter.JyutpingYaleConverter, converter.BridgeConverter]
+    """A list of supported reading converters. """
+
+    sharedState = {'readingOperatorClasses': {}, 'readingConverterClasses': {}}
+    """
+    Dictionary holding global state information used by all instances of the
+    ReadingFactory.
+    """
+
+    class SimpleReadingConverterAdaptor(object):
+        """
+        Defines a simple converter between two I{character reading}s that keeps
+        the real converter doing the work in the background.
+
+        The basic method is L{convert()} which converts one input string from
+        one reading to another. In contrast to a L{ReadingConverter} no source
+        or target reading needs to be specified.
+        """
+        def __init__(self, converterInst, fromReading, toReading):
+            """
+            Creates an instance of the SimpleReadingConverterAdaptor.
+
+            @type converterInst: instance
+            @param converterInst: L{ReadingConverter} instance doing the actual
+                conversion work.
+            @type fromReading: str
+            @param fromReading: name of reading converted from
+            @type toReading: str
+            @param toReading: name of reading converted to
+            """
+            self.converterInst = converterInst
+            self.fromReading = fromReading
+            self.toReading = toReading
+            self.CONVERSION_DIRECTIONS = [(fromReading, toReading)]
+
+        def convert(self, string, fromReading=None, toReading=None):
+            """
+            Converts a string in the source reading to the target reading.
+
+            If parameters fromReading or toReading are not given the class's
+            default values will be applied.
+
+            @type string: str
+            @param string: string written in the source reading
+            @type fromReading: str
+            @param fromReading: name of the source reading
+            @type toReading: str
+            @param toReading: name of the target reading
+            @rtype: str
+            @returns: the input string converted to the C{toReading}
+            @raise DecompositionError: if the string can not be decomposed into
+                basic entities with regards to the source reading.
+            @raise ConversionError: on operations specific to the conversion
+                between the two readings (e.g. error on converting entities).
+            @raise UnsupportedError: if source or target reading not supported
+                for conversion.
+            """
+            if not fromReading:
+                fromReading = self.fromReading
+            if not toReading:
+                toReading = self.toReading
+            return self.converterInst.convert(string, fromReading, toReading)
+
+        def convertEntities(self, readingEntities, fromReading=None,
+            toReading=None):
+            """
+            Converts a list of entities in the source reading to the target
+            reading.
+
+            If parameters fromReading or toReading are not given the class's
+            default values will be applied.
+
+            @type readingEntities: list of str
+            @param readingEntities: list of entities written in source reading
+            @type fromReading: str
+            @param fromReading: name of the source reading
+            @type toReading: str
+            @param toReading: name of the target reading
+            @rtype: list of str
+            @return: list of entities written in target reading
+            @raise ConversionError: on operations specific to the conversion
+                between the two readings (e.g. error on converting entities).
+            @raise UnsupportedError: if source or target reading is not
+                supported for conversion.
+            @raise InvalidEntityError: if an invalid entity is given.
+            """
+            if not fromReading:
+                fromReading = self.fromReading
+            if not toReading:
+                toReading = self.toReading
+            return self.converterInst.convertEntities(readingEntities,
+                fromReading, toReading)
+
+        def __getattr__(self, name):
+            return getattr(self.converterInst, name)
+
+    def __init__(self, databaseSettings={}, dbConnectInst=None):
+        """
+        Initialises the ReadingFactory.
+
+        If no parameters are given default values are assumed for the connection
+        to the database. Other options can be either passed as dictionary to
+        databaseSettings, or as an instantiated L{DatabaseConnector} given to
+        dbConnectInst, the latter one will be preferred.
+
+        @type databaseSettings: dict
+        @param databaseSettings: database settings passed to the
+            L{DatabaseConnector}, see there for feasible values
+        @type dbConnectInst: instance
+        @param dbConnectInst: instance of a L{DatabaseConnector}
+        @bug: Specifying another database connector overwrites settings
+            of other instances.
+        """
+        # rebind shared state variable to make it accessible to all instances
+        self.__dict__ = self.sharedState
+        # get connector to database
+        if dbConnectInst:
+            self.db = dbConnectInst
+        else:
+            self.db = DatabaseConnector.getDBConnector(databaseSettings)
+        # create object instance cache if needed, shared with all factories
+        #   using the same database connection
+        if self.db not in self.sharedState:
+            self.sharedState[self.db] = {}
+            self.sharedState[self.db]['readingOperatorInstances'] = {}
+            self.sharedState[self.db]['readingConverterInstances'] = {}
+        # publish default reading operators and converters
+            for readingOperator in self.READING_OPERATORS:
+                self.publishReadingOperator(readingOperator)
+            for readingConverter in self.READING_CONVERTERS:
+                self.publishReadingConverter(readingConverter)
+
+    #{ Meta
+
+    def publishReadingOperator(self, readingOperator):
+        """
+        Publishes a L{ReadingOperator} to the list and thus makes it available
+        for other methods in the library.
+
+        @type readingOperator: classobj
+        @param readingOperator: a new L{ReadingOperator} to be published
+        """
+        self.sharedState['readingOperatorClasses']\
+            [readingOperator.READING_NAME] = readingOperator
+
+    def getSupportedReadings(self):
+        """
+        Gets a list of all supported readings.
+
+        @rtype: list of str
+        @return: a list of readings a L{ReadingOperator} is available for
+        """
+        return self.sharedState['readingOperatorClasses'].keys()
+
+    def getReadingOperatorClass(self, readingN):
+        """
+        Gets the L{ReadingOperator}'s class for the given reading.
+
+        @type readingN: str
+        @param readingN: name of a supported reading
+        @rtype: classobj
+        @return: a L{ReadingOperator} class
+        @raise UnsupportedError: if the given reading is not supported.
+        """
+        if readingN not in self.sharedState['readingOperatorClasses']:
+            raise UnsupportedError("reading '" + readingN + "' not supported")
+        return self.sharedState['readingOperatorClasses'][readingN]
+
+    def createReadingOperator(self, readingN, **options):
+        """
+        Creates an instance of a L{ReadingOperator} for the given reading.
+
+        @type readingN: str
+        @param readingN: name of a supported reading
+        @param options: options for the created instance
+        @rtype: instance
+        @return: a L{ReadingOperator} instance
+        @raise UnsupportedError: if the given reading is not supported.
+        """
+        operatorClass = self.getReadingOperatorClass(readingN)
+        return operatorClass(dbConnectInst=self.db, **options)
+
+    def publishReadingConverter(self, readingConverter):
+        """
+        Publishes a L{ReadingConverter} to the list and thus makes it available
+        for other methods in the library.
+
+        @type readingConverter: classobj
+        @param readingConverter: a new L{readingConverter} to be published
+        """
+        for fromReading, toReading in readingConverter.CONVERSION_DIRECTIONS:
+            self.sharedState['readingConverterClasses']\
+                [(fromReading, toReading)] = readingConverter
+
+    def getReadingConverterClass(self, fromReading, toReading):
+        """
+        Gets the L{ReadingConverter}'s class for the given source and target
+        reading.
+
+        @type fromReading: str
+        @param fromReading: name of the source reading
+        @type toReading: str
+        @param toReading: name of the target reading
+        @rtype: classobj
+        @return: a L{ReadingConverter} class
+        @raise UnsupportedError: if conversion for the given readings is not
+            supported.
+        """
+        if not self.isReadingConversionSupported(fromReading, toReading):
+            raise UnsupportedError("conversion from '" + fromReading \
+                + "' to '" + toReading + "' not supported")
+        return self.sharedState['readingConverterClasses']\
+            [(fromReading, toReading)]
+
+    def createReadingConverter(self, fromReading, toReading, *args, **options):
+        """
+        Creates an instance of a L{ReadingConverter} for the given source and
+        target reading and returns it wrapped as a
+        L{SimpleReadingConverterAdaptor}.
+
+        As L{ReadingConverter}s generally support more than one conversion
+        direction the user needs to specify which source and target reading is
+        needed on a regular instance. Wrapping the created instance in the
+        adaptor gives a simple convert() and convertEntities() routine, such
+        that on conversion the source and target readings don't have to be
+        specified. Other methods signatures remain unchanged.
+
+        @type fromReading: str
+        @param fromReading: name of the source reading
+        @type toReading: str
+        @param toReading: name of the target reading
+        @param args: optional list of L{RomanisationOperator}s to use for
+            handling source and target readings.
+        @param options: options for the created instance
+        @keyword hideComplexConverter: if true the L{ReadingConverter} is
+            wrapped as a L{SimpleReadingConverterAdaptor} (default).
+        @keyword sourceOperators: list of L{ReadingOperator}s used for handling
+            source readings.
+        @keyword targetOperators: list of L{ReadingOperator}s used for handling
+            target readings.
+        @keyword sourceOptions: dictionary of options to configure the
+            L{ReadingOperator}s used for handling source readings. If an
+            operator for the source reading is explicitly specified, no options
+            can be given.
+        @keyword targetOptions: dictionary of options to configure the
+            L{ReadingOperator}s used for handling target readings. If an
+            operator for the target reading is explicitly specified, no options
+            can be given.
+        @rtype: instance
+        @return: a L{SimpleReadingConverterAdaptor} or L{ReadingConverter}
+            instance
+        @raise UnsupportedError: if conversion for the given readings is not
+            supported.
+        """
+        converterClass = self.getReadingConverterClass(fromReading, toReading)
+
+        self._checkSpecialOperators(fromReading, toReading, args, options)
+
+        converterInst = converterClass(dbConnectInst=self.db, *args, **options)
+        if 'hideComplexConverter' not in options \
+            or options['hideComplexConverter']:
+            return ReadingFactory.SimpleReadingConverterAdaptor(
+                converterInst=converterInst, fromReading=fromReading,
+                toReading=toReading)
+        else:
+            return converterInst
+
+    def isReadingConversionSupported(self, fromReading, toReading):
+        """
+        Checks if the conversion from reading A to reading B is supported.
+
+        @rtype: bool
+        @return: true if conversion is supported, false otherwise
+        """
+        return (fromReading, toReading) \
+            in self.sharedState['readingConverterClasses']
+
+    def getDefaultOptions(*args):
+        """
+        Returns the default options for the L{ReadingOperator} or
+        L{ReadingConverter} applied for the given reading name or names
+        respectively.
+
+        The keyword 'dbConnectInst' is not regarded a configuration option and
+        is thus not included in the dict returned.
+
+        @raise ValueError: if more than one or two reading names are given.
+        @raise UnsupportedError: if no ReadingOperator or ReadingConverter
+            exists for the given reading or readings respectively.
+        """
+        if len(args) == 1:
+            return self.getReadingOperatorClass(args[0]).getDefaultOptions()
+        elif len(args) == 2:
+            return self.getReadingConverterClass(args[0], args[1])\
+                .getDefaultOptions()
+        else:
+            raise ValueError("Wrong number of arguments")
+
+    def _getReadingOperatorInstance(self, readingN, **options):
+        """
+        Returns an instance of a L{ReadingOperator} for the given reading from
+        the internal cache and creates it if it doesn't exist yet.
+
+        @type readingN: str
+        @param readingN: name of a supported reading
+        @param options: additional options for instance
+        @rtype: instance
+        @return: a L{ReadingOperator} instance
+        @raise UnsupportedError: if the given reading is not supported.
+        @todo Impl: Get all options when calculating key for an instance and use
+            the information on standard parameters thus minimising instances in
+            cache. Same for L{_getReadingConverterInstance()}.
+        """
+        # construct key for lookup in cache
+        cacheKey = (readingN, self._getHashableCopy(options))
+        # get cache
+        instanceCache = self.sharedState[self.db]['readingOperatorInstances']
+        if cacheKey not in instanceCache:
+            operator = self.createReadingOperator(readingN, **options)
+            instanceCache[cacheKey] = operator
+        return instanceCache[cacheKey]
+
+    def _getReadingConverterInstance(self, fromReading, toReading, *args,
+        **options):
+        """
+        Returns an instance of a L{ReadingConverter} for the given source and
+        target reading from the internal cache and creates it if it doesn't
+        exist yet.
+
+        @type fromReading: str
+        @param fromReading: name of the source reading
+        @type toReading: str
+        @param toReading: name of the target reading
+        @param args: optional list of L{RomanisationOperator}s to use for
+            handling source and target readings.
+        @param options: additional options for instance
+        @keyword sourceOperators: list of L{ReadingOperator}s used for handling
+            source readings.
+        @keyword targetOperators: list of L{ReadingOperator}s used for handling
+            target readings.
+        @keyword sourceOptions: dictionary of options to configure the
+            L{ReadingOperator}s used for handling source readings. If an
+            operator for the source reading is explicitly specified, no options
+            can be given.
+        @keyword targetOptions: dictionary of options to configure the
+            L{ReadingOperator}s used for handling target readings. If an
+            operator for the target reading is explicitly specified, no options
+            can be given.
+        @rtype: instance
+        @return: an L{ReadingConverter} instance
+        @raise UnsupportedError: if conversion for the given readings are not
+            supported.
+        @todo Fix : Reusing of instances for other supported conversion
+            directions isn't that efficient if a special ReadingOperator is
+            specified for one direction, that doesn't affect others.
+        """
+        self._checkSpecialOperators(fromReading, toReading, args, options)
+
+        # construct key for lookup in cache
+        cacheKey = ((fromReading, toReading), self._getHashableCopy(options))
+        # get cache
+        instanceCache = self.sharedState[self.db]['readingConverterInstances']
+        if cacheKey not in instanceCache:
+            conv = self.createReadingConverter(fromReading, toReading,
+                hideComplexConverter=False, *args, **options)
+            # use instance for all supported conversion directions
+            for convFromReading, convToReading in conv.CONVERSION_DIRECTIONS:
+                oCacheKey = ((convFromReading, convToReading),
+                    self._getHashableCopy(options))
+                if oCacheKey not in instanceCache:
+                    instanceCache[oCacheKey] = conv
+        return instanceCache[cacheKey]
+
+    def _checkSpecialOperators(self, fromReading, toReading, args, options):
+        """
+        Checks for special operators requested for the given source and target
+        reading.
+
+        @type fromReading: str
+        @param fromReading: name of the source reading
+        @type toReading: str
+        @param toReading: name of the target reading
+        @param args: optional list of L{RomanisationOperator}s to use for
+            handling source and target readings.
+        @param options: additional options for handling the input
+        @keyword sourceOperators: list of L{ReadingOperator}s used for handling
+            source readings.
+        @keyword targetOperators: list of L{ReadingOperator}s used for handling
+            target readings.
+        @keyword sourceOptions: dictionary of options to configure the
+            L{ReadingOperator}s used for handling source readings. If an
+            operator for the source reading is explicitly specified, no options
+            can be given.
+        @keyword targetOptions: dictionary of options to configure the
+            L{ReadingOperator}s used for handling target readings. If an
+            operator for the target reading is explicitly specified, no options
+            can be given.
+        @raise ValueError: if options are given to create a specific
+            ReadingOperator, but an instance is already given in C{args}.
+        @raise UnsupportedError: if source or target reading is not supported.
+        """
+        # check options, don't overwrite existing operators
+        for arg in args:
+            if isinstance(arg, ReadingOperator):
+                if arg.READING_NAME == fromReading \
+                    and 'sourceOptions' in options:
+                        raise ValueError(
+                            "source reading operator options given, " \
+                            + "but a source reading operator already exists")
+                if arg.READING_NAME == toReading \
+                    and 'targetOptions' in options:
+                        raise ValueError(
+                            "target reading operator options given, " \
+                            + "but a target reading operator already exists")
+        # create operators for options
+        if 'sourceOptions' in options:
+            readingOp = self._getReadingOperatorInstance(fromReading,
+                **options['sourceOptions'])
+            del options['sourceOptions']
+
+            # add reading operator to converter
+            if 'sourceOperators' not in options:
+                options['sourceOperators'] = []
+            options['sourceOperators'].append(readingOp)
+
+        if 'targetOptions' in options:
+            readingOp = self._getReadingOperatorInstance(toReading,
+                **options['targetOptions'])
+            del options['targetOptions']
+
+            # add reading operator to converter
+            if 'targetOperators' not in options:
+                options['targetOperators'] = []
+            options['targetOperators'].append(readingOp)
+
+    @staticmethod
+    def _getHashableCopy(data):
+        """
+        Constructs a unique hashable deep-copy for a given instance, replacing
+        non-hashable datatypes C{set}, C{dict} and C{list} recursively.
+
+        @param data: non-hashable object
+        @return: hashable object, C{set} converted to a C{frozenset}, C{dict}
+            converted to a C{frozenset} of key-value-pairs (tuple), and C{list}
+            converted to a C{tuple}.
+        """
+        if type(data) == type([]):
+            newList = []
+            for i, entry in enumerate(data):
+                newList.append(ReadingFactory._getHashableCopy(entry))
+            return tuple(newList)
+        elif type(data) == type(set([])):
+            newSet = set([])
+            for entry in data:
+                newSet.add(ReadingFactory._getHashableCopy(entry))
+            return frozenset(newSet)
+        elif type(data) == type({}):
+            newDict = {}
+            for key in data:
+                newDict[key] = ReadingFactory._getHashableCopy(data[key])
+            return frozenset(newDict.items())
+        else:
+            return data
+
+    #}
+    #{ ReadingConverter methods
+
+    def convert(self, readingStr, fromReading, toReading, *args, **options):
+        """
+        Converts the given string in the source reading to the given target
+        reading.
+
+        @type readingStr: str
+        @param readingStr: string that needs to be converted
+        @type fromReading: str
+        @param fromReading: name of the source reading
+        @type toReading: str
+        @param toReading: name of the target reading
+        @param args: optional list of L{RomanisationOperator}s to use for
+            handling source and target readings.
+        @param options: additional options for handling the input
+        @keyword sourceOperators: list of L{ReadingOperator}s used for handling
+            source readings.
+        @keyword targetOperators: list of L{ReadingOperator}s used for handling
+            target readings.
+        @keyword sourceOptions: dictionary of options to configure the
+            L{ReadingOperator}s used for handling source readings. If an
+            operator for the source reading is explicitly specified, no options
+            can be given.
+        @keyword targetOptions: dictionary of options to configure the
+            L{ReadingOperator}s used for handling target readings. If an
+            operator for the target reading is explicitly specified, no options
+            can be given.
+        @rtype: str
+        @return: the converted string
+        @raise DecompositionError: if the string can not be decomposed into
+            basic entities with regards to the source reading or the given
+            information is insufficient.
+        @raise ConversionError: on operations specific to the conversion between
+            the two readings (e.g. error on converting entities).
+        @raise UnsupportedError: if source or target reading is not supported
+            for conversion.
+        """
+        readingConv = self._getReadingConverterInstance(fromReading, toReading,
+            *args, **options)
+        return readingConv.convert(readingStr, fromReading, toReading)
+
+    def convertEntities(self, readingEntities, fromReading, toReading, *args,
+        **options):
+        """
+        Converts a list of entities in the source reading to the given target
+        reading.
+
+        @type readingEntities: list of str
+        @param readingEntities: list of entities written in source reading
+        @type fromReading: str
+        @param fromReading: name of the source reading
+        @type toReading: str
+        @param toReading: name of the target reading
+        @param args: optional list of L{RomanisationOperator}s to use for
+            handling source and target readings.
+        @param options: additional options for handling the input
+        @keyword sourceOperators: list of L{ReadingOperator}s used for handling
+            source readings.
+        @keyword targetOperators: list of L{ReadingOperator}s used for handling
+            target readings.
+        @keyword sourceOptions: dictionary of options to configure the
+            L{ReadingOperator}s used for handling source readings. If an
+            operator for the source reading is explicitly specified, no options
+            can be given.
+        @keyword targetOptions: dictionary of options to configure the
+            L{ReadingOperator}s used for handling target readings. If an
+            operator for the target reading is explicitly specified, no options
+            can be given.
+        @rtype: list of str
+        @return: list of entities written in target reading
+        @raise ConversionError: on operations specific to the conversion between
+            the two readings (e.g. error on converting entities).
+        @raise UnsupportedError: if source or target reading is not supported
+            for conversion.
+        @raise InvalidEntityError: if an invalid entity is given.
+        """
+        readingConv = self._getReadingConverterInstance(fromReading, toReading,
+            *args, **options)
+        return readingConv.convertEntities(readingEntities, fromReading,
+            toReading)
+
+    #}
+    #{ ReadingOperator methods
+
+    def decompose(self, string, readingN, **options):
+        """
+        Decomposes the given string into basic entities that can be mapped to
+        one Chinese character each for the given reading.
+
+        The given input string can contain other non reading characters, e.g.
+        punctuation marks.
+
+        The returned list contains a mix of basic reading entities and other
+        characters e.g. spaces and punctuation marks.
+
+        @type string: str
+        @param string: reading string
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: list of str
+        @return: a list of basic entities of the input string
+        @raise DecompositionError: if the string can not be decomposed.
+        @raise UnsupportedError: if the given reading is not supported.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        return readingOp.decompose(string)
+
+    def compose(self, readingEntities, readingN, **options):
+        """
+        Composes the given list of basic entities to a string for the given
+        reading.
+
+        @type readingEntities: list of str
+        @param readingEntities: list of basic syllables or other content
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: str
+        @return: composed entities
+        @raise UnsupportedError: if the given reading is not supported.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        return readingOp.compose(readingEntities)
+
+    def isReadingEntity(self, entity, readingN, **options):
+        """
+        Checks if the given string is an entity of the given reading.
+
+        @type entity: str
+        @param entity: entity to check
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: bool
+        @return: true if string is an entity of the reading, false otherwise.
+        @raise UnsupportedError: if the given reading is not supported.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        return readingOp.isReadingEntity(entity)
+
+    #}
+    #{ RomanisationOperator methods
+
+    def getDecompositions(self, string, readingN, **options):
+        """
+        Decomposes the given string into basic entities that can be mapped to
+        one Chinese character each for ambiguous decompositions. It all possible
+        decompositions. This method is a more general version of L{decompose()}.
+
+        The returned list construction consists of two entity types: entities of
+        the romanisation and other strings.
+
+        @type string: str
+        @param string: reading string
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: list of list of str
+        @return: a list of all possible decompositions consisting of basic
+            entities.
+        @raise DecompositionError: if the given string has a wrong format.
+        @raise UnsupportedError: if the given reading is not supported or the
+            reading doesn't support the specified method.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        if not hasattr(readingOp, 'getDecompositions'):
+            raise UnsupportedError("method 'getDecompositions' not supported")
+        return readingOp.getDecompositions(string)
+
+    def segment(self, string, readingN, **options):
+        """
+        Takes a string written in the romanisation and returns the possible
+        segmentations as a list of syllables.
+
+        In contrast to L{decompose()} this method merely segments continuous
+        entities of the romanisation. Characters not part of the romanisation
+        will not be dealt with, this is the task of the more general decompose
+        method.
+
+        @type string: str
+        @param string: reading string
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: list of list of str
+        @return: a list of possible segmentations (several if ambiguous) into
+            single syllables
+        @raise DecompositionError: if the given string has an invalid format.
+        @raise UnsupportedError: if the given reading is not supported or the
+            reading doesn't support the specified method.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        if not hasattr(readingOp, 'segment'):
+            raise UnsupportedError("method 'segment' not supported")
+        return readingOp.segment(string)
+
+    def isStrictDecomposition(self, decomposition, readingN, **options):
+        """
+        Checks if the given decomposition follows the romanisation format
+        strictly to allow unambiguous decomposition.
+
+        The romanisation should offer a way/protocol to make an unambiguous
+        decomposition into it's basic syllables possible as to make the process
+        of appending syllables to a string reversible. The testing on compliance
+        with this protocol has to be implemented here. Thus this method can only
+        return true for one and only one possible decomposition for all strings.
+
+        @type decomposition: list of str
+        @param decomposition: decomposed reading string
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: bool
+        @return: False, as this methods needs to be implemented by the sub class
+        @raise UnsupportedError: if the given reading is not supported or the
+            reading doesn't support the specified method.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        if not hasattr(readingOp, 'isStrictDecomposition'):
+            raise UnsupportedError(
+                "method 'isStrictDecomposition' not supported")
+        return readingOp.isStrictDecomposition(decomposition)
+
+    def getReadingEntities(self, readingN, **options):
+        """
+        Gets a set of all entities supported by the reading.
+
+        The list is used in the segmentation process to find entity boundaries.
+
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: set of str
+        @return: set of supported syllables
+        @raise UnsupportedError: if the given reading is not supported or the
+            reading doesn't support the specified method.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        if not hasattr(readingOp, 'getReadingEntities'):
+            raise UnsupportedError("method 'getReadingEntities' not supported")
+        return readingOp.getReadingEntities()
+
+    #}
+    #{ TonalRomanisationOperator methods
+
+    def getTones(self, readingN, **options):
+        """
+        Returns a set of tones supported by the reading.
+
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: list
+        @return: list of supported tone marks.
+        @raise UnsupportedError: if the given reading is not supported or the
+            reading doesn't support the specified method.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        if not hasattr(readingOp, 'getTones'):
+            raise UnsupportedError("method 'getTones' not supported")
+        return readingOp.getTones()
+
+    def getTonalEntity(self, plainEntity, tone, readingN, **options):
+        """
+        Gets the entity with tone mark for the given plain entity and tone.
+
+        @type plainEntity: str
+        @param plainEntity: entity without tonal information
+        @param tone: tone
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: str
+        @return: entity with appropriate tone
+        @raise InvalidEntityError: if the entity is invalid.
+        @raise UnsupportedError: if the given reading is not supported or the
+            reading doesn't support the specified method.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        if not hasattr(readingOp, 'getTonalEntity'):
+            raise UnsupportedError("method 'getTonalEntity' not supported")
+        return readingOp.getTonalEntity(plainEntity, tone)
+
+    def splitEntityTone(self, entity, readingN, **options):
+        """
+        Splits the entity into an entity without tone mark (plain entity) and
+        the entity's tone.
+
+        @type entity: str
+        @param entity: entity with tonal information
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: tuple
+        @return: plain entity without tone mark and entity's tone
+        @raise InvalidEntityError: if the entity is invalid.
+        @raise UnsupportedError: if the given reading is not supported or the
+            reading doesn't support the specified method.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        if not hasattr(readingOp, 'splitEntityTone'):
+            raise UnsupportedError("method 'splitEntityTone' not supported")
+        return readingOp.splitEntityTone(entity)
+
+    def getPlainReadingEntities(self, readingN, **options):
+        """
+        Gets the list of plain entities supported by this reading. Different to
+        L{getReadingEntities()} the entities will carry no tone mark.
+
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: set of str
+        @return: set of supported syllables
+        @raise UnsupportedError: if the given reading is not supported or the
+            reading doesn't support the specified method.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        if not hasattr(readingOp, 'getPlainReadingEntities'):
+            raise UnsupportedError(
+                "method 'getPlainReadingEntities' not supported")
+        return readingOp.getPlainReadingEntities()
+
+    def isPlainReadingEntity(self, entity, readingN, **options):
+        """
+        Returns true if the given plain entity (without any tone mark) is
+        recognised by the romanisation operator, i.e. it is a valid entity of
+        the reading returned by the segmentation method.
+
+        Reading entities will be handled as being case insensitive.
+
+        @type entity: str
+        @param entity: entity to check
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: bool
+        @return: C{True} if string is an entity of the reading, C{False}
+            otherwise.
+        @raise UnsupportedError: if the given reading is not supported or the
+            reading doesn't support the specified method.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        if not hasattr(readingOp, 'isPlainReadingEntity'):
+            raise UnsupportedError(
+                "method 'isPlainReadingEntity' not supported")
+        return readingOp.isPlainReadingEntity(entity)

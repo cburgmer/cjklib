@@ -24,7 +24,7 @@ import unittest
 import types
 import re
 
-import cjklib.reading
+from cjklib.reading import *
 from cjklib import characterlookup
 
 from cjklib import exception
@@ -50,7 +50,7 @@ class ImmutableDict(dict):
 
 
 class ReadingOperatorTestCase(unittest.TestCase):
-    """Base class for testing of L{reading.ReadingOperator}s."""
+    """Base class for testing of L{ReadingOperator}s."""
     READING_DIALECTS = [('Pinyin', {'toneMarkType': 'Numbers'}),
         ('Pinyin', {'Erhua': 'oneSyllable'}),
         ('CantoneseYale', {'toneMarkType': 'Numbers'}),
@@ -65,7 +65,7 @@ class ReadingOperatorTestCase(unittest.TestCase):
                 = clss()
 
         # get dialect forms
-        f = cjklib.reading.ReadingFactory()
+        f = ReadingFactory()
         for readingN, readingOptions in self.READING_DIALECTS:
             clss = f.getReadingOperatorClass(readingN)
             self.readingOperator[(clss.READING_NAME,
@@ -75,20 +75,19 @@ class ReadingOperatorTestCase(unittest.TestCase):
     def getReadingOperatorClasses():
         """
         Gets all classes from the reading module that implement
-        L{reading.ReadingOperator}.
+        L{ReadingOperator}.
 
         @rtype: dictionary of string class pairs
         @return: dictionary of all classes inheriting form
-            L{reading.ReadingOperator}
+            L{ReadingOperator}
         """
         readingOperatorClasses = {}
-        readingModule = __import__("cjklib.reading")
 
         # get all non-abstract classes that inherit from ReadingOperator
         readingOperatorClasses = dict([(clss.__name__, clss) \
-            for clss in readingModule.reading.__dict__.values() \
+            for clss in operator.__dict__.values() \
             if type(clss) == types.TypeType \
-            and issubclass(clss, readingModule.reading.ReadingOperator) \
+            and issubclass(clss, operator.ReadingOperator) \
             and clss.READING_NAME])
 
         return readingOperatorClasses
@@ -149,7 +148,7 @@ class ReadingOperatorConsistencyTestCase(ReadingOperatorTestCase):
                             "decompose on single entity " + repr(entity) \
                                 + " doesn't return the entity for reading '" \
                                 + reading + "': " + repr(entities))
-                    except cjklib.reading.AmbiguousDecompositonError:
+                    except exception.AmbiguousDecompositonError:
                         self.assert_(True, "ambiguous decomposition for " \
                             + repr(entity) + " for reading '" + reading + "'")
 
@@ -498,11 +497,11 @@ u:nr            iuel    yuel    euel    iuell           hiuel   iuel
     INITIAL_REGEX = re.compile('^(tz|ts|ch|sh|[bpmfdtnlsjrgkh])?')
 
     def setUp(self):
-        self.readingFactory = cjklib.reading.ReadingFactory()
+        self.readingFactory = ReadingFactory()
         self.conv = self.readingFactory.createReadingConverter('Pinyin', 'GR',
             sourceOptions={'Erhua': "oneSyllable"},
             targetOptions={'GRRhotacisedFinalApostrophe': "'"})
-        self.py = cjklib.reading.PinyinOperator(Erhua="oneSyllable")
+        self.py = operator.PinyinOperator(Erhua="oneSyllable")
 
         # read in plain text mappings
 
@@ -617,10 +616,10 @@ u:nr            iuel    yuel    euel    iuell           hiuel   iuel
 
 
 class ReadingConverterTestCase(unittest.TestCase):
-    """Base class for testing of L{reading.ReadingConverter}s."""
+    """Base class for testing of L{ReadingConverter}s."""
 
     def setUp(self):
-        self.readingFactory = cjklib.reading.ReadingFactory()
+        self.readingFactory = ReadingFactory()
 
 
 class ReadingConverterValueTestCase(ReadingConverterTestCase):
