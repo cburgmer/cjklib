@@ -86,6 +86,13 @@ The following data is used:
         kSimplifiedVariant, kSpecializedSemanticVariant, kTraditionalVariant,
         kZVariant)
 
+This includes dictionary data from:
+    - kXHC1983:  Xiàndài Hànyǔ Cídiǎn (现代汉语词典). Shāngwù Yìnshūguǎn, Beijing,
+        1983.
+    - kHanyuPinlu: Xiàndài Hànyǔ Pínlǜ Cídiǎn (現代漢語頻率詞典).
+        北京語言學院語言教學研究所編著, First edition 1986/6, 2nd printing 1990/4,
+        ISBN 7-5619-0094-5.
+
 Currently no data validation scheme is implemented as this library is still
 in early development. Rather than specifying few data cjklib tries to support as
 much options as possible. The library tries to be as accurate as possible but

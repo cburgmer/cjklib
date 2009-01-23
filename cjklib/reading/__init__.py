@@ -35,11 +35,11 @@ package.
         (read from cjklib.conf or using cjklib.db in same directory as default):
 
         >>> from cjklib.reading import ReadingFactory
-        >>> readingFact = ReadingFactory()
+        >>> f = ReadingFactory()
 
     - Create an operator for Mandarin romanisation Pinyin:
 
-        >>> pinyinOp = readingFact.createReadingOperator('Pinyin')
+        >>> pinyinOp = f.createReadingOperator('Pinyin')
 
     - Construct a Pinyin syllable with second tone:
 
@@ -51,11 +51,15 @@ package.
         >>> pinyinOp.decompose(u"tiān'ānmén")
         [u'ti\u0101n', u"'", u'\u0101n', u'm\xe9n']
 
-    - Use the factory class as a façade to easily access functions provided by
-        classes in the background: convert the given Gwoyeu Romatzyh syllables
-        to their pronunciation in IPA:
+    - Do the same using the factory class as a façade to easily access
+        functions provided by those classes in the background:
 
-        >>> readingFact.convert('liow shu', 'GR', 'MandarinIPA')
+        >>> f.decompose(u"tiān'ānmén", 'Pinyin')
+        [u'ti\u0101n', u"'", u'\u0101n', u'm\xe9n']
+
+    - Convert the given Gwoyeu Romatzyh syllables to their pronunciation in IPA:
+
+        >>> f.convert('liow shu', 'GR', 'MandarinIPA')
         u'li\u0259u\u02e5\u02e9 \u0282u\u02e5\u02e5'
 
 Readings
@@ -147,6 +151,8 @@ uses by default.
 A special notion of X{dialect converters} is used for L{ReadingConverter}s that
 convert between two different representations of the same reading. These allow
 flexible switching between reading dialects.
+@todo Fix:  Be independant on locale chosen, see
+    U{http://docs.python.org/library/locale.html#background-details-hints-tips-and-caveats}.
 """
 
 __all__ = ['operator', 'converter', 'ReadingFactory']
@@ -159,8 +165,8 @@ import converter
 class ReadingFactory(object):
     """
     Provides an abstract factory for creating L{ReadingOperator}s and
-    L{ReadingConverter}s. Furthermore acts as a façade to the conversion methods
-    offered by these classes.
+    L{ReadingConverter}s and a façade to directly access the methods offered by
+    these classes.
 
     Instances of other classes are cached in the background and reused on later
     calls for methods accessed through the façade.

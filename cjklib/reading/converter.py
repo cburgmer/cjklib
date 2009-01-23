@@ -18,6 +18,31 @@
 u"""
 Provides L{ReadingConverter}s, classes to convert strings written in a character
 reading to another reading.
+
+Examples
+========
+Convert a string from I{Jyutping} to I{Cantonese Yale}:
+
+    >>> from cjklib.reading import ReadingFactory
+    >>> f.convert('gwong2jau1wa2', 'Jyutping', 'CantoneseYale')
+    u'gw\xf3ngy\u0101uw\xe1'
+
+This is also possible creating a converter instance explicitly using the
+factory:
+
+    >>> jyc = f.createReadingConverter('GR', 'Pinyin')
+    >>> jyc.convert('Woo.men tingshuo yeou "Yinnduhshyue", "Aijyishyue"')
+    u'W\u01d2men t\u012bngshu\u014d y\u01d2u "Y\xecnd\xf9xu\xe9", \
+"\u0100ij\xedxu\xe9"'
+
+Convert between different dialects of the same reading I{Wade-Giles}:
+
+    >>> f.convert(u'kuo3-yü2', 'WadeGiles', 'WadeGiles',
+    ...     sourceOptions={'toneMarkType': 'Numbers'},
+    ...     targetOptions={'toneMarkType': 'SuperscriptNumbers'})
+    u'kuo\xb3-y\xfc\xb2'
+
+See L{PinyinDialectConverter} for more examples.
 """
 import re
 import copy

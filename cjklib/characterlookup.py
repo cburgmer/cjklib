@@ -1851,6 +1851,8 @@ class CharacterLookup:
         @rtype: list of tuple
         @return: list of pairs of matching characters and their Z-variants
         @raise ValueError: if an invalid I{character locale} is specified
+        @todo Fix:  Return the the given components themselves if they fit to
+            the given scheme, e.g. include 米 for [u'米', u'木'].
         """
         # create where clauses
         tableList = ['ComponentLookup s' + str(i)

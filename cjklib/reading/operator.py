@@ -18,6 +18,30 @@
 u"""
 Provides L{ReadingOperator}s, classes to handle strings written in a character
 reading.
+
+Examples
+========
+Decompose a reading string in I{Gwoyeu Romatzyh} into single entities:
+
+    >>> from cjklib.reading import ReadingFactory
+    >>> f = ReadingFactory()
+    >>> f.decompose('"Hannshyue" .de mingcheng duey Jonggwo [...]', 'GR')
+    ['"', 'Hann', 'shyue', '" ', '.de', ' ', 'ming', 'cheng', ' ', 'duey',
+    ' ', 'Jong', 'gwo', ' [...]']
+
+The same can be done by directly using the operator's instance:
+
+    >>> from cjklib.reading import operator
+    >>> cy = operator.CantoneseYaleOperator()
+    >>> cy.decompose('gwóngjàuwá')
+    [u'gw\xf3ng', u'j\xe0u', u'w\xe1']
+
+Composing will reverse the process, using a I{Pinyin} string:
+
+    >>> f.compose([u'xī', u'ān'], 'Pinyin')
+    u"x\u012b'\u0101n"
+
+For more complex operators, see L{PinyinOperator} or L{MandarinIPAOperator}.
 """
 import re
 import unicodedata
