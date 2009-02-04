@@ -307,10 +307,11 @@ def main():
         prefer = ['CharacterVariantBMPBuilder', 'CombinedStrokeCountBuilder',
             'CombinedCharacterResidualStrokeCountBuilder',
             'HanDeDictFulltextSearchBuilder']
-        if 'Unihan' in buildGroupList:
+        if 'Unihan' in groups:
             prefer.append('UnihanBMPBuilder')
         else:
             prefer.append('SlimUnihanBMPBuilder')
+
         # create builder instance
         databaseSettings = {}
         if dump:
