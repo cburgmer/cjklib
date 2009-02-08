@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 # This file is part of cjklib.
 #
 # cjklib is free software: you can redistribute it and/or modify
@@ -82,12 +82,15 @@ class CharacterInfo:
 
     CHAR_LOCALE_DEFAULT_READING = {'zh': "Pinyin", 'zh_CN': "Pinyin",
         'zh_SG': "Pinyin", 'zh_TW': "WadeGiles", 'zh_HK': "CantoneseYale",
-        'zh_MO': "Jyutping", 'ko': 'Hangul'}
+        'zh_MO': "Jyutping", 'ko': 'Hangul', 'ja': 'Kana'}
     """Character locale's default character reading."""
 
-    DICTIONARY_READING = {
+    DICTIONARY_INFO = {
         'HanDeDict': ('CEDICT', 'Pinyin', {'toneMarkType': 'Numbers'}),
-        'CEDICT': ('CEDICT', 'Pinyin', {'toneMarkType': 'Numbers'})}
+        'CEDICT': ('CEDICT', 'Pinyin', {'toneMarkType': 'Numbers'}),
+        'CEDICTGR': ('EDICT', 'GR', {}),
+        'EDICT': ('EDICT', 'Kana', {}),
+        }
     """Dictionaries with type (EDICT, CEDICT), reading and reading options."""
 
     READING_DEFAULT_DICTIONARY = {'Pinyin': 'CEDICT'}
@@ -123,7 +126,7 @@ class CharacterInfo:
 
         if dictionary:
             self.dictionary = dictionary
-            if self.dictionary not in self.DICTIONARY_READING:
+            if self.dictionary not in self.DICTIONARY_INFO:
                 raise ValueError("invalid dictionary specified")
             if self.dictionary not in self.getAvailableDictionaries():
                 raise ValueError("dictionary not available")
@@ -134,7 +137,7 @@ class CharacterInfo:
             else:
                 # get a dictionary that is compatible with the selected reading
                 for dictName in self.getAvailableDictionaries():
-                    _, dictReading, _ = self.DICTIONARY_READING[dictName]
+                    _, dictReading, _ = self.DICTIONARY_INFO[dictName]
                     if self.readingFactory.isReadingConversionSupported(
                         dictReading, self.reading):
                         self.dictionary = dictName
@@ -147,10 +150,14 @@ class CharacterInfo:
             self.dictionaryHasFTS3 = DatabaseConnector.getDBConnector()\
                 .tableExists(self.dictionary + '_Text')
 
-        if self.locale == 'C':
-            self.cedictHeadword = 'HeadwordSimplified'
+        dictType, _, _ = self.DICTIONARY_INFO[self.dictionary]
+        if dictType == 'CEDICT':
+            if self.locale == 'C':
+                self.headwordColumn = 'HeadwordSimplified'
+            else:
+                self.headwordColumn = 'HeadwordTraditional'
         else:
-            self.cedictHeadword = 'HeadwordTraditional'
+            self.headwordColumn = 'Headword'
 
     # Settings
 
@@ -205,7 +212,7 @@ class CharacterInfo:
         if self.availableDictionaries == None:
             db = DatabaseConnector.getDBConnector()
             self.availableDictionaries = []
-            for dictName in self.DICTIONARY_READING:
+            for dictName in self.DICTIONARY_INFO:
                 if db.tableExists(dictName):
                     self.availableDictionaries.append(dictName)
         return self.availableDictionaries
@@ -250,17 +257,26 @@ class CharacterInfo:
         options = self.getReadingOptions(string, readingN)
 
         # for all possible decompositions convert to dictionary's reading
-        _, dictReading, dictReadOpt = self.DICTIONARY_READING[self.dictionary]
+        _, dictReading, dictReadOpt = self.DICTIONARY_INFO[self.dictionary]
         try:
-            decompositions = self.readingFactory.getDecompositions(string,
-                readingN, **options)
-            decompEntities = []
-            for entities in decompositions:
-                decompEntities.append(self.readingFactory.convertEntities(
-                    entities, readingN, dictReading, sourceOptions=options,
-                    targetOptions=dictReadOpt))
+            try:
+                decompositions = self.readingFactory.getDecompositions(string,
+                    readingN, **options)
+            except exception.UnsupportedError:
+                decompositions = [self.readingFactory.decompose(string,
+                    readingN, **options)]
 
-            return decompEntities
+            if self.readingFactory.isReadingConversionSupported(readingN,
+                dictReading):
+                decompEntities = []
+                for entities in decompositions:
+                    decompEntities.append(self.readingFactory.convertEntities(
+                        entities, readingN, dictReading, sourceOptions=options,
+                        targetOptions=dictReadOpt))
+
+                return decompEntities
+            else:
+                return decompositions
         except exception.DecompositionError:
             pass
 
@@ -283,7 +299,7 @@ class CharacterInfo:
                 continue
             entitiesFiltered.append(entity)
 
-        _, dictReading, dictReadOpt = self.DICTIONARY_READING[self.dictionary]
+        _, dictReading, dictReadOpt = self.DICTIONARY_INFO[self.dictionary]
         classObj = self.readingFactory.getReadingOperatorClass(dictReading)
         # for readings with appended tone marks use placeholder if no tone
         #   specified
@@ -313,16 +329,21 @@ class CharacterInfo:
         @return: converted input
         """
         # convert reading
-        _, dictReading, dictReadOpt = self.DICTIONARY_READING[self.dictionary]
+        _, dictReading, dictReadOpt = self.DICTIONARY_INFO[self.dictionary]
+
         response = []
+        conversionSupported = self.readingFactory.isReadingConversionSupported(
+            dictReading, self.reading)
+
         for simp, reading, translation in result:
-            try:
-                reading = self.readingFactory.convert(reading, dictReading,
-                    self.reading, sourceOptions=dictReadOpt)
-            except exception.DecompositionError:
-                reading = '[' + reading + ']'
-            except exception.ConversionError:
-                reading = '[' + reading + ']'
+            if conversionSupported:
+                try:
+                    reading = self.readingFactory.convert(reading, dictReading,
+                        self.reading, sourceOptions=dictReadOpt)
+                except exception.DecompositionError:
+                    reading = '[' + reading + ']'
+                except exception.ConversionError:
+                    reading = '[' + reading + ']'
             # TODO work with trad forms and EDICT dicts too
             response.append((simp, reading, translation))
         return response
@@ -470,8 +491,6 @@ class CharacterInfo:
         @param readingN: name of reading
         @rtype: list of str
         @return: list of characters for the given reading
-        @raise ValueError: if invalid reading entity or several entities are
-            given.
         @raise UnsupportedError: if no mapping between characters and target
             reading exists.
         @raise ConversionError: if conversion from the internal source reading
@@ -495,7 +514,6 @@ class CharacterInfo:
             character to reading is not supported by the given target reading
         @raise exception.ConversionError: if conversion for the string is not
             supported
-        @raise ValueError: on other exceptions
         """
         readings = []
         for char in charString:
@@ -565,7 +583,7 @@ class CharacterInfo:
         """
         selectCommands = []
         # Chinese character string
-        dictType, _, _ = self.DICTIONARY_READING[self.dictionary]
+        dictType, _, _ = self.DICTIONARY_INFO[self.dictionary]
         if dictType == 'EDICT':
             selectCommands.append(DatabaseConnector.getDBConnector()\
                 .getSelectCommand(self.dictionary,
@@ -574,7 +592,7 @@ class CharacterInfo:
         elif dictType == 'CEDICT':
             selectCommands.append(DatabaseConnector.getDBConnector()\
                 .getSelectCommand(self.dictionary,
-                [self.cedictHeadword, 'Reading', 'Translation'],
+                [self.headwordColumn, 'Reading', 'Translation'],
                 [{'HeadwordSimplified': searchString},
                 {'HeadwordTraditional': searchString}], distinctValues=True))
 
@@ -588,17 +606,22 @@ class CharacterInfo:
 
             selectCommands.append(DatabaseConnector.getDBConnector()\
                 .getSelectCommand(self.dictionary,
-                [self.cedictHeadword, 'Reading', 'Translation'],
+                [self.headwordColumn, 'Reading', 'Translation'],
                 searchOptions, distinctValues=True))
 
         # translation string
-        table = self.dictionary + '_Words w JOIN ' + self.dictionary \
-            + ' d ON (d.HeadwordTraditional = w.Headword ' \
-            + 'AND d.Reading = w.Reading)'
+        if dictType == 'EDICT':
+            table = self.dictionary + '_Words w JOIN ' + self.dictionary \
+                + ' d ON (d.Headword = w.Headword ' \
+                + 'AND d.Reading = w.Reading)'
+        elif dictType == 'CEDICT':
+            table = self.dictionary + '_Words w JOIN ' + self.dictionary \
+                + ' d ON (d.HeadwordTraditional = w.Headword ' \
+                + 'AND d.Reading = w.Reading)'
         # use LIKE to match upper/lower case (SQLite)
         selectCommands.append(
             DatabaseConnector.getDBConnector().getSelectCommand(
-                table, [self.cedictHeadword, 'd.Reading', 'Translation'],
+                table, ['d.' + self.headwordColumn, 'd.Reading', 'Translation'],
                 {'Word': searchString.lower()}, distinctValues=True,
                 orderBy=['Reading'], limit=limit))
             # TODO hack: LIMIT and ORDER BY incorporated over last select
@@ -642,7 +665,7 @@ class CharacterInfo:
         if position == 'c' or position == 'b':
             searchStr = searchStr + '%'
 
-        dictType, _, _ = self.DICTIONARY_READING[self.dictionary]
+        dictType, _, _ = self.DICTIONARY_INFO[self.dictionary]
         if dictType == 'EDICT':
             selectCommands.append(DatabaseConnector.getDBConnector()\
                 .getSelectCommand(self.dictionary,
@@ -651,7 +674,7 @@ class CharacterInfo:
         elif dictType == 'CEDICT':
             selectCommands.append(DatabaseConnector.getDBConnector()\
                 .getSelectCommand(self.dictionary,
-                [self.cedictHeadword, 'Reading', 'Translation'],
+                [self.headwordColumn, 'Reading', 'Translation'],
                 [{'HeadwordSimplified': searchStr},
                 {'HeadwordTraditional': searchStr}], distinctValues=True))
 
@@ -673,7 +696,7 @@ class CharacterInfo:
             selectCommands.append(
                 DatabaseConnector.getDBConnector().getSelectCommand(
                     self.dictionary,
-                    ['HeadwordSimplified', 'Reading', 'Translation'],
+                    [self.headwordColumn, 'Reading', 'Translation'],
                     {'Reading': searchList}, distinctValues=True))
 
         # translation string
@@ -684,7 +707,7 @@ class CharacterInfo:
             selectCommands.append(
                 DatabaseConnector.getDBConnector().getSelectCommand(
                     self.dictionary,
-                    ['HeadwordSimplified', 'Reading', 'Translation'],
+                    [self.headwordColumn, 'Reading', 'Translation'],
                     {'Translation': "MATCH '" + ' '.join(translationTokens) \
                         + "'"},
                     distinctValues=True, orderBy=['Reading'], limit=limit))
@@ -694,7 +717,7 @@ class CharacterInfo:
             selectCommands.append(
                 DatabaseConnector.getDBConnector().getSelectCommand(
                     self.dictionary,
-                    ['HeadwordSimplified', 'Reading', 'Translation'],
+                    [self.headwordColumn, 'Reading', 'Translation'],
                     {'Translation': "%" + ' '.join(translationTokens) \
                         + "%"},
                     distinctValues=True, orderBy=['Reading'], limit=limit))
@@ -1136,7 +1159,7 @@ def main():
         # setting of dictionary
         elif o in ("-w", "--set-dictionary"):
             dictionaries = dict([(name.lower(), name) \
-                for name in CharacterInfo.DICTIONARY_READING])
+                for name in CharacterInfo.DICTIONARY_INFO])
             if a.lower() in dictionaries:
                 dictionary = dictionaries[a.lower()]
             else:
@@ -1275,9 +1298,6 @@ def main():
                 characterList = charInfo.getCharactersForReading(parameter,
                     sourceReading)
                 print "".join(characterList).encode(default_encoding, "replace")
-            except ValueError:
-                print "error: invalid input"
-                sys.exit(1)
             except exception.UnsupportedError:
                 print "error: no character mapping for this reading"
                 sys.exit(1)
@@ -1384,9 +1404,9 @@ def main():
             # dictionary
             print "current dictionary: " + dictionary
             dictionaryList = []
-            for dictionaryName in CharacterInfo.DICTIONARY_READING:
+            for dictionaryName in CharacterInfo.DICTIONARY_INFO:
                 _, dictReading, _ \
-                    = CharacterInfo.DICTIONARY_READING[dictionaryName]
+                    = CharacterInfo.DICTIONARY_INFO[dictionaryName]
                 dictionaryList.append(dictionaryName + " (" + dictReading + ")")
             print "supported dictionaries: " + ", ".join(dictionaryList)
 

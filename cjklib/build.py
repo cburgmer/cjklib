@@ -78,6 +78,7 @@ import sys
 import re
 import warnings
 import os.path
+import xml.sax
 import csv
 
 from cjklib import dbconnector
@@ -502,6 +503,173 @@ class SlimUnihanBMPBuilder(SlimUnihanBuilder, UnihanBMPBuilder):
     """
     # all work is done in SlimUnihanBuilder and UnihanBMPBuilder
     pass
+
+
+class Kanjidic2Builder(EntryGeneratorBuilder):
+    """
+    Builds the Kanjidic database from the Kanjidic2 XML file
+    U{http://www.csse.monash.edu.au/~jwb/kanjidic2/}.
+    """
+    class XMLHandler(xml.sax.ContentHandler):
+        """Extracts a list of given tags."""
+        def __init__(self, entryList, tagDict):
+            self.entryList = entryList
+            self.tagDict = tagDict
+
+            self.currentElement = []
+            self.targetTag = None
+            self.targetTagTopElement = None
+
+        def endElement(self, name):
+            assert(len(self.currentElement) > 0)
+            assert(self.currentElement[-1] == name)
+            self.currentElement.pop()
+
+            if name == self.targetTagTopElement:
+                self.targetTag = None
+                self.targetTagTopElement = None
+
+            if name == 'character':
+                entryDict = {}
+                for tag, func in self.tagDict.values():
+                    if tag in self.currentEntry:
+                        entryDict[tag] = func(self.currentEntry[tag])
+                self.entryList.append(entryDict)
+
+        def characters(self, content):
+            if self.targetTag:
+                if self.targetTag not in self.currentEntry:
+                    self.currentEntry[self.targetTag] = []
+                self.currentEntry[self.targetTag].append(content)
+
+        def startElement(self, name, attrs):
+            self.currentElement.append(name)
+            if name == 'character':
+                self.currentEntry = {}
+            else:
+                if 'character' in self.currentElement:
+                    idx = self.currentElement.index('character') + 1
+                    tagHierachy = tuple(self.currentElement[idx:])
+
+                    key = (tagHierachy, frozenset(attrs.items()))
+                    if key in self.tagDict:
+                        self.targetTagTopElement = name
+                        self.targetTag, _ = self.tagDict[key]
+
+    class KanjidicGenerator:
+        """Generates the KANJIDIC table."""
+        def __init__(self, dataPath, tagDict):
+            """
+            Initialises the KanjidicGenerator.
+
+            @type dataPath: list of str
+            @param dataPath: optional list of paths to the data file(s)
+            """
+            self.dataPath = dataPath
+            self.tagDict = tagDict
+
+        def getHandle(self):
+            """
+            Returns a handle of the KANJIDIC database file.
+
+            @rtype: file
+            @return: file handle of the KANJIDIC file
+            """
+            import gzip
+            if self.dataPath.endswith('.gz'):
+                import StringIO
+                z = gzip.GzipFile(self.dataPath, 'r')
+                handle = StringIO.StringIO(z.read())
+            else:
+                import codecs
+                handle = codecs.open(self.dataPath, 'r')
+            return handle
+
+        def __iter__(self):
+            """Provides a pronunciation and a path to the audio file."""
+            entryList = []
+            xmlHandler = Kanjidic2Builder.XMLHandler(entryList, self.tagDict)
+
+            saxparser = xml.sax.make_parser()
+            saxparser.setContentHandler(xmlHandler)
+            ## don't check DTD as this raises an exception
+            #saxparser.setFeature(xml.sax.handler.feature_external_ges, False)
+            saxparser.parse(self.getHandle())
+
+            for entry in entryList:
+                yield(entry)
+
+    PROVIDES = 'Kanjidic'
+    CHARACTER_COLUMN = 'ChineseCharacter'
+    """Name of column for Chinese character key."""
+    COLUMN_TYPES = {CHARACTER_COLUMN: 'VARCHAR(1)', 'NelsonRadical': 'INTEGER',
+        'CharacterJapaneseOn': 'TEXT', 'CharacterJapaneseKun': 'TEXT'}
+    KANJIDIC_TAG_MAPPING = {
+        (('literal', ), frozenset()): ('ChineseCharacter', lambda x: x[0]),
+        (('radical', 'rad_value'),
+            frozenset([('rad_type', 'nelson_c')])): ('NelsonCRadical',
+                lambda x: int(x[0])),
+        (('radical', 'rad_value'),
+            frozenset([('rad_type', 'nelson_n')])): ('NelsonNRadical',
+                lambda x: int(x[0])),
+        # TODO On and Kun reading in KANJIDICT include further optional
+        #   attributes that makes the method miss the entry:
+        #   on_type and r_status, these are currently not implemented in the
+        #   file though
+        (('reading_meaning', 'rmgroup', 'reading'),
+            frozenset([('r_type', 'ja_on')])): ('CharacterJapaneseOn',
+                lambda x: ','.join(x)),
+        (('reading_meaning', 'rmgroup', 'reading'),
+            frozenset([('r_type', 'ja_kun')])): ('CharacterJapaneseKun',
+                lambda x: ','.join(x)),
+        #(('reading_meaning', 'rmgroup', 'reading'),
+            #frozenset([('r_type', 'pinyin')])): ('Pinyin',
+                #lambda x: ','.join(x)),
+        (('misc', 'rad_name'), frozenset()): ('RadicalName',
+                lambda x: ','.join(x)),
+        (('reading_meaning', 'rmgroup', 'meaning'), frozenset()): ('Meaning_en',
+                lambda x: '/'.join(x)),
+        (('reading_meaning', 'rmgroup', 'meaning'),
+            frozenset([('m_lang', 'fr')])): ('Meaning_fr',
+                lambda x: '/'.join(x)),
+        (('reading_meaning', 'rmgroup', 'meaning'),
+            frozenset([('m_lang', 'es')])): ('Meaning_es',
+                lambda x: '/'.join(x)),
+        (('reading_meaning', 'rmgroup', 'meaning'),
+            frozenset([('m_lang', 'pt')])): ('Meaning_pt',
+                lambda x: '/'.join(x)),
+        }
+    """
+    Dictionary of tag keys mapping to a table column including a function
+    generating a string out of a list of entries given from the KANJIDIC entry.
+    The tag keys constist of a tuple giving the xml element hierarchy below the
+    'character' element and a set of attribute value pairs.
+    """
+
+    generator = None
+
+    def __init__(self, dataPath, dbConnectInst, quiet=False):
+        super(Kanjidic2Builder, self).__init__(dataPath, dbConnectInst, quiet)
+        tags = [tag for tag, _ in self.KANJIDIC_TAG_MAPPING.values()]
+        self.COLUMNS = tags
+        self.PRIMARY_KEYS = [self.CHARACTER_COLUMN]
+        self.ENTRY_GENERATOR = self.getGenerator()
+
+    def getGenerator(self):
+        """
+        Returns the L{KanjidicGenerator}. Constructs it if needed.
+
+        @rtype: instance
+        @return: instance of a L{KanjidicGenerator}
+        """
+        if not self.generator:
+            path = self.findFile(['kanjidic2.xml.gz', 'kanjidic2.xml'],
+                "KANJIDIC2 XML file")
+            self.generator = Kanjidic2Builder.KanjidicGenerator(path,
+                self.KANJIDIC_TAG_MAPPING)
+            if not self.quiet:
+                warn("reading file '" + path + "'")
+        return self.generator
 
 
 class UnihanDerivedBuilder(EntryGeneratorBuilder):
@@ -2414,7 +2582,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
     Regular Expression matching a dictionary entry. Needs to be overwritten if
     not strictly follows the EDICT format.
     """
-    IGNORE_LINES = 1
+    IGNORE_LINES = 0
     """Number of starting lines to ignore."""
     FILTER = None
     """Filter to apply to the read entry before writing to table."""
@@ -2450,14 +2618,12 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         """
         import zipfile
         import tarfile
-        import gzip
-        import StringIO
-        import codecs
         if zipfile.is_zipfile(filePath):
             z = zipfile.ZipFile(filePath, 'r')
             return StringIO.StringIO(z.read(compressedContent)\
                 .decode(self.ENCODING))
         elif tarfile.is_tarfile(filePath):
+            import StringIO
             mode = ''
             if filePath.endswith('bz2'):
                 mode = ':bz2'
@@ -2467,9 +2633,12 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             file = z.extractfile(compressedContent)
             return StringIO.StringIO(file.read().decode(self.ENCODING))
         elif filePath.endswith('.gz'):
+            import gzip
+            import StringIO
             z = gzip.GzipFile(filePath, 'r')
             return StringIO.StringIO(z.read().decode(self.ENCODING))
         else:
+            import codecs
             return codecs.open(filePath, 'r', self.ENCODING)
 
     def build(self):
@@ -2613,9 +2782,10 @@ class EDICTBuilder(EDICTFormatBuilder):
     Builds the EDICT dictionary.
     """
     PROVIDES = 'EDICT'
-    FILE_NAMES = ['edict.gz', 'edict']
+    FILE_NAMES = ['edict.gz', 'edict.zip', 'edict']
     ZIP_CONTENT_NAME = 'edict'
     ENCODING = 'euc-jp'
+    IGNORE_LINES = 1
 
 
 class EDICTWordIndexBuilder(WordIndexBuilder):

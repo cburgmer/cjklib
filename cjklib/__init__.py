@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 # This file is part of cjklib.
 #
 # cjklib is free software: you can redistribute it and/or modify
@@ -29,6 +29,7 @@ The following functions are supported by this library:
         - Pinyin, Gwoyeu Romatzyh, Wade-Giles, IPA, Braille (all Mandarin)
         - Jyutping, Cantonese Yale (both Cantonese)
         - Hangul (Korean)
+        - Hiragana, Katakana (Japanese)
     - Conversion of readings from one into another
     - Mapping between character and reading
     - Mapping between character and Kangxi radical (radical mapping as defined

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 # This file is part of cjklib.
 #
 # cjklib is free software: you can redistribute it and/or modify
@@ -1019,21 +1019,19 @@ class TonalIPAOperator(TonalFixedEntityOperator):
                 + toneMark + "'")
 
 
-class HangulOperator(ReadingOperator):
-    """Provides an operator on Korean text written in X{Hangul}."""
-    READING_NAME = "Hangul"
-
+class SimpleEntityOperator(ReadingOperator):
+    """Provides an operator on readings with a single character per entity."""
     def decompose(self, string):
         readingEntities = []
         i = 0
         while i < len(string):
-            # look for non-Hangul characters first
+            # look for non-entity characters first
             oldIndex = i
             while i < len(string) and not self.isReadingEntity(string[i]):
                 i = i + 1
             if oldIndex != i:
                 readingEntities.append(string[oldIndex:i])
-            # if we didn't reach the end of the input we have a Hangul char
+            # if we didn't reach the end of the input we have a entity char
             if i < len(string):
                 readingEntities.append(string[i])
             i = i + 1
@@ -1043,7 +1041,42 @@ class HangulOperator(ReadingOperator):
         return ''.join(readingEntities)
 
     def isReadingEntity(self, entity):
+        raise NotImplemented()
+
+
+class HangulOperator(SimpleEntityOperator):
+    """Provides an operator on Korean text written in X{Hangul}."""
+    READING_NAME = "Hangul"
+
+    def isReadingEntity(self, entity):
         return (entity >= u'가') and (entity <= u'힣')
+
+
+class HiraganaOperator(SimpleEntityOperator):
+    """Provides an operator on Japanese text written in X{Hiragana}."""
+    READING_NAME = "Hiragana"
+
+    def isReadingEntity(self, entity):
+        return (entity >= u'ぁ') and (entity <= u'ゟ')
+
+
+class KatakanaOperator(SimpleEntityOperator):
+    """Provides an operator on Japanese text written in X{Katakana}."""
+    READING_NAME = "Katakana"
+
+    def isReadingEntity(self, entity):
+        return (entity >= u'゠') and (entity <= u'ヿ')
+
+
+class KanaOperator(SimpleEntityOperator):
+    """
+    Provides an operator on Japanese text written in a mix of X{Hiragana} and
+    X{Katakana}.
+    """
+    READING_NAME = "Kana"
+
+    def isReadingEntity(self, entity):
+        return ((entity >= u'ぁ') and (entity <= u'ヿ'))
 
 
 class PinyinOperator(TonalRomanisationOperator):

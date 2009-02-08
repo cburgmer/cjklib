@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 # This file is part of cjklib.
 #
 # cjklib is free software: you can redistribute it and/or modify
@@ -193,7 +193,8 @@ class ReadingFactory(object):
         operator.WadeGilesOperator, operator.GROperator,
         operator.MandarinIPAOperator, operator.MandarinBrailleOperator,
         operator.JyutpingOperator, operator.CantoneseYaleOperator,
-        operator.CantoneseIPAOperator]
+        operator.CantoneseIPAOperator, operator.HiraganaOperator,
+        operator.KatakanaOperator, operator.KanaOperator]
     """A list of supported reading operators."""
     READING_CONVERTERS = [converter.PinyinDialectConverter,
         converter.WadeGilesDialectConverter, converter.PinyinWadeGilesConverter,

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 # This file is part of cjklib.
 #
 # cjklib is free software: you can redistribute it and/or modify
@@ -312,28 +312,22 @@ class CharacterLookup:
 
     #{ Character reading lookup
 
-    def getCharactersForReading(self, entity, readingN, **options):
+    def getCharactersForReading(self, readingString, readingN, **options):
         """
         Gets all know characters for the given reading.
 
-        @type entity: str
-        @param entity: reading entity for lookup
+        @type readingString: str
+        @param readingString: reading string for lookup
         @type readingN: str
         @param readingN: name of reading
         @param options: additional options for handling the reading input
         @rtype: list of str
         @return: list of characters for the given reading
-        @raise ValueError: if invalid reading entity or several entities are
-            given.
         @raise UnsupportedError: if no mapping between characters and target
             reading exists.
         @raise ConversionError: if conversion from the internal source reading
             to the given target reading fails.
         """
-        # check reading string is correct
-        if not self._getReadingFactory().isReadingEntity(entity, readingN,
-            **options):
-            raise ValueError("invalid reading entity or several entities given")
         # check for available mapping from Chinese characters to a compatible
         #   reading
         compatReading = self._getCompatibleCharacterReading(readingN)
@@ -344,11 +338,12 @@ class CharacterLookup:
         readingFactory = self._getReadingFactory()
         if readingN != compatReading \
             or readingFactory.isReadingConversionSupported(readingN, readingN):
-            entity = readingFactory.convert(entity, readingN, compatReading,
-                sourceOptions=options, targetOptions=compatOptions)
+            readingString = readingFactory.convert(readingString, readingN,
+                compatReading, sourceOptions=options,
+                targetOptions=compatOptions)
         # lookup characters
         return self.db.selectSoleValue(table, 'ChineseCharacter',
-            {'Reading': entity})
+            {'Reading': readingString})
 
     def getReadingForCharacter(self, char, readingN, **options):
         """
@@ -360,7 +355,7 @@ class CharacterLookup:
         @param readingN: name of target reading
         @param options: additional options for handling the reading output
         @rtype: str
-        @return: list of reading entities for the given character
+        @return: list of readings for the given character
         @raise UnsupportedError: if no mapping between characters and target
             reading exists.
         @raise ConversionError: if conversion from the internal source reading
@@ -382,12 +377,12 @@ class CharacterLookup:
             # translate reading forms to target reading, for
             #   readingN=characterReading get standard form if supported
             transReadings = []
-            for readingStr in readings:
-                readingStr = readingFactory.convert(readingStr, compatReading,
-                    readingN, sourceOptions=compatOptions,
+            for readingString in readings:
+                readingString = readingFactory.convert(readingString,
+                    compatReading, readingN, sourceOptions=compatOptions,
                     targetOptions=options)
-                if readingStr not in transReadings:
-                    transReadings.append(readingStr)
+                if readingString not in transReadings:
+                    transReadings.append(readingString)
             return transReadings
         else:
             return readings
@@ -971,8 +966,11 @@ class CharacterLookup:
         @return: string of stroke abbreviations separated by spaces and hyphens.
         @raise ValueError: if an invalid I{character locale} is specified
         @raise NoInformationError: if no stroke order information available
+        @todo Lang: Add stroke order source to stroke order data so that in
+            general different and contradicting stroke order information can be
+            given. The user then could prefer several sources that in the order
+            given would be queried.
         """
-
         def getStrokeOrderEntry(char, zVariant):
             """
             Gets the stroke order sequence for the given character from the
@@ -1387,6 +1385,9 @@ class CharacterLookup:
         @return: list of matching Chinese characters
         @todo Docu: Write about how Unihan maps characters to a Kangxi radical.
             Especially Chinese simplified characters.
+        @todo Lang: 6954 characters have no Kangxi radical. Provide integration
+            for these (SELECT COUNT(*) FROM Unihan WHERE kRSUnicode IS NOT NULL
+            AND kRSKangxi IS NULL;).
         """
         return self.db.selectSoleValue('CharacterKangxiRadical',
             'ChineseCharacter', {'RadicalIndex': radicalIndex})
