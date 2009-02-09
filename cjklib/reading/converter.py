@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 # This file is part of cjklib.
 #
 # cjklib is free software: you can redistribute it and/or modify
@@ -631,11 +631,19 @@ class PinyinDialectConverter(ReadingConverter):
         # fix Erhua forms if needed
         entityTuples = self.convertErhuaFunc(entityTuples)
 
+        targetTones = self._getToOperator(toReading).getTones()
+
         # convert
         toReadingEntities = []
         for entry in entityTuples:
             if type(entry) == type(()):
                 plainSyllable, tone = entry
+
+                # check if target operator supports missing tones
+                if tone not in targetTones:
+                    # missing tone not supported, raise a conversion error
+                    raise AmbiguousConversionError("Target reading does not " \
+                        "support missing tone information")
 
                 # fix Erhua form if needed
                 if plainSyllable.lower() == 'r' \
