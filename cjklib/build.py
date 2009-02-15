@@ -1693,6 +1693,8 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
             self.quiet = quiet
             self.cjk = characterlookup.CharacterLookup(
                 dbConnectInst=dbConnectInst)
+            # make sure a currently existing table is not used
+            self.cjk.hasStrokeCount = False
 
         def __iter__(self):
             """Provides one entry per character, z-Variant and locale subset."""
