@@ -2573,9 +2573,10 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
     """Column names which shall be fulltext searchable."""
     FILE_NAMES = None
     """Names of file containing the edict formated dictionary."""
-    ZIP_CONTENT_NAME = None
+    ZIP_CONTENT_NAME_FUNC = None
     """
-    Name of file in the zipped archive containing the edict formated dictionary.
+    Function extracting the name of contained file from the zipped archive using
+    the file name.
     """
     ENCODING = 'utf-8'
     """Encoding of the dictionary file."""
@@ -2594,7 +2595,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         # get file handle
         import os.path as path
         filePath = self.findFile(self.FILE_NAMES)
-        handle = self.getFileHandle(filePath, self.ZIP_CONTENT_NAME)
+        handle = self.getFileHandle(filePath, self.ZIP_CONTENT_NAME_FUNC)
         if not self.quiet:
             warn("Reading table from file '" + filePath + "'")
         # ignore starting lines
@@ -2604,7 +2605,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         self.ENTRY_GENERATOR = EDICTFormatBuilder.TableGenerator(handle,
             self.quiet, self.ENTRY_REGEX, self.COLUMNS, self.FILTER)
 
-    def getFileHandle(self, filePath, compressedContent):
+    def getFileHandle(self, filePath, contentNameFunc):
         """
         Returns a handle to the give file.
 
@@ -2620,9 +2621,12 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         """
         import zipfile
         import tarfile
+
+        fileName = os.path.basename(filePath)
+
         if zipfile.is_zipfile(filePath):
             z = zipfile.ZipFile(filePath, 'r')
-            return StringIO.StringIO(z.read(compressedContent)\
+            return StringIO.StringIO(z.read(contentNameFunc(fileName))\
                 .decode(self.ENCODING))
         elif tarfile.is_tarfile(filePath):
             import StringIO
@@ -2632,7 +2636,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             elif filePath.endswith('gz'):
                 mode = ':gz'
             z = tarfile.open(filePath, 'r' + mode)
-            file = z.extractfile(compressedContent)
+            file = z.extractfile(contentNameFunc(fileName))
             return StringIO.StringIO(file.read().decode(self.ENCODING))
         elif filePath.endswith('.gz'):
             import gzip
@@ -2785,7 +2789,7 @@ class EDICTBuilder(EDICTFormatBuilder):
     """
     PROVIDES = 'EDICT'
     FILE_NAMES = ['edict.gz', 'edict.zip', 'edict']
-    ZIP_CONTENT_NAME = 'edict'
+    ZIP_CONTENT_NAME_FUNC = lambda x: 'edict'
     ENCODING = 'euc-jp'
     IGNORE_LINES = 1
 
@@ -2846,7 +2850,7 @@ class CEDICTBuilder(CEDICTFormatBuilder):
     PROVIDES = 'CEDICT'
     FILE_NAMES = ['cedict_1_0_ts_utf-8_mdbg.zip',
         'cedict_1_0_ts_utf-8_mdbg.txt.gz', 'cedictu8.zip', 'cedict_ts.u8']
-    ZIP_CONTENT_NAME = 'cedict_ts.u8'
+    ZIP_CONTENT_NAME_FUNC = lambda x: 'cedict_ts.u8'
     ENCODING = 'utf-8'
     FILTER = filterUmlaut
 
@@ -2867,7 +2871,7 @@ class CEDICTGRBuilder(EDICTFormatBuilder):
     """
     PROVIDES = 'CEDICTGR'
     FILE_NAMES = ['cedictgr.zip', 'cedictgr.b5']
-    ZIP_CONTENT_NAME = 'cedictgr.b5'
+    ZIP_CONTENT_NAME_FUNC = lambda x: 'cedictgr.b5'
     ENCODING = 'big5hkscs'
 
 
@@ -2925,16 +2929,74 @@ class HanDeDictBuilder(CEDICTFormatBuilder):
         else:
             return [headword, headwordSimplified, reading, translation]
 
-    def timestamp(minusDays=0):
-        from datetime import date, timedelta
-        return (date.today() - timedelta(minusDays)).strftime("%Y%m%d")
+    @classmethod
+    def extractTimeStamp(cls, fileName):
+        matchObj = re.match(r'handedict-(\d{8})\.', fileName)
+        if matchObj:
+            return matchObj.group(1)
+
+    @classmethod
+    def getNewestFile(cls, filePaths):
+        timeStamps = []
+        for filePath in filePaths:
+            fileName = os.path.basename(filePath)
+            ts = HanDeDictBuilder.extractTimeStamp(fileName)
+            if ts:
+                timeStamps.append((ts, filePath))
+        if timeStamps:
+            _, filePath = max(timeStamps)
+            return filePath
+        else:
+            filePaths[0]
 
     PROVIDES = 'HanDeDict'
-    FILE_NAMES = ['handedict-' + timestamp() + '.zip',
-        'handedict-' + timestamp() + '.tar.bz2', 'handedict.u8']
-    ZIP_CONTENT_NAME = 'handedict-' + timestamp() + '/handedict.u8'
+    FILE_NAMES = ['handedict-*.zip', 'handedict-*.tar.bz2', 'handedict.u8']
+    ZIP_CONTENT_NAME_FUNC = lambda cls, fileName: 'handedict-' \
+        + cls.extractTimeStamp(fileName) + '/handedict.u8'
+    PREFER_FILE_FUNC = getNewestFile
     ENCODING = 'utf-8'
     FILTER = filterSpacing
+
+    def findFile(self, fileGlobs, fileType=None):
+        """
+        Tries to locate a file with a given list of possible file names under
+        the classes default data paths.
+
+        Uses the newest version of all files found.
+
+        @type fileGlobs: str/list of str
+        @param fileGlobs: possible file names
+        @type fileType: str
+        @param fileType: textual type of file used in error msg
+        @rtype: str
+        @return: path to file of first match in search for existing file
+        @raise IOError: if no file found
+        """
+        import glob
+
+        if type(fileGlobs) != type([]):
+            fileGlobs = [fileGlobs]
+        foundFiles = []
+        for fileGlob in fileGlobs:
+            for path in self.dataPath:
+                globPath = os.path.join(os.path.expanduser(path), fileGlob)
+                for filePath in glob.glob(globPath):
+                    if os.path.exists(filePath):
+                        fileName = os.path.basename(filePath)
+                        foundFiles.append((fileName, filePath))
+
+        if foundFiles:
+            if self.PREFER_FILE_FUNC:
+                return self.PREFER_FILE_FUNC([path for _, path in foundFiles])
+            else:
+                _, newestPath = max(foundFiles)
+                return newestPath
+        else:
+            if fileType == None:
+                fileType = "file"
+            raise IOError("No " + fileType + " found for '" + self.PROVIDES \
+                + "' under path(s)'" + "', '".join(self.dataPath) \
+                + "' for file names '" + "', '".join(fileGlobs) + "'")
 
 
 class HanDeDictWordIndexBuilder(WordIndexBuilder):
