@@ -1351,8 +1351,8 @@ class PinyinOperator(TonalRomanisationOperator):
                 vowelList.append(unicodedata.normalize("NFC", vowel + mark))
         return vowelList
 
-    @staticmethod
-    def guessReadingDialect(string, includeToneless=False):
+    @classmethod
+    def guessReadingDialect(cls, string, includeToneless=False):
         u"""
         Takes a string written in Pinyin and guesses the reading dialect.
 
@@ -2158,8 +2158,8 @@ class GROperator(TonalRomanisationOperator):
 
         return options
 
-    @staticmethod
-    def guessReadingDialect(string, includeToneless=False):
+    @classmethod
+    def guessReadingDialect(cls, string, includeToneless=False):
         u"""
         Takes a string written in GR and guesses the reading dialect.
 
@@ -3138,6 +3138,23 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
     information and thus can be used as a standard target reading.
     """
 
+    syllableRegex = re.compile(ur'((?:m|ng|h|' \
+        + u'(?:[bcdfghjklmnpqrstvwxyz]*' \
+        + u'(?:(?:[aeiou]|[\u0304\u0301\u0300])+|yu[\u0304\u0301\u0300]?)))' \
+        + u'(?:h(?!(?:[aeiou]|yu)))?' \
+        + '(?:[mnptk]|ng)?[0123456]?)')
+    """
+    Regex to split a string in NFD into several syllables in a crude way.
+    The regular expressions works for both, diacritical and number tone marks.
+    It consists of:
+        - Nasal syllables,
+        - Initial consonants,
+        - vowels including diacritics,
+        - tone mark h,
+        - final consonants,
+        - tone numbers.
+    """
+
     def __init__(self, **options):
         """
         Creates an instance of the CantoneseYaleOperator.
@@ -3254,8 +3271,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                         nucleusFirstChar + toneMark))
         return vowelList
 
-    @staticmethod
-    def guessReadingDialect(string, includeToneless=False):
+    @classmethod
+    def guessReadingDialect(cls, string, includeToneless=False):
         """
         Takes a string written in Cantonese Yale and guesses the reading
         dialect.
@@ -3270,11 +3287,9 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         @rtype: dict
         @return: dictionary of basic keyword settings
         """
-        readingStr = unicodedata.normalize("NFC", unicode(string))
-        diacriticVowels = CantoneseYaleOperator._getDiacriticVowels()
-        # split regex for all dialect forms
-        entities = re.findall(u'(?i)((?:' + '|'.join(diacriticVowels) \
-            + u'|[a-z])+[0123456]?)', readingStr)
+        # split into entities using a simple regex for all dialect forms
+        entities = cls.syllableRegex.findall(
+            unicodedata.normalize("NFD", unicode(string)))
 
         # guess tone mark type
         diacriticEntityCount = 0
@@ -3284,9 +3299,12 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             # take entity (which can be several connected syllables) and check
             if entity[-1] in '123456':
                 numberEntityCount = numberEntityCount + 1
+            elif 'h' in entity[1:]:
+                # tone mark character 'h' for low tone only used with diacritics
+                diacriticEntityCount = diacriticEntityCount + 1
             else:
-                for vowel in diacriticVowels:
-                    if vowel in entity:
+                for diacriticMarc in [u'\u0304', u'\u0301', u'\u0300']:
+                    if diacriticMarc in entity:
                         diacriticEntityCount = diacriticEntityCount + 1
                         break
         # compare statistics

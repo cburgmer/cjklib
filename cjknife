@@ -1020,7 +1020,7 @@ def usage():
     Prints the usage for this script.
     """
     print """Usage: cjknife COMMAND
-cjknife.py provides a set of functions for dealing with Chinese characters and
+cjknife provides a set of functions for dealing with Chinese characters and
 their readings. This tool should provide quick access to the major functions of
 the cjklib library and at the same time demonstrate how the library can be used.
 
