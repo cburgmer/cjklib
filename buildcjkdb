@@ -316,9 +316,9 @@ def main():
         databaseSettings = {}
         if dump:
             databaseSettings = {'dump': True}
-        dbBuilder = build.DatabaseBuilder(dataPath=dataPath,
-            databaseSettings=databaseSettings, quiet=quiet,
-            rebuildExisting=rebuild, noFail=noFail, prefer=prefer)
+        dbBuilder = build.DatabaseBuilder(databaseSettings=databaseSettings,
+            dataPath=dataPath, quiet=quiet, rebuildExisting=rebuild,
+            noFail=noFail, prefer=prefer)
 
         try:
             dbBuilder.build(groups)

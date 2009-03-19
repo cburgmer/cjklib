@@ -128,6 +128,11 @@ class TableBuilder(object):
         """
         pass
 
+    def remove(self):
+        """
+        Removes the table provided by the TableBuilder from the database.
+        """
+        pass
 
     def findFile(self, fileNames, fileType=None):
         """
@@ -172,25 +177,26 @@ class EntryGeneratorBuilder(TableBuilder):
     """Index keys (not unique) of the created table"""
     COLUMN_TYPES = {}
     """Column types for created table"""
-    ENTRY_GENERATOR = None
-    """Generator of table entries"""
+
+    def getGenerator(self):
+        """
+        Returns the entry generator.
+        Needs to be implemented by child classes.
+        """
+        pass
 
     def build(self):
-        # get drop table statement
-        dropStatement = getDropTableStatement(self.PROVIDES)
         # get create statement
         createStatement = getCreateTableStatement(self.PROVIDES, self.COLUMNS,
             self.COLUMN_TYPES, primaryKeyColumns=self.PRIMARY_KEYS)
         if self.target == 'dump':
-            output(dropStatement)
             output(createStatement)
         else:
-            self.db.getCursor().execute(dropStatement)
             self.db.getCursor().execute(createStatement)
             self.db.getCursor().execute('BEGIN;')
 
         # write table content
-        for newEntry in self.ENTRY_GENERATOR:
+        for newEntry in self.getGenerator():
             insertStatement = getInsertStatement(self.PROVIDES, newEntry)
             if self.target == 'dump':
                 output(insertStatement)
@@ -221,6 +227,15 @@ class EntryGeneratorBuilder(TableBuilder):
         else:
             for statement in indexStatements:
                 self.db.getCursor().execute(statement)
+
+    def remove(self):
+        # get drop table statement
+        dropStatement = getDropTableStatement(self.PROVIDES)
+        if self.target == 'dump':
+            output(dropStatement)
+        else:
+            self.db.getCursor().execute(dropStatement)
+            self.db.getConnection().commit()
 
 
 class ListGenerator:
@@ -403,30 +418,36 @@ class UnihanBuilder(EntryGeneratorBuilder):
         'kRSKangXi': 'TEXT', 'kRSKorean': 'TEXT', 'kSimplifiedVariant': 'TEXT',
         'kTotalStrokes': 'INTEGER', 'kTraditionalVariant': 'TEXT',
         'kVietnamese': 'TEXT', 'kZVariant': 'TEXT'}
-    generator = None
+    unihanGenerator = None
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(UnihanBuilder, self).__init__(dataPath, dbConnectInst, quiet)
-        generator = self.getGenerator()
-        self.COLUMNS = [self.CHARACTER_COLUMN]
-        self.COLUMNS.extend(generator.keys())
         self.PRIMARY_KEYS = [self.CHARACTER_COLUMN]
-        self.ENTRY_GENERATOR = UnihanBuilder.EntryGenerator(generator)
 
-    def getGenerator(self):
+    def getUnihanGenerator(self):
         """
         Returns the L{UnihanGenerator}. Constructs it if needed.
 
         @rtype: instance
         @return: instance of a L{UnihanGenerator}
         """
-        if not self.generator:
+        if not self.unihanGenerator:
             path = self.findFile(['Unihan.txt', 'Unihan.zip'],
                 "Unihan database file")
-            self.generator = UnihanGenerator(path)
+            self.unihanGenerator = UnihanGenerator(path)
             if not self.quiet:
                 warn("reading file '" + path + "'")
-        return self.generator
+        return self.unihanGenerator
+
+    def getGenerator(self):
+        return UnihanBuilder.EntryGenerator(self.getUnihanGenerator())
+
+    def build(self):
+        generator = self.getUnihanGenerator()
+        self.COLUMNS = [self.CHARACTER_COLUMN]
+        self.COLUMNS.extend(generator.keys())
+
+        EntryGeneratorBuilder.build(self)
 
 
 class UnihanBMPBuilder(UnihanBuilder):
@@ -459,11 +480,10 @@ class UnihanBMPBuilder(UnihanBuilder):
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(UnihanBMPBuilder, self).__init__(dataPath, dbConnectInst, quiet)
-        generator = self.getGenerator()
-        self.COLUMNS = [self.CHARACTER_COLUMN]
-        self.COLUMNS.extend(generator.keys())
         self.PRIMARY_KEYS = [self.CHARACTER_COLUMN]
-        self.ENTRY_GENERATOR = UnihanBMPBuilder.BMPEntryGenerator(generator)
+
+    def getGenerator(self):
+        return UnihanBMPBuilder.BMPEntryGenerator(self.getUnihanGenerator())
 
 
 class SlimUnihanBuilder(UnihanBuilder):
@@ -480,14 +500,14 @@ class SlimUnihanBuilder(UnihanBuilder):
         'kIICore', 'kGB0']
     """Keys for that data is read into the Unihan table in database."""
 
-    def getGenerator(self):
-        if not self.generator:
+    def getUnihanGenerator(self):
+        if not self.unihanGenerator:
             path = self.findFile(['Unihan.txt', 'Unihan.zip'],
                 "Unihan database file")
-            self.generator = UnihanGenerator(path, self.INCLUDE_KEYS)
+            self.unihanGenerator = UnihanGenerator(path, self.INCLUDE_KEYS)
             if not self.quiet:
                 warn("reading file '" + path + "'")
-        return self.generator
+        return self.unihanGenerator
 
 
 class SlimUnihanBMPBuilder(SlimUnihanBuilder, UnihanBMPBuilder):
@@ -646,30 +666,25 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
     'character' element and a set of attribute value pairs.
     """
 
-    generator = None
-
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(Kanjidic2Builder, self).__init__(dataPath, dbConnectInst, quiet)
         tags = [tag for tag, _ in self.KANJIDIC_TAG_MAPPING.values()]
         self.COLUMNS = tags
         self.PRIMARY_KEYS = [self.CHARACTER_COLUMN]
-        self.ENTRY_GENERATOR = self.getGenerator()
 
     def getGenerator(self):
         """
-        Returns the L{KanjidicGenerator}. Constructs it if needed.
+        Returns the L{KanjidicGenerator}.
 
         @rtype: instance
         @return: instance of a L{KanjidicGenerator}
         """
-        if not self.generator:
-            path = self.findFile(['kanjidic2.xml.gz', 'kanjidic2.xml'],
-                "KANJIDIC2 XML file")
-            self.generator = Kanjidic2Builder.KanjidicGenerator(path,
-                self.KANJIDIC_TAG_MAPPING)
-            if not self.quiet:
-                warn("reading file '" + path + "'")
-        return self.generator
+        path = self.findFile(['kanjidic2.xml.gz', 'kanjidic2.xml'],
+            "KANJIDIC2 XML file")
+        if not self.quiet:
+            warn("reading file '" + path + "'")
+        return Kanjidic2Builder.KanjidicGenerator(path,
+            self.KANJIDIC_TAG_MAPPING)
 
 
 class UnihanDerivedBuilder(EntryGeneratorBuilder):
@@ -708,10 +723,12 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
         # set column types
         self.COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)',
             self.COLUMN_TARGET: self.COLUMN_TARGET_TYPE}
+
+    def getGenerator(self):
         # create generator
         tableEntries = self.db.select('Unihan', ['ChineseCharacter',
             self.COLUMN_SOURCE], {self.COLUMN_SOURCE: 'IS NOT NULL'})
-        self.ENTRY_GENERATOR = self.GENERATOR_CLASS(tableEntries, self.quiet)
+        return self.GENERATOR_CLASS(tableEntries, self.quiet)
 
     def build(self):
         if not self.quiet:
@@ -911,15 +928,16 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
         # set column types
         self.COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)',
             'Variant': 'VARCHAR(1)', 'Type': 'CHAR'}
+
+    def getGenerator(self):
         # create generator
         keys = self.COLUMN_SOURCE_ABBREV.keys()
         variantTypes = [self.COLUMN_SOURCE_ABBREV[key] for key in keys]
         selectKeys = ['ChineseCharacter']
         selectKeys.extend(keys)
         tableEntries = self.db.select('Unihan', selectKeys)
-        self.ENTRY_GENERATOR = \
-            CharacterVariantBuilder.VariantGenerator(tableEntries, variantTypes,
-                self.quiet)
+        return CharacterVariantBuilder.VariantGenerator(tableEntries,
+            variantTypes, self.quiet)
 
     def build(self):
         if not self.quiet:
@@ -964,15 +982,16 @@ class CharacterVariantBMPBuilder(CharacterVariantBuilder):
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(CharacterVariantBMPBuilder, self).__init__(dataPath,
             dbConnectInst, quiet)
+
+    def getGenerator(self):
         # create generator
         keys = self.COLUMN_SOURCE_ABBREV.keys()
         variantTypes = [self.COLUMN_SOURCE_ABBREV[key] for key in keys]
         selectKeys = ['ChineseCharacter']
         selectKeys.extend(keys)
         tableEntries = self.db.select('Unihan', selectKeys)
-        self.ENTRY_GENERATOR = \
-            CharacterVariantBMPBuilder.BMPVariantGenerator(tableEntries,
-                variantTypes, self.quiet)
+        return CharacterVariantBMPBuilder.BMPVariantGenerator(tableEntries,
+            variantTypes, self.quiet)
 
 
 class UnihanCharacterSetBuilder(EntryGeneratorBuilder):
@@ -990,10 +1009,12 @@ class UnihanCharacterSetBuilder(EntryGeneratorBuilder):
         self.PRIMARY_KEYS = self.COLUMNS
         # set column types
         self.COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)'}
+
+    def getGenerator(self):
         # create generator
         tableEntries = self.db.selectSoleValue('Unihan', 'ChineseCharacter',
             {self.COLUMN_SOURCE: 'IS NOT NULL'})
-        self.ENTRY_GENERATOR = ListGenerator(tableEntries)
+        return ListGenerator(tableEntries)
 
     def build(self):
         if not self.quiet:
@@ -1211,12 +1232,14 @@ class CharacterPinyinBuilder(EntryGeneratorBuilder):
         # set column types
         self.COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)',
             'Reading': 'VARCHAR(255)'}
+
+    def getGenerator(self):
         # create generator
         self.db.getCursor().execute(u' UNION '.join(\
             [self.db.getSelectCommand(table, self.COLUMNS, {}) \
                 for table in self.DEPENDS]) + ';')
         tableEntries = self.db.getCursor().fetchall()
-        self.ENTRY_GENERATOR = ListGenerator(tableEntries)
+        return ListGenerator(tableEntries)
 
 #}
 #{ CSV file based
@@ -1298,7 +1321,7 @@ class CSVFileLoader(TableBuilder):
             while line.strip().startswith('#'):
                 line = fileHandle.next()
         except StopIteration:
-            raise IOError("error reading from input")
+            return csv.reader(fileHandle)
         try:
             self.fileDialect = csv.Sniffer().sniff(line, ['\t', ','])
         except csv.Error:
@@ -1311,8 +1334,6 @@ class CSVFileLoader(TableBuilder):
     def build(self):
         import locale
         import codecs
-        # create drop table statement
-        dropStatement = getDropTableStatement(self.PROVIDES)
         # get create statement
         filePath = self.findFile([self.TABLE_DECLARATION_FILE_MAPPING],
             "SQL table definition file")
@@ -1322,10 +1343,8 @@ class CSVFileLoader(TableBuilder):
         fileHandle = codecs.open(filePath, 'r', 'utf-8')
         createStatement = ''.join(fileHandle.readlines()).strip("\n")
         if self.target == 'dump':
-            output(dropStatement)
             output(createStatement)
         else:
-            self.db.getCursor().execute(dropStatement)
             self.db.getCursor().execute(createStatement)
             self.db.getCursor().execute('BEGIN;')
 
@@ -1337,6 +1356,8 @@ class CSVFileLoader(TableBuilder):
         fileHandle = codecs.open(filePath, 'r', 'utf-8')
 
         for line in self.getCSVReader(fileHandle):
+            if len(line) == 1 and not line[0].strip():
+                continue
             insertStatement = getInsertStatement(self.PROVIDES, line)
             if self.target == 'dump':
                 output(insertStatement)
@@ -1359,6 +1380,15 @@ class CSVFileLoader(TableBuilder):
                 self.db.getCursor().execute(statement)
 
         if self.target != 'dump':
+            self.db.getConnection().commit()
+
+    def remove(self):
+        # get drop table statement
+        dropStatement = getDropTableStatement(self.PROVIDES)
+        if self.target == 'dump':
+            output(dropStatement)
+        else:
+            self.db.getCursor().execute(dropStatement)
             self.db.getConnection().commit()
 
 
@@ -1653,7 +1683,6 @@ class ZVariantBuilder(EntryGeneratorBuilder):
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(ZVariantBuilder, self).__init__(dataPath, dbConnectInst, quiet)
-        self.ENTRY_GENERATOR = self.getGenerator()
 
     def getGenerator(self):
         characterSet = set(self.db.select('CharacterDecomposition',
@@ -1723,7 +1752,6 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(StrokeCountBuilder, self).__init__(dataPath, dbConnectInst, quiet)
-        self.ENTRY_GENERATOR = self.getGenerator()
 
     def getGenerator(self):
         characterSet = set(self.db.select('CharacterDecomposition',
@@ -2003,11 +2031,12 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(CharacterComponentLookupBuilder, self).__init__(dataPath,
             dbConnectInst, quiet)
+
+    def getGenerator(self):
         characterSet = set(self.db.select('CharacterDecomposition',
             ['ChineseCharacter', 'ZVariant'], distinctValues=True))
-        self.ENTRY_GENERATOR = \
-            CharacterComponentLookupBuilder.CharacterComponentGenerator(self.db,
-                characterSet)
+        return CharacterComponentLookupBuilder.CharacterComponentGenerator(
+            self.db, characterSet)
 
 
 class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
@@ -2316,10 +2345,12 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(CharacterRadicalStrokeCountBuilder, self).__init__(dataPath,
             dbConnectInst, quiet)
+
+    def getGenerator(self):
         # get all characters we have component information for
         characterSet = set(self.db.select('CharacterDecomposition',
             ['ChineseCharacter', 'ZVariant'], distinctValues=True)) 
-        self.ENTRY_GENERATOR = CharacterRadicalStrokeCountBuilder\
+        return CharacterRadicalStrokeCountBuilder\
             .CharacterRadicalStrokeCountGenerator(self.db, characterSet,
                 self.quiet)
 
@@ -2418,7 +2449,6 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(CharacterResidualStrokeCountBuilder, self).__init__(dataPath,
             dbConnectInst, quiet)
-        self.ENTRY_GENERATOR = self.getGenerator()
 
     def getGenerator(self):
         characterSet = set(self.db.select('CharacterRadicalResidualStrokeCount',
@@ -2573,11 +2603,6 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
     """Column names which shall be fulltext searchable."""
     FILE_NAMES = None
     """Names of file containing the edict formated dictionary."""
-    ZIP_CONTENT_NAME_FUNC = None
-    """
-    Function extracting the name of contained file from the zipped archive using
-    the file name.
-    """
     ENCODING = 'utf-8'
     """Encoding of the dictionary file."""
     ENTRY_REGEX = None
@@ -2592,20 +2617,37 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(EDICTFormatBuilder, self).__init__(dataPath, dbConnectInst, quiet)
+
+    def getGenerator(self):
         # get file handle
         import os.path as path
         filePath = self.findFile(self.FILE_NAMES)
-        handle = self.getFileHandle(filePath, self.ZIP_CONTENT_NAME_FUNC)
+        handle = self.getFileHandle(filePath)
         if not self.quiet:
             warn("Reading table from file '" + filePath + "'")
         # ignore starting lines
         for i in range(0, self.IGNORE_LINES):
             handle.readline()
         # create generator
-        self.ENTRY_GENERATOR = EDICTFormatBuilder.TableGenerator(handle,
-            self.quiet, self.ENTRY_REGEX, self.COLUMNS, self.FILTER)
+        return EDICTFormatBuilder.TableGenerator(handle, self.quiet,
+            self.ENTRY_REGEX, self.COLUMNS, self.FILTER)
 
-    def getFileHandle(self, filePath, contentNameFunc):
+    def getArchiveContentName(self, filePath):
+        """
+        Function extracting the name of contained file from the zipped archive
+        using the file name.
+        Reimplement and adapt to own needs.
+
+        @type filePath: str
+        @param filePath: path of file
+        @rtype: str
+        @return: name of file in archive
+        """
+        fileName = os.path.basename(filePath)
+        fileRoot, _ = os.path.splitext(fileName)
+        return fileRoot
+
+    def getFileHandle(self, filePath):
         """
         Returns a handle to the give file.
 
@@ -2613,9 +2655,6 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
         @type filePath: str
         @param filePath: path of file
-        @type compressedContent: str
-        @param compressedContent: file name to extract from compressed file, if
-            filePath represents a container format
         @rtype: file
         @return: handle to file's content
         """
@@ -2625,8 +2664,10 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         fileName = os.path.basename(filePath)
 
         if zipfile.is_zipfile(filePath):
+            import StringIO
             z = zipfile.ZipFile(filePath, 'r')
-            return StringIO.StringIO(z.read(contentNameFunc(fileName))\
+            archiveContent = self.getArchiveContentName(filePath)
+            return StringIO.StringIO(z.read(archiveContent)\
                 .decode(self.ENCODING))
         elif tarfile.is_tarfile(filePath):
             import StringIO
@@ -2636,7 +2677,8 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             elif filePath.endswith('gz'):
                 mode = ':gz'
             z = tarfile.open(filePath, 'r' + mode)
-            file = z.extractfile(contentNameFunc(fileName))
+            archiveContent = self.getArchiveContentName(filePath)
+            file = z.extractfile(archiveContent)
             return StringIO.StringIO(file.read().decode(self.ENCODING))
         elif filePath.endswith('.gz'):
             import gzip
@@ -2655,15 +2697,11 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         """
         hasFTS3 = self.target == 'SQLite' and testFTS3(self.db.getCursor())
         if not hasFTS3:
-            # get drop table statement
-            dropStatement = getDropTableStatement(self.PROVIDES)
             # get create statement
             createStatement = getCreateTableStatement(self.PROVIDES,
                 self.COLUMNS, self.COLUMN_TYPES,
                 primaryKeyColumns=self.PRIMARY_KEYS)
         else:
-            # get drop table statement
-            dropStatement = getFTS3DropTableStatement(self.PROVIDES)
             # get create statement
             createStatement = getFTS3CreateTableStatement(self.PROVIDES,
                 self.COLUMNS, self.COLUMN_TYPES,
@@ -2671,19 +2709,16 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
                 fullTextColumns=self.FULLTEXT_COLUMNS)
 
         if self.target == 'dump':
-            output(dropStatement)
             output(createStatement)
         elif self.target != 'SQLite':
-            self.db.getCursor().execute(dropStatement)
             self.db.getCursor().execute(createStatement)
         else:
             self.db.getCursor().execute('PRAGMA synchronous = OFF;')
-            self.db.getCursor().executescript(dropStatement)
             self.db.getCursor().executescript(createStatement)
 
         if not hasFTS3:
             # write table content
-            for newEntry in self.ENTRY_GENERATOR:
+            for newEntry in self.getGenerator():
                 insertStatement = getInsertStatement(self.PROVIDES, newEntry)
                 if self.target == 'dump':
                     output(insertStatement)
@@ -2691,7 +2726,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
                     self.db.getCursor().execute(insertStatement)
         else:
             # write table content
-            for newEntry in self.ENTRY_GENERATOR:
+            for newEntry in self.getGenerator():
                 insertStatement = getFTS3InsertStatement(self.PROVIDES,
                     newEntry, fullTextColumns=self.FULLTEXT_COLUMNS)
                 self.db.getCursor().executescript(insertStatement)
@@ -2714,6 +2749,25 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         else:
             for statement in indexStatements:
                 self.db.getCursor().execute(statement)
+
+    def remove(self):
+        # get drop table statement
+        hasFTS3 = self.target == 'SQLite' and testFTS3(self.db.getCursor())
+        if not hasFTS3:
+            # get drop table statement
+            dropStatement = getDropTableStatement(self.PROVIDES)
+        else:
+            # get drop table statement
+            dropStatement = getFTS3DropTableStatement(self.PROVIDES)
+
+        if self.target == 'dump':
+            output(dropStatement)
+        elif self.target != 'SQLite':
+            self.db.getCursor().execute(dropStatement)
+            self.db.getConnection().commit()
+        else:
+            self.db.getCursor().executescript(dropStatement)
+            self.db.getConnection().commit()
 
 
 class WordIndexBuilder(EntryGeneratorBuilder):
@@ -2777,10 +2831,10 @@ class WordIndexBuilder(EntryGeneratorBuilder):
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(WordIndexBuilder, self).__init__(dataPath, dbConnectInst, quiet)
 
+    def getGenerator(self):
         entries = self.db.select(self.TABLE_SOURCE, [self.HEADWORD_SOURCE,
             'Reading', 'Translation'])
-
-        self.ENTRY_GENERATOR = WordIndexBuilder.WordEntryGenerator(entries)
+        return WordIndexBuilder.WordEntryGenerator(entries)
 
 
 class EDICTBuilder(EDICTFormatBuilder):
@@ -2789,7 +2843,6 @@ class EDICTBuilder(EDICTFormatBuilder):
     """
     PROVIDES = 'EDICT'
     FILE_NAMES = ['edict.gz', 'edict.zip', 'edict']
-    ZIP_CONTENT_NAME_FUNC = lambda x: 'edict'
     ENCODING = 'euc-jp'
     IGNORE_LINES = 1
 
@@ -2850,9 +2903,11 @@ class CEDICTBuilder(CEDICTFormatBuilder):
     PROVIDES = 'CEDICT'
     FILE_NAMES = ['cedict_1_0_ts_utf-8_mdbg.zip',
         'cedict_1_0_ts_utf-8_mdbg.txt.gz', 'cedictu8.zip', 'cedict_ts.u8']
-    ZIP_CONTENT_NAME_FUNC = lambda x: 'cedict_ts.u8'
     ENCODING = 'utf-8'
     FILTER = filterUmlaut
+
+    def getArchiveContentName(self, filePath):
+        return 'cedict_ts.u8'
 
 
 class CEDICTWordIndexBuilder(WordIndexBuilder):
@@ -2871,8 +2926,10 @@ class CEDICTGRBuilder(EDICTFormatBuilder):
     """
     PROVIDES = 'CEDICTGR'
     FILE_NAMES = ['cedictgr.zip', 'cedictgr.b5']
-    ZIP_CONTENT_NAME_FUNC = lambda x: 'cedictgr.b5'
     ENCODING = 'big5hkscs'
+
+    def getArchiveContentName(self, filePath):
+        return 'cedictgr.b5'
 
 
 class CEDICTGRWordIndexBuilder(WordIndexBuilder):
@@ -2929,18 +2986,21 @@ class HanDeDictBuilder(CEDICTFormatBuilder):
         else:
             return [headword, headwordSimplified, reading, translation]
 
-    @classmethod
-    def extractTimeStamp(cls, fileName):
+    PROVIDES = 'HanDeDict'
+    FILE_NAMES = ['handedict-*.zip', 'handedict-*.tar.bz2', 'handedict.u8']
+    ENCODING = 'utf-8'
+    FILTER = filterSpacing
+
+    def extractTimeStamp(self, filePath):
+        fileName = os.path.basename(filePath)
         matchObj = re.match(r'handedict-(\d{8})\.', fileName)
         if matchObj:
             return matchObj.group(1)
 
-    @classmethod
-    def getNewestFile(cls, filePaths):
+    def getPreferredFile(self, filePaths):
         timeStamps = []
         for filePath in filePaths:
-            fileName = os.path.basename(filePath)
-            ts = HanDeDictBuilder.extractTimeStamp(fileName)
+            ts = self.extractTimeStamp(filePath)
             if ts:
                 timeStamps.append((ts, filePath))
         if timeStamps:
@@ -2949,13 +3009,9 @@ class HanDeDictBuilder(CEDICTFormatBuilder):
         else:
             filePaths[0]
 
-    PROVIDES = 'HanDeDict'
-    FILE_NAMES = ['handedict-*.zip', 'handedict-*.tar.bz2', 'handedict.u8']
-    ZIP_CONTENT_NAME_FUNC = lambda cls, fileName: 'handedict-' \
-        + cls.extractTimeStamp(fileName) + '/handedict.u8'
-    PREFER_FILE_FUNC = getNewestFile
-    ENCODING = 'utf-8'
-    FILTER = filterSpacing
+    def getArchiveContentName(self, filePath):
+        timeStamp = self.extractTimeStamp(filePath)
+        return 'handedict-' + timeStamp + '/handedict.u8'
 
     def findFile(self, fileGlobs, fileType=None):
         """
@@ -2986,8 +3042,8 @@ class HanDeDictBuilder(CEDICTFormatBuilder):
                         foundFiles.append((fileName, filePath))
 
         if foundFiles:
-            if self.PREFER_FILE_FUNC:
-                return self.PREFER_FILE_FUNC([path for _, path in foundFiles])
+            if hasattr(self, 'getPreferredFile'):
+                return self.getPreferredFile([path for _, path in foundFiles])
             else:
                 _, newestPath = max(foundFiles)
                 return newestPath
@@ -3019,18 +3075,20 @@ class DatabaseBuilder:
     It contains all L{TableBuilder} classes and a dependency graph to handle
     build requests.
     """
-    def __init__(self, dataPath=None, databaseSettings={}, quiet=False,
-        rebuildDepending=True, rebuildExisting=True, noFail=False, prefer=[],
-        additionalBuilders=[]):
+    def __init__(self, databaseSettings={}, dbConnectInst=None, dataPath=[],
+        quiet=False, rebuildDepending=True, rebuildExisting=True, noFail=False,
+        prefer=[], additionalBuilders=[]):
         """
         Constructs the DatabaseBuilder.
 
-        @type dataPath: list of str
-        @param dataPath: optional list of paths to the data file(s)
         @type databaseSettings: dict
         @param databaseSettings: dictionary holding the database options for the
             dbconnector module. If key 'dump' is given all sql code will be
             printed to stdout.
+        @type dbConnectInst: instance
+        @param dbConnectInst: instance of a L{DatabaseConnector}
+        @type dataPath: list of str
+        @param dataPath: optional list of paths to the data file(s)
         @type quiet: bool
         @param quiet: if true no status information will be printed to stderr
         @type rebuildDepending: bool
@@ -3062,7 +3120,9 @@ class DatabaseBuilder:
         self.rebuildExisting = rebuildExisting
         self.noFail = noFail
         # get connector to database
-        if databaseSettings and databaseSettings.has_key('dump'):
+        if dbConnectInst:
+            self.db = dbConnectInst
+        elif databaseSettings and databaseSettings.has_key('dump'):
             self.db = None
         else:
             self.db = dbconnector.DatabaseConnector.getDBConnector(
@@ -3170,6 +3230,16 @@ class DatabaseBuilder:
                 if builder.PROVIDES in buildDependentTables \
                     and not self.db.tableExists(builder.PROVIDES):
                     instancesUnrequestedTable.add(instance)
+
+                if self.db:
+                    if self.db.tableExists(builder.PROVIDES):
+                        if not self.quiet:
+                            warn("Removing previously built table '" \
+                                + builder.PROVIDES + "'")
+                        instance.remove()
+                else:
+                    instance.remove()
+
                 instance.build()
             except IOError, e:
                 # data not available, can't build table
@@ -3199,8 +3269,35 @@ class DatabaseBuilder:
                     warn("Removing table '" + instance.PROVIDES \
                         + "' as it was only created to solve build " \
                         + "dependencies")
-                dropStatement = getDropTableStatement(instance.PROVIDES)
-                self.db.getCursor().execute(dropStatement)
+                instance.remove()
+
+    def remove(self, tables):
+        """
+        Removes the given tables.
+
+        @type tables: list
+        @param tables: list of tables to remove
+        """
+        if type(tables) != type([]):
+            tables = [tables]
+
+        tableBuilderClasses = []
+        for table in set(tables):
+            if not self.tableBuilderLookup.has_key(table):
+                raise exception.UnsupportedError("table '" + table \
+                    + "' not provided")
+            tableBuilderClasses.append(self.tableBuilderLookup[table])
+
+        for builder in tableBuilderClasses:
+            instance = builder(self.dataPath, self.db, self.quiet)
+            if self.db:
+                if self.db.tableExists(builder.PROVIDES):
+                    if not self.quiet:
+                        warn("Removing previously built table '" \
+                            + builder.PROVIDES + "'")
+                    instance.remove()
+            else:
+                instance.remove()
 
     def needsRebuild(self, tableName):
         """
@@ -3472,6 +3569,27 @@ class DatabaseBuilder:
         @return: names of tables
         """
         return set(self.tableBuilderLookup.keys())
+
+    def isOptimizable(self):
+        """
+        Checks if the current database supports optimization.
+
+        @rtype: boolean
+        @return: True if optimizable, False otherwise
+        """
+        return self.db.getDatabaseType() in ['SQLite']
+
+    def optimize(self):
+        """
+        Optimizes the current database.
+
+        @raise Exception: if database does not support optimization
+        @raise OperationalError: if optimization failed
+        """
+        if self.db.getDatabaseType() == 'SQLite':
+            self.db.getCursor().execute('VACUUM')
+        else:
+            raise Exception('Database does not seem to support optimization')
 
 #}
 #{ Global methods

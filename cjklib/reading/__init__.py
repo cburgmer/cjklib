@@ -640,17 +640,18 @@ class ReadingFactory(object):
     @staticmethod
     def _getHashableCopy(data):
         """
-        Constructs a unique hashable deep-copy for a given instance, replacing
-        non-hashable datatypes C{set}, C{dict} and C{list} recursively.
+        Constructs a unique hashable (partially deep-)copy for a given instance,
+        replacing non-hashable datatypes C{set}, C{dict} and C{list}
+        recursively.
 
         @param data: non-hashable object
         @return: hashable object, C{set} converted to a C{frozenset}, C{dict}
             converted to a C{frozenset} of key-value-pairs (tuple), and C{list}
             converted to a C{tuple}.
         """
-        if type(data) == type([]):
+        if type(data) == type([]) or type(data) == type(()):
             newList = []
-            for i, entry in enumerate(data):
+            for entry in data:
                 newList.append(ReadingFactory._getHashableCopy(entry))
             return tuple(newList)
         elif type(data) == type(set([])):
