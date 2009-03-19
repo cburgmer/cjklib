@@ -162,13 +162,14 @@ class CharacterInfo:
             self.dictionaryHasFTS3 = DatabaseConnector.getDBConnector()\
                 .tableExists(self.dictionary + '_Text')
 
-        if self.DICTIONARY_INFO[self.dictionary]['type'] == 'CEDICT':
-            if self.locale == 'C':
-                self.headwordColumn = 'HeadwordSimplified'
+        if self.dictionary:
+            if self.DICTIONARY_INFO[self.dictionary]['type'] == 'CEDICT':
+                if self.locale == 'C':
+                    self.headwordColumn = 'HeadwordSimplified'
+                else:
+                    self.headwordColumn = 'HeadwordTraditional'
             else:
-                self.headwordColumn = 'HeadwordTraditional'
-        else:
-            self.headwordColumn = 'Headword'
+                self.headwordColumn = 'Headword'
 
     # Settings
 
