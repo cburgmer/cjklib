@@ -2902,7 +2902,8 @@ class CEDICTBuilder(CEDICTFormatBuilder):
 
     PROVIDES = 'CEDICT'
     FILE_NAMES = ['cedict_1_0_ts_utf-8_mdbg.zip',
-        'cedict_1_0_ts_utf-8_mdbg.txt.gz', 'cedictu8.zip', 'cedict_ts.u8']
+        'cedict_1_0_ts_utf-8_mdbg.txt.gz', 'cedictu8.zip', 'cedict_ts.u8',
+        'cedict_1_0_ts_utf-8_mdbg.txt']
     ENCODING = 'utf-8'
     FILTER = filterUmlaut
 

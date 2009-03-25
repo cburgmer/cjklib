@@ -51,7 +51,7 @@ library's functions for the Mandarin language.
 For the installed library run:
 # buildcjkdb -b cjklibData \
     --dataPath=/usr/lib/python2.5/site-packages/cjklib/data/
-Adapt the path meet the layout of the local system.
+Adapt the path to meet the layout of the local system.
 
 A list of groups can be printed with 'buildcjkdb -l'. See 'buildcjkdb -h'
 for all parameters of the build script.

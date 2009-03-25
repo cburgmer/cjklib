@@ -24,6 +24,7 @@ Examples
 Convert a string from I{Jyutping} to I{Cantonese Yale}:
 
     >>> from cjklib.reading import ReadingFactory
+    >>> f = ReadingFactory()
     >>> f.convert('gwong2jau1wa2', 'Jyutping', 'CantoneseYale')
     u'gw\xf3ngy\u0101uw\xe1'
 
