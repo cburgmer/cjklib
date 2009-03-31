@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
 """
 Checks a CEDICT compatible dictionary against Unihan on valid Pinyin
@@ -50,13 +50,16 @@ import sys
 import getopt
 
 from cjklib.dbconnector import DatabaseConnector
-from cjklib import reading
+from cjklib.reading import ReadingFactory
 from cjklib import characterlookup
 from cjklib import exception
 
-DICTIONARY_READING = {'HanDeDict': 'PinyinNumbers', 'CEDICT': 'PinyinNumbers'}
-"""A lookup table for supported dictionaries containing the database table name
-    and reading type."""
+DICTIONARY_READING = {'HanDeDict': ('Pinyin', {'toneMarkType': 'Numbers'}),
+    'CEDICT': ('Pinyin', {'toneMarkType': 'Numbers'})}
+"""
+A lookup table for supported dictionaries containing the database table name and
+reading type.
+"""
 
 NON_PINYIN_MAPPING = {u'，': u' , ', u'・': u' · '}
 """Mapping of non-Pinyin entities regarded as correct."""
@@ -118,11 +121,12 @@ def getSimplifiedMapping(char):
     return set(vVariants)
 
 _readingOperator = None
-def getReadingOperator(readingName):
+def getReadingOperator(readingName, readingOptions={}):
     global _readingOperator
     if not _readingOperator:
-        readingFactory = reading.ReadingFactory()
-        _readingOperator = readingFactory.createReadingOperator(readingName)
+        readingFactory = ReadingFactory()
+        _readingOperator = readingFactory.createReadingOperator(readingName,
+            **readingOptions)
     return _readingOperator
 
 _dictionaryEntries = None
@@ -135,7 +139,8 @@ def getDictionaryEntries(dictionary):
             orderBy=['HeadwordTraditional'], distinctValues=True)
     return _dictionaryEntries
 
-def checkCharacterReading(entryList, readingName, ignoreFifthTone=False):
+def checkCharacterReading(entryList, readingName, readingOptions={},
+    ignoreFifthTone=False):
     for entry in entryList:
         headwordTrad, headwordSimp, reading = entry
         if headwordTrad != headwordSimp:
@@ -144,8 +149,9 @@ def checkCharacterReading(entryList, readingName, ignoreFifthTone=False):
             headword = headwordTrad
 
         try:
-            entities = getReadingOperator(readingName).decompose(reading)
-        except cjklib.exception.DecompositionError:
+            operator = getReadingOperator(readingName, readingOptions)
+            entities = operator.decompose(reading)
+        except exception.DecompositionError:
             print ("WARNING: can't parse line '" \
                 + headwordTrad + "', '" + headwordSimp + "', '" + reading \
                 + "'").encode(default_encoding)
@@ -175,7 +181,7 @@ def checkCharacterReading(entryList, readingName, ignoreFifthTone=False):
                     validReading = True
                     try:
                         readingList = getCJK().getReadingForCharacter(char,
-                            readingName)
+                            readingName, **readingOptions)
 
                         if not hasReading(entity, readingList, readingName,
                             ignoreFifthTone):
@@ -257,7 +263,6 @@ def main():
         dictionaryDic[dictionary.lower()] = dictionary
 
     dictionary = DICTIONARY_READING.keys()[0]
-    reading = DICTIONARY_READING[dictionaryDic[dictionary.lower()]]
     ignoreFifthTone = False
     # if True, no error will be reported when tone shifts to neutral tone
     checkReading = False
@@ -276,7 +281,6 @@ def main():
         elif o in ("-w", "--set-dictionary"):
             if a.lower() in dictionaryDic.keys():
                 dictionary = a
-                reading = DICTIONARY_READING[dictionaryDic[a.lower()]]
             else:
                 print "not a valid dictionary"
         # check reading
@@ -293,8 +297,10 @@ def main():
         print "Checking " + dictionary
 
     if checkReading:
+        reading, readingOptions \
+            = DICTIONARY_READING[dictionaryDic[dictionary.lower()]]
         checkCharacterReading(getDictionaryEntries(dictionary), reading,
-            ignoreFifthTone)
+            readingOptions, ignoreFifthTone)
     if checkVariants:
         checkCharacterVariants(getDictionaryEntries(dictionary))
 
