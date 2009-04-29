@@ -1336,7 +1336,7 @@ def main():
             try:
                 strokeCountDict = charInfo.getCharactersForKangxiRadicalIndex(
                     int(parameter))
-                for residualStrokeCount in strokeCountDict:
+                for residualStrokeCount in sorted(strokeCountDict.keys()):
                     print '+' + str(residualStrokeCount) + ': ' \
                         + ''.join(strokeCountDict[residualStrokeCount])\
                             .encode(default_encoding, "replace")

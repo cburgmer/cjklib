@@ -112,7 +112,7 @@ Currently supported are:
 @requires: Python 2.5+, SQLite 3+ and pysqlite2 or MySQL 5+ and MySQL-Python
 @version: 0.1alpha
 
-@copyright: Copyright (C) 2006-2008 Christoph Burgmer
+@copyright: Copyright (C) 2006-2009 Christoph Burgmer
 
     cjklib comes with absolutely no warranty; for details see B{License}.
 
