@@ -101,15 +101,17 @@ mistakes do happen, especially for data which differs on different locales.
 
 Dependencies
 ============
-cjklib is written in Python and is tested on Python 2.5.
-Apart from this dependency it needs a database back-end for most of its parts.
-Currently supported are:
+cjklib is written in Python and is well tested on Python 2.5.
+Apart from this dependency it needs a database back-end for most of its parts
+and library SQLAlchemy.
+Currently tested are:
     - SQLite, tested on SQLite 3
     - MySQL, tested on MySQL 5.0 (works only with characters from the Basic
         Multilingual Plane in Unicode, BMP)
 
 @author: Christoph Burgmer <cburgmer@ira.uka.de>
-@requires: Python 2.5+, SQLite 3+ and pysqlite2 or MySQL 5+ and MySQL-Python
+@requires: Python 2.5+, SQLAlchemy 0.5+ and either SQLite 3+ or MySQL 5+ and
+    MySQL-Python
 @version: 0.1alpha
 
 @copyright: Copyright (C) 2006-2009 Christoph Burgmer

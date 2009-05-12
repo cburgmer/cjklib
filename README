@@ -81,7 +81,7 @@ support buildcjkdb needs to be told to use the appropriate building methods.
 SQLite offers a full-text search with extension FTS3 which needs to be
 compiled in to used. cjknife uses the full-text capabilities for the
 dictionary search and performs a full table scan in fuzzy search if this
-extension is not available. Not full-text support is currently given for
+extension is not available. No full-text support is currently given for
 MySQL.
 
 MySQL

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 # This file is part of cjklib.
 #
 # cjklib is free software: you can redistribute it and/or modify
@@ -29,6 +29,8 @@ import codecs
 import sys
 import getopt
 
+from sqlalchemy import select
+
 from cjklib.dbconnector import DatabaseConnector
 from cjklib.characterlookup import CharacterLookup
 from cjklib import exception
@@ -42,8 +44,10 @@ def readExcludeEntries(fileName):
     return [] # TODO implement
 
 def getCjklibEntries():
-    result = DatabaseConnector.getDBConnector().select('CharacterDecomposition',
-        ['ChineseCharacter', 'Decomposition'])
+    db = DatabaseConnector.getDBConnector()
+    table = db.tables['CharacterDecomposition']
+    result = db.selectRows(
+        select([table.c.ChineseCharacter, table.c.Decomposition]))
     cleanResult = []
     for char, decomp in result:
         # return variant information

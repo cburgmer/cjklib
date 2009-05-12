@@ -9,6 +9,7 @@ include examples/*.py
 include scripts/*.py
 include README
 include COPYING
+include DEVELOPMENT
 include changelog
 include cjklib.conf
 include epydoc_config

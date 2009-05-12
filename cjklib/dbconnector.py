@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 # This file is part of cjklib.
 #
 # cjklib is free software: you can redistribute it and/or modify
@@ -22,6 +22,9 @@ Provides simple read access to a SQL database.
 import re
 import os
 
+from sqlalchemy import MetaData, Table, create_engine
+from sqlalchemy.sql import text
+
 class DatabaseConnector:
     """
     A DatabaseConnector provides simple read access to a SQL database.
@@ -29,76 +32,64 @@ class DatabaseConnector:
     On initialisation it connects to a given database. Once connected it's
     select methods can be used to quickly access the database content.
 
-    Supported database types are:
-        - MySQL
-        - SQLite
+    DatabaseConnector supports a wide range of database systems through
+    I{SQLalchemy}.
 
     As only standard select commands are issued further systems should be easy
     to incorporate.
 
     For selecting entries there are for different methods given:
-        1. C{select()}: the most general select method
-        2. C{selectSoleValue()}: returns entries for only one column
-        3. C{selectSingleEntry()}: returns only one entry
-        4. C{selectSingleEntrySoleValue()}: returns one single value
-
-    @todo Impl: Timing function with logging of query to allow for optimising
-        of queries.
-    @todo Impl: Use own exceptions that abstract from the MySQL and SQLite ones.
-    @bug:  DatabaseConnector was designed to ease the implementation of SQL
-        queries but totally fails at this task.
-    @bug:  If one column is specified more than once for a where clause,
-        its last definition overwrites the ones before.
+        1. C{selectRows()}: the most general select method
+        2. C{selectScalars()}: returns entries for only one column
+        3. C{selectRow()}: returns only one entry
+        4. C{selectScalar()}: returns one single value
     """
     dbconnectInst = None
     """
     Instance of a L{DatabaseConnector} used for all connections to SQL server.
     """
-    databaseSettings = None
+    databaseUrl = None
     """
-    Database settings used to create the connector instance.
+    Database url used to create the connector instance.
     """
 
     @classmethod
-    def getDBConnector(cls, databaseSettings = {}):
+    def getDBConnector(cls, databaseUrl=None):
         """
         Returns a shared L{DatabaseConnector} instance.
 
-        @type databaseSettings: dict
-        @param databaseSettings: database settings passed to the
-            L{DatabaseConnector}, see there for feasible values.
+        @type databaseUrl: str
+        @param databaseUrl: database url passed to the L{DatabaseConnector}
         """
-        if cls.databaseSettings and databaseSettings \
-            and cls.databaseSettings != databaseSettings:
+        if cls.databaseUrl and databaseUrl \
+            and cls.databaseUrl != databaseUrl:
             cls.dbconnectInst = None
 
         if not cls.dbconnectInst:
             # get database settings and connect to database
             # if no settings given read from config or assume default
-            if len(databaseSettings.keys()) == 0:
+            if not databaseUrl:
                 # try to read from config
                 databaseSettings = DatabaseConnector.getConfigSettings('cjklib')
-                if not (('sqliteDatabase' in databaseSettings \
-                        and databaseSettings['sqliteDatabase']) \
-                    or ('mysqlServer' in databaseSettings \
-                        and databaseSettings['mysqlServer'])):
+                if 'databaseUrl' in databaseSettings:
+                    databaseUrl = databaseSettings['databaseUrl']
+                else:
                     # default
-                    databaseSettings['sqliteDatabase'] = 'cjklib.db'
-            cls.dbconnectInst = DatabaseConnector(databaseSettings)
-            cls.databaseSettings = databaseSettings
+                    databaseUrl = 'sqlite:///cjklib.db'
+            cls.dbconnectInst = DatabaseConnector(databaseUrl)
+            cls.databaseUrl = databaseUrl
         return cls.dbconnectInst
 
     @staticmethod
     def getConfigSettings(projectName):
         """
-        Gets the SQL connection parameters from a config file.
+        Gets the SQL connection parameter from a config file.
 
         @type projectName: str
         @param projectName: name of project which will be used as name of the
             config file
         @rtype: dict
-        @return: settings that can be used as I{databaseSettings} for making a
-            connection to the SQL server
+        @return: configuration settings for the given project
         """
         try:
             databaseSettings = {}
@@ -110,383 +101,115 @@ class DatabaseConnector:
                     + projectName + '.conf'),
                 os.path.join('/', 'etc', projectName + '.conf')])
 
-            dbType = config.get("General", "database_type")
-            if dbType == 'SQLite':
-                databaseSettings['sqliteDatabase'] = config.get("SQLite",
-                    "db_path")
-            elif dbType == 'MySQL':
-                try:
-                    databaseSettings['mysqlServer'] = config.get("MySQL",
-                        "hostname")
-                    databaseSettings['mysqlUser'] = config.get("MySQL", "user")
-                    databaseSettings['mysqlDatabase'] = config.get("MySQL",
-                        "database")
-                    databaseSettings['mysqlPassword'] = config.get("MySQL",
-                        "password")
-                except ConfigParser.NoOptionError:
-                    pass
-            else:
-                raise ValueError("Error reading config file, database type '" \
-                    + dbType + "' not recognised")
+            try:
+                databaseSettings['databaseUrl'] = config.get('General',
+                    'databaseUrl')
+            except ConfigParser.NoOptionError:
+                pass
 
             return databaseSettings
 
         except ConfigParser.NoSectionError:
             return {}
-        except ConfigParser.NoOptionError:
-            return {}
 
-    def __init__(self, databaseSettings):
+    def __init__(self, databaseUrl):
         """
         Constructs the DatabaseConnector object and connects to the database
         specified by the options given in databaseSettings.
 
-        @type databaseSettings: dict
-        @param databaseSettings: This dictionary takes the settings for the
-            selected database.
-
-            Either of the keys 'mysqlServer' or 'sqliteDatabase' need to be 
-            present so that a connection to a database is opened.
-            The following keys are allowed:
-                1. mysqlServer: host name of the server (MySQL)
-                2. mysqlUser: user name to login with (MySQL)
-                3. mysqlPassword: password to login with (MySQL)
-                4. mysqlDatabase: name of the database (MySQL)
-                5. sqliteDatabase: path to the database (SQLite)
+        @type databaseUrl: str
+        @param databaseUrl: database connection setting in the format
+            C{driver://user:pass@host/database}.
         """
-        # get default user name from environment var USER
-        if os.environ.has_key('USER'):
-            defaultUser = os.environ['USER']
+        self.databaseUrl = databaseUrl
+        # connect to database
+        self.engine = create_engine(databaseUrl, echo=False)
+        # create connection
+        self.connection = self.engine.connect()
+        # parse table information
+        self.metadata = MetaData(bind=self.connection, reflect=True)
+        # short cut
+        self.tables = self.metadata.tables
+
+        self._registerViews()
+
+    def _registerViews(self):
+        """
+        Registers all views and makes them accessible through the same methods
+        as tables in SQLalchemy.
+
+        @attention: Currently only works for MySQL and SQLite.
+        """
+        if self.engine.name == 'mysql':
+            viewList = self.execute(
+                text("""SELECT table_name FROM Information_schema.view
+                    WHERE table_schema = :dbName"""),
+                dbName=self.dbName).fetchall()
+        elif self.engine.name == 'sqlite':
+            viewList = self.execute(
+                text("SELECT name FROM sqlite_master WHERE type IN ('view')"))\
+                .fetchall()
         else:
-            defaultUser = ''
-        # set default settings for parameters
-        defaultValueDic = {'mysqlServer' : 'localhost',
-            'mysqlUser': defaultUser, 'mysqlPassword': '',
-            'mysqlDatabase': 'cjklib'}
-        databaseSettings = databaseSettings.copy()
-        for varName, defValue in defaultValueDic.iteritems():
-            if not databaseSettings.has_key(varName):
-                databaseSettings[varName] = defValue
+            import logging
+            logging.warning("Don't know how to get all views from database. Unable to register. Views will not show up in list of available tables.")
+            return
 
-        # check for major parameter and load database accordingly
-        if databaseSettings.has_key('sqliteDatabase'):
-            from pysqlite2 import dbapi2 as sqlite
-            self.con = sqlite.connect(databaseSettings['sqliteDatabase'])
-            self.dbType = 'SQLite'
-        elif databaseSettings.has_key('mysqlServer'):
-            import MySQLdb
-            self.con = MySQLdb.connect(databaseSettings['mysqlServer'],
-                databaseSettings['mysqlUser'],
-                databaseSettings['mysqlPassword'],
-                databaseSettings['mysqlDatabase'], use_unicode=True,
-                charset='utf8')
-            self.dbType = 'MySQL'
-            self.dbName = databaseSettings['mysqlDatabase']
-        else:
-            raise ValueError, "no database specified"
-        self.cur = self.con.cursor()
-        if self.dbType == 'MySQL':
-            self.cur.execute('set names utf8')
+        for viewName, in viewList:
+            # add views that are currently not (well) supported by SQLalchemy
+            #   http://www.sqlalchemy.org/trac/ticket/812
+            Table(viewName, self.metadata, autoload=True)
 
-    def getConnection(self):
+    def execute(self, *options, **keywords):
         """
-        Get the SQL connection object.
-        @rtype: instance
-        @return: the SQL connection object
+        Executes a request on the given database.
         """
-        return self.con
-
-    def getCursor(self):
-        """
-        Get the SQL cursor object.
-
-        @rtype: instance
-        @return: the SQL cursor object
-        """
-        return self.cur
-
-    def getDatabaseType(self):
-        """
-        Gets the SQL connection type. Values can be I{MySQL} and I{SQLite}.
-
-        @rtype: str
-        @return: SQL connection type
-        """
-        return self.dbType
-
-    def escapeString(self, string):
-        """
-        Escapes the string for use in a SQL command.
-        @todo Impl: Implement escaping for SQLite.
-        """
-        if self.dbType == 'MySQL':
-            return self.con.escape_string(string)
-        else:
-            return string
-
-    def tableExists(self, tableName):
-        """
-        Returns true if the given table or view exists in the database.
-
-        @type tableName: str
-        @param tableName: name of table to check
-        @rtype: bool
-        @return: True, if table exists
-        """
-        if self.getDatabaseType() == 'MySQL':
-            return self.selectSingleEntrySoleValue('Information_schema.tables',
-                '1', {'table_schema': self.dbName, 'table_name': tableName}) \
-                    != None
-        elif self.getDatabaseType() == 'SQLite':
-            return self.selectSingleEntrySoleValue('sqlite_master', '1',
-                {'type': ['table', 'view'], 'name': tableName}) != None
+        return self.connection.execute(*options, **keywords)
 
     # select commands
 
-    def getSelectCommand(self, tableNames, columnList, clauses, orderBy=[],
-        orderDescending=False, limit=None, distinctValues=False):
+    def selectScalar(self, request):
         """
-        Construct the SQL select command from the given parameters.
+        Executes a select query and returns a single variable.
 
-        @type tableNames: str/list of str
-        @param tableNames: name(s) of table(s) to query
-        @type columnList: list of str
-        @param columnList: name of columns to include in response
-        @type clauses: dict
-        @param clauses: key, value pairs to query the given tables; The key
-            represents a column and the corresponding value represents it's
-            value that has to be satisfied.
-
-            Value can be either a simple value, or an expression including a SQL
-            operator (e.g. C{E{lb}'name': "<> 'Smith'"E{rb}}). Simple values
-            like C{'Apple'} or C{'%pple'} are automatically transformed to
-            C{"key = 'Apple'"} and C{"key like '%pple'"} correspondingly.
-        @type orderBy: list of str
-        @param orderBy: name of columns for ordering output
-        @type orderDescending: bool
-        @param orderDescending: indicates that the output is sorted in
-            descending order. If not specified but orderBy is given the sort
-            order is ascending.
-        @type limit: int
-        @param limit: specify the maximum count of entries returned
-        @type distinctValues: bool
-        @param distinctValues: if true only distinct values will be returned
-        @rtype: str
-        @return: SQL select command
-
-        @todo Fix:  Escape all column and table names to prevent SQL injection
-            attacks, use L{escapeString()}.
+        @param request: SQL request
+        @return: a scalar
         """
-        def getClause(column, whereClause):
-            """
-            Construct a SQL where clause for a given column and clause.
+        result = self.connection.execute(request)
+        assert result.rowcount <= 1
+        firstRow = result.fetchone()
+        assert not firstRow or len(firstRow) == 1
+        if firstRow:
+            return firstRow[0]
 
-            @type column: str
-            @param column: name of the column
-            @type whereClause: str/list of str
-            @param whereClause: SQL clause for the given column. If an array is
-                passed multiple clauses are created concatenated by an C{or}
-                clause.
-                Simple values (non strings, or strings without an operator) are
-                transformed to a clause including an C{=} or C{like} operator.
-            @rtype: str
-            @return: SQL where clause
-            @todo Fix:  Don't automatically interpret _ or % as placeholders.
-            """
-            if type(whereClause) in (type([]), type(set())):
-                if not whereClause:
-                    raise ValueError(\
-                        "error creating sql query: empty array provided")
-                # tuple used for OR operator, break down into single clauses
-                return '(' + " or ".join([getClause(column, entry)
-                    for entry in whereClause]) + ')'
-            elif not type(whereClause) in (type(""), type(u"")):
-                return column + "=" + str(whereClause)
-            # TODO interpreting content as command is bad
-            elif not re.match('(?i)(not\s)?(=|!=|<>|in\s|' \
-                + 'like\s|is\s|between\s|match\s|' \
-                + '<|>|<=|>=)', whereClause) \
-                or whereClause == '':
-                value = "'" + whereClause.replace("'", "''") + "'"
-                if value.find('%') >= 0 or value.find('_')>=0:
-                    eqStatement = " like " + value
-                    return column + eqStatement
-                else:
-                    eqStatement = "=" + value
-                    return column + eqStatement
-                # TODO eqStatement = " like " + value
-                return column + eqStatement
-            else:
-                return column + ' ' + whereClause
-
-        whereClause = ''
-        if type(clauses) == type([]):
-            # list of dictionaries represents alternative matches
-            whereClause = " WHERE " + " OR ".join(["(" \
-                + " AND ".join([getClause(key, clauseDict[key])
-                for key in clauseDict.keys()]) + ")" for clauseDict in clauses])
-        elif len(clauses.keys()) > 0:
-            whereClause = " WHERE " + " AND ".join([getClause(key, clauses[key])
-                for key in clauses.keys()])
-        orderByString = ''
-        if len(orderBy) > 0:
-            if orderDescending:
-                order = 'DESC'
-            else:
-                order = 'ASC'
-            orderByString = " ORDER BY " + ", ".join(orderBy) + ' ' + order
-        limitString = ''
-        if limit:
-            limitString = ' LIMIT ' + str(limit)
-        if type(tableNames) == type([]):
-            tableString = ', '.join(tableNames)
-        else:
-            tableString = tableNames
-        selectBegin = "SELECT "
-        if distinctValues:
-            selectBegin = selectBegin + "DISTINCT "
-
-        return selectBegin + ", ".join(columnList) + " FROM " + tableString \
-            + whereClause + orderByString + limitString
-
-    def select(self, tableNames, columnList, clauses={}, orderBy=[],
-        orderDescending=False, limit=None, distinctValues=False):
+    def selectScalars(self, request):
         """
-        Run a general SQL select query for the specified parameters.
+        Executes a select query and returns a list of scalars.
 
-        @type tableNames: str/list of str
-        @param tableNames: name(s) of table(s) to query
-        @type columnList: list of str
-        @param columnList: name of columns to include in response
-        @type clauses: dict
-        @param clauses: key, value pairs to query the given tables; The key
-            represents a column and the corresponding value represents it's
-            value that has to be satisfied.
-
-            Value can be either a simple value, or an expression including a SQL
-            operator (e.g. C{E{lb}'name': "<> 'Smith'"E{rb}}). Simple values
-            like C{'Apple'} or C{'%pple'} are automatically transformed to
-            C{"key = 'Apple'"} and C{"key like '%pple'"} correspondingly.
-        @type orderBy: list of str
-        @param orderBy: name of columns for ordering output
-        @type orderDescending: bool
-        @param orderDescending: indicates that the output is sorted in
-            descending order. If not specified but orderBy is given the sort
-            order is ascending.
-        @type limit: int
-        @param limit: specify the maximum count of entries returned
-        @type distinctValues: bool
-        @param distinctValues: if true only distinct values will be returned
-        @rtype: list of tuple
-        @return: multiple found entries with multiple columns
+        @param request: SQL request
+        @return: a list of scalars
         """
-        searchCmd = self.getSelectCommand(tableNames, columnList, clauses,
-            orderBy, orderDescending, limit, distinctValues) + ';'
-        self.cur.execute(searchCmd)
-        returnList = list(self.cur.fetchall())
-        for i, entry in enumerate(returnList): # TODO stupid recoding
-            entry = list(entry)
-            for j, cell in enumerate(entry):
-                if type(cell) == type(""):
-                    entry[j] = cell.decode('utf8')
-            returnList[i] = tuple(entry)
-        return returnList
+        result = self.connection.execute(request)
+        return [row[0] for row in result.fetchall()]
 
-    def selectSoleValue(self, tableNames, column, clauses={}, orderBy=[],
-        orderDescending=False, limit=None, distinctValues=False):
+    def selectRow(self, request):
         """
-        Run a SQL select query for only one column for the specified parameters.
+        Executes a select query and returns a single table row.
 
-        @type tableNames: str/list of str
-        @param tableNames: name(s) of table(s) to query
-        @type column: str
-        @param column: name of column for response
-        @type clauses: dict
-        @param clauses: key, value pairs to query the given tables; The key
-            represents a column and the corresponding value represents it's
-            value that has to be satisfied.
-
-            Value can be either a simple value, or an expression including a SQL
-            operator (e.g. C{E{lb}'name': "<> 'Smith'"E{rb}}). Simple values
-            like C{'Apple'} or C{'%pple'} are automatically transformed to
-            C{"key = 'Apple'"} and C{"key like '%pple'"} correspondingly.
-        @type orderBy: list of str
-        @param orderBy: name of columns for ordering output
-        @type orderDescending: bool
-        @param orderDescending: indicates that the output is sorted in
-            descending order. If not specified but orderBy is given the sort
-            order is ascending.
-        @type limit: int
-        @param limit: specify the maximum count of entries returned
-        @type distinctValues: bool
-        @param distinctValues: if true only distinct values will be returned
-        @rtype: list of str
-        @return: multiple found entries with one column each
+        @param request: SQL request
+        @return: a list of scalars
         """
-        resultList = []
-        for row in self.select(tableNames, [column], clauses, orderBy,
-            orderDescending, limit, distinctValues):
-            resultList.append(row[0])
-        return resultList
+        result = self.connection.execute(request)
+        assert result.rowcount <= 1
+        firstRow = result.fetchone()
+        if firstRow:
+            return tuple(firstRow)
 
-    def selectSingleEntry(self, tableNames, columnList, clauses,
-        distinctValues=False):
+    def selectRows(self, request):
         """
-        Run a SQL select query resulting in only one entry for the specified
-        parameters.
+        Executes a select query and returns a list of table rows.
 
-        @type tableNames: str/list of str
-        @param tableNames: name(s) of table(s) to query
-        @type columnList: list of str
-        @param columnList: name of columns to include in response
-        @type clauses: dict
-        @param clauses: key, value pairs to query the given tables; The key
-            represents a column and the corresponding value represents it's
-            value that has to be satisfied.
-
-            Value can be either a simple value, or an expression including a SQL
-            operator (e.g. C{E{lb}'name': "<> 'Smith'"E{rb}}). Simple values
-            like C{'Apple'} or C{'%pple'} are automatically transformed to
-            C{"key = 'Apple'"} and C{"key like '%pple'"} correspondingly.
-        @type distinctValues: bool
-        @param distinctValues: if true only distinct values will be returned
-        @rtype: tuple of str
-        @return: one found entry with multiple columns
+        @param request: SQL request
+        @return: a list of scalars
         """
-        # make sure the user doesn't specify a string, e.g. using wrong method
-        if type(columnList) != type([]):
-            raise ValueError("type of parameter columnList is not a list type")
-        resultList = self.select(tableNames, columnList, clauses,
-            distinctValues=distinctValues)
-        assert not resultList or len(resultList) == 1
-        if resultList:
-            return resultList[0]
-
-    def selectSingleEntrySoleValue(self, tableNames, column, clauses,
-        distinctValues=False):
-        """
-        Run a SQL select query for only one column resulting in only one entry
-        for the specified parameters.
-
-        @type tableNames: str/list of str
-        @param tableNames: name(s) of table(s) to query
-        @type column: str
-        @param column: name of column for response
-        @type clauses: dict
-        @param clauses: key, value pairs to query the given tables; The key
-            represents a column and the corresponding value represents it's
-            value that has to be satisfied.
-
-            Value can be either a simple value, or an expression including a SQL
-            operator (e.g. C{E{lb}'name': "<> 'Smith'"E{rb}}). Simple values
-            like C{'Apple'} or C{'%pple'} are automatically transformed to
-            C{"key = 'Apple'"} and C{"key like '%pple'"} correspondingly.
-        @type distinctValues: bool
-        @param distinctValues: if true only distinct values will be returned
-        @rtype: str
-        @return: one found entry with one column
-        """
-        row = self.selectSingleEntry(tableNames, [column], clauses,
-            distinctValues)
-        if row:
-            return row[0]
+        result = self.connection.execute(request)
+        return [tuple(row) for row in result.fetchall()]

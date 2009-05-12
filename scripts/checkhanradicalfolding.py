@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 # This file is part of cjklib.
 #
 # cjklib is free software: you can redistribute it and/or modify
@@ -29,6 +29,8 @@ import re
 import locale
 import sys
 
+from sqlalchemy import select
+
 from cjklib.dbconnector import DatabaseConnector
 from cjklib import exception
 
@@ -52,9 +54,11 @@ def getCJK():
 def main():
     # get cjklib database table
     databaseTable = {}
-    for radicalForm, equivalentForm, locale in \
-        DatabaseConnector.getDBConnector().select('RadicalEquivalentCharacter',
-            ['Form', 'EquivalentForm', 'Locale']):
+    db = DatabaseConnector.getDBConnector()
+    table = db.tables['RadicalEquivalentCharacter']
+    entries = db.selectRows(
+        select([table.c.Form, table.c.EquivalentForm, table.c.Locale]))
+    for radicalForm, equivalentForm, locale in entries:
         databaseTable[(radicalForm, equivalentForm)] = locale
 
     fileEntryCount = 0

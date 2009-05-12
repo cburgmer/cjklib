@@ -36,6 +36,10 @@ import locale
 import os
 import re
 
+from sqlalchemy import Table
+from sqlalchemy import select, union
+from sqlalchemy.sql import and_, or_, not_
+
 import cjklib
 from cjklib.dbconnector import DatabaseConnector
 from cjklib import characterlookup
@@ -119,6 +123,7 @@ class CharacterInfo:
         """
         self.characterLookup = characterlookup.CharacterLookup()
         self.readingFactory = reading.ReadingFactory()
+        self.db = DatabaseConnector.getDBConnector()
 
         if locale:
             self.locale = locale
@@ -159,17 +164,19 @@ class CharacterInfo:
 
         if self.dictionary:
             # check for FTS3 table (only SQLite)
-            self.dictionaryHasFTS3 = DatabaseConnector.getDBConnector()\
-                .tableExists(self.dictionary + '_Text')
-
-        if self.dictionary:
+            self.dictionaryHasFTS3 = self.db.engine.has_table(
+                self.dictionary + '_Text')
+            self.dictionaryObject = Table(self.dictionary, self.db.metadata,
+                autoload=True)
             if self.DICTIONARY_INFO[self.dictionary]['type'] == 'CEDICT':
                 if self.locale == 'C':
-                    self.headwordColumn = 'HeadwordSimplified'
+                    self.headwordColumn \
+                        = self.dictionaryObject.c.HeadwordSimplified
                 else:
-                    self.headwordColumn = 'HeadwordTraditional'
+                    self.headwordColumn \
+                        = self.dictionaryObject.c.HeadwordTraditional
             else:
-                self.headwordColumn = 'Headword'
+                self.headwordColumn = self.dictionaryObject.c.Headword
 
     # Settings
 
@@ -222,10 +229,9 @@ class CharacterInfo:
         @return: names of available dictionaries
         """
         if self.availableDictionaries == None:
-            db = DatabaseConnector.getDBConnector()
             self.availableDictionaries = []
             for dictName in self.DICTIONARY_INFO:
-                if db.tableExists(dictName):
+                if self.db.engine.has_table(dictName):
                     self.availableDictionaries.append(dictName)
         return self.availableDictionaries
 
@@ -603,63 +609,59 @@ class CharacterInfo:
         @type limit: int
         @param limit: maximum number of entries
         """
-        selectCommands = []
+        selectQueries = []
         # Chinese character string
         dictType = self.DICTIONARY_INFO[self.dictionary]['type']
         if dictType == 'EDICT':
-            selectCommands.append(DatabaseConnector.getDBConnector()\
-                .getSelectCommand(self.dictionary,
-                ['Headword', 'Reading', 'Translation'],
-                {'Headword': searchString}, distinctValues=True))
+            selectQueries.append(select([self.headwordColumn,
+                self.dictionaryObject.c.Reading,
+                self.dictionaryObject.c.Translation],
+                self.headwordColumn == searchString, distinct=True))
         elif dictType == 'CEDICT':
-            selectCommands.append(DatabaseConnector.getDBConnector()\
-                .getSelectCommand(self.dictionary,
-                [self.headwordColumn, 'Reading', 'Translation'],
-                [{'HeadwordSimplified': searchString},
-                {'HeadwordTraditional': searchString}], distinctValues=True))
+            selectQueries.append(select([self.headwordColumn,
+                self.dictionaryObject.c.Reading,
+                self.dictionaryObject.c.Translation],
+                or_(self.dictionaryObject.c.HeadwordSimplified == searchString,
+                    self.dictionaryObject.c.HeadwordTraditional \
+                        == searchString),
+                distinct=True))
 
         # reading string
         decompEntities = self.getReadingEntities(searchString, readingN)
         if decompEntities:
             joinFunc = self.DICTIONARY_INFO[self.dictionary]['readingFunc']
 
-            searchEntities = [self.getSearchReading(entities) \
+            searchEntities = [joinFunc(self.getSearchReading(entities)) \
                 for entities in decompEntities]
-            searchOptions = {'Reading': [joinFunc(entities) \
-                for entities in searchEntities]}
 
-            selectCommands.append(DatabaseConnector.getDBConnector()\
-                .getSelectCommand(self.dictionary,
-                [self.headwordColumn, 'Reading', 'Translation'],
-                searchOptions, distinctValues=True))
+            selectQueries.append(select([self.headwordColumn,
+                self.dictionaryObject.c.Reading,
+                self.dictionaryObject.c.Translation],
+                self.dictionaryObject.c.Reading.in_(searchEntities),
+                distinct=True))
 
         # translation string
+        wordsTable = Table(self.dictionary + '_Words', self.db.metadata,
+            autoload=True)
         if dictType == 'EDICT':
-            table = self.dictionary + '_Words w JOIN ' + self.dictionary \
-                + ' d ON (d.Headword = w.Headword ' \
-                + 'AND d.Reading = w.Reading)'
+            table = self.dictionaryObject.join(wordsTable,
+                and_(wordsTable.c.Headword == self.dictionaryObject.c.Headword,
+                    wordsTable.c.Reading == self.dictionaryObject.c.Reading))
         elif dictType == 'CEDICT':
-            table = self.dictionary + '_Words w JOIN ' + self.dictionary \
-                + ' d ON (d.HeadwordTraditional = w.Headword ' \
-                + 'AND d.Reading = w.Reading)'
-        # use LIKE to match upper/lower case (SQLite)
-        selectCommands.append(
-            DatabaseConnector.getDBConnector().getSelectCommand(
-                table, ['d.' + self.headwordColumn, 'd.Reading', 'Translation'],
-                {'Word': searchString.lower()}, distinctValues=True,
-                orderBy=['Reading'], limit=limit))
-            # TODO hack: LIMIT and ORDER BY incorporated over last select
-            #  statement
+            table = self.dictionaryObject.join(wordsTable,
+                and_(wordsTable.c.HeadwordTraditional \
+                        == self.dictionaryObject.c.Headword,
+                    wordsTable.c.Reading == self.dictionaryObject.c.Reading))
 
-        cur = DatabaseConnector.getDBConnector().getCursor()
-        cur.execute(' UNION '.join(selectCommands))
-        result = list(cur.fetchall())
-        for i, entry in enumerate(result): # TODO bug in python-mysql
-            entry = list(entry)
-            for j, cell in enumerate(entry):
-                if type(cell) == type(""):
-                    entry[j] = cell.decode('utf8')
-            result[i] = tuple(entry)
+        selectQueries.append(select([self.headwordColumn,
+            self.dictionaryObject.c.Reading,
+            self.dictionaryObject.c.Translation],
+            wordsTable.c.Word == searchString.lower(),
+            from_obj=table, distinct=True))
+
+        result = self.db.selectRows(
+            union(*selectQueries).limit(limit).order_by(
+                self.dictionaryObject.c.Reading))
 
         return self.convertDictionaryResult(result)
 
@@ -681,7 +683,7 @@ class CharacterInfo:
         @type limit: int
         @param limit: maximum number of entries
         """
-        selectCommands = []
+        selectQueries = []
         # Chinese character string
         searchStr = searchString
         if position == 'c' or position == 'e':
@@ -691,16 +693,18 @@ class CharacterInfo:
 
         dictType = self.DICTIONARY_INFO[self.dictionary]['type']
         if dictType == 'EDICT':
-            selectCommands.append(DatabaseConnector.getDBConnector()\
-                .getSelectCommand(self.dictionary,
-                ['Headword', 'Reading', 'Translation'],
-                {'Headword': searchStr}, distinctValues=True))
+            selectQueries.append(select([self.headwordColumn,
+                self.dictionaryObject.c.Reading,
+                self.dictionaryObject.c.Translation],
+                self.headwordColumn.like(searchStr), distinct=True))
         elif dictType == 'CEDICT':
-            selectCommands.append(DatabaseConnector.getDBConnector()\
-                .getSelectCommand(self.dictionary,
-                [self.headwordColumn, 'Reading', 'Translation'],
-                [{'HeadwordSimplified': searchStr},
-                {'HeadwordTraditional': searchStr}], distinctValues=True))
+            selectQueries.append(select([self.headwordColumn,
+                self.dictionaryObject.c.Reading,
+                self.dictionaryObject.c.Translation],
+                or_(self.dictionaryObject.c.HeadwordSimplified.like(searchStr),
+                    self.dictionaryObject.c.HeadwordTraditional.like(
+                        searchStr)),
+                distinct=True))
 
         # reading string
         decompEntities = self.getReadingEntities(searchString, readingN)
@@ -718,46 +722,36 @@ class CharacterInfo:
                     searchStr = searchStr + '%'
                 searchList.append(searchStr)
 
-            selectCommands.append(
-                DatabaseConnector.getDBConnector().getSelectCommand(
-                    self.dictionary,
-                    [self.headwordColumn, 'Reading', 'Translation'],
-                    {'Reading': searchList}, distinctValues=True))
+            selectQueries.append(select([self.headwordColumn,
+                self.dictionaryObject.c.Reading,
+                self.dictionaryObject.c.Translation],
+                or_(*[self.dictionaryObject.c.Reading.like(entities) \
+                    for entities in searchList]),
+                distinct=True))
 
         # translation string
         translationTokens = re.findall(ur'(?u)((?:\w|\d)+)', searchString)
 
-        if self.dictionaryHasFTS3:
+        if self.dictionaryHasFTS3 \
+            and hasattr(self.dictionaryObject.c.Translation, 'match'):
             # dictionary has FTS3 full text search on SQLite
-            selectCommands.append(
-                DatabaseConnector.getDBConnector().getSelectCommand(
-                    self.dictionary,
-                    [self.headwordColumn, 'Reading', 'Translation'],
-                    {'Translation': "MATCH '" + ' '.join(translationTokens) \
-                        + "'"},
-                    distinctValues=True, orderBy=['Reading'], limit=limit))
-                # TODO hack: LIMIT and ORDER BY incorporated over last select
-                #  statement
+            selectQueries.append(select([self.headwordColumn,
+                self.dictionaryObject.c.Reading,
+                self.dictionaryObject.c.Translation],
+                self.dictionaryObject.c.Translation.match(
+                    ' '.join(translationTokens)),
+                distinct=True))
         else:
-            selectCommands.append(
-                DatabaseConnector.getDBConnector().getSelectCommand(
-                    self.dictionary,
-                    [self.headwordColumn, 'Reading', 'Translation'],
-                    {'Translation': "%" + ' '.join(translationTokens) \
-                        + "%"},
-                    distinctValues=True, orderBy=['Reading'], limit=limit))
-                # TODO hack: LIMIT and ORDER BY incorporated over last select
-                #  statement
+            selectQueries.append(select([self.headwordColumn,
+                self.dictionaryObject.c.Reading,
+                self.dictionaryObject.c.Translation],
+                self.dictionaryObject.c.Translation.like(
+                    '%' + ' '.join(translationTokens) + '%'),
+                distinct=True))
 
-        cur = DatabaseConnector.getDBConnector().getCursor()
-        cur.execute(' UNION '.join(selectCommands))
-        result = list(cur.fetchall())
-        for i, entry in enumerate(result): # TODO bug in python-mysql
-            entry = list(entry)
-            for j, cell in enumerate(entry):
-                if type(cell) == type(""):
-                    entry[j] = cell.decode('utf8')
-            result[i] = tuple(entry)
+        result = self.db.selectRows(
+            union(*selectQueries).limit(limit).order_by(
+                self.dictionaryObject.c.Reading))
 
         return self.convertDictionaryResult(result)
 
@@ -1199,10 +1193,11 @@ def main():
             parameter = a
 
     try:
-
         charInfo = CharacterInfo(locale=charLocale, readingN=targetReading,
             dictionary=dictionary)
         charLocale = charInfo.locale
+        dictionary = charInfo.dictionary
+
         if not sourceReading:
             sourceReading = charInfo.reading
         if not targetReading:
@@ -1416,8 +1411,8 @@ def main():
                 [key + ': ' + CharacterInfo.CHAR_LOCALE_NAME[key] \
                     for key in CharacterInfo.CHAR_LOCALE_NAME])
             # readings
-            print "current source reading: '" + sourceReading + "'"
-            print "current target reading: '" + targetReading + "'"
+            print "current source reading: %s" % sourceReading
+            print "current target reading: %s" % targetReading
             readingsList = []
             for readingName in reading.ReadingFactory().getSupportedReadings():
                 if ALTERNATIVE_READING_NAMES.has_key(readingName):
@@ -1428,13 +1423,21 @@ def main():
                     readingsList.append(readingName)
             print "supported readings: " + ", ".join(readingsList)
             # dictionary
-            print "current dictionary: " + dictionary
-            dictionaryList = []
-            for dictionaryName in CharacterInfo.DICTIONARY_INFO:
-                dictionaryList.append(dictionaryName + " (" \
-                    + CharacterInfo.DICTIONARY_INFO[dictionaryName]['reading'] \
-                    + ")")
-            print "supported dictionaries: " + ", ".join(dictionaryList)
+            if dictionary:
+                print "current dictionary: %s" % dictionary
+            else:
+                print "currently no dictionary set"
+
+            availableDictionaries = charInfo.getAvailableDictionaries()
+            if availableDictionaries:
+                dictionaryList = []
+                for dictionaryName in availableDictionaries:
+                    dictData = CharacterInfo.DICTIONARY_INFO[dictionaryName]
+                    dictionaryList.append(
+                        "%s (%s)" % (dictionaryName, dictData['reading']))
+                print "supported dictionaries: " + ", ".join(dictionaryList)
+            else:
+                print "no dictionaries available"
 
         else:
             print "error: command unknown"

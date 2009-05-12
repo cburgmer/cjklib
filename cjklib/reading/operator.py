@@ -47,6 +47,10 @@ import re
 import unicodedata
 import copy
 
+from sqlalchemy import Table, Column, Integer, String
+from sqlalchemy import select, union
+from sqlalchemy.sql import and_, or_, not_
+
 from cjklib.exception import (AmbiguousConversionError, DecompositionError,
     AmbiguousDecompositonError, InvalidEntityError, UnsupportedError)
 from cjklib.dbconnector import DatabaseConnector
@@ -88,7 +92,8 @@ class ReadingOperator(object):
         self.optionValue = {}
         defaultOptions = self.getDefaultOptions()
         for option in defaultOptions:
-            if type(defaultOptions[option]) in [type(()), type([]), type({})]:
+            if type(defaultOptions[option]) \
+                in [type(()), type([]), type({}), type(set())]:
                 self.optionValue[option] = copy.deepcopy(defaultOptions[option])
             else:
                 self.optionValue[option] = defaultOptions[option]
@@ -1700,8 +1705,8 @@ class PinyinOperator(TonalRomanisationOperator):
         @return: set of supported syllables
         """
         # set used syllables
-        plainSyllables = set(self.db.selectSoleValue("PinyinSyllables",
-            "Pinyin"))
+        plainSyllables = set(self.db.selectScalars(
+            select([self.db.tables['PinyinSyllables'].c.Pinyin])))
         # support for Erhua if needed
         if self.getOption('Erhua') == 'twoSyllables':
             # single 'r' for patterns like 'tóur'
@@ -1778,8 +1783,10 @@ class PinyinOperator(TonalRomanisationOperator):
         elif plainSyllable == 'r' and self.getOption('Erhua') == 'twoSyllables':
             raise UnsupportedError("Not supported for '" + plainSyllable + "'")
 
-        entry = self.db.selectSingleEntry("PinyinInitialFinal",
-            ["PinyinInitial", "PinyinFinal"], {"Pinyin": plainSyllable.lower()})
+        table = self.db.tables['PinyinInitialFinal']
+        entry = self.db.selectRow(
+            select([table.c.PinyinInitial, table.c.PinyinFinal],
+                table.c.Pinyin == plainSyllable.lower()))
         if not entry:
             raise InvalidEntityError("'" + plainSyllable \
                 + "' not a valid plain Pinyin syllable'")
@@ -2003,8 +2010,8 @@ class WadeGilesOperator(TonalRomanisationOperator):
         @rtype: set of str
         @return: set of supported syllables
         """
-        plainSyllables = set(self.db.selectSoleValue("WadeGilesSyllables",
-            "WadeGiles"))
+        plainSyllables = set(self.db.selectScalars(
+            select([self.db.tables['WadeGilesSyllables'].c.WadeGiles])))
         # use selected apostrophe
         if self.getOption('WadeGilesApostrophe') \
             == self.DB_ASPIRATION_APOSTROPHE:
@@ -2147,7 +2154,6 @@ class GROperator(TonalRomanisationOperator):
         self.readingEntityRegex = re.compile(u"([\.ₒ]?(?:" \
             + re.escape(self.getOption('GRRhotacisedFinalApostrophe')) \
             + "|[A-Za-z])+)")
-
 
     @classmethod
     def getDefaultOptions(cls):
@@ -2474,6 +2480,7 @@ class GROperator(TonalRomanisationOperator):
         @raise InvalidEntityError: if the entity is invalid.
         @raise UnsupportedError: if the given entity is an Erlhuah form or the
             syllable is not supported in this given tone.
+        @todo Fix:  Build lookup for performance reasons.
         """
         if tone not in self.getTones():
             raise InvalidEntityError("Invalid tone information given for '" \
@@ -2501,8 +2508,9 @@ class GROperator(TonalRomanisationOperator):
         else:
             column = self.DB_RHOTACISED_FINAL_MAPPING[baseTone]
 
-        tonalFinal = self.db.selectSingleEntrySoleValue("GRRhotacisedFinals",
-            column, {'GRFinal': v + c2})
+        table = self.db.tables['GRRhotacisedFinals']
+        tonalFinal = self.db.selectScalar(select([table.c[column]],
+            table.c.GRFinal == v + c2))
         if not tonalFinal:
             raise UnsupportedError("No Erlhuah form for '" \
                 + plainEntity + "' and tone '" + tone + "'")
@@ -2535,8 +2543,9 @@ class GROperator(TonalRomanisationOperator):
 
             fullEntities = self.getFullReadingEntities()
 
-            result = self.db.select("GRAbbreviation", ["GR", "GRAbbreviation"],
-                distinctValues=True)
+            table = self.db.tables['GRAbbreviation']
+            result = self.db.selectRows(
+                select([table.c.GR, table.c.GRAbbreviation], distinct=True))
             for originalEntity, abbreviatedEntity in result:
                 # don't convert proper entities
                 if abbreviatedEntity in fullEntities:
@@ -2610,7 +2619,8 @@ class GROperator(TonalRomanisationOperator):
         @rtype: set of str
         @return: set of supported syllables
         """
-        return set(self.db.selectSoleValue("GRSyllables", "GR"))
+        table = self.db.tables['GRSyllables']
+        return set(self.db.selectScalars(select([table.c.GR])))
 
     def getFullReadingEntities(self):
         """
@@ -2733,7 +2743,8 @@ class MandarinIPAOperator(TonalIPAOperator):
         @rtype: set of str
         @return: set of supported syllables
         """
-        return set(self.db.selectSoleValue("MandarinIPAInitialFinal", "IPA"))
+        table = self.db.tables['MandarinIPAInitialFinal']
+        return set(self.db.selectScalars(select([table.c.IPA])))
 
     def getOnsetRhyme(self, plainSyllable):
         """
@@ -2746,8 +2757,10 @@ class MandarinIPAOperator(TonalIPAOperator):
         @raise InvalidEntityError: if the entity is invalid (e.g. syllable
             nucleus or tone invalid).
         """
-        entry = self.db.selectSingleEntry("MandarinIPAInitialFinal",
-            ["IPAInitial", "IPAFinal"], {"IPA": plainSyllable})
+        table = self.db.tables['MandarinIPAInitialFinal']
+        entry = set(self.db.selectRow(
+            select([table.c.IPAInitial, table.c.IPAFinal],
+                table.c.IPA == plainSyllable)))
         if not entry:
             raise InvalidEntityError("'" + plainSyllable \
                 + "' not a valid IPA form in this system'")
@@ -2773,10 +2786,12 @@ class MandarinBrailleOperator(ReadingOperator):
         super(MandarinBrailleOperator, self).__init__(**options)
 
         # split regex
-        initials = ''.join(self.db.selectSoleValue(
-            'PinyinBrailleInitialMapping', 'Braille', distinctValues=True))
-        finals = ''.join(self.db.selectSoleValue(
-            'PinyinBrailleFinalMapping', 'Braille', distinctValues=True))
+        initials = ''.join(self.db.selectScalars(
+            select([self.db.tables['PinyinBrailleInitialMapping'].c.Braille],
+                distinct=True)))
+        finals = ''.join(self.db.selectScalars(
+            select([self.db.tables['PinyinBrailleFinalMapping'].c.Braille],
+                distinct=True)))
         # initial and final optional (but at least one), tone optional
         self.splitRegex = re.compile(ur'((?:(?:[' + re.escape(initials) \
             + '][' + re.escape(finals) + ']?)|['+ re.escape(finals) \
@@ -2908,13 +2923,15 @@ class MandarinBrailleOperator(ReadingOperator):
 
             initial, final = self.getOnsetRhyme(plainEntity)
 
-            if final and self.db.selectSingleEntrySoleValue(
-                'PinyinBrailleFinalMapping', 'Braille', {'Braille': final},
-                distinctValues=True) == None:
+            finalTable = self.db.tables['PinyinBrailleFinalMapping']
+            if final and self.db.selectScalar(select([finalTable.c['Braille']],
+                finalTable.c['Braille'] == final, distinct=True)) == None:
                 return False
-            if initial and self.db.selectSingleEntrySoleValue(
-                'PinyinBrailleInitialMapping', 'Braille', {'Braille': initial},
-                distinctValues=True) == None:
+
+            initialTable = self.db.tables['PinyinBrailleInitialMapping']
+            if initial and self.db.selectScalar(select(
+                [initialTable.c['Braille']],
+                initialTable.c['Braille'] == initial, distinct=True)) == None:
                 return False
 
             return True
@@ -2932,9 +2949,11 @@ class MandarinBrailleOperator(ReadingOperator):
         @raise InvalidEntityError: if the entity is invalid.
         """
         if len(plainSyllable) == 1:
-            if plainSyllable and self.db.selectSingleEntrySoleValue(
-                'PinyinBrailleFinalMapping', 'Braille',
-                {'Braille': plainSyllable}, distinctValues=True) != None:
+            finalTable = self.db.tables['PinyinBrailleFinalMapping']
+            if plainSyllable and self.db.selectScalar(
+                select([finalTable.c.Braille],
+                    finalTable.c.Braille == plainSyllable,
+                    distinct=True)) != None:
                 return '', plainSyllable
             else:
                 return plainSyllable, ''
@@ -3043,7 +3062,8 @@ class JyutpingOperator(TonalRomanisationOperator):
                 return entity, None
 
     def getPlainReadingEntities(self):
-        return set(self.db.selectSoleValue("JyutpingSyllables", "Jyutping"))
+        return set(self.db.selectScalars(
+            select([self.db.tables['JyutpingSyllables'].c.Jyutping])))
 
     def getOnsetRhyme(self, plainSyllable):
         """
@@ -3060,9 +3080,10 @@ class JyutpingOperator(TonalRomanisationOperator):
             same vowels. What semantics/view do we want to provide on the
             syllable parts?
         """
-        entry = self.db.selectSingleEntry("JyutpingInitialFinal",
-            ["JyutpingInitial", "JyutpingFinal"],
-            {"Jyutping": plainSyllable.lower()})
+        table = self.db.tables['JyutpingInitialFinal']
+        entry = self.db.selectRow(
+            select([table.c.JyutpingInitial, table.c.JyutpingFinal],
+                table.c.Jyutping == plainSyllable.lower()))
         if not entry:
             raise InvalidEntityError("'" + plainSyllable \
                 + "' not a valid plain Jyutping syllable'")
@@ -3416,8 +3437,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         return unicodedata.normalize("NFC", plainEntity), tone
 
     def getPlainReadingEntities(self):
-        return set(self.db.selectSoleValue("CantoneseYaleSyllables",
-            "CantoneseYale"))
+        return set(self.db.selectScalars(select(
+            [self.db.tables['CantoneseYaleSyllables'].c.CantoneseYale])))
 
     def getOnsetRhyme(self, plainSyllable):
         """
@@ -3455,9 +3476,11 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             on the syllable parts?
         """
         # if tone mark exist, split off
-        entry = self.db.selectSingleEntry("CantoneseYaleInitialNucleusCoda",
-            ["CantoneseYaleInitial", "CantoneseYaleNucleus",
-            "CantoneseYaleCoda"], {"CantoneseYale": plainSyllable.lower()})
+        table = self.db.tables['CantoneseYaleInitialNucleusCoda']
+        entry = self.db.selectRow(
+            select([table.c.CantoneseYaleInitial, table.c.CantoneseYaleNucleus,
+                table.c.CantoneseYaleCoda],
+                table.c.CantoneseYale == plainSyllable.lower()))
         if not entry:
             raise InvalidEntityError("'" + plainSyllable \
                 + "' not a valid plain Cantonese Yale syllable'")
@@ -3635,7 +3658,8 @@ class CantoneseIPAOperator(TonalIPAOperator):
         return tones
 
     def getPlainReadingEntities(self):
-        return set(self.db.selectSoleValue("CantoneseIPAInitialFinal", "IPA"))
+        return set(self.db.selectScalars(select(
+            [self.db.tables['CantoneseIPAInitialFinal'].c.IPA])))
 
     def getOnsetRhyme(self, plainSyllable):
         """
@@ -3648,8 +3672,10 @@ class CantoneseIPAOperator(TonalIPAOperator):
         @raise InvalidEntityError: if the entity is invalid (e.g. syllable
             nucleus or tone invalid).
         """
-        entry = self.db.selectSingleEntry("CantoneseIPAInitialFinal",
-            ["IPAInitial", "IPAFinal"], {"IPA": plainSyllable})
+        table = self.db.tables['CantoneseIPAInitialFinal']
+        entry = self.db.selectRow(
+            select([table.c.IPAInitial, table.c.IPAFinal],
+                table.c.IPA == plainSyllable))
         if not entry:
             raise InvalidEntityError("'" + plainSyllable \
                 + "' not a valid IPA form in this system'")
@@ -3711,9 +3737,10 @@ class CantoneseIPAOperator(TonalIPAOperator):
         # only need explicit tones
         if baseTone in self.stopToneLookup:
             # check if we have an unreleased final consonant
-            unreleasedFinal, vowelLength = self.db.selectSingleEntry(
-                "CantoneseIPAInitialFinal", ["UnreleasedFinal", "VowelLength"],
-                {"IPA": plainSyllable})
+            table = self.db.tables['CantoneseIPAInitialFinal']
+            unreleasedFinal, vowelLength = self.db.selectRow(
+                select([table.c.UnreleasedFinal, table.c.VowelLength],
+                    table.c.IPA == plainSyllable))
             if unreleasedFinal:
                 return self.stopToneLookup[baseTone][vowelLength]
 

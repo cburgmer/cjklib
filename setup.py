@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
 from distutils.core import setup
 import re
@@ -26,7 +26,8 @@ setup(name='cjklib',
         ('/var/lib/cjklib', ['cjklib.db']),
         ('share/doc/cjklib/examples', glob.glob("examples/*.py")),
         ('share/doc/cjklib/scripts', glob.glob("scripts/*.py")),
-        ('share/doc/cjklib/', ['README', 'changelog', 'COPYING'])],
+        ('share/doc/cjklib/', ['README', 'changelog', 'COPYING',
+            'DEVELOPMENT', 'runtest.py'])],
     license=LICENSE,
     classifiers=['Topic :: Text Processing :: Linguistic',
         'Environment :: Console',
@@ -35,5 +36,4 @@ setup(name='cjklib',
         'Development Status :: 3 - Alpha',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'License :: OSI Approved :: ' \
-            + 'GNU Library or Lesser General Public License (LGPL)',])
+        'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)',])

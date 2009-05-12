@@ -20,6 +20,9 @@ Provides the central Chinese character based functions.
 """
 
 # import math
+from sqlalchemy import select, union
+from sqlalchemy.sql import and_, or_, not_
+
 from cjklib import reading
 from cjklib import exception
 from cjklib import dbconnector
@@ -270,18 +273,18 @@ class CharacterLookup:
     several equivalent readings has limited use.
     """
 
-    def __init__(self, databaseSettings={}, dbConnectInst=None):
+    def __init__(self, databaseUrl=None, dbConnectInst=None):
         """
         Initialises the CharacterLookup.
 
         If no parameters are given default values are assumed for the connection
-        to the database. Other options can be either passed as dictionary to
-        databaseSettings, or as an instantiated L{DatabaseConnector} given to
-        dbConnectInst, the latter one will be preferred.
+        to the database. The database connection parameters can be given in
+        databaseUrl, or an instance of L{DatabaseConnector} can be passed in
+        dbConnectInst, the latter one being preferred if both are specified.
 
-        @type databaseSettings: dict
-        @param databaseSettings: database settings passed to the
-            L{DatabaseConnector}, see there for feasible values
+        @type databaseUrl: str
+        @param databaseUrl: database connection setting in the format
+            C{driver://user:pass@host/database}.
         @type dbConnectInst: instance
         @param dbConnectInst: instance of a L{DatabaseConnector}
         """
@@ -289,14 +292,13 @@ class CharacterLookup:
         if dbConnectInst:
             self.db = dbConnectInst
         else:
-            self.db = dbconnector.DatabaseConnector.getDBConnector(
-                databaseSettings)
+            self.db = dbconnector.DatabaseConnector.getDBConnector(databaseUrl)
 
         self.readingFactory = None
 
         # test for existing tables that can be used to speed up look up
-        self.hasComponentLookup = self.db.tableExists('ComponentLookup')
-        self.hasStrokeCount = self.db.tableExists('StrokeCount')
+        self.hasComponentLookup = self.db.engine.has_table('ComponentLookup')
+        self.hasStrokeCount = self.db.engine.has_table('StrokeCount')
 
     def _getReadingFactory(self):
         """
@@ -331,7 +333,8 @@ class CharacterLookup:
         # check for available mapping from Chinese characters to a compatible
         #   reading
         compatReading = self._getCompatibleCharacterReading(readingN)
-        table, compatOptions = self.CHARARACTER_READING_MAPPING[compatReading]
+        tableName, compatOptions \
+            = self.CHARARACTER_READING_MAPPING[compatReading]
 
         # translate reading form to target reading, for readingN=compatReading
         #   get standard form if supported
@@ -341,9 +344,11 @@ class CharacterLookup:
             readingString = readingFactory.convert(readingString, readingN,
                 compatReading, sourceOptions=options,
                 targetOptions=compatOptions)
+
         # lookup characters
-        return self.db.selectSoleValue(table, 'ChineseCharacter',
-            {'Reading': readingString})
+        table = self.db.tables[tableName]
+        return self.db.selectScalars(select([table.c.ChineseCharacter],
+            table.c.Reading==readingString).order_by(table.c.ChineseCharacter))
 
     def getReadingForCharacter(self, char, readingN, **options):
         """
@@ -364,12 +369,14 @@ class CharacterLookup:
         # check for available mapping from Chinese characters to a compatible
         # reading
         compatReading = self._getCompatibleCharacterReading(readingN, False)
-        table, compatOptions = self.CHARARACTER_READING_MAPPING[compatReading]
+        tableName, compatOptions \
+            = self.CHARARACTER_READING_MAPPING[compatReading]
         readingFactory = self._getReadingFactory()
 
         # lookup readings
-        readings = self.db.selectSoleValue(table, 'Reading',
-            {'ChineseCharacter': char}, orderBy=['Reading'])
+        table = self.db.tables[tableName]
+        readings = self.db.selectScalars(select([table.c.Reading],
+            table.c.ChineseCharacter==char).order_by(table.c.Reading))
 
         # check if we need to convert reading
         if compatReading != readingN \
@@ -485,8 +492,11 @@ class CharacterLookup:
         if not variantType in set('CMPZST'):
             raise ValueError("'" + variantType \
                 + "' is not a valid variant type")
-        return self.db.selectSoleValue('CharacterVariant', 'Variant',
-            {'ChineseCharacter': char, 'Type': variantType})
+
+        table = self.db.tables['CharacterVariant']
+        return self.db.selectScalars(select([table.c.Variant],
+            and_(table.c.ChineseCharacter == char,
+                table.c.Type == variantType)).order_by(table.c.Variant))
 
     def getAllCharacterVariants(self, char):
         """
@@ -504,8 +514,9 @@ class CharacterLookup:
         @rtype: list of tuple
         @return: list of character variant(s) with their type
         """
-        return self.db.select('CharacterVariant', ['Variant', 'Type'],
-            {'ChineseCharacter': char})
+        table = self.db.tables['CharacterVariant']
+        return self.db.selectScalars(select([table.c.Variant, table.c.Type],
+            table.c.ChineseCharacter == char).order_by(table.c.Variant))
 
     def getLocaleDefaultZVariant(self, char, locale):
         """
@@ -525,9 +536,12 @@ class CharacterLookup:
         @raise NoInformationError: if no Z-variant information is available
         @raise ValueError: if invalid I{character locale} specified
         """
-        zVariant = self.db.selectSingleEntrySoleValue('LocaleCharacterVariant',
-            'ZVariant', {'ChineseCharacter': char,
-            'Locale': self._locale(locale)})
+        table = self.db.tables['LocaleCharacterVariant']
+        zVariant = self.db.selectScalar(select([table.c.ZVariant],
+            and_(table.c.ChineseCharacter == char,
+                table.c.Locale.like(self._locale(locale))))\
+            .order_by(table.c.ZVariant))
+
         if zVariant != None:
             return zVariant
         else:
@@ -550,8 +564,9 @@ class CharacterLookup:
         @raise NoInformationError: if no Z-variant information is available
         """
         # return all known variant indices, order to be deterministic
-        result = self.db.selectSoleValue('ZVariants', 'ZVariant',
-            {'ChineseCharacter': char}, orderBy=['ZVariant'])
+        table = self.db.tables['ZVariants']
+        result = self.db.selectScalars(select([table.c.ZVariant],
+            table.c.ChineseCharacter == char).order_by(table.c.ZVariant))
         if not result:
             raise exception.NoInformationError(
                 "No Z-variant information available for '" + char + "'")
@@ -587,8 +602,10 @@ class CharacterLookup:
 
         # if table exists use it
         if self.hasStrokeCount:
-            result = self.db.selectSingleEntrySoleValue('StrokeCount',
-                'StrokeCount', {'ChineseCharacter': char, 'ZVariant': zVariant})
+            table = self.db.tables['StrokeCount']
+            result = self.db.selectScalar(select([table.c.StrokeCount],
+                and_(table.c.ChineseCharacter == char,
+                    table.c.ZVariant == zVariant)))
             if not result:
                 raise exception.NoInformationError(
                     "Character has no stroke count information")
@@ -615,9 +632,11 @@ class CharacterLookup:
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
         """
+        table = self.db.tables['StrokeCount']
+        result = self.db.selectRows(select(
+            [table.c.ChineseCharacter, table.c.ZVariant, table.c.StrokeCount]))
         return dict([((char, zVariant), strokeCount) \
-            for char, zVariant, strokeCount in self.db.select('StrokeCount',
-                ['ChineseCharacter', 'ZVariant', 'StrokeCount'])])
+            for char, zVariant, strokeCount in result])
 
     #_strokeIndexLookup = {}
     #"""A dictionary containing the stroke indices for a set index length."""
@@ -920,8 +939,10 @@ class CharacterLookup:
         # build stroke lookup table for the first time
         if not self._strokeLookup:
             self._strokeLookup = {}
-            for stroke, strokeAbbrev in self.db.select('Strokes',
-                ['Stroke', 'StrokeAbbrev']):
+            table = self.db.tables['Strokes']
+            result = self.db.selectRows(select(
+                [table.c.Stroke, table.c.StrokeAbbrev]))
+            for stroke, strokeAbbrev in result:
                 self._strokeLookup[strokeAbbrev] = stroke
         if self._strokeLookup.has_key(abbrev):
             return self._strokeLookup[abbrev]
@@ -938,8 +959,9 @@ class CharacterLookup:
         @return: Unicode stroke char
         @raise ValueError: if invalid stroke name is specified
         """
-        stroke = self.db.selectSingleEntrySoleValue('Strokes', 'Stroke',
-            {'Name': name})
+        table = self.db.tables['Strokes']
+        stroke = self.db.selectScalar(select([table.c.Stroke],
+            table.c.Name == name))
         if stroke:
             return stroke
         else:
@@ -986,12 +1008,10 @@ class CharacterLookup:
             @raise NoInformationError: if no stroke order information available
             @raise ValueError: if an invalid I{character locale} is specified
             """
-            # get forms for once char, include radical equivalents
-            forms = [char]
-
-            result = self.db.selectSingleEntrySoleValue('StrokeOrder',
-                'StrokeOrder', {'ChineseCharacter': forms,
-                'ZVariant': zVariant}, distinctValues=True)
+            table = self.db.tables['StrokeOrder']
+            result = self.db.selectScalar(select([table.c.StrokeOrder],
+                and_(table.c.ChineseCharacter == char,
+                    table.c.ZVariant == zVariant), distinct=True))
             if not result:
                 raise exception.NoInformationError(
                     "Character has no stroke order information")
@@ -1118,8 +1138,9 @@ class CharacterLookup:
         @raise NoInformationError: if no Kangxi radical index information for
             given character
         """
-        result = self.db.selectSingleEntrySoleValue('CharacterKangxiRadical',
-            'RadicalIndex', {'ChineseCharacter': char})
+        table = self.db.tables['CharacterKangxiRadical']
+        result = self.db.selectScalar(select([table.c.RadicalIndex],
+            table.c.ChineseCharacter == char))
         if not result:
             raise exception.NoInformationError(
                 "Character has no Kangxi radical information")
@@ -1216,13 +1237,15 @@ class CharacterLookup:
         """
         if locale != None:
             zVariant = self.getLocaleDefaultZVariant(char, locale)
-        entries = self.db.select('CharacterRadicalResidualStrokeCount',
-            ['RadicalForm', 'RadicalZVariant', 'MainCharacterLayout',
-            'RadicalRelativePosition', 'ResidualStrokeCount'],
-            {'ChineseCharacter': char, 'ZVariant': zVariant,
-            'RadicalIndex': radicalIndex}, orderBy = ['ResidualStrokeCount',
-            'RadicalZVariant', 'RadicalForm', 'MainCharacterLayout',
-            'RadicalRelativePosition'])
+        table = self.db.tables['CharacterRadicalResidualStrokeCount']
+        entries = self.db.selectRows(select([table.c.RadicalForm,
+                table.c.RadicalZVariant, table.c.MainCharacterLayout,
+                table.c.RadicalRelativePosition, table.c.ResidualStrokeCount],
+            and_(table.c.ChineseCharacter == char, table.c.ZVariant == zVariant,
+            table.c.RadicalIndex == radicalIndex)).order_by(
+                table.c.ResidualStrokeCount, table.c.RadicalZVariant,
+                table.c.RadicalForm, table.c.MainCharacterLayout,
+                table.c.RadicalRelativePosition))
         # add key columns to sort order to make return value deterministic
         if entries:
             return entries
@@ -1250,13 +1273,15 @@ class CharacterLookup:
         """
         radicalDict = {}
         # get entries from database
-        for entry in self.db.select('CharacterRadicalResidualStrokeCount',
-            ['ChineseCharacter', 'ZVariant', 'RadicalIndex', 'RadicalForm',
-            'RadicalZVariant', 'MainCharacterLayout', 'RadicalRelativePosition',
-            'ResidualStrokeCount'],
-            orderBy = ['ResidualStrokeCount', 'RadicalZVariant', 'RadicalForm',
-            'MainCharacterLayout', 'RadicalRelativePosition']):
-
+        table = self.db.tables['CharacterRadicalResidualStrokeCount']
+        entries = self.db.selectRows(select([table.c.ChineseCharacter,
+                table.c.ZVariant, table.c.RadicalIndex, table.c.RadicalForm,
+                table.c.RadicalZVariant, table.c.MainCharacterLayout,
+                table.c.RadicalRelativePosition, table.c.ResidualStrokeCount])\
+            .order_by(table.c.ResidualStrokeCount, table.c.RadicalZVariant,
+                table.c.RadicalForm, table.c.MainCharacterLayout,
+                table.c.RadicalRelativePosition))
+        for entry in entries:
             char, zVariant, radicalIndex, radicalForm, radicalZVariant, \
                 mainCharacterLayout, radicalReladtivePosition, \
                 residualStrokeCount = entry
@@ -1336,10 +1361,10 @@ class CharacterLookup:
         """
         if locale != None:
             zVariant = self.getLocaleDefaultZVariant(char, locale)
-        entry = self.db.selectSingleEntrySoleValue(
-            'CharacterResidualStrokeCount', 'ResidualStrokeCount',
-            {'ChineseCharacter': char, 'ZVariant': zVariant,
-            'RadicalIndex': radicalIndex})
+        table = self.db.tables['CharacterResidualStrokeCount']
+        entry = self.db.selectScalar(select([table.c.ResidualStrokeCount],
+            and_(table.c.ChineseCharacter == char, table.c.ZVariant == zVariant,
+                table.c.RadicalIndex == radicalIndex)))
         if entry != None:
             return entry
         else:
@@ -1361,10 +1386,11 @@ class CharacterLookup:
         """
         residualCountDict = {}
         # get entries from database
-        for entry in self.db.select('CharacterResidualStrokeCount',
-            ['ChineseCharacter', 'ZVariant', 'RadicalIndex',
-            'ResidualStrokeCount']):
-
+        table = self.db.tables['CharacterResidualStrokeCount']
+        entries = self.db.selectRows(select([table.c.ChineseCharacter,
+            table.c.ZVariant, table.c.RadicalIndex,
+            table.c.ResidualStrokeCount]))
+        for entry in entries:
             char, zVariant, radicalIndex, residualStrokeCount = entry
 
             if (char, zVariant) not in residualCountDict:
@@ -1389,8 +1415,9 @@ class CharacterLookup:
             for these (SELECT COUNT(*) FROM Unihan WHERE kRSUnicode IS NOT NULL
             AND kRSKangxi IS NULL;).
         """
-        return self.db.selectSoleValue('CharacterKangxiRadical',
-            'ChineseCharacter', {'RadicalIndex': radicalIndex})
+        table = self.db.tables['CharacterKangxiRadical']
+        return self.db.selectScalars(select([table.c.ChineseCharacter],
+            table.c.RadicalIndex == radicalIndex))
 
     def getCharactersForRadicalIndex(self, radicalIndex):
         """
@@ -1406,8 +1433,9 @@ class CharacterLookup:
         @rtype: list of str
         @return: list of matching Chinese characters
         """
-        return self.db.selectSoleValue('CharacterResidualStrokeCount',
-            'ChineseCharacter', {'RadicalIndex': radicalIndex})
+        table = self.db.tables['CharacterResidualStrokeCount']
+        return self.db.selectScalars(select([table.c.ChineseCharacter],
+            table.c.RadicalIndex == radicalIndex))
 
     def getResidualStrokeCountForKangxiRadicalIndex(self, radicalIndex):
         """
@@ -1424,13 +1452,16 @@ class CharacterLookup:
         @rtype: list of tuple
         @return: list of matching Chinese characters with residual stroke count
         """
-        tables = ['KangxiRadical r', 'RadicalEquivalentCharacter e']
-        return self.db.select(
-            ['CharacterKangxiRadical k', 'CharacterResidualStrokeCount r'],
-            ['r.ChineseCharacter', 'r.ResidualStrokeCount'],
-            {'r.ChineseCharacter': '=k.ChineseCharacter',
-            'r.RadicalIndex': '=k.RadicalIndex',
-            'k.RadicalIndex': radicalIndex})
+        kangxiTable = self.db.tables['CharacterKangxiRadical']
+        residualTable = self.db.tables['CharacterResidualStrokeCount']
+        return self.db.selectRows(select([residualTable.c.ChineseCharacter,
+            residualTable.c.ResidualStrokeCount],
+            kangxiTable.c.RadicalIndex == radicalIndex,
+            from_obj=[residualTable.join(kangxiTable,
+                and_(residualTable.c.ChineseCharacter \
+                        == kangxiTable.c.ChineseCharacter,
+                    residualTable.c.RadicalIndex \
+                        == kangxiTable.c.RadicalIndex))]))
 
     def getResidualStrokeCountForRadicalIndex(self, radicalIndex):
         """
@@ -1448,9 +1479,10 @@ class CharacterLookup:
         @rtype: list of tuple
         @return: list of matching Chinese characters with residual stroke count
         """
-        return self.db.select('CharacterResidualStrokeCount',
-            ['ChineseCharacter', 'ResidualStrokeCount'],
-            {'RadicalIndex': radicalIndex})
+        table = self.db.tables['CharacterResidualStrokeCount']
+        return self.db.selectRows(
+            select([table.c.ChineseCharacter, table.c.ResidualStrokeCount],
+                table.c.RadicalIndex == radicalIndex))
 
     #}
     #{ Radical form functions
@@ -1479,9 +1511,12 @@ class CharacterLookup:
         if radicalIdx < 1 or radicalIdx > 214:
             raise ValueError("Radical index '" + unicode(radicalIdx) \
                 + "' not in range between 1 and 214")
-        radicalForms = self.db.selectSoleValue('KangxiRadical', 'Form',
-            {'RadicalIndex': radicalIdx, 'Type': 'R',
-            'Locale': self._locale(locale)}, orderBy = ['SubIndex'])
+
+        table = self.db.tables['KangxiRadical']
+        radicalForms = self.db.selectScalars(select([table.c.Form],
+            and_(table.c.RadicalIndex == radicalIdx, table.c.Type == 'R',
+                table.c.Locale.like(self._locale(locale))))\
+            .order_by(table.c.SubIndex))
         return radicalForms[0]
 
     def getKangxiRadicalVariantForms(self, radicalIdx, locale):
@@ -1503,10 +1538,11 @@ class CharacterLookup:
         @todo Lang: Narrow locales, not all variant forms are valid under all
             locales.
         """
-        return self.db.selectSoleValue('KangxiRadical', 'Form',
-            {'RadicalIndex': radicalIdx, 'Type': 'V',
-             'Locale': self._locale(locale)},
-            orderBy = ['SubIndex'])
+        table = self.db.tables['KangxiRadical']
+        return self.db.selectScalars(select([table.c.Form],
+            and_(table.c.RadicalIndex == radicalIdx, table.c.Type == 'V',
+                table.c.Locale.like(self._locale(locale))))\
+            .order_by(table.c.SubIndex))
 
     def getKangxiRadicalIndex(self, radicalForm, locale=None):
         """
@@ -1533,25 +1569,31 @@ class CharacterLookup:
             locale = self._locale(locale)
         else:
             locale = '%'
-        result = self.db.selectSingleEntrySoleValue('KangxiRadical',
-                'RadicalIndex', {'Form': radicalForm,
-                'Locale': locale})
+
+        table = self.db.tables['KangxiRadical']
+        result = self.db.selectScalar(select([table.c.RadicalIndex],
+            and_(table.c.Form == radicalForm, table.c.Locale.like(locale))))
         if result:
             return result
         else:
             # check in radical equivalent character table, join tables
-            tables = ['KangxiRadical r', 'RadicalEquivalentCharacter e']
-            result = self.db.selectSoleValue(tables, 'r.RadicalIndex',
-                {'e.EquivalentForm': radicalForm, 'e.Locale': locale,
-                'r.Locale': locale, 'r.Form': '=e.Form'})
+            kangxiTable = self.db.tables['KangxiRadical']
+            equivalentTable = self.db.tables['RadicalEquivalentCharacter']
+            result = self.db.selectScalars(select([kangxiTable.c.RadicalIndex],
+                and_(equivalentTable.c.EquivalentForm == radicalForm,
+                    equivalentTable.c.Locale.like(locale),
+                    kangxiTable.c.Locale.like(locale)),
+                from_obj=[kangxiTable.join(equivalentTable,
+                    kangxiTable.c.Form == equivalentTable.c.Form)]))
+
             if result:
                 return result[0]
             else:
                 # check in isolated radical equivalent character table
-                result = self.db.selectSingleEntrySoleValue(
-                    'KangxiRadicalIsolatedCharacter',
-                    'RadicalIndex', {'EquivalentForm': radicalForm,
-                    'Locale': locale})
+                table = self.db.tables['KangxiRadicalIsolatedCharacter']
+                result = self.db.selectScalar(select([table.c.RadicalIndex],
+                    and_(table.c.EquivalentForm == radicalForm,
+                        table.c.Locale.like(locale))))
                 if result:
                     return result
         raise ValueError(radicalForm +  "is no valid Kangxi radical," \
@@ -1578,23 +1620,25 @@ class CharacterLookup:
             equivalent real character forms
         @raise ValueError: if invalid I{character locale} specified
         """
-        # get radical/variant forms
-        representativeChars = []
-        representativeChars.extend(self.db.selectSoleValue('KangxiRadical',
-            'Form', {'RadicalIndex': radicalIdx,
-            'Locale': self._locale(locale)}))
-        # get equivalent characters, join tables
-        tables = ['KangxiRadical r', 'RadicalEquivalentCharacter e']
-        representativeChars.extend(self.db.selectSoleValue(tables,
-            'e.EquivalentForm', {'r.RadicalIndex': radicalIdx,
-            'r.Locale': self._locale(locale), 'e.Locale': self._locale(locale),
-            'r.Form': '=e.Form'},
-            distinctValues=True))
-        # get isolated characters (normal characters that represent a radical)
-        representativeChars.extend(self.db.selectSoleValue(
-            'KangxiRadicalIsolatedCharacter', 'EquivalentForm',
-            {'RadicalIndex': radicalIdx, 'Locale': self._locale(locale)}))
-        return representativeChars
+        kangxiTable = self.db.tables['KangxiRadical']
+        equivalentTable = self.db.tables['RadicalEquivalentCharacter']
+        isolatedTable = self.db.tables['KangxiRadicalIsolatedCharacter']
+
+        return self.db.selectScalars(union(
+            select([kangxiTable.c.Form],
+                and_(kangxiTable.c.RadicalIndex == radicalIdx,
+                    kangxiTable.c.Locale.like(self._locale(locale)))),
+
+            select([equivalentTable.c.EquivalentForm],
+                and_(kangxiTable.c.RadicalIndex == radicalIdx,
+                    equivalentTable.c.Locale.like(self._locale(locale)),
+                    kangxiTable.c.Locale.like(self._locale(locale))),
+                from_obj=[kangxiTable.join(equivalentTable,
+                    kangxiTable.c.Form == equivalentTable.c.Form)]),
+
+            select([isolatedTable.c.EquivalentForm],
+                and_(isolatedTable.c.RadicalIndex == radicalIdx,
+                    isolatedTable.c.Locale.like(self._locale(locale))))))
 
     def isKangxiRadicalFormOrEquivalent(self, form, locale=None):
         """
@@ -1668,9 +1712,10 @@ class CharacterLookup:
         if not self.isRadicalChar(radicalForm):
             raise ValueError(radicalForm + " is no valid radical form")
 
-        equivChar = self.db.selectSingleEntrySoleValue(
-            'RadicalEquivalentCharacter', 'EquivalentForm',
-            {'Form': radicalForm, 'Locale': self._locale(locale)})
+        table = self.db.tables['RadicalEquivalentCharacter']
+        equivChar = self.db.selectScalar(select([table.c.EquivalentForm],
+            and_(table.c.Form == radicalForm,
+                table.c.Locale.like(self._locale(locale)))))
         if equivChar:
             return equivChar
         else:
@@ -1698,8 +1743,10 @@ class CharacterLookup:
         @raise ValueError: if invalid I{character locale} or equivalent
             character is specified
         """
-        result = self.db.selectSoleValue('RadicalEquivalentCharacter', 'Form',
-            {'EquivalentForm': equivalentForm, 'Locale': self._locale(locale)})
+        table = self.db.tables['RadicalEquivalentCharacter']
+        result = self.db.selectScalars(select([table.c.Form],
+            and_(table.c.EquivalentForm == equivalentForm,
+                table.c.Locale.like(self._locale(locale)))))
         if result:
             return result
         else:
@@ -1852,88 +1899,53 @@ class CharacterLookup:
         @rtype: list of tuple
         @return: list of pairs of matching characters and their Z-variants
         @raise ValueError: if an invalid I{character locale} is specified
-        @todo Fix:  Return the the given components themselves if they fit to
-            the given scheme, e.g. include 米 for [u'米', u'木'].
         """
+        if not componentConstruct:
+            return []
+
         # create where clauses
-        tableList = ['ComponentLookup s' + str(i)
-            for i in range(1, len(componentConstruct))]
+        lookupTable = self.db.tables['ComponentLookup']
+        localeTable = self.db.tables['LocaleCharacterVariant']
+        strokeCountTable = self.db.tables['StrokeCount']
 
-        if locale:
-            # join with LocaleCharacterVariant and allow only forms matching the
-            #   given locale, unless no locale entry exists
-            if self.hasStrokeCount:
-                tableList.append('ComponentLookup s0 LEFT JOIN StrokeCount c ' \
-                    + 'ON (s0.ChineseCharacter = c.ChineseCharacter) ' \
-                    + 'LEFT JOIN LocaleCharacterVariant l ON ' \
-                    + '(s0.ChineseCharacter = l.ChineseCharacter AND ' \
-                    + 's0.ZVariant = l.ZVariant) ' \
-                    + 'LEFT JOIN LocaleCharacterVariant l2 ON ' \
-                    + '(s0.ChineseCharacter = l2.ChineseCharacter)')
-                orderBy = ['c.StrokeCount']
-            else:
-                tableList.append('ComponentLookup s0 LEFT JOIN ' \
-                    + 'LocaleCharacterVariant l ON ' \
-                    + '(s0.ChineseCharacter = l.ChineseCharacter AND '\
-                    + 's0.ZVariant = l.ZVariant) ' \
-                    + 'LEFT JOIN LocaleCharacterVariant l2 ON ' \
-                    + '(s0.ChineseCharacter = l2.ChineseCharacter)')
-                orderBy = []
-            # TODO locale clauses look like: "a OR (b AND C)". The database
-            #   abstraction layer only works with normal forms and thus we need
-            #   to work around extensively. Furthermore a UNION is needed for
-            #   SQLite as with an alternative realisation as OR it slows down
-            #   tremendously
-            localeClauses = [{'l.Locale': self._locale(locale)},
-                {'l2.Locale': 'IS NULL', 'l.Locale': 'IS NULL'}]
-        else:
-            if self.hasStrokeCount:
-                tableList.append('ComponentLookup s0 LEFT JOIN StrokeCount c ' \
-                    + 'ON (s0.ChineseCharacter = c.ChineseCharacter)')
-                orderBy = ['c.StrokeCount']
-            else:
-                tableList.append('ComponentLookup s0')
-                orderBy = []
+        joinTables = []         # join over all tables by char and z-Variant
+        filters = []            # filter for locale and component
 
-        whereClauses = {}
-
+        # generate filter for each component
         for i, characterList in enumerate(componentConstruct):
-            whereClauses['s'+str(i)+'.Component'] = characterList
-            if i > 0:
-                whereClauses['s' + str(i-1) + '.ZVariant'] = '= s' \
-                    + str(i) + '.ZVariant'
-                whereClauses['s' + str(i-1) + '.ChineseCharacter'] = '= s' \
-                    + str(i) + '.ChineseCharacter'
+            lookupTableAlias = lookupTable.alias('s%d' % i)
+            joinTables.append(lookupTableAlias)
+            # find chars for components, also include 米 for [u'米', u'木'].
+            filters.append(or_(lookupTableAlias.c.Component.in_(characterList),
+                lookupTableAlias.c.ChineseCharacter.in_(characterList)))
 
+        # join with LocaleCharacterVariant and allow only forms matching the
+        #   given locale, unless no locale entry exists
         if locale:
-            selectCommands = []
-            for localeClause in localeClauses[:-1]:
-                localeClause.update(whereClauses)
-                selectCommands.append(self.db.getSelectCommand(tableList,
-                    ['s0.ChineseCharacter', 's0.ZVariant', 'StrokeCount'],
-                    localeClause, distinctValues=True))
+            joinTables.append(localeTable)
+            filters.append(or_(localeTable.c.Locale == None,
+                localeTable.c.Locale.like(self._locale(locale))))
 
-            localeClauses[-1].update(whereClauses)
-            selectCommands.append(self.db.getSelectCommand(tableList,
-                ['s0.ChineseCharacter', 's0.ZVariant', 'StrokeCount'],
-                localeClauses[-1], orderBy=['StrokeCount'],
-                distinctValues=True))
+        # include stroke count to sort
+        if self.hasStrokeCount:
+            joinTables.append(strokeCountTable)
 
-            cur = dbconnector.DatabaseConnector.getDBConnector().getCursor()
-            cur.execute(' UNION '.join(selectCommands))
-            result = list(cur.fetchall())
-            for i, entry in enumerate(result): # TODO bug in python-mysql
-                entry = list(entry)
-                for j, cell in enumerate(entry):
-                    if type(cell) == type(""):
-                        entry[j] = cell.decode('utf8')
-                result[i] = tuple(entry)
+        # chain tables together in a JOIN
+        fromObject = joinTables[0]
+        for table in joinTables[1:]:
+            fromObject = fromObject.outerjoin(table,
+                onclause=and_(
+                    table.c.ChineseCharacter \
+                        == joinTables[0].c.ChineseCharacter,
+                    table.c.ZVariant == joinTables[0].c.ZVariant))
 
-            result = [(char, zVariant) for char, zVariant, _ in result]
-        else:
-            result = self.db.select(tableList,
-                ['s0.ChineseCharacter', 's0.ZVariant'], whereClauses,
-                orderBy=orderBy, distinctValues=True)
+        sel = select([joinTables[0].c.ChineseCharacter,
+            joinTables[0].c.ZVariant], and_(*filters), from_obj=[fromObject],
+            distinct=True)
+        if self.hasStrokeCount:
+            sel = sel.order_by(strokeCountTable.c.StrokeCount)
+
+        result = self.db.selectRows(sel)
 
         if not resultIncludeRadicalForms:
             # exclude radical characters found in decomposition
@@ -1976,9 +1988,10 @@ class CharacterLookup:
                 return []
 
         # get entries from database
-        result = self.db.selectSoleValue('CharacterDecomposition',
-            'Decomposition', {'ChineseCharacter': char, 'ZVariant': zVariant},
-            orderBy = ['SubIndex'])
+        table = self.db.tables['CharacterDecomposition']
+        result = self.db.selectScalars(select([table.c.Decomposition],
+            and_(table.c.ChineseCharacter == char,
+                table.c.ZVariant == zVariant)).order_by(table.c.SubIndex))
 
         # extract character Z-variant information (example entry: '⿱卜[1]尸')
         return [self._getDecompositionFromString(decomposition) \
@@ -1994,11 +2007,11 @@ class CharacterLookup:
         """
         decompDict = {}
         # get entries from database
-        for char, zVariant, decomposition in self.db.select(
-            'CharacterDecomposition',
-            ['ChineseCharacter', 'ZVariant', 'Decomposition'],
-            orderBy = ['SubIndex']):
-
+        table = self.db.tables['CharacterDecomposition']
+        entries = self.db.selectRows(select([table.c.ChineseCharacter,
+            table.c.ZVariant, table.c.Decomposition])\
+                .order_by(table.c.SubIndex))
+        for char, zVariant, decomposition in entries:
             if (char, zVariant) not in decompDict:
                 decompDict[(char, zVariant)] = []
 
@@ -2133,9 +2146,12 @@ class CharacterLookup:
 
         # if table exists use it to speed up look up
         if self.hasComponentLookup:
-            zVariants = self.db.selectSoleValue('ComponentLookup',
-                'ComponentZVariant', {'ChineseCharacter': char,
-                    'ZVariant': zVariant, 'Component': component})
+            table = self.db.tables['ComponentLookup']
+            zVariants = self.db.selectScalars(
+                select([table.c.ComponentZVariant],
+                    and_(table.c.ChineseCharacter == char,
+                        table.c.ZVariant == zVariant,
+                        table.c.Component == component)))
             return zVariants and (componentZVariant == None \
                 or componentZVariant in zVariants)
         else:

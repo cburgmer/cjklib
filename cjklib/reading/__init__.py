@@ -298,18 +298,18 @@ class ReadingFactory(object):
         def __getattr__(self, name):
             return getattr(self.converterInst, name)
 
-    def __init__(self, databaseSettings={}, dbConnectInst=None):
+    def __init__(self, databaseUrl=None, dbConnectInst=None):
         """
         Initialises the ReadingFactory.
 
         If no parameters are given default values are assumed for the connection
-        to the database. Other options can be either passed as dictionary to
-        databaseSettings, or as an instantiated L{DatabaseConnector} given to
-        dbConnectInst, the latter one will be preferred.
+        to the database. The database connection parameters can be given in
+        databaseUrl, or an instance of L{DatabaseConnector} can be passed in
+        dbConnectInst, the latter one being preferred if both are specified.
 
-        @type databaseSettings: dict
-        @param databaseSettings: database settings passed to the
-            L{DatabaseConnector}, see there for feasible values
+        @type databaseUrl: str
+        @param databaseUrl: database connection setting in the format
+            C{driver://user:pass@host/database}.
         @type dbConnectInst: instance
         @param dbConnectInst: instance of a L{DatabaseConnector}
         @bug: Specifying another database connector overwrites settings
@@ -321,7 +321,7 @@ class ReadingFactory(object):
         if dbConnectInst:
             self.db = dbConnectInst
         else:
-            self.db = DatabaseConnector.getDBConnector(databaseSettings)
+            self.db = DatabaseConnector.getDBConnector(databaseUrl)
         # create object instance cache if needed, shared with all factories
         #   using the same database connection
         if self.db not in self.sharedState:

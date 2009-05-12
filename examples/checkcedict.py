@@ -49,6 +49,8 @@ import re
 import sys
 import getopt
 
+from sqlalchemy import select
+
 from cjklib.dbconnector import DatabaseConnector
 from cjklib.reading import ReadingFactory
 from cjklib import characterlookup
@@ -133,10 +135,12 @@ _dictionaryEntries = None
 def getDictionaryEntries(dictionary):
     global _dictionaryEntries
     if not _dictionaryEntries:
-        _dictionaryEntries = DatabaseConnector.getDBConnector().select(
-            dictionary,
-            ['HeadwordTraditional', 'HeadwordSimplified', 'Reading'],
-            orderBy=['HeadwordTraditional'], distinctValues=True)
+        db = DatabaseConnector.getDBConnector()
+        table = db.tables[dictionary]
+        _dictionaryEntries = db.selectRows(
+            select([table.c.HeadwordTraditional, table.c.HeadwordSimplified,
+                table.c.Reading], distinct=True)\
+                .order_by(table.c.HeadwordTraditional))
     return _dictionaryEntries
 
 def checkCharacterReading(entryList, readingName, readingOptions={},

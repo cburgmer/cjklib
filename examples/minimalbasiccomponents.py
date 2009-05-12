@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
 """
 Provides a class to create a set of minimal basic components of Chinese
@@ -29,6 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 @todo Impl: Be locale dependant.
 @todo Impl: How to handle radical/equivalent forms?
 """
+from sqlalchemy import select, union
 
 from cjklib.dbconnector import DatabaseConnector
 from cjklib import characterlookup
@@ -42,14 +43,22 @@ fullyDecomposedCharacters = set()
 Set of characters with decomposed components completely contained in
 minimalBasicComponents.
 """
-characterQueue = set(DatabaseConnector.getDBConnector().select(
-    'CharacterDecomposition', ['ChineseCharacter', 'ZVariant'],
-    {'ChineseCharacter': 'IN (SELECT ChineseCharacter FROM ' + characterSet \
-        + ')'}, distinctValues=True))
-characterQueue.update(DatabaseConnector.getDBConnector().select('StrokeOrder a',
-    ['ChineseCharacter', 'ZVariant'],
-    {'ChineseCharacter': 'IN (SELECT ChineseCharacter FROM ' + characterSet \
-        + ')'}, distinctValues=True))
+db = DatabaseConnector.getDBConnector()
+decompositionTable = db.tables['CharacterDecomposition']
+strokeOrderTable = db.tables['StrokeOrder']
+charsetTable = db.tables[characterSet]
+
+characterQueue = set(db.selectRows(union(
+    select([decompositionTable.c.ChineseCharacter,
+            decompositionTable.c.ZVariant],
+        decompositionTable.c.ChineseCharacter.in_(
+            select([charsetTable.c.ChineseCharacter])),
+        distinct=True),
+    select([strokeOrderTable.c.ChineseCharacter,
+            strokeOrderTable.c.ZVariant],
+        strokeOrderTable.c.ChineseCharacter.in_(
+            select([charsetTable.c.ChineseCharacter])),
+        distinct=True))))
 
 """Queue of characters needed to be checked."""
 characterDecomposition = {}
@@ -110,4 +119,4 @@ while characterQueue:
             characterQueue.remove(charEntry)
             fullyDecomposedCharacters.add(charEntry)
 
-print "\n".join(minimalBasicComponents).encode('utf8')
+print "".join(minimalBasicComponents).encode('utf8')

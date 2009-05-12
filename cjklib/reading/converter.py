@@ -48,6 +48,9 @@ See L{PinyinDialectConverter} for more examples.
 import re
 import copy
 
+from sqlalchemy import select
+from sqlalchemy.sql import and_, or_, not_
+
 from cjklib.exception import (ConversionError, AmbiguousConversionError,
     InvalidEntityError, UnsupportedError)
 from cjklib.dbconnector import DatabaseConnector
@@ -868,14 +871,16 @@ class PinyinWadeGilesConverter(RomanisationConverter):
 
         # lookup in database
         if fromReading == "WadeGiles":
-            transSyllable = self.db.selectSingleEntrySoleValue(
-                "WadeGilesPinyinMapping", "Pinyin",
-                {"WadeGiles": plainSyllable})
+            table = self.db.tables['WadeGilesPinyinMapping']
+            transSyllable = self.db.selectScalar(
+                select([table.c.Pinyin], table.c.WadeGiles == plainSyllable))
         elif fromReading == "Pinyin":
             # mapping from WG to Pinyin is ambiguous, use index for distinct
-            transSyllable = self.db.selectSingleEntrySoleValue(
-                "WadeGilesPinyinMapping", "WadeGiles", {"Pinyin": plainSyllable,
-                "PinyinIdx": 0})
+            table = self.db.tables['WadeGilesPinyinMapping']
+            transSyllable = self.db.selectScalar(
+                select([table.c.WadeGiles],
+                    and_(table.c.Pinyin == plainSyllable,
+                        table.c.PinyinIdx == 0)))
         if not transSyllable:
             raise ConversionError("conversion for entity '" + plainSyllable \
                 + "' not supported")
@@ -1083,8 +1088,9 @@ class GRPinyinConverter(RomanisationConverter):
 
         # lookup in database
         if fromReading == "GR":
-            transSyllable = self.db.selectSingleEntrySoleValue(
-                "PinyinGRMapping", "Pinyin", {"GR": plainSyllable})
+            table = self.db.tables['PinyinGRMapping']
+            transSyllable = self.db.selectScalar(select([table.c.Pinyin],
+                table.c.GR == plainSyllable))
             transTone = self.grToneMapping[tone]
 
         elif fromReading == "Pinyin":
@@ -1095,8 +1101,9 @@ class GRPinyinConverter(RomanisationConverter):
             else:
                 erlhuahForm = False
 
-            transSyllable = self.db.selectSingleEntrySoleValue(
-                "PinyinGRMapping", "GR", {"Pinyin": plainSyllable})
+            table = self.db.tables['PinyinGRMapping']
+            transSyllable = self.db.selectScalar(select([table.c.GR],
+                table.c.Pinyin == plainSyllable))
             if self.pyToneMapping[tone]:
                 transTone = self.pyToneMapping[tone]
             else:
@@ -1361,8 +1368,10 @@ class PinyinIPAConverter(ReadingConverter):
         @return: IPA representation
         """
         # lookup in database
-        transSyllables = self.db.selectSoleValue("PinyinIPAMapping",
-            "IPA", {"Pinyin": plainSyllable, "Feature": ['', 'Default']})
+        table = self.db.tables['PinyinIPAMapping']
+        transSyllables = self.db.selectScalars(select([table.c.IPA],
+            and_(table.c.Pinyin == plainSyllable,
+                table.c.Feature.in_(['', 'Default']))))
 
         if not transSyllables:
             raise ConversionError("conversion for entity '" + plainSyllable \
@@ -1459,10 +1468,10 @@ class PinyinIPAConverter(ReadingConverter):
                 plainSyllable)
             if final == 'e':
                 # lookup in database
-                searchOptions = {"Pinyin": plainSyllable,
-                    "Feature": '5thTone'}
-                transSyllables = self.db.selectSoleValue("PinyinIPAMapping",
-                    "IPA", searchOptions)
+                table = self.db.tables['PinyinIPAMapping']
+                transSyllable = self.db.selectScalars(select([table.c.IPA],
+                    and_(table.c.Pinyin == plainSyllable,
+                        table.c.Feature == '5thTone')))
                 if not transSyllables:
                     raise ConversionError("conversion for entity '" \
                         + plainSyllable + "' not supported")
@@ -1556,8 +1565,12 @@ class PinyinBrailleConverter(ReadingConverter):
         # initials
         self.pinyinInitial2Braille = {}
         self.braille2PinyinInitial = {}
-        for pinyinInitial, brailleChar in self.db.select(
-            'PinyinBrailleInitialMapping', ['PinyinInitial', 'Braille']):
+
+        table = self.db.tables['PinyinBrailleInitialMapping']
+        entries = self.db.selectRows(
+            select([table.c.PinyinInitial, table.c.Braille]))
+
+        for pinyinInitial, brailleChar in entries:
             # Pinyin 2 Braille
             if pinyinInitial in self.pinyinInitial2Braille:
                 raise ValueError(
@@ -1574,8 +1587,12 @@ class PinyinBrailleConverter(ReadingConverter):
         # finals
         self.pinyinFinal2Braille = {}
         self.braille2PinyinFinal = {}
-        for pinyinFinal, brailleChar in self.db.select(
-            'PinyinBrailleFinalMapping', ['PinyinFinal', 'Braille']):
+
+        table = self.db.tables['PinyinBrailleFinalMapping']
+        entries = self.db.selectRows(
+            select([table.c.PinyinFinal, table.c.Braille]))
+
+        for pinyinFinal, brailleChar in entries:
             # Pinyin 2 Braille
             if pinyinFinal in self.pinyinFinal2Braille:
                 raise ValueError(
@@ -1702,11 +1719,14 @@ class PinyinBrailleConverter(ReadingConverter):
             for i in self.braille2PinyinInitial[initial]:
                 for f in self.braille2PinyinFinal[final]:
                     # get Pinyin syllable
-                    entry = self.db.selectSingleEntrySoleValue(
-                        "PinyinInitialFinal", "Pinyin", {"PinyinInitial": i,
-                        "PinyinFinal": f})
+                    table = self.db.tables['PinyinInitialFinal']
+                    entry = self.db.selectScalar(
+                        select([table.c.Pinyin],
+                            and_(table.c.PinyinInitial == i,
+                                table.c.PinyinFinal == f)))
                     if entry:
                         forms.append(entry)
+
             # narrow down to possible ones
             if len(forms) > 1:
                 for form in forms[:]:
@@ -1854,9 +1874,10 @@ class JyutpingYaleConverter(RomanisationConverter):
 
         # lookup in database
         if fromReading == "CantoneseYale":
-            transSyllable = self.db.selectSingleEntrySoleValue(
-                "JyutpingYaleMapping", "Jyutping",
-                {"CantoneseYale": plainSyllable})
+            table = self.db.tables['JyutpingYaleMapping']
+            transSyllable = self.db.selectScalar(
+                select([table.c.Jyutping],
+                    table.c.CantoneseYale == plainSyllable))
             # get tone
             if tone:
                 # get tone number from first character of string representation
@@ -1864,9 +1885,10 @@ class JyutpingYaleConverter(RomanisationConverter):
             else:
                 transTone = None
         elif fromReading == "Jyutping":
-            transSyllable = self.db.selectSingleEntrySoleValue(
-                "JyutpingYaleMapping", "CantoneseYale",
-                {"Jyutping": plainSyllable})
+            table = self.db.tables['JyutpingYaleMapping']
+            transSyllable = self.db.selectScalar(
+                select([table.c.CantoneseYale],
+                    table.c.Jyutping == plainSyllable))
             # get tone
             if not tone:
                 transTone = None

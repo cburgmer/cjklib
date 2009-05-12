@@ -23,9 +23,7 @@ The L{DatabaseBuilder} is the central instance for managing the build process.
 As the creation of a table can depend on other tables the DatabaseBuilder keeps
 track of dependencies to process a build in the correct order.
 
-Building is supported (i.e. tested) for the following storage methods:
-    - SQL dump to stdout (only for tables which don't depend on the presence of
-        other tables)
+Building is tested on the following storage methods:
     - SQLite
     - MySQL
 
@@ -76,10 +74,15 @@ import types
 import locale
 import sys
 import re
-import warnings
 import os.path
 import xml.sax
 import csv
+
+from sqlalchemy import Table, Column, Integer, String, Text, Index
+from sqlalchemy import select, union
+from sqlalchemy.sql import text, func
+from sqlalchemy.sql import and_, or_, not_
+import sqlalchemy
 
 from cjklib import dbconnector
 from cjklib import characterlookup
@@ -112,12 +115,6 @@ class TableBuilder(object):
         self.dataPath = dataPath
         self.quiet = quiet
         self.db = dbConnectInst
-        if self.db:
-            self.target = self.db.getDatabaseType()
-            if self.target == 'MySQL':
-                warnings.filterwarnings("ignore", "Unknown table.*")
-        else:
-            self.target = 'dump'
 
     def build(self):
         """
@@ -163,6 +160,53 @@ class TableBuilder(object):
             + "' under path(s)'" + "', '".join(self.dataPath) \
             + "' for file names '" + "', '".join(fileNames) + "'")
 
+    def buildTableObject(self, tableName, columns, columnTypeMap={},
+        primaryKeys=[]):
+        """
+        Returns a SQLAlchemy Table object.
+
+        @type tableName: str
+        @param tableName: name of table
+        @type columns: list of str
+        @param columns: column names
+        @type columnTypeMap: dict of str and object
+        @param columnTypeMap: mapping of column name to SQLAlchemy Column
+        @type primaryKeys: list of str
+        @param primatyKeys: list of primary key columns
+        """
+        table = Table(tableName, self.db.metadata)
+        for column in columns:
+            if column in columnTypeMap:
+                type_ = columnTypeMap[column]
+            else:
+                type_ = Text()
+                warn("column %s has no type, assuming default 'Text()'" \
+                    % column)
+            table.append_column(Column(column, type_,
+                primary_key=(column in primaryKeys)))
+
+        return table
+
+    def buildIndexObjects(self, tableName, indexKeyList):
+        """
+        Returns a SQLAlchemy Table object.
+
+        @type tableName: str
+        @param tableName: name of table
+        @type indexKeyList: list of list of str
+        @param indexKeyList: a list of key combinations
+        @rtype: object
+        @return: SQLAlchemy Index
+        """
+        indexList = []
+        table = Table(tableName, self.db.metadata, autoload=True)
+        for indexKeyColumns in indexKeyList:
+            indexName = tableName + '__' + '_'.join(indexKeyColumns)
+            indexList.append(Index(indexName,
+                *[table.c[column] for column in indexKeyColumns]))
+
+        return indexList
+
 
 class EntryGeneratorBuilder(TableBuilder):
     """
@@ -185,57 +229,59 @@ class EntryGeneratorBuilder(TableBuilder):
         """
         pass
 
-    def build(self):
-        # get create statement
-        createStatement = getCreateTableStatement(self.PROVIDES, self.COLUMNS,
-            self.COLUMN_TYPES, primaryKeyColumns=self.PRIMARY_KEYS)
-        if self.target == 'dump':
-            output(createStatement)
+    def getEntryDict(self, generator):
+        entryList = []
+
+        firstEntry = generator.next()
+        if type(firstEntry) == type(dict()):
+            entryList.append(firstEntry)
+
+            for newEntry in generator:
+                entryList.append(newEntry)
         else:
-            self.db.getCursor().execute(createStatement)
-            self.db.getCursor().execute('BEGIN;')
+            firstEntryDict = dict([(column, firstEntry[i]) \
+                for i, column in enumerate(self.COLUMNS)])
+            entryList.append(firstEntryDict)
+
+            for newEntry in generator:
+                entryDict = dict([(column, newEntry[i]) \
+                    for i, column in enumerate(self.COLUMNS)])
+                entryList.append(entryDict)
+
+        return entryList
+
+    def build(self):
+        # get generator, might raise an Exception if source not found
+        generator = self.getGenerator()
+
+        # get create statement
+        table = self.buildTableObject(self.PROVIDES, self.COLUMNS,
+            self.COLUMN_TYPES, self.PRIMARY_KEYS)
+        table.create()
 
         # write table content
-        for newEntry in self.getGenerator():
-            insertStatement = getInsertStatement(self.PROVIDES, newEntry)
-            if self.target == 'dump':
-                output(insertStatement)
-            elif self.target == 'MySQL':
-                import _mysql_exceptions
-                try:
-                    self.db.getCursor().execute(insertStatement)
-                except _mysql_exceptions.IntegrityError:
-                    warn(insertStatement)
-                    raise
-            elif self.target == 'SQLite':
-                import pysqlite2.dbapi2
-                try:
-                    self.db.getCursor().execute(insertStatement)
-                except pysqlite2.dbapi2.IntegrityError:
-                    warn(insertStatement)
-                    raise
+        #try:
+            #entries = self.getEntryDict(self.getGenerator())
+            #self.db.execute(table.insert(), entries)
+        #except sqlalchemy.exceptions.IntegrityError, e:
+            #warn(unicode(e))
+            ##warn(unicode(insertStatement))
+            #raise
 
-        if self.target != 'dump':
-            self.db.getConnection().commit()
+        for newEntry in generator:
+            try:
+                table.insert(newEntry).execute()
+            except sqlalchemy.exceptions.IntegrityError, e:
+                warn(unicode(e))
+                raise
 
-        # get create index statement
-        indexStatements = getCreateIndexStatement(self.PROVIDES,
-            self.INDEX_KEYS)
-        if self.target == 'dump':
-            for statement in indexStatements:
-                output(statement)
-        else:
-            for statement in indexStatements:
-                self.db.getCursor().execute(statement)
+        for index in self.buildIndexObjects(self.PROVIDES, self.INDEX_KEYS):
+            index.create()
 
     def remove(self):
         # get drop table statement
-        dropStatement = getDropTableStatement(self.PROVIDES)
-        if self.target == 'dump':
-            output(dropStatement)
-        else:
-            self.db.getCursor().execute(dropStatement)
-            self.db.getConnection().commit()
+        table = Table(self.PROVIDES, self.db.metadata)
+        table.drop()
 
 
 class ListGenerator:
@@ -249,7 +295,7 @@ class ListGenerator:
         """
         self.entryList = entryList
 
-    def __iter__(self):
+    def generator(self):
         for entry in self.entryList:
             yield entry
 
@@ -285,7 +331,7 @@ class UnihanGenerator:
         else:
             self.limitKeys = False
 
-    def __iter__(self):
+    def generator(self):
         """
         Iterates over the Unihan entries.
 
@@ -387,19 +433,19 @@ class UnihanBuilder(EntryGeneratorBuilder):
     class EntryGenerator:
         """Generates the entries of the Unihan table."""
 
-        def __init__(self, generator):
+        def __init__(self, unihanGenerator):
             """
             Initialises the EntryGenerator.
 
-            @type generator: instance
-            @param generator: a L{UnihanGenerator} instance
+            @type unihanGenerator: instance
+            @param unihanGenerator: a L{UnihanGenerator} instance
             """
-            self.generator = generator
+            self.unihanGenerator = unihanGenerator
 
-        def __iter__(self):
+        def generator(self):
             """Provides all data of one character per entry."""
-            columns = self.generator.keys()
-            for char, entryDict in self.generator:
+            columns = self.unihanGenerator.keys()
+            for char, entryDict in self.unihanGenerator.generator():
                 newEntryDict = {UnihanBuilder.CHARACTER_COLUMN: char}
                 for column in columns:
                     if entryDict.has_key(column):
@@ -411,13 +457,14 @@ class UnihanBuilder(EntryGeneratorBuilder):
     PROVIDES = 'Unihan'
     CHARACTER_COLUMN = 'ChineseCharacter'
     """Name of column for Chinese character key."""
-    COLUMN_TYPES = {CHARACTER_COLUMN: 'VARCHAR(1)', 'kCantonese': 'TEXT',
-        'kFrequency': 'INTEGER', 'kHangul': 'TEXT', 'kHanyuPinlu': 'TEXT',
-        'kJapaneseKun': 'TEXT', 'kJapaneseOn': 'TEXT', 'kKorean': 'TEXT',
-        'kMandarin': 'TEXT', 'kRSJapanese': 'TEXT', 'kRSKanWa': 'TEXT',
-        'kRSKangXi': 'TEXT', 'kRSKorean': 'TEXT', 'kSimplifiedVariant': 'TEXT',
-        'kTotalStrokes': 'INTEGER', 'kTraditionalVariant': 'TEXT',
-        'kVietnamese': 'TEXT', 'kZVariant': 'TEXT'}
+    COLUMN_TYPES = {CHARACTER_COLUMN: String(1), 'kCantonese': Text(),
+        'kFrequency': Integer(), 'kHangul': Text(), 'kHanyuPinlu': Text(),
+        'kJapaneseKun': Text(), 'kJapaneseOn': Text(), 'kKorean': Text(),
+        'kMandarin': Text(), 'kRSJapanese': Text(), 'kRSKanWa': Text(),
+        'kRSKangXi': Text(), 'kRSKorean': Text(),
+        'kSimplifiedVariant': Text(), 'kTotalStrokes': Integer(),
+        'kTraditionalVariant': Text(), 'kVietnamese': Text(),
+        'kZVariant': Text()}
     unihanGenerator = None
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
@@ -440,7 +487,8 @@ class UnihanBuilder(EntryGeneratorBuilder):
         return self.unihanGenerator
 
     def getGenerator(self):
-        return UnihanBuilder.EntryGenerator(self.getUnihanGenerator())
+        return UnihanBuilder.EntryGenerator(self.getUnihanGenerator())\
+            .generator()
 
     def build(self):
         generator = self.getUnihanGenerator()
@@ -461,16 +509,18 @@ class UnihanBMPBuilder(UnihanBuilder):
     """
     class BMPEntryGenerator:
 
-        def __init__(self, generator):
+        def __init__(self, unihanGenerator):
             """
             Initialises the EntryGenerator.
 
-            @type generator: instance
-            @param generator: a L{UnihanGenerator} instance
+            @type unihanGenerator: instance
+            @param unihanGenerator: a L{UnihanGenerator} instance
             """
-            self.entryGen = UnihanBuilder.EntryGenerator(generator)
+            gen = unihanGenerator.generator()
+            self.entryGen = UnihanBuilder.EntryGenerator(unihanGenerator)\
+                .generator()
 
-        def __iter__(self):
+        def generator(self):
             for entryDict in self.entryGen:
                 # skip characters outside the BMP, i.e. for Chinese characters
                 # >= 0x20000
@@ -483,7 +533,8 @@ class UnihanBMPBuilder(UnihanBuilder):
         self.PRIMARY_KEYS = [self.CHARACTER_COLUMN]
 
     def getGenerator(self):
-        return UnihanBMPBuilder.BMPEntryGenerator(self.getUnihanGenerator())
+        return UnihanBMPBuilder.BMPEntryGenerator(self.getUnihanGenerator())\
+            .generator()
 
 
 class SlimUnihanBuilder(UnihanBuilder):
@@ -605,7 +656,7 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
                 handle = codecs.open(self.dataPath, 'r')
             return handle
 
-        def __iter__(self):
+        def generator(self):
             """Provides a pronunciation and a path to the audio file."""
             entryList = []
             xmlHandler = Kanjidic2Builder.XMLHandler(entryList, self.tagDict)
@@ -622,8 +673,8 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
     PROVIDES = 'Kanjidic'
     CHARACTER_COLUMN = 'ChineseCharacter'
     """Name of column for Chinese character key."""
-    COLUMN_TYPES = {CHARACTER_COLUMN: 'VARCHAR(1)', 'NelsonRadical': 'INTEGER',
-        'CharacterJapaneseOn': 'TEXT', 'CharacterJapaneseKun': 'TEXT'}
+    COLUMN_TYPES = {CHARACTER_COLUMN: String(1), 'NelsonRadical': Integer(),
+        'CharacterJapaneseOn': Text(), 'CharacterJapaneseKun': Text()}
     KANJIDIC_TAG_MAPPING = {
         (('literal', ), frozenset()): ('ChineseCharacter', lambda x: x[0]),
         (('radical', 'rad_value'),
@@ -684,7 +735,7 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
         if not self.quiet:
             warn("reading file '" + path + "'")
         return Kanjidic2Builder.KanjidicGenerator(path,
-            self.KANJIDIC_TAG_MAPPING)
+            self.KANJIDIC_TAG_MAPPING).generator()
 
 
 class UnihanDerivedBuilder(EntryGeneratorBuilder):
@@ -703,7 +754,7 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
     Column name for new data in created table. Needs to be overwritten in
     subclass.
     """
-    COLUMN_TARGET_TYPE = 'VARCHAR(255)'
+    COLUMN_TARGET_TYPE = Text()
     """
     Type of column for new data in created table.
     """
@@ -721,14 +772,16 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
         self.COLUMNS = ['ChineseCharacter', self.COLUMN_TARGET]
         self.PRIMARY_KEYS = self.COLUMNS
         # set column types
-        self.COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)',
+        self.COLUMN_TYPES = {'ChineseCharacter': String(1),
             self.COLUMN_TARGET: self.COLUMN_TARGET_TYPE}
 
     def getGenerator(self):
         # create generator
-        tableEntries = self.db.select('Unihan', ['ChineseCharacter',
-            self.COLUMN_SOURCE], {self.COLUMN_SOURCE: 'IS NOT NULL'})
-        return self.GENERATOR_CLASS(tableEntries, self.quiet)
+        table = self.db.tables['Unihan']
+        tableEntries = self.db.selectRows(
+            select([table.c.ChineseCharacter, table.c[self.COLUMN_SOURCE]],
+                table.c[self.COLUMN_SOURCE] != None))
+        return self.GENERATOR_CLASS(tableEntries, self.quiet).generator()
 
     def build(self):
         if not self.quiet:
@@ -756,7 +809,7 @@ class UnihanStrokeCountBuilder(UnihanDerivedBuilder):
             self.entries = entries
             self.quiet = quiet
 
-        def __iter__(self):
+        def generator(self):
             """Provides one entry per radical and character."""
             for character, strokeCount in self.entries:
                 yield(character, strokeCount)
@@ -764,7 +817,7 @@ class UnihanStrokeCountBuilder(UnihanDerivedBuilder):
     PROVIDES = 'UnihanStrokeCount'
     COLUMN_SOURCE = 'kTotalStrokes'
     COLUMN_TARGET = 'StrokeCount'
-    COLUMN_TARGET_TYPE = 'INTEGER'
+    COLUMN_TARGET_TYPE = Integer()
     GENERATOR_CLASS = StrokeCountExtractor
 
 
@@ -788,7 +841,7 @@ class CharacterRadicalBuilder(UnihanDerivedBuilder):
             self.rsEntries = rsEntries
             self.quiet = quiet
 
-        def __iter__(self):
+        def generator(self):
             """Provides one entry per radical and character."""
             for character, radicalStroke in self.rsEntries:
                 matchObj = self.RADICAL_REGEX.match(radicalStroke)
@@ -800,7 +853,7 @@ class CharacterRadicalBuilder(UnihanDerivedBuilder):
                         + character + "': '" + radicalStroke + "'")
 
     COLUMN_TARGET = 'RadicalIndex'
-    COLUMN_TARGET_TYPE = 'INTEGER'
+    COLUMN_TARGET_TYPE = Integer()
     GENERATOR_CLASS = RadicalExtractor
 
 
@@ -881,7 +934,7 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
             self.typeList = typeList
             self.quiet = quiet
 
-        def __iter__(self):
+        def generator(self):
             """Provides one entry per variant and character."""
             for entries in self.variantEntries:
                 character = entries[0]
@@ -918,6 +971,8 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
     Unihan table columns providing content for the table together with their
     abbreviation used in the target table.
     """
+    COLUMN_TYPES = {'ChineseCharacter': String(1), 'Variant': String(1),
+        'Type': String(1)}
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(CharacterVariantBuilder, self).__init__(dataPath, dbConnectInst,
@@ -925,9 +980,6 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
         # create name mappings
         self.COLUMNS = ['ChineseCharacter', 'Variant', 'Type']
         self.PRIMARY_KEYS = self.COLUMNS
-        # set column types
-        self.COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)',
-            'Variant': 'VARCHAR(1)', 'Type': 'CHAR'}
 
     def getGenerator(self):
         # create generator
@@ -935,9 +987,12 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
         variantTypes = [self.COLUMN_SOURCE_ABBREV[key] for key in keys]
         selectKeys = ['ChineseCharacter']
         selectKeys.extend(keys)
-        tableEntries = self.db.select('Unihan', selectKeys)
+
+        table = self.db.tables['Unihan']
+        tableEntries = self.db.selectRows(
+            select([table.c[column] for column in selectKeys]))
         return CharacterVariantBuilder.VariantGenerator(tableEntries,
-            variantTypes, self.quiet)
+            variantTypes, self.quiet).generator()
 
     def build(self):
         if not self.quiet:
@@ -970,9 +1025,9 @@ class CharacterVariantBMPBuilder(CharacterVariantBuilder):
             @param quiet: if true no status information will be printed
             """
             self.variantGen = CharacterVariantBuilder.VariantGenerator( \
-                variantEntries, typeList, quiet)
+                variantEntries, typeList, quiet).generator()
 
-        def __iter__(self):
+        def generator(self):
             for character, variant, variantType in self.variantGen:
                 # skip characters outside the BMP, i.e. for Chinese characters
                 # >= 0x20000
@@ -989,9 +1044,12 @@ class CharacterVariantBMPBuilder(CharacterVariantBuilder):
         variantTypes = [self.COLUMN_SOURCE_ABBREV[key] for key in keys]
         selectKeys = ['ChineseCharacter']
         selectKeys.extend(keys)
-        tableEntries = self.db.select('Unihan', selectKeys)
+
+        table = self.db.tables['Unihan']
+        tableEntries = self.db.selectRows(
+            select([table.c[column] for column in selectKeys]))
         return CharacterVariantBMPBuilder.BMPVariantGenerator(tableEntries,
-            variantTypes, self.quiet)
+            variantTypes, self.quiet).generator()
 
 
 class UnihanCharacterSetBuilder(EntryGeneratorBuilder):
@@ -1008,13 +1066,16 @@ class UnihanCharacterSetBuilder(EntryGeneratorBuilder):
         self.COLUMNS = ['ChineseCharacter']
         self.PRIMARY_KEYS = self.COLUMNS
         # set column types
-        self.COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)'}
+        self.COLUMN_TYPES = {'ChineseCharacter': String(1)}
 
     def getGenerator(self):
         # create generator
-        tableEntries = self.db.selectSoleValue('Unihan', 'ChineseCharacter',
-            {self.COLUMN_SOURCE: 'IS NOT NULL'})
-        return ListGenerator(tableEntries)
+        table = self.db.tables['Unihan']
+        # read rows here instead of scalars to yield tuples for the generator
+        tableEntries = self.db.selectRows(
+            select([table.c.ChineseCharacter],
+                table.c[self.COLUMN_SOURCE] != None))
+        return ListGenerator(tableEntries).generator()
 
     def build(self):
         if not self.quiet:
@@ -1066,7 +1127,7 @@ class CharacterReadingBuilder(UnihanDerivedBuilder):
             self.readingEntries = readingEntries
             self.quiet = quiet
 
-        def __iter__(self):
+        def generator(self):
             """Provides one entry per reading entity and character."""
             for character, readings in self.readingEntries:
                 readingList = self.SPLIT_REGEX.findall(readings)
@@ -1077,7 +1138,7 @@ class CharacterReadingBuilder(UnihanDerivedBuilder):
                     yield(character, reading.lower())
 
     COLUMN_TARGET = 'Reading'
-    COLUMN_TARGET_TYPE = 'VARCHAR(255)'
+    COLUMN_TARGET_TYPE = Text()
     GENERATOR_CLASS = SimpleReadingSplitter
     DEPENDS=['Unihan']
 
@@ -1199,7 +1260,7 @@ class CharacterXHCReadingBuilder(CharacterReadingBuilder):
                 # fifth tone doesn't have any marker
                 return unicodedata.normalize("NFC", entity) + '5'
 
-        def __iter__(self):
+        def generator(self):
             """Provides one entry per reading entity and character."""
             for character, readings in self.readingEntries:
                 readingList = self.SPLIT_REGEX.findall(readings)
@@ -1230,16 +1291,19 @@ class CharacterPinyinBuilder(EntryGeneratorBuilder):
         self.COLUMNS = ['ChineseCharacter', 'Reading']
         self.PRIMARY_KEYS = self.COLUMNS
         # set column types
-        self.COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)',
-            'Reading': 'VARCHAR(255)'}
+        self.COLUMN_TYPES = {'ChineseCharacter': String(1),
+            'Reading': String(255)}
 
     def getGenerator(self):
         # create generator
-        self.db.getCursor().execute(u' UNION '.join(\
-            [self.db.getSelectCommand(table, self.COLUMNS, {}) \
-                for table in self.DEPENDS]) + ';')
-        tableEntries = self.db.getCursor().fetchall()
-        return ListGenerator(tableEntries)
+        selectQueries = []
+        for tableName in self.DEPENDS:
+            table = self.db.tables[tableName]
+            selectQueries.append(
+                select([table.c[column] for column in self.COLUMNS]))
+
+        tableEntries = self.db.selectRows(union(*selectQueries))
+        return ListGenerator(tableEntries).generator()
 
 #}
 #{ CSV file based
@@ -1334,62 +1398,50 @@ class CSVFileLoader(TableBuilder):
     def build(self):
         import locale
         import codecs
-        # get create statement
-        filePath = self.findFile([self.TABLE_DECLARATION_FILE_MAPPING],
-            "SQL table definition file")
-        if not self.quiet:
-            warn("Reading table definition from file '" + filePath + "'")
 
-        fileHandle = codecs.open(filePath, 'r', 'utf-8')
+        definitionFile = self.findFile([self.TABLE_DECLARATION_FILE_MAPPING],
+            "SQL table definition file")
+        contentFile = self.findFile([self.TABLE_CSV_FILE_MAPPING], "table")
+
+        # get create statement
+        if not self.quiet:
+            warn("Reading table definition from file '" + definitionFile + "'")
+
+        fileHandle = codecs.open(definitionFile, 'r', 'utf-8')
         createStatement = ''.join(fileHandle.readlines()).strip("\n")
-        if self.target == 'dump':
-            output(createStatement)
-        else:
-            self.db.getCursor().execute(createStatement)
-            self.db.getCursor().execute('BEGIN;')
+        # get create statement
+        self.db.execute(text(createStatement))
+        table = Table(self.PROVIDES, self.db.metadata, autoload=True)
 
         # write table content
-        filePath = self.findFile([self.TABLE_CSV_FILE_MAPPING], "table")
         if not self.quiet:
             warn("Reading table '" + self.PROVIDES + "' from file '" \
-                + filePath + "'")
-        fileHandle = codecs.open(filePath, 'r', 'utf-8')
+                + contentFile + "'")
+        fileHandle = codecs.open(contentFile, 'r', 'utf-8')
 
+        entries = []
         for line in self.getCSVReader(fileHandle):
             if len(line) == 1 and not line[0].strip():
                 continue
-            insertStatement = getInsertStatement(self.PROVIDES, line)
-            if self.target == 'dump':
-                output(insertStatement)
-            else:
-                try:
-                    self.db.getCursor().execute(insertStatement)
-                except Exception, strerr: # TODO get a better exception here
-                    warn("Error '" + str(strerr) \
-                        + "' inserting line with following code: '" \
-                        + insertStatement + "'")
+            entryDict = dict([(column.name, line[i]) \
+                for i, column in enumerate(table.columns)])
+            entries.append(entryDict)
+
+        try:
+            self.db.execute(table.insert(), entries)
+        except sqlalchemy.exceptions.IntegrityError, e:
+            warn(unicode(e))
+            #warn(unicode(insertStatement))
+            raise
 
         # get create index statement
-        indexStatements = getCreateIndexStatement(self.PROVIDES,
-            self.INDEX_KEYS)
-        if self.target == 'dump':
-            for statement in indexStatements:
-                output(statement)
-        else:
-            for statement in indexStatements:
-                self.db.getCursor().execute(statement)
-
-        if self.target != 'dump':
-            self.db.getConnection().commit()
+        for index in self.buildIndexObjects(self.PROVIDES, self.INDEX_KEYS):
+            index.create()
 
     def remove(self):
         # get drop table statement
-        dropStatement = getDropTableStatement(self.PROVIDES)
-        if self.target == 'dump':
-            output(dropStatement)
-        else:
-            self.db.getCursor().execute(dropStatement)
-            self.db.getConnection().commit()
+        table = Table(self.PROVIDES, self.db.metadata)
+        table.drop()
 
 
 class PinyinSyllablesBuilder(CSVFileLoader):
@@ -1671,6 +1723,8 @@ class ZVariantBuilder(EntryGeneratorBuilder):
     """
     Builds a list of glyph indices for characters.
     @todo Impl: Check if all Z-variants in LocaleCharacterVariant are included.
+    @todo Bug: Forms with two variants in CharacterDecomposition are missing,
+        e.g. ⾓.
     """
     PROVIDES = 'ZVariants'
     DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Unihan']
@@ -1679,25 +1733,33 @@ class ZVariantBuilder(EntryGeneratorBuilder):
     COLUMNS = ['ChineseCharacter', 'ZVariant']
     PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant']
     INDEX_KEYS = [['ChineseCharacter']]
-    COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)', 'ZVariant': 'INTEGER'}
+    COLUMN_TYPES = {'ChineseCharacter': String(1), 'ZVariant': Integer()}
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(ZVariantBuilder, self).__init__(dataPath, dbConnectInst, quiet)
 
     def getGenerator(self):
-        characterSet = set(self.db.select('CharacterDecomposition',
-            ['ChineseCharacter', 'ZVariant'], distinctValues=True))
-        characterSet.update(self.db.select('StrokeOrder',
-            ['ChineseCharacter', 'ZVariant']))
+        decompositionTable = self.db.tables['CharacterDecomposition']
+        strokeOrderTable = self.db.tables['CharacterDecomposition']
+        unihanTable = self.db.tables['Unihan']
+
+        characterSet = set(self.db.selectRows(
+            select([decompositionTable.c.ChineseCharacter,
+                decompositionTable.c.ZVariant], distinct=True)))
+        characterSet.update(self.db.selectRows(
+            select([strokeOrderTable.c.ChineseCharacter,
+                strokeOrderTable.c.ZVariant])))
         # TODO
         #characterSet.update(self.db.select('LocaleCharacterVariant',
             #['ChineseCharacter', 'ZVariant']))
         # Add characters from Unihan as Z-variant 0
-        unihanCharacters = self.db.selectSoleValue('Unihan', 'ChineseCharacter',
-            [{'kTotalStrokes': 'IS NOT NULL'}, {'kRSKangXi': 'IS NOT NULL'}])
+        unihanCharacters = self.db.selectScalars(
+            select([unihanTable.c.ChineseCharacter],
+                or_(unihanTable.c.kTotalStrokes != None,
+                    unihanTable.c.kRSKangXi != None)))
         characterSet.update([(char, 0) for char in unihanCharacters])
 
-        return ListGenerator(characterSet)
+        return ListGenerator(characterSet).generator()
 
 
 class StrokeCountBuilder(EntryGeneratorBuilder):
@@ -1725,7 +1787,7 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
             # make sure a currently existing table is not used
             self.cjk.hasStrokeCount = False
 
-        def __iter__(self):
+        def generator(self):
             """Provides one entry per character, z-Variant and locale subset."""
             for char, zVariant in self.characterSet:
                 try:
@@ -1747,19 +1809,24 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
 
     COLUMNS = ['ChineseCharacter', 'StrokeCount', 'ZVariant']
     PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant']
-    COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)', 'StrokeCount': 'INTEGER',
-        'ZVariant': 'INTEGER'}
+    COLUMN_TYPES = {'ChineseCharacter': String(1), 'StrokeCount': Integer(),
+        'ZVariant': Integer()}
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(StrokeCountBuilder, self).__init__(dataPath, dbConnectInst, quiet)
 
     def getGenerator(self):
-        characterSet = set(self.db.select('CharacterDecomposition',
-            ['ChineseCharacter', 'ZVariant'], distinctValues=True))
-        characterSet.update(self.db.select('StrokeOrder',
-            ['ChineseCharacter', 'ZVariant'], distinctValues=True))
+        decompositionTable = self.db.tables['CharacterDecomposition']
+        strokeOrderTable = self.db.tables['StrokeOrder']
+
+        characterSet = set(self.db.selectRows(
+            select([decompositionTable.c.ChineseCharacter,
+                decompositionTable.c.ZVariant], distinct=True)))
+        characterSet.update(self.db.selectRows(
+            select([strokeOrderTable.c.ChineseCharacter,
+                strokeOrderTable.c.ZVariant])))
         return StrokeCountBuilder.StrokeCountGenerator(self.db, characterSet,
-            self.quiet)
+            self.quiet).generator()
 
 
 class CombinedStrokeCountBuilder(StrokeCountBuilder):
@@ -1885,7 +1952,7 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             else:
                 return strokeCountDict[(char, zVariant)]
 
-        def __iter__(self):
+        def generator(self):
             """Provides one entry per character, z-Variant and locale subset."""
             # handle chars from own data first
             strokeCountDict = {}
@@ -1937,16 +2004,24 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
     COLUMN_SOURCE = 'kTotalStrokes'
 
     def getGenerator(self):
-        characterSet = set(self.db.select('CharacterDecomposition',
-            ['ChineseCharacter', 'ZVariant'], distinctValues=True))
-        characterSet.update(self.db.select('StrokeOrder',
-            ['ChineseCharacter', 'ZVariant'], distinctValues=True))
+        decompositionTable = self.db.tables['CharacterDecomposition']
+        strokeOrderTable = self.db.tables['StrokeOrder']
+        unihanTable = self.db.tables['Unihan']
+
+        characterSet = set(self.db.selectRows(
+            select([decompositionTable.c.ChineseCharacter,
+                decompositionTable.c.ZVariant], distinct=True)))
+        characterSet.update(self.db.selectRows(
+            select([strokeOrderTable.c.ChineseCharacter,
+                strokeOrderTable.c.ZVariant])))
         preferredBuilder = \
             CombinedStrokeCountBuilder.StrokeCountGenerator(self.db,
-                characterSet, self.quiet)
+                characterSet, self.quiet).generator()
         # get main builder
-        tableEntries = self.db.select('Unihan', ['ChineseCharacter',
-            self.COLUMN_SOURCE], {self.COLUMN_SOURCE: 'IS NOT NULL'})
+        tableEntries = self.db.selectRows(
+            select([unihanTable.c.ChineseCharacter,
+                unihanTable.c[self.COLUMN_SOURCE]],
+                unihanTable.c[self.COLUMN_SOURCE] != None))
 
         # get characters to build combined stroke count for. Some characters
         #   from the CharacterDecomposition table might not have a stroke count
@@ -1954,7 +2029,8 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
         characterSet.update([(char, 0) for char, totalCount in tableEntries])
 
         return CombinedStrokeCountBuilder.CombinedStrokeCountGenerator(self.db,
-            characterSet, tableEntries, preferredBuilder, self.quiet)
+            characterSet, tableEntries, preferredBuilder, self.quiet)\
+            .generator()
 
 
 class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
@@ -2007,7 +2083,7 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
 
             return componentSet
 
-        def __iter__(self):
+        def generator(self):
             """Provides the component entries."""
             decompositionDict = self.cjk.getDecompositionEntriesDict()
             componentDict = {}
@@ -2025,18 +2101,20 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
     COLUMNS = ['ChineseCharacter', 'ZVariant', 'Component', 'ComponentZVariant']
     PRIMARY_KEYS = COLUMNS
     INDEX_KEYS = [['Component']]
-    COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)', 'ZVariant': 'INTEGER',
-        'Component': 'VARCHAR(1)', 'ComponentZVariant': 'INTEGER'}
+    COLUMN_TYPES = {'ChineseCharacter': String(1), 'ZVariant': Integer(),
+        'Component': String(1), 'ComponentZVariant': Integer()}
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(CharacterComponentLookupBuilder, self).__init__(dataPath,
             dbConnectInst, quiet)
 
     def getGenerator(self):
-        characterSet = set(self.db.select('CharacterDecomposition',
-            ['ChineseCharacter', 'ZVariant'], distinctValues=True))
+        decompositionTable = self.db.tables['CharacterDecomposition']
+        characterSet = set(self.db.selectRows(
+            select([decompositionTable.c.ChineseCharacter,
+                decompositionTable.c.ZVariant], distinct=True)))
         return CharacterComponentLookupBuilder.CharacterComponentGenerator(
-            self.db, characterSet)
+            self.db, characterSet).generator()
 
 
 class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
@@ -2309,7 +2387,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
             return self.filterForms(
                 [dict(d) for d in entriesDict[(char, zVariant)]])
 
-        def __iter__(self):
+        def generator(self):
             """Provides the radical/stroke count entries."""
             strokeCountDict = self.cjk.getStrokeCountDict()
             decompositionDict = self.cjk.getDecompositionEntriesDict()
@@ -2337,10 +2415,10 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
         'ResidualStrokeCount']
     PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant', 'RadicalForm',
         'RadicalZVariant', 'MainCharacterLayout', 'RadicalRelativePosition']
-    COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)', 'RadicalIndex': 'INTEGER',
-        'RadicalForm': 'VARCHAR(1)', 'ZVariant': 'INTEGER',
-        'RadicalZVariant': 'INTEGER', 'MainCharacterLayout': 'VARCHAR(1)',
-        'RadicalRelativePosition': 'INTEGER', 'ResidualStrokeCount': 'INTEGER'}
+    COLUMN_TYPES = {'ChineseCharacter': String(1), 'RadicalIndex': Integer(),
+        'RadicalForm': String(1), 'ZVariant': Integer(),
+        'RadicalZVariant': Integer(), 'MainCharacterLayout': String(1),
+        'RadicalRelativePosition': Integer(), 'ResidualStrokeCount': Integer()}
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(CharacterRadicalStrokeCountBuilder, self).__init__(dataPath,
@@ -2348,11 +2426,13 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
 
     def getGenerator(self):
         # get all characters we have component information for
-        characterSet = set(self.db.select('CharacterDecomposition',
-            ['ChineseCharacter', 'ZVariant'], distinctValues=True)) 
+        decompositionTable = self.db.tables['CharacterDecomposition']
+        characterSet = set(self.db.selectRows(
+            select([decompositionTable.c.ChineseCharacter,
+                decompositionTable.c.ZVariant], distinct=True)))
         return CharacterRadicalStrokeCountBuilder\
             .CharacterRadicalStrokeCountGenerator(self.db, characterSet,
-                self.quiet)
+                self.quiet).generator()
 
 
 class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
@@ -2428,7 +2508,7 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
 
             return filteredEntries
 
-        def __iter__(self):
+        def generator(self):
             """Provides one entry per character, z-Variant and locale subset."""
             radicalDict = self.cjk.getCharacterRadicalResidualStrokeCountDict()
             for char, zVariant in self.characterSet:
@@ -2443,18 +2523,20 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
         'ResidualStrokeCount']
     PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant', 'RadicalIndex']
     INDEX_KEYS = [['RadicalIndex']]
-    COLUMN_TYPES = {'ChineseCharacter': 'VARCHAR(1)', 'RadicalIndex': 'INTEGER',
-        'ZVariant': 'INTEGER', 'ResidualStrokeCount': 'INTEGER'}
+    COLUMN_TYPES = {'ChineseCharacter': String(1), 'RadicalIndex': Integer(),
+        'ZVariant': Integer(), 'ResidualStrokeCount': Integer()}
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         super(CharacterResidualStrokeCountBuilder, self).__init__(dataPath,
             dbConnectInst, quiet)
 
     def getGenerator(self):
-        characterSet = set(self.db.select('CharacterRadicalResidualStrokeCount',
-            ['ChineseCharacter', 'ZVariant'], distinctValues=True))
+        residualSCTable = self.db.tables['CharacterRadicalResidualStrokeCount']
+        characterSet = set(self.db.selectRows(
+            select([residualSCTable.c.ChineseCharacter,
+                residualSCTable.c.ZVariant], distinct=True)))
         return CharacterResidualStrokeCountBuilder.ResidualStrokeCountExtractor(
-            self.db, characterSet)
+            self.db, characterSet).generator()
 
 
 class CombinedCharacterResidualStrokeCountBuilder(
@@ -2485,7 +2567,7 @@ class CombinedCharacterResidualStrokeCountBuilder(
             self.preferredBuilder = preferredBuilder
             self.quiet = quiet
 
-        def __iter__(self):
+        def generator(self):
             """Provides one entry per character and z-Variant."""
             # handle chars from own data first
             seenCharactersSet = set()
@@ -2517,16 +2599,22 @@ class CombinedCharacterResidualStrokeCountBuilder(
     COLUMN_SOURCE = 'kRSKangXi'
 
     def getGenerator(self):
-        characterSet = set(self.db.select('CharacterRadicalResidualStrokeCount',
-            ['ChineseCharacter', 'ZVariant'], distinctValues=True))
+        residualSCTable = self.db.tables['CharacterRadicalResidualStrokeCount']
+        characterSet = set(self.db.selectRows(
+            select([residualSCTable.c.ChineseCharacter,
+                residualSCTable.c.ZVariant], distinct=True)))
         preferredBuilder = CombinedCharacterResidualStrokeCountBuilder\
-            .ResidualStrokeCountExtractor(self.db, characterSet)
+            .ResidualStrokeCountExtractor(self.db, characterSet).generator()
+
         # get main builder
-        tableEntries = self.db.select('Unihan', ['ChineseCharacter',
-            self.COLUMN_SOURCE], {self.COLUMN_SOURCE: 'IS NOT NULL'})
+        unihanTable = self.db.tables['Unihan']
+        tableEntries = set(self.db.selectRows(
+            select([unihanTable.c.ChineseCharacter,
+                unihanTable.c[self.COLUMN_SOURCE]],
+                unihanTable.c[self.COLUMN_SOURCE] != None)))
         return CombinedCharacterResidualStrokeCountBuilder\
             .CombinedResidualStrokeCountExtractor(tableEntries,
-                preferredBuilder, self.quiet)
+                preferredBuilder, self.quiet).generator()
 
 #}
 #{ Dictionary builder
@@ -2537,6 +2625,9 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
     One column will be provided for the headword, one for the reading (in EDICT
     that is the Kana) and one for the translation.
+    @todo Fix: Optimize insert, use transaction which disables autocommit and
+        cosider passing data all at once, requiring proper handling of row
+        indices.
     """
     class TableGenerator:
         """Generates the dictionary entries."""
@@ -2571,7 +2662,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
                 self.entryRegex = \
                     re.compile(r'\s*(\S+)\s*(?:\[([^\]]*)\]\s*)?(/.*/)\s*$')
 
-        def __iter__(self):
+        def generator(self):
             """Provides the dictionary entries."""
             a = 0
             for line in self.fileHandle:
@@ -2596,8 +2687,8 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
     COLUMNS = ['Headword', 'Reading', 'Translation']
     PRIMARY_KEYS = []
     INDEX_KEYS = [['Headword'], ['Reading']]
-    COLUMN_TYPES = {'Headword': 'VARCHAR(255)', 'Reading': 'VARCHAR(255)',
-        'Translation': 'TEXT'}
+    COLUMN_TYPES = {'Headword': String(255), 'Reading': String(255),
+        'Translation': Text()}
 
     FULLTEXT_COLUMNS = ['Translation']
     """Column names which shall be fulltext searchable."""
@@ -2630,7 +2721,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             handle.readline()
         # create generator
         return EDICTFormatBuilder.TableGenerator(handle, self.quiet,
-            self.ENTRY_REGEX, self.COLUMNS, self.FILTER)
+            self.ENTRY_REGEX, self.COLUMNS, self.FILTER).generator()
 
     def getArchiveContentName(self, filePath):
         """
@@ -2689,85 +2780,202 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             import codecs
             return codecs.open(filePath, 'r', self.ENCODING)
 
+    def buildFTS3CreateTableStatement(self, table):
+        """
+        Returns a SQL statement for creating a virtual table using FTS3 for
+        SQLite.
+
+        @type tableName: object
+        @param tableName: SQLAlchemy table object representing the FTS3 table
+        @rtype: str
+        @return: Create table statement
+        """
+        preparer = self.db.engine.dialect.identifier_preparer
+
+        preparedColumns = []
+        for column in table.columns:
+            preparedColumns.append(preparer.format_column(column))
+        preparedTableName = preparer.format_table(table)
+        return text("CREATE VIRTUAL TABLE %s USING FTS3(%s);" \
+            % (preparedTableName, ', '.join(preparedColumns)))
+
+    def buildFTS3Tables(self, tableName, columns, columnTypeMap={},
+        primaryKeys=[], fullTextColumns=[]):
+        """
+        Builds a FTS3 table construct for supporting full text search under
+        SQLite.
+
+        @type tableName: str
+        @param tableName: name of table
+        @type columns: list of str
+        @param columns: column names
+        @type columnTypeMap: dict of str and object
+        @param columnTypeMap: mapping of column name to SQLAlchemy Column
+        @type primaryKeys: list of str
+        @param primatyKeys: list of primary key columns
+        @type fullTextColumns: list of str
+        @param fullTextColumns: list of fulltext columns
+        """
+
+        # table with non-FTS3 data
+        simpleColumns = [column for column in columns \
+            if column not in fullTextColumns]
+        simpleTable = self.buildTableObject(tableName + '_Normal',
+            simpleColumns, columnTypeMap, primaryKeys)
+        simpleTable.create()
+
+        # FTS3 table
+        fts3Table = self.buildTableObject(tableName + '_Text', fullTextColumns,
+            columnTypeMap)
+        createFTS3Statement = self.buildFTS3CreateTableStatement(fts3Table)
+        self.db.execute(createFTS3Statement)
+
+        # view to mask FTS3 table construct as simple table
+        view = Table(tableName, self.db.metadata)
+        preparer = self.db.engine.dialect.identifier_preparer
+        simpleTableName = preparer.format_table(simpleTable)
+        fts3TableName = preparer.format_table(fts3Table)
+
+        createViewStatement = text("""CREATE VIEW %s AS SELECT * FROM %s JOIN %s
+            ON %s.rowid = %s.rowid;""" \
+                % (preparer.format_table(view), simpleTableName, fts3TableName,
+                    simpleTableName, fts3TableName))
+        self.db.execute(createViewStatement)
+        # register view so processes depending on this succeed, see special
+        #   view handling in DatabaseBuilder.__init__, workaround for SQLalchemy
+        # TODO Bug in SQLalchemy that doesn't reflect table on reload?
+        #t = Table(tableName, self.db.metadata, autoload=True, useexisting=True)
+        self.db.engine.reflecttable(view)
+
+    def insertFTS3Tables(self, tableName, generator, columns=[],
+        fullTextColumns=[]):
+
+        simpleColumns = [column for column in columns \
+            if column not in fullTextColumns]
+        simpleTable = Table(tableName + '_Normal', self.db.metadata,
+            autoload=True)
+        fts3Table = Table(tableName + '_Text', self.db.metadata,
+            autoload=True)
+        fts3FullRows = ['rowid']
+        fts3FullRows.extend(fullTextColumns)
+
+        for newEntry in generator:
+            try:
+                if type(newEntry) == type([]):
+                    simpleData = [newEntry[i] \
+                        for i, column in enumerate(columns) \
+                            if column not in fullTextColumns]
+                    fts3Data = [newEntry[i] \
+                        for i, column in enumerate(columns) \
+                            if column in fullTextColumns]
+                    fts3Data.insert('rowid', 0)
+                else:
+                    simpleData = dict([(key, value) \
+                        for key, value in newEntry.items() \
+                        if key in simpleColumns])
+                    fts3Data = dict([(key, value) \
+                        for key, value in newEntry.items() \
+                        if key in fullTextColumns])
+                    fts3Data['rowid'] = func.last_insert_rowid()
+
+                # table with non-FTS3 data
+                simpleTable.insert(simpleData).execute()
+                fts3Table.insert(fts3Data).execute()
+            except sqlalchemy.exceptions.IntegrityError:
+                warn(unicode(e))
+                #warn(unicode(insertStatement))
+                raise
+
+    def testFTS3(self):
+        """
+        Tests if the SQLite FTS3 extension is supported on the build system.
+
+        @rtype: bool
+        @return: C{True} if the FTS3 extension exists, C{False} otherwise.
+        """
+        # Until #3436 is fixed (http://www.sqlite.org/cvstrac/tktview?tn=3436,5)
+        #   do it the bad way
+        try:
+            dummyTable = Table('cjklib_test_fts3_presence', self.db.metadata,
+                Column('dummy'), useexisting=True)
+            createStatement = self.buildFTS3CreateTableStatement(dummyTable)
+            self.db.execute(createStatement)
+            try:
+                dummyTable.drop()
+            except sqlalchemy.exceptions.OperationalError:
+                pass
+            return True
+        except sqlalchemy.exceptions.OperationalError:
+            return False
+
     def build(self):
         """
         Build the table provided by the TableBuilder.
 
         A search index is created to allow for fulltext searching.
         """
-        hasFTS3 = self.target == 'SQLite' and testFTS3(self.db.getCursor())
-        if not hasFTS3:
-            # get create statement
-            createStatement = getCreateTableStatement(self.PROVIDES,
-                self.COLUMNS, self.COLUMN_TYPES,
-                primaryKeyColumns=self.PRIMARY_KEYS)
-        else:
-            # get create statement
-            createStatement = getFTS3CreateTableStatement(self.PROVIDES,
-                self.COLUMNS, self.COLUMN_TYPES,
-                primaryKeyColumns=self.PRIMARY_KEYS,
-                fullTextColumns=self.FULLTEXT_COLUMNS)
+        # get generator, might raise an Exception if source not found
+        generator = self.getGenerator()
 
-        if self.target == 'dump':
-            output(createStatement)
-        elif self.target != 'SQLite':
-            self.db.getCursor().execute(createStatement)
+        hasFTS3 = self.db.engine.name == 'sqlite' and self.testFTS3()
+        if not hasFTS3:
+            warn("No SQLite FTS3 support found, fulltext search not supported.")
+            # get create statement
+            table = self.buildTableObject(self.PROVIDES, self.COLUMNS,
+                self.COLUMN_TYPES, self.PRIMARY_KEYS)
+            table.create()
         else:
-            self.db.getCursor().execute('PRAGMA synchronous = OFF;')
-            self.db.getCursor().executescript(createStatement)
+            # get create statement
+            self.buildFTS3Tables(self.PROVIDES, self.COLUMNS, self.COLUMN_TYPES,
+                self.PRIMARY_KEYS, self.FULLTEXT_COLUMNS)
 
         if not hasFTS3:
             # write table content
-            for newEntry in self.getGenerator():
-                insertStatement = getInsertStatement(self.PROVIDES, newEntry)
-                if self.target == 'dump':
-                    output(insertStatement)
-                else:
-                    self.db.getCursor().execute(insertStatement)
+            #try:
+                #entries = self.getEntryDict(generator)
+                #self.db.execute(table.insert(), entries)
+            #except sqlalchemy.exceptions.IntegrityError, e:
+                #warn(unicode(e))
+                ##warn(unicode(insertStatement))
+                #raise
+            for newEntry in generator:
+                try:
+                    table.insert(newEntry).execute()
+                except sqlalchemy.exceptions.IntegrityError:
+                    warn(unicode(e))
+                    #warn(unicode(insertStatement))
+                    raise
         else:
             # write table content
-            for newEntry in self.getGenerator():
-                insertStatement = getFTS3InsertStatement(self.PROVIDES,
-                    newEntry, fullTextColumns=self.FULLTEXT_COLUMNS)
-                self.db.getCursor().executescript(insertStatement)
-
-        if self.target != 'dump':
-            self.db.getConnection().commit()
-        if self.target == 'SQLite':
-            self.db.getCursor().execute('PRAGMA synchronous = FULL;')
+            self.insertFTS3Tables(self.PROVIDES, generator, self.COLUMNS,
+                self.FULLTEXT_COLUMNS)
 
         # get create index statement
         if not hasFTS3:
-            indexStatements = getCreateIndexStatement(self.PROVIDES,
-                self.INDEX_KEYS)
+            for index in self.buildIndexObjects(self.PROVIDES, self.INDEX_KEYS):
+                index.create()
         else:
-            indexStatements = getFTS3CreateIndexStatement(self.PROVIDES,
-                self.INDEX_KEYS)
-        if self.target == 'dump':
-            for statement in indexStatements:
-                output(statement)
-        else:
-            for statement in indexStatements:
-                self.db.getCursor().execute(statement)
+            for index in self.buildIndexObjects(self.PROVIDES + '_Normal',
+                self.INDEX_KEYS):
+                index.create()
 
     def remove(self):
         # get drop table statement
-        hasFTS3 = self.target == 'SQLite' and testFTS3(self.db.getCursor())
-        if not hasFTS3:
-            # get drop table statement
-            dropStatement = getDropTableStatement(self.PROVIDES)
-        else:
-            # get drop table statement
-            dropStatement = getFTS3DropTableStatement(self.PROVIDES)
 
-        if self.target == 'dump':
-            output(dropStatement)
-        elif self.target != 'SQLite':
-            self.db.getCursor().execute(dropStatement)
-            self.db.getConnection().commit()
+        hasFTS3 = self.db.engine.has_table(self.PROVIDES + '_Text')
+        if not hasFTS3:
+            table = Table(self.PROVIDES, self.db.metadata)
+            table.drop()
         else:
-            self.db.getCursor().executescript(dropStatement)
-            self.db.getConnection().commit()
+            preparer = self.db.engine.dialect.identifier_preparer
+            view = Table(self.PROVIDES, self.db.metadata)
+            dropViewStatement = text("DROP VIEW %s" \
+                % preparer.format_table(view))
+            self.db.execute(dropViewStatement)
+            table = Table(self.PROVIDES + '_Normal', self.db.metadata)
+            table.drop()
+            table = Table(self.PROVIDES + '_Text', self.db.metadata)
+            table.drop()
 
 
 class WordIndexBuilder(EntryGeneratorBuilder):
@@ -2799,7 +3007,7 @@ class WordIndexBuilder(EntryGeneratorBuilder):
             self.wordRegex = re.compile(r'\([^\)]+\)|' \
                 + r'(?:; Bsp.: [^/]+?--[^/]+)|([^/,\(\)\[\]\!\?]+)')
 
-        def __iter__(self):
+        def generator(self):
             """Provides all data of one word per entry."""
             # remember seen entries to prevent double entries
             seenWordEntries = set()
@@ -2819,8 +3027,8 @@ class WordIndexBuilder(EntryGeneratorBuilder):
                         yield newEntryDict
 
     COLUMNS = ['Headword', 'Reading', 'Word']
-    COLUMN_TYPES = {'Headword': 'VARCHAR(255)', 'Reading': 'VARCHAR(255)',
-        'Word': 'VARCHAR(255)'}
+    COLUMN_TYPES = {'Headword': String(255), 'Reading': String(255),
+        'Word': String(255)}
     INDEX_KEYS = [['Word']]
 
     TABLE_SOURCE = None
@@ -2832,9 +3040,11 @@ class WordIndexBuilder(EntryGeneratorBuilder):
         super(WordIndexBuilder, self).__init__(dataPath, dbConnectInst, quiet)
 
     def getGenerator(self):
-        entries = self.db.select(self.TABLE_SOURCE, [self.HEADWORD_SOURCE,
-            'Reading', 'Translation'])
-        return WordIndexBuilder.WordEntryGenerator(entries)
+        table = self.db.tables[self.TABLE_SOURCE]
+        entries = self.db.selectRows(
+            select([table.c[self.HEADWORD_SOURCE], table.c.Reading,
+                table.c.Translation]))
+        return WordIndexBuilder.WordEntryGenerator(entries).generator()
 
 
 class EDICTBuilder(EDICTFormatBuilder):
@@ -2868,9 +3078,9 @@ class CEDICTFormatBuilder(EDICTFormatBuilder):
     COLUMNS = ['HeadwordTraditional', 'HeadwordSimplified', 'Reading',
         'Translation']
     INDEX_KEYS = [['HeadwordTraditional'], ['HeadwordSimplified'], ['Reading']]
-    COLUMN_TYPES = {'HeadwordTraditional': 'VARCHAR(255)',
-        'HeadwordSimplified': 'VARCHAR(255)', 'Reading': 'VARCHAR(255)',
-        'Translation': 'TEXT'}
+    COLUMN_TYPES = {'HeadwordTraditional': String(255),
+        'HeadwordSimplified': String(255), 'Reading': String(255),
+        'Translation': Text()}
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
         self.ENTRY_REGEX = \
@@ -2946,7 +3156,6 @@ class CEDICTGRWordIndexBuilder(WordIndexBuilder):
 class HanDeDictBuilder(CEDICTFormatBuilder):
     """
     Builds the HanDeDict dictionary.
-    @todo Fix: Improve file name handling to find older downloads of HanDeDict.
     """
     def filterSpacing(self, entry):
         """
@@ -3084,8 +3293,7 @@ class DatabaseBuilder:
 
         @type databaseSettings: dict
         @param databaseSettings: dictionary holding the database options for the
-            dbconnector module. If key 'dump' is given all sql code will be
-            printed to stdout.
+            dbconnector module.
         @type dbConnectInst: instance
         @param dbConnectInst: instance of a L{DatabaseConnector}
         @type dataPath: list of str
@@ -3123,11 +3331,10 @@ class DatabaseBuilder:
         # get connector to database
         if dbConnectInst:
             self.db = dbConnectInst
-        elif databaseSettings and databaseSettings.has_key('dump'):
-            self.db = None
         else:
             self.db = dbconnector.DatabaseConnector.getDBConnector(
                 databaseSettings)
+
         # get TableBuilder classes
         tableBuilderClasses = DatabaseBuilder.getTableBuilderClasses(
             set(prefer), quiet=self.quiet,
@@ -3164,18 +3371,21 @@ class DatabaseBuilder:
         if type(tables) != type([]):
             tables = [tables]
 
+        warn("Building database '%s'" % self.db.databaseUrl)
+
         # remove tables that don't need to be rebuilt
         filteredTables = []
         for table in tables:
             if table not in self.tableBuilderLookup:
-                raise exception.UnsupportedError("Table '" + table \
-                    + "' not provided")
+                raise exception.UnsupportedError("Table '%s' not provided" \
+                    % table)
 
             if self.needsRebuild(table):
                 filteredTables.append(table)
             else:
                 if not self.quiet:
-                    warn("Skipping table '" + table + "' as it already exists")
+                    warn("Skipping table '%s' because it already exists" \
+                        % table)
         tables = filteredTables
 
         # get depending tables that need to be updated when dependencies change
@@ -3193,25 +3403,6 @@ class DatabaseBuilder:
         # get build order and remove tables we don't need to build
         builderClasses = self.getClassesInBuildOrder(buildTables)
 
-        # check if we only dump tables, no database available then and no
-        #   tables with dependencies can be created
-        if not self.db:
-            noBuild = set()
-            for builder in builderClasses:
-                if builder.DEPENDS:
-                    message = "Builder '" + builder.__name__ \
-                        + "' depends on table(s) '" \
-                        + "', '".join(builder.DEPENDS) \
-                        + "' and needs to be built with database support"
-                    if self.noFail:
-                        warn(message + ', skipping')
-                        noBuild.add(builder)
-                    else:
-                        raise Exception(message)
-            # remove tables with dependencies
-            builderClasses = [clss for clss in builderClasses \
-                if not clss in noBuild]
-
         # build tables
         if not self.quiet and self.rebuildExisting:
             warn("Rebuilding tables and overwriting old ones...")
@@ -3221,19 +3412,17 @@ class DatabaseBuilder:
             builder = builderClasses.pop()
             # check first if the table will only be created for resolving
             # dependencies and note it down for deletion
+            transaction = self.db.connection.begin()
             try:
-                if not self.quiet:
-                    warn("Building table '" + builder.PROVIDES \
-                        + "' with builder '" + builder.__name__ + "'...")
                 instance = builder(self.dataPath, self.db, self.quiet)
                 # mark tables as deletable if its only provided because of
                 #   dependencies and the table doesn't exists yet
                 if builder.PROVIDES in buildDependentTables \
-                    and not self.db.tableExists(builder.PROVIDES):
+                    and not self.db.engine.has_table(builder.PROVIDES):
                     instancesUnrequestedTable.add(instance)
 
                 if self.db:
-                    if self.db.tableExists(builder.PROVIDES):
+                    if self.db.engine.has_table(builder.PROVIDES):
                         if not self.quiet:
                             warn("Removing previously built table '" \
                                 + builder.PROVIDES + "'")
@@ -3241,8 +3430,14 @@ class DatabaseBuilder:
                 else:
                     instance.remove()
 
+                if not self.quiet:
+                    warn("Building table '" + builder.PROVIDES \
+                        + "' with builder '" + builder.__name__ + "'...")
+
                 instance.build()
+                transaction.commit()
             except IOError, e:
+                transaction.rollback()
                 # data not available, can't build table
                 if self.noFail:
                     if not self.quiet:
@@ -3262,6 +3457,8 @@ class DatabaseBuilder:
                     builderClasses = remainingBuilderClasses
                 else:
                     raise
+            except Exception, e:
+                transaction.rollback()
 
         # remove tables that where only created as build dependencies
         if instancesUnrequestedTable:
@@ -3292,7 +3489,7 @@ class DatabaseBuilder:
         for builder in tableBuilderClasses:
             instance = builder(self.dataPath, self.db, self.quiet)
             if self.db:
-                if self.db.tableExists(builder.PROVIDES):
+                if self.db.engine.has_table(builder.PROVIDES):
                     if not self.quiet:
                         warn("Removing previously built table '" \
                             + builder.PROVIDES + "'")
@@ -3310,10 +3507,10 @@ class DatabaseBuilder:
         @rtype: bool
         @return: True, if table needs to be rebuilt
         """
-        if self.rebuildExisting or not self.db:
+        if self.rebuildExisting:
             return True
         else:
-            return not self.db.tableExists(tableName)
+            return not self.db.engine.has_table(tableName)
 
     def getBuildDependentTables(self, tableNames):
         """
@@ -3338,7 +3535,7 @@ class DatabaseBuilder:
             if table in tableNames:
                 # don't add dependant tables if they are given explicitly
                 return
-            if self.db and self.db.tableExists(table):
+            if self.db and self.db.engine.has_table(table):
                 skippedTables.add(table)
                 return
 
@@ -3366,8 +3563,9 @@ class DatabaseBuilder:
                 solveDependencyRecursive(depededTable)
 
         if not self.quiet and skippedTables:
-            warn("Depending on table(s) '" + "', '".join(skippedTables) \
-                + "' but skipping as already existent")
+            warn("Newly built tables depend on table(s) '" \
+                + "', '".join(skippedTables) \
+                + "' but skipping because they already exist")
         return dependedTablesNames
 
     def getDependingTables(self, tableNames):
@@ -3411,13 +3609,10 @@ class DatabaseBuilder:
         @return: names of tables that need to be rebuilt because of dependencies
         """
         dependingTables = self.getDependingTables(tableNames)
-        if not self.db:
-            # if dumping sql code build all
-            return dependingTables
 
         needRebuild = set()
         for tableName in dependingTables:
-            if self.db.tableExists(tableName):
+            if self.db.engine.has_table(tableName):
                 needRebuild.add(tableName)
         return needRebuild
 
@@ -3578,7 +3773,7 @@ class DatabaseBuilder:
         @rtype: boolean
         @return: True if optimizable, False otherwise
         """
-        return self.db.getDatabaseType() in ['SQLite']
+        return self.db.engine.name in ['sqlite']
 
     def optimize(self):
         """
@@ -3587,22 +3782,13 @@ class DatabaseBuilder:
         @raise Exception: if database does not support optimization
         @raise OperationalError: if optimization failed
         """
-        if self.db.getDatabaseType() == 'SQLite':
-            self.db.getCursor().execute('VACUUM')
+        if self.db.engine.name == 'sqlite':
+            self.db.execute('VACUUM')
         else:
             raise Exception('Database does not seem to support optimization')
 
 #}
 #{ Global methods
-
-def output(message):
-    """
-    Prints the given message to stdout with the system's default encoding.
-
-    @type message: str
-    @param message: message to print
-    """
-    print message.encode(locale.getpreferredencoding(), 'replace')
 
 def warn(message):
     """
@@ -3613,311 +3799,3 @@ def warn(message):
     """
     print >> sys.stderr, message.encode(locale.getpreferredencoding(),
         'replace')
-
-def getDropTableStatement(tableName):
-    """
-    Returns the SQL remove table statement for removing a table with the given
-    name if it exists.
-
-    @type tableName: str
-    @param tableName: name of table to add data to
-    @rtype: str
-    @return: SQL drop table statement
-    """
-    return 'DROP TABLE IF EXISTS ' + tableName + ';'
-
-def getFTS3DropTableStatement(tableName):
-    """
-    Returns the SQL remove table statement for removing a table with the given
-    name if it exists.
-
-    @type tableName: str
-    @param tableName: name of table to add data to
-    @rtype: str
-    @return: SQL drop table statement
-    """
-    normalColumnsTableName = tableName + '_Normal'
-    fullTextColumnsTableName = tableName + '_Text'
-    return "\n".join(['DROP TABLE IF EXISTS ' + normalColumnsTableName + ';',
-        'DROP TABLE IF EXISTS ' + fullTextColumnsTableName + ';',
-        'DROP VIEW IF EXISTS ' + tableName + ';'])
-
-def getCreateTableStatement(tableName, columnList, columnTypes={},
-    columnDefaults={}, primaryKeyColumns=[], uniqueKeyColumns=[]):
-    """
-    Returns the SQL create table statement for creating a new table for the
-    given columns.
-
-    @type tableName: str
-    @param tableName: name of table to add data to
-    @type columnList: list of str
-    @param columnList: name of columns to include in table
-    @type columnTypes: dict
-    @param columnTypes: sql type of columns
-    @type columnDefaults: dict
-    @param columnDefaults: default value for columns, if omitted NOT NULL
-        will be assumed
-    @type primaryKeyColumns: list of str
-    @param primaryKeyColumns: column names that build the default key
-    @type uniqueKeyColumns: list of list of str
-    @param uniqueKeyColumns: several lists of column names, each list
-        building a unique key
-    @rtype: str
-    @return: SQL create table statement
-    """
-    # construct column definitions
-    columnDef = []
-    # get key columns
-    keysSet = set(primaryKeyColumns)
-    for uniqueKeys in uniqueKeyColumns:
-        keysSet.update(uniqueKeys)
-    for column in columnList:
-        if columnTypes.has_key(column):
-            colType = columnTypes[column]
-        else:
-            colType = "TEXT"
-        if columnDefaults.has_key(column):
-            colDefault = ' ' + columnDefaults[column]
-        elif column in keysSet:
-            colDefault = ' NOT NULL'
-        else:
-            colDefault = ' DEFAULT NULL'
-        columnDef.append(column + "\t" + colType + colDefault)
-    # construct primary and unique key definitions
-    primaryKeyDef = ''
-    uniqueKeysDef = ''
-    if primaryKeyColumns:
-        primaryKeyDef = ",\n  PRIMARY KEY(" + ', '.join(primaryKeyColumns) \
-        + ")"
-    if uniqueKeyColumns:
-        uniqueKeysDef = "\n, " \
-            + "\n, ".join(['UNIQUE (' + ', '.join(columns) + ')' \
-                for columns in uniqueKeyColumns])
-
-    return "CREATE TABLE " + tableName + " (\n  " + ",\n  ".join(columnDef) \
-        + primaryKeyDef + uniqueKeysDef + "\n);"
-
-def testFTS3(cur):
-    """
-    Tests if the SQLite FTS3 extension is supported on the build system.
-
-    @param cur: db cursor object
-    @rtype: bool
-    @return: C{True} if the FTS3 extension exists, C{False} otherwise.
-    """
-    # Until #3436 is fixed (http://www.sqlite.org/cvstrac/tktview?tn=3436,5)
-    #   do it the bad way
-    import pysqlite2.dbapi2
-    try:
-        cur.executescript(getFTS3CreateTableStatement(
-            'cjklib_test_fts3_presence', ['dummy']))
-        try:
-            cur.executescript(getFTS3DropTableStatement(
-                'cjklib_test_fts3_presence'))
-        except pysqlite2.dbapi2.OperationalError:
-            pass
-        return True
-    except pysqlite2.dbapi2.OperationalError:
-        return False
-
-def getFTS3CreateTableStatement(tableName, columnList, columnTypes={},
-    columnDefaults={}, primaryKeyColumns=[], uniqueKeyColumns=[],
-    fullTextColumns=[]):
-    """
-    Returns the SQL create table statement for creating a new table for the
-    given columns using the SQLite FTS3 extension for fulltext searching.
-
-    @type tableName: str
-    @param tableName: name of table to add data to
-    @type columnList: list of str
-    @param columnList: name of columns to include in table
-    @type columnTypes: dict
-    @param columnTypes: sql type of columns
-    @type columnDefaults: dict
-    @param columnDefaults: default value for columns, if omitted NOT NULL
-        will be assumed
-    @type primaryKeyColumns: list of str
-    @param primaryKeyColumns: column names that build the default key
-    @type uniqueKeyColumns: list of list of str
-    @param uniqueKeyColumns: several lists of column names, each list
-        building a unique key
-    @type fullTextColumns: list of str
-    @param fullTextColumns: column names that are indexed for fulltext search
-    @rtype: str
-    @return: SQL create table statement
-    """
-    # construct column definitions
-    columnDef = []
-    # get key columns
-    keysSet = set(primaryKeyColumns)
-    for uniqueKeys in uniqueKeyColumns:
-        keysSet.update(uniqueKeys)
-    for column in columnList:
-        if column in set(fullTextColumns):
-            continue
-        if columnTypes.has_key(column):
-            colType = columnTypes[column]
-        else:
-            colType = "TEXT"
-        if columnDefaults.has_key(column):
-            colDefault = ' ' + columnDefaults[column]
-        elif column in keysSet:
-            colDefault = ' NOT NULL'
-        else:
-            colDefault = ' DEFAULT NULL'
-        columnDef.append(column + "\t" + colType + colDefault)
-    # construct primary and unique key definitions
-    primaryKeyDef = ''
-    uniqueKeysDef = ''
-    if primaryKeyColumns:
-        primaryKeyDef = ",\n  PRIMARY KEY(" + ', '.join(primaryKeyColumns) \
-        + ")"
-    if uniqueKeyColumns:
-        uniqueKeysDef = "\n, " \
-            + "\n, ".join(['UNIQUE (' + ', '.join(columns) + ')' \
-                for columns in uniqueKeyColumns])
-    normalColumnsTableName = tableName + '_Normal'
-    normalColumnsTable = "CREATE TABLE " + normalColumnsTableName + " (\n  " \
-        + ",\n  ".join(columnDef) + primaryKeyDef + uniqueKeysDef + "\n);"
-
-    # fulltext table
-    fullTextColumnsTableName = tableName + '_Text'
-    fullTextColumnsTable = "CREATE VIRTUAL TABLE " + fullTextColumnsTableName \
-        + " USING FTS3(" + ", ".join(fullTextColumns) + ");"
-
-    # master table as view
-    viewTable = "CREATE VIEW " + tableName + " AS SELECT * from " \
-        + normalColumnsTableName + " JOIN " + fullTextColumnsTableName \
-        + " ON " + normalColumnsTableName + ".rowid = " \
-        + fullTextColumnsTableName + ".rowid;"
-
-    return "\n".join([normalColumnsTable, fullTextColumnsTable, viewTable])
-
-def getInsertStatement(tableName, data):
-    """
-    Returns the SQL insert statement for adding a new entry to the given table.
-
-    The given data can be either passed in a list, where it will be assumed to
-    have the order compatible to the table definition, or as a dictionary where
-    the keys are the columns to write.
-
-    @type tableName: str
-    @param tableName: name of table to add data to
-    @type data: dict/list
-    @param data: key value pairs, with keys giving the column names or a simple
-        list of values
-    @rtype: str
-    @return: SQL insert values statement
-    """
-    if type(data) == type({}):
-        columnList = data.keys()
-        cellList = [data[column] for column in columnList]
-        columnDef = ' (' + ', '.join(columnList) + ')'
-    else:
-        columnDef = ''
-        cellList = data
-    return 'INSERT INTO ' + tableName + columnDef + ' VALUES (' \
-        + ', '.join(prepareData(cellList)) + ');'
-
-def getFTS3InsertStatement(tableName, data, fullTextColumns=[]):
-    """
-    Returns the SQL insert statement for adding a new entry to the given table.
-
-    The given data can be either passed in a list, where it will be assumed to
-    have the order compatible to the table definition, or as a dictionary where
-    the keys are the columns to write.
-
-    @type tableName: str
-    @param tableName: name of table to add data to
-    @type data: dict/list
-    @param data: key value pairs, with keys giving the column names or a simple
-        list of values
-    @type fullTextColumns: list of str
-    @param fullTextColumns: column names that are indexed for fulltext search
-    @rtype: str
-    @return: SQL insert values statement
-    """
-    normalColumnsTableName = tableName + '_Normal'
-
-    columnList = [column for column in data.keys() \
-        if column not in fullTextColumns]
-    cellList = [data[column] for column in columnList]
-    columnDef = ' (' + ', '.join(columnList) + ')'
-
-    normalColumnsTable = 'INSERT INTO ' + normalColumnsTableName + columnDef \
-        + ' VALUES (' + ', '.join(prepareData(cellList)) + ');'
-
-    # fulltext table
-    fullTextColumnsTableName = tableName + '_Text'
-
-    columnList = [column for column in data.keys() \
-        if column in fullTextColumns]
-    cellList = [data[column] for column in columnList]
-    columnDef = ' (rowid, ' + ', '.join(columnList) + ')'
-
-    fullTextColumnsTable = 'INSERT INTO ' + fullTextColumnsTableName \
-        + columnDef + ' VALUES (last_insert_rowid(), ' \
-        + ', '.join(prepareData(cellList)) + ');'
-
-    return normalColumnsTable + "\n" + fullTextColumnsTable
-
-def getCreateIndexStatement(tableName, indexKeyColumns):
-    """
-    Returns the SQL create index statement for creating indices for the
-    given columns.
-
-    @type tableName: str
-    @param tableName: name of table to add data to
-    @type indexKeyColumns: list of list of str
-    @param indexKeyColumns: several lists of column names, each list
-        building index key
-    @rtype: list of str
-    @return: SQL create index statements
-    """
-    if not indexKeyColumns:
-        return []
-    for columns in indexKeyColumns:
-        return ['CREATE INDEX ' + tableName + '__' + '_'.join(columns) \
-            + ' ON ' + tableName + ' (' + ', '.join(columns) + ');' \
-                for columns in indexKeyColumns]
-
-def getFTS3CreateIndexStatement(tableName, indexKeyColumns):
-    """
-    Returns the SQL create index statement for creating indices for the
-    given columns for tables created with the FTS3 extension in mind.
-
-    @type tableName: str
-    @param tableName: name of table to add data to
-    @type indexKeyColumns: list of list of str
-    @param indexKeyColumns: several lists of column names, each list
-        building index key
-    @rtype: list of str
-    @return: SQL create index statements
-    """
-    if not indexKeyColumns:
-        return []
-    normalColumnsTableName = tableName + '_Normal'
-    for columns in indexKeyColumns:
-        return ['CREATE INDEX ' + tableName + '__' + '_'.join(columns) \
-            + ' ON ' + normalColumnsTableName + ' (' + ', '.join(columns) \
-            + ');' for columns in indexKeyColumns]
-
-def prepareData(valueList):
-    """
-    Prepares the given list of values for a SQL operation.
-
-    @type valueList: list
-    @param valueList: list of values
-    @rtype: list
-    @return: list of values, C{None} replaced through C{'NULL'}, apostrophe
-        escaped
-    """
-    newList = []
-    for entry in valueList:
-        if entry == None:
-            newList.append('NULL')
-        elif type(entry) in (type(0), type(0L)):
-            newList.append(str(entry))
-        else:
-            newList.append("'" + entry.replace("'", "''") + "'")
-    return newList
