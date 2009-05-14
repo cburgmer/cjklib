@@ -50,7 +50,10 @@ from cjklib import build
 from cjklib import exception
 import cjklib
 
-DEFAULT_DATA_PATH = ['~', 'cjklib/data/', '.']
+DEFAULT_DATA_PATH = ['.']
+buildModule = __import__("cjklib.build")
+buildModulePath = os.path.dirname(os.path.abspath(buildModule.__file__))
+DEFAULT_DATA_PATH.append(os.path.join(buildModulePath, 'data'))
 
 BUILD_GROUPS = {
     # source based
