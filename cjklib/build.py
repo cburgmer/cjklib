@@ -172,7 +172,7 @@ class TableBuilder(object):
         @type columnTypeMap: dict of str and object
         @param columnTypeMap: mapping of column name to SQLAlchemy Column
         @type primaryKeys: list of str
-        @param primatyKeys: list of primary key columns
+        @param primaryKeys: list of primary key columns
         """
         table = Table(tableName, self.db.metadata)
         for column in columns:
@@ -2785,8 +2785,8 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         Returns a SQL statement for creating a virtual table using FTS3 for
         SQLite.
 
-        @type tableName: object
-        @param tableName: SQLAlchemy table object representing the FTS3 table
+        @type table: object
+        @param table: SQLAlchemy table object representing the FTS3 table
         @rtype: str
         @return: Create table statement
         """
@@ -2812,7 +2812,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         @type columnTypeMap: dict of str and object
         @param columnTypeMap: mapping of column name to SQLAlchemy Column
         @type primaryKeys: list of str
-        @param primatyKeys: list of primary key columns
+        @param primaryKeys: list of primary key columns
         @type fullTextColumns: list of str
         @param fullTextColumns: list of fulltext columns
         """
@@ -3459,6 +3459,7 @@ class DatabaseBuilder:
                     raise
             except Exception, e:
                 transaction.rollback()
+                raise
 
         # remove tables that where only created as build dependencies
         if instancesUnrequestedTable:

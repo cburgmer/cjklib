@@ -515,7 +515,7 @@ class CharacterLookup:
         @return: list of character variant(s) with their type
         """
         table = self.db.tables['CharacterVariant']
-        return self.db.selectScalars(select([table.c.Variant, table.c.Type],
+        return self.db.selectRows(select([table.c.Variant, table.c.Type],
             table.c.ChineseCharacter == char).order_by(table.c.Variant))
 
     def getLocaleDefaultZVariant(self, char, locale):
