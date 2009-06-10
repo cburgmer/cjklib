@@ -33,7 +33,7 @@ Some L{TableBuilder}s make an assumption about the file names being loaded (the
 builder only knows the directory of the data files), so naming the input files
 according to the builder's setting is necessary.
 
-@copyright: Copyright (C) 2006-2008 Christoph Burgmer.
+@copyright: Copyright (C) 2006-2009 Christoph Burgmer.
 
 @todo Impl: Add option for rebuilding dependencies by setting
     rebuildDepending=False/True (True by default). Consider asking the user if
@@ -128,7 +128,7 @@ def version():
     Prints the version of this script.
     """
     print "buildcjkdb " + str(cjklib.__version__) \
-        + """\nCopyright (C) 2006-2008 Christoph Burgmer
+        + """\nCopyright (C) 2006-2009 Christoph Burgmer
 The library and all parts are distributed under the terms of the LGPL
 Version 2.1, February 1999 (http://www.fsf.org/licensing/licenses/lgpl.html)
 if not otherwise noted. See the data files for their specific licenses.

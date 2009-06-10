@@ -1062,7 +1062,7 @@ def version():
     Prints the version of this script.
     """
     print "cjknife " + str(cjklib.__version__) \
-        + """\nCopyright (C) 2006-2008 Christoph Burgmer
+        + """\nCopyright (C) 2006-2009 Christoph Burgmer
 
 cjknife is part of cjklib.
 

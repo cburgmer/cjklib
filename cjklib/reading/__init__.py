@@ -183,11 +183,6 @@ class ReadingFactory(object):
         need to be used on creating a operator. How to raise errors to save user
         of specifying an operator twice, one per options, one per concrete
         instance (similar to sourceOptions and targetOptions)?
-    @todo Bug: Non standard reading options seem to be accepted when default in
-        converter:
-
-        >>> print f.convert('lao3shi1', 'Pinyin', 'MandarinIPA')
-        lau˨˩.ʂʅ˥˥
     """
     READING_OPERATORS = [operator.HangulOperator, operator.PinyinOperator,
         operator.WadeGilesOperator, operator.GROperator,

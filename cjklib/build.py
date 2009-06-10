@@ -68,6 +68,7 @@ package.
     kIRG_VSource (Unicode, Vietnamese)
 @todo Fix:  On interruption (Ctrl+C) remove tables that were only created
     because of dependencies.
+@todo Impl: Add way to directly specify file paths, not only possible locations
 """
 
 import types

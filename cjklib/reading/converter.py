@@ -25,7 +25,7 @@ Convert a string from I{Jyutping} to I{Cantonese Yale}:
 
     >>> from cjklib.reading import ReadingFactory
     >>> f = ReadingFactory()
-    >>> f.convert('gwong2jau1wa2', 'Jyutping', 'CantoneseYale')
+    >>> f.convert('gwong2jau1waa2', 'Jyutping', 'CantoneseYale')
     u'gw\xf3ngy\u0101uw\xe1'
 
 This is also possible creating a converter instance explicitly using the
@@ -239,6 +239,154 @@ class ReadingConverter(object):
         return self.getOption('targetOperators')[readingN]
 
 
+class DialectSupportReadingConverter(ReadingConverter):
+    """
+    Defines an abstract L{ReadingConverter} that support non-standard reading
+    representations (dialect) as in- and output.
+
+    Input will be converted to a standard representation of the input reading
+    before the actual conversion step is done. If needed the converted reading
+    will be converted to a defined dialect.
+    """
+    DEFAULT_READING_OPTIONS = {}
+    """
+    Defines the default reading options for the reading dialect used as a bridge
+    in conversion between the user specified representation and the target
+    reading.
+
+    The most general reading dialect should be specified as to allow for a broad
+    range of input.
+    """
+
+    def convertEntities(self, readingEntities, fromReading, toReading):
+        """
+        Converts a list of entities in the source reading to the given target
+        reading.
+
+        @type readingEntities: list of str
+        @param readingEntities: list of entities written in source reading
+        @type fromReading: str
+        @param fromReading: name of the source reading
+        @type toReading: str
+        @param toReading: name of the target reading
+        @rtype: list of str
+        @return: list of entities written in target reading
+        @raise AmbiguousConversionError: if conversion for a specific entity of
+            the source reading is ambiguous.
+        @raise ConversionError: on other operations specific to the conversion
+            between the two readings (e.g. error on converting entities).
+        @raise UnsupportedError: if source or target reading is not supported
+            for conversion.
+        @raise InvalidEntityError: if an invalid entity is given.
+        """
+        if (fromReading, toReading) not in self.CONVERSION_DIRECTIONS:
+            raise UnsupportedError("conversion direction from '" \
+                + fromReading + "' to '" + toReading + "' not supported")
+
+        # first split into reading and non-reading sequences, so that later
+        #   reading conversion is only done for reading entities
+        entitySequence = []
+        for entity in readingEntities:
+            # get last reading entity sequence if any
+            if entitySequence and type(entitySequence[-1]) == type([]):
+                readingEntitySequence = entitySequence.pop()
+            else:
+                readingEntitySequence = []
+
+            if self._getFromOperator(fromReading).isReadingEntity(entity):
+                # add reading entity to preceding ones
+                readingEntitySequence.append(entity)
+                entitySequence.append(readingEntitySequence)
+            else:
+                if readingEntitySequence:
+                    entitySequence.append(readingEntitySequence)
+                # append non-reading entity
+                entitySequence.append(entity)
+
+        # convert to standard form if supported (step 1)
+        if self.readingFact.isReadingConversionSupported(fromReading,
+            fromReading):
+            # get default options if available used for converting the reading
+            #   dialect
+            if fromReading in self.DEFAULT_READING_OPTIONS:
+                fromDefaultOptions = self.DEFAULT_READING_OPTIONS[fromReading]
+            else:
+                fromDefaultOptions = {}
+            # use user specified source operator, set target to default form
+            converter = self.readingFact._getReadingConverterInstance(
+                fromReading, fromReading,
+                sourceOperators=[self._getFromOperator(fromReading)],
+                targetOptions=fromDefaultOptions)
+
+            convertedEntitySequence = []
+            for sequence in entitySequence:
+                if type(sequence) == type([]):
+                    convertedEntities = converter.convertEntities(sequence,
+                        fromReading, fromReading)
+                    convertedEntitySequence.append(convertedEntities)
+                else:
+                    convertedEntitySequence.append(sequence)
+            entitySequence = convertedEntitySequence
+
+        # do the actual conversion to the target reading (step 2)
+        toEntitySequence = self.convertEntitySequence(entitySequence,
+            fromReading, toReading)
+
+        # convert to requested form if supported (step 3)
+        if self.readingFact.isReadingConversionSupported(toReading, toReading):
+            # get default options if available used for converting the reading
+            #   dialect
+            if toReading in self.DEFAULT_READING_OPTIONS:
+                toDefaultOptions = self.DEFAULT_READING_OPTIONS[toReading]
+            else:
+                toDefaultOptions = {}
+            # use user specified target operator, set source to default form
+            converter = self.readingFact._getReadingConverterInstance(
+                toReading, toReading, sourceOptions=toDefaultOptions,
+                targetOperators=[self._getToOperator(toReading)])
+
+            convertedEntitySequence = []
+            for sequence in toEntitySequence:
+                if type(sequence) == type([]):
+                    convertedEntities = converter.convertEntities(sequence,
+                        toReading, toReading)
+                    convertedEntitySequence.append(convertedEntities)
+                else:
+                    convertedEntitySequence.append(sequence)
+            toEntitySequence = convertedEntitySequence
+
+        # flatten into target entity list
+        toReadingEntities = []
+        for sequence in toEntitySequence:
+            if type(sequence) == type([]):
+                toReadingEntities.extend(sequence)
+            else:
+                toReadingEntities.append(sequence)
+
+        return toReadingEntities
+
+    def convertEntitySequence(self, entitySequence, fromReading, toReading):
+        """
+        Convert a list of reading entities in standard representatinon given by
+        L{DEFAULT_READING_OPTIONS} and non reading entities from the source
+        reading to the target reading.
+
+        The default implementation will raise a NotImplementedError.
+
+        @type entitySequence: list structure
+        @param entitySequence: list of reading entities given as list and
+            non-reading entities as single str objects
+        @type fromReading: str
+        @param fromReading: name of the source reading
+        @type toReading: str
+        @param toReading: name of the target reading
+        @rtype: list structure
+        @return: list of converted reading entities given as list and
+            non-reading entities as single str objects
+        """
+        raise NotImplementedError
+
+
 class EntityWiseReadingConverter(ReadingConverter):
     """
     Defines an abstract L{ReadingConverter} between two or more I{readings}s for
@@ -293,7 +441,7 @@ class EntityWiseReadingConverter(ReadingConverter):
         raise NotImplementedError
 
 
-class RomanisationConverter(EntityWiseReadingConverter):
+class RomanisationConverter(DialectSupportReadingConverter):
     """
     Defines an abstract L{ReadingConverter} between two or more
     I{romanisation}s.
@@ -315,98 +463,29 @@ class RomanisationConverter(EntityWiseReadingConverter):
     L{convertBasicEntity()} has to be implemented, as to make the translation of
     a syllable from one romanisation to another possible.
     """
-    DEFAULT_READING_OPTIONS = {}
-    """
-    Defines default reading options for the reading used to convert from (to
-    resp.) before (after resp.) converting to (from resp.) the user specified
-    dialect.
 
-    The most general reading dialect should be specified as to allow for a broad
-    range of input.
-    """
+    def convertEntitySequence(self, entitySequence, fromReading, toReading):
+        toEntitySequence = []
+        for sequence in entitySequence:
+            if type(sequence) == type([]):
+                toSequence = []
+                for entity in sequence:
+                    toReadingEntity = self.convertBasicEntity(entity.lower(),
+                        fromReading, toReading)
 
-    def convertEntities(self, readingEntities, fromReading, toReading):
-        """
-        Converts a list of entities in the source reading to the given target
-        reading.
-
-        Upper case of the first character or the whole characters of one entity
-        (e.g. syllable) is respected. Entities like C{"HaO"} will degenerate to
-        C{"Hao"} though.
-
-        @type readingEntities: list of str
-        @param readingEntities: list of entities written in source reading
-        @type fromReading: str
-        @param fromReading: name of the source reading
-        @type toReading: str
-        @param toReading: name of the target reading
-        @rtype: list of str
-        @return: list of entities written in target reading
-        @raise AmbiguousConversionError: if conversion for a specific entity of
-            the source reading is ambiguous.
-        @raise ConversionError: on other operations specific to the conversion
-            between the two readings (e.g. error on converting entities).
-        @raise UnsupportedError: if source or target reading is not supported
-            for conversion.
-        @raise InvalidEntityError: if an invalid entity is given.
-        """
-        if (fromReading, toReading) not in self.CONVERSION_DIRECTIONS:
-            raise UnsupportedError("conversion direction from '" \
-                + fromReading + "' to '" + toReading + "' not supported")
-
-        # get default options if available used for converting the reading
-        #   dialect
-        if fromReading in self.DEFAULT_READING_OPTIONS:
-            fromDefaultOptions = self.DEFAULT_READING_OPTIONS[fromReading]
-        else:
-            fromDefaultOptions = {}
-        # convert to standard form if supported (step 1)
-        if self.readingFact.isReadingConversionSupported(fromReading,
-            fromReading):
-            # use user specified source operator, set target to default form
-            readingEntities = self.readingFact.convertEntities(
-                readingEntities, fromReading, fromReading,
-                sourceOperators=[self._getFromOperator(fromReading)],
-                targetOptions=fromDefaultOptions)
-
-        # do a entity wise conversion to the target reading (step 2)
-        toReadingEntities = []
-        for entity in readingEntities:
-            # convert reading entities, don't convert the rest
-            if self.readingFact.isReadingEntity(entity, fromReading,
-                **fromDefaultOptions):
-                toReadingEntity = self.convertBasicEntity(entity.lower(),
-                    fromReading, toReading)
-
-                # capitalisation
-                if self._getToOperator(toReading).getOption('case') == 'both':
-                    # check for capitalised characters
+                    # transfer capitalisation, target reading dialect will to
+                    #   final transformation (lower/upper/both)
                     if entity.isupper():
                         toReadingEntity = toReadingEntity.upper()
                     elif entity.istitle():
                         toReadingEntity = toReadingEntity.capitalize()
-                elif self._getToOperator(toReading) == 'upper':
-                    toReadingEntity = toReadingEntity.upper()
 
-                toReadingEntities.append(toReadingEntity)
+                    toSequence.append(toReadingEntity)
+                toEntitySequence.append(toSequence)
             else:
-                toReadingEntities.append(entity)
+                toEntitySequence.append(sequence)
 
-        # get default options if available used for converting the reading
-        #   dialect
-        if toReading in self.DEFAULT_READING_OPTIONS:
-            toDefaultOptions = self.DEFAULT_READING_OPTIONS[toReading]
-        else:
-            toDefaultOptions = {}
-        # convert to requested form if supported (step 3)
-        if self.readingFact.isReadingConversionSupported(toReading, toReading):
-            # use user specified target operator, set source to default form
-            toReadingEntities = self.readingFact.convertEntities(
-                toReadingEntities, toReading, toReading,
-                sourceOptions=toDefaultOptions,
-                targetOperators=[self._getToOperator(toReading)])
-
-        return toReadingEntities
+        return toEntitySequence
 
     def convertBasicEntity(self, entity, fromReading, toReading):
         """
@@ -1141,7 +1220,7 @@ class GRPinyinConverter(RomanisationConverter):
         return self.grOperator
 
 
-class PinyinIPAConverter(ReadingConverter):
+class PinyinIPAConverter(DialectSupportReadingConverter):
     u"""
     Provides a converter between the Mandarin Chinese romanisation
     I{Hanyu Pinyin} and the I{International Phonetic Alphabet} (I{IPA}) for
@@ -1234,9 +1313,10 @@ class PinyinIPAConverter(ReadingConverter):
     """
     CONVERSION_DIRECTIONS = [('Pinyin', 'MandarinIPA')]
 
-    PINYIN_OPTIONS = {'Erhua': 'ignore', 'toneMarkType': 'Numbers',
-        'missingToneMark': 'noinfo', 'case': 'lower'}
-    """Options for the PinyinOperator."""
+    DEFAULT_READING_OPTIONS = {'Pinyin': {'Erhua': 'ignore',
+        'toneMarkType': 'Numbers', 'missingToneMark': 'noinfo',
+        'case': 'lower'}}
+    # TODO once we support Erhua, use oneSyllable form to lookup
 
     TONEMARK_MAPPING = {1: '1stTone', 2: '2ndTone', 3: '3rdToneRegular',
         4: '4thTone', 5: '5thTone'}
@@ -1288,73 +1368,47 @@ class PinyinIPAConverter(ReadingConverter):
 
         return options
 
-    def convertEntities(self, readingEntities, fromReading='Pinyin',
-        toReading='MandarinIPA'):
+    def convertEntitySequence(self, entitySequence, fromReading, toReading):
+        toEntitySequence = []
+        for sequence in entitySequence:
+            if type(sequence) == type([]):
+                ipaTupelList = []
+                for idx, entity in enumerate(sequence):
+                    # split syllable into plain part and tonal information
+                    plainSyllable, tone = self.readingFact.splitEntityTone(
+                        entity, fromReading,
+                        **self.DEFAULT_READING_OPTIONS[fromReading])
 
-        if (fromReading, toReading) not in self.CONVERSION_DIRECTIONS:
-            raise UnsupportedError("conversion direction from '" \
-                + fromReading + "' to '" + toReading + "' not supported")
+                    transEntry = None
+                    if self.getOption('coarticulationFunction'):
+                        transEntry = self.getOption('coarticulationFunction')\
+                            (self, sequence[:i], plainSyllable, tone,
+                                sequence[i+1:])
 
-        if self.readingFact.isReadingConversionSupported(fromReading,
-            fromReading):
-            # use user specified source operator, set target to not accept Erhua
-            #   sound (for Pinyin)
-            readingEntities = self.readingFact.convertEntities(readingEntities,
-                fromReading, fromReading,
-                sourceOperators=[self._getFromOperator(fromReading)],
-                targetOptions=self.PINYIN_OPTIONS)
-                # TODO once we support Erhua, use oneSyllable form to lookup
+                    if not transEntry:
+                        # standard conversion
+                        transEntry = self._convertSyllable(plainSyllable, tone)
 
-        # split syllables into plain syllable and tone part
-        entityTuples = []
-        for entity in readingEntities:
-            # convert reading entities, don't convert the rest
-            if self.readingFact.isReadingEntity(entity, fromReading,
-                **self.PINYIN_OPTIONS):
-                # split syllable into plain part and tonal information
-                plainSyllable, tone = self.readingFact.splitEntityTone(entity,
-                    fromReading, **self.PINYIN_OPTIONS)
+                    ipaTupelList.append(transEntry)
 
-                entityTuples.append((plainSyllable, tone))
+                # handle sandhi
+                if self._getToOperator(toReading).getOption('toneMarkType') \
+                    != 'None':
+                    sandhiFunction = self.getOption('sandhiFunction')
+                    ipaTupelList = sandhiFunction(self, ipaTupelList)
+
+                # get tonal forms
+                toSequence = []
+                for plainSyllable, tone in ipaTupelList:
+                    entity = self._getToOperator(toReading).getTonalEntity(
+                        plainSyllable, tone)
+                    toSequence.append(entity)
+
+                toEntitySequence.append(toSequence)
             else:
-                entityTuples.append(entity)
+                toEntitySequence.append(sequence)
 
-        # convert to IPA
-        ipaTupelList = []
-        for idx, entry in enumerate(entityTuples):
-            # convert reading entities, don't convert the rest
-            if type(entry) == type(()):
-                plainSyllable, tone = entry
-
-                transEntry = None
-                if self.getOption('coarticulationFunction'):
-                    transEntry = self.getOption('coarticulationFunction')(self,
-                        entityTuples[:i], plainSyllable, tone,
-                        entityTuples[i+1:])
-
-                if not transEntry:
-                    # standard conversion
-                    transEntry = self._convertSyllable(plainSyllable, tone)
-
-                ipaTupelList.append(transEntry)
-            else:
-                ipaTupelList.append(entry)
-
-        # handle sandhi
-        if self._getToOperator(toReading).getOption('toneMarkType') != 'None':
-            ipaTupelList = self.getOption('sandhiFunction')(self, ipaTupelList)
-
-        # get tonal forms
-        toReadingEntities = []
-        for entry in ipaTupelList:
-            if type(entry) == type(()):
-                plainSyllable, tone = entry
-                entity = self._getToOperator(toReading).getTonalEntity(
-                    plainSyllable, tone)
-            else:
-                entity = entry
-            toReadingEntities.append(entity)
-        return toReadingEntities
+        return toEntitySequence
 
     def _convertSyllable(self, plainSyllable, tone):
         """
@@ -1483,7 +1537,7 @@ class PinyinIPAConverter(ReadingConverter):
                 return transSyllables[0], self.TONEMARK_MAPPING[tone]
 
 
-class PinyinBrailleConverter(ReadingConverter):
+class PinyinBrailleConverter(DialectSupportReadingConverter):
     """
     PinyinBrailleConverter defines a converter between the Chinese romanisation
     I{Hanyu Pinyin} (with tone marks as numbers) and the I{Braille} system for
@@ -1500,6 +1554,9 @@ class PinyinBrailleConverter(ReadingConverter):
     """
     CONVERSION_DIRECTIONS = [('Pinyin', 'MandarinBraille'),
         ('MandarinBraille', 'Pinyin')]
+
+    DEFAULT_READING_OPTIONS = {'Pinyin': {'Erhua': 'ignore',
+        'toneMarkType': 'Numbers', 'missingToneMark': 'noinfo'}}
 
     PUNCTUATION_SIGNS_MAPPING = {u'。': u'⠐⠆', u',': u'⠐', u'?': u'⠐⠄',
         u'!': u'⠰⠂', u':': u'⠒', u';': u'⠰', u'-': u'⠠⠤', u'…': u'⠐⠐⠐',
@@ -1606,48 +1663,35 @@ class PinyinBrailleConverter(ReadingConverter):
         # map ê to same Braille character as e
         self.pinyinFinal2Braille[u'ê'] = self.pinyinFinal2Braille[u'e']
 
-    def convertEntities(self, readingEntities, fromReading, toReading):
-        if (fromReading, toReading) not in self.CONVERSION_DIRECTIONS:
-            raise UnsupportedError("conversion direction from '" \
-                + fromReading + "' to '" + toReading + "' not supported")
-        # convert to standard form if supported
-        if self.readingFact.isReadingConversionSupported(fromReading,
-            fromReading):
-            # use user specified source operator, set target to not accept Erhua
-            #   sound (for Pinyin)
-            readingEntities = self.readingFact.convertEntities(readingEntities,
-                fromReading, fromReading,
-                sourceOperators=[self._getFromOperator(fromReading)],
-                targetOptions={'Erhua': 'ignore', 'toneMarkType': 'Numbers',
-                    'missingToneMark': 'noinfo'})
-
+    def convertEntitySequence(self, entitySequence, fromReading, toReading):
         toReadingEntities = []
         if fromReading == "Pinyin":
-            for entity in readingEntities:
-                # convert reading entities, don't convert the rest
-                if self._getFromOperator(fromReading).isReadingEntity(entity):
-                    toReadingEntity = self.convertBasicEntity(entity,
-                        fromReading, toReading)
-                    toReadingEntities.append(toReadingEntity)
+            for sequence in entitySequence:
+                if type(sequence) == type([]):
+                    for entity in sequence:
+                        toReadingEntity = self.convertBasicEntity(entity,
+                            fromReading, toReading)
+                        toReadingEntities.append(toReadingEntity)
                 else:
                     # find punctuation marks
                     for subEntity in self.pinyinPunctuationRegex.findall(
-                        entity):
+                        sequence):
                         if subEntity in self.PUNCTUATION_SIGNS_MAPPING:
                             toReadingEntities.append(
                                 self.PUNCTUATION_SIGNS_MAPPING[subEntity])
                         else:
                             toReadingEntities.append(subEntity)
         elif fromReading == "MandarinBraille":
-            for entity in readingEntities:
-                if self._getFromOperator(fromReading).isReadingEntity(entity):
-                    toReadingEntity = self.convertBasicEntity(entity.lower(),
-                        fromReading, toReading)
-                    toReadingEntities.append(toReadingEntity)
+            for sequence in entitySequence:
+                if type(sequence) == type([]):
+                    for entity in sequence:
+                        toReadingEntity = self.convertBasicEntity(
+                            entity.lower(), fromReading, toReading)
+                        toReadingEntities.append(toReadingEntity)
                 else:
                     # find punctuation marks
                     for subEntity in self.braillePunctuationRegex.findall(
-                        entity):
+                        sequence):
                         if subEntity in self.reversePunctuationMapping:
                             if not self.reversePunctuationMapping[subEntity]:
                                 raise AmbiguousConversionError(
@@ -1658,11 +1702,6 @@ class PinyinBrailleConverter(ReadingConverter):
                         else:
                             toReadingEntities.append(subEntity)
 
-        # convert to requested form if supported
-        if self.readingFact.isReadingConversionSupported(toReading, toReading):
-            toReadingEntities = self.readingFact.convertEntities(
-                toReadingEntities, toReading, toReading,
-                targetOperators=[self._getToOperator(toReading)])
         return toReadingEntities
 
     def convertBasicEntity(self, entity, fromReading, toReading):
@@ -1697,12 +1736,18 @@ class PinyinBrailleConverter(ReadingConverter):
         @raise InvalidEntityError: if the entity is invalid.
         """
         # split entity into plain part and tonal information
-        plainEntity, tone \
-            = self._getFromOperator(fromReading).splitEntityTone(entity)
+        if fromReading in self.DEFAULT_READING_OPTIONS:
+            fromOptions = self.DEFAULT_READING_OPTIONS[fromReading]
+        else:
+            fromOptions = {}
+        fromOperator = self.readingFact._getReadingOperatorInstance(fromReading,
+            **fromOptions)
+
+        plainEntity, tone = fromOperator.splitEntityTone(entity)
         # lookup in database
         if fromReading == "Pinyin":
-            initial, final \
-                = self._getFromOperator(fromReading).getOnsetRhyme(plainEntity)
+            initial, final = fromOperator.getOnsetRhyme(plainEntity)
+
             try:
                 transSyllable = self.pinyinInitial2Braille[initial] \
                     + self.pinyinFinal2Braille[final]
@@ -1711,8 +1756,7 @@ class PinyinBrailleConverter(ReadingConverter):
                     + plainEntity + "' not supported")
         elif fromReading == "MandarinBraille":
             # mapping from Braille to Pinyin is ambiguous
-            initial, final \
-                = self._getFromOperator(fromReading).getOnsetRhyme(plainEntity)
+            initial, final = fromOperator.getOnsetRhyme(plainEntity)
 
             # get all possible forms
             forms = []

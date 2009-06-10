@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 # This file is part of cjklib.
 #
 # cjklib is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@ Provides the library's unit tests.
 import unittest
 import types
 import re
+import traceback
 
 from cjklib.reading import *
 from cjklib import characterlookup
@@ -626,6 +627,7 @@ class ReadingConverterValueTestCase(ReadingConverterTestCase):
     """
     Runs reference checks on ReadingConverters. These tests assure that the
     given values are returned correctly.
+    @todo Fix: Include further GR test cases (uncomment)
     """
     CONVERSION_VALUES = {
         # Extract from Y.R. Chao's Sayable Chinese quoted from English Wikipedia
@@ -635,6 +637,46 @@ class ReadingConverterValueTestCase(ReadingConverterTestCase):
         #   tone sandhis, fixed punctuation marks in Pinyin
         ('GR', ImmutableDict({}), 'Pinyin', ImmutableDict({})): [
             (u'"Hannshyue" .de mingcheng duey Jonggwo yeou idean buhtzuenjinq .de yihwey. Woo.men tingshuo yeou "Yinnduhshyue", "Aijyishyue", "Hannshyue", erl meiyeou tingshuo yeou "Shilahshyue", "Luomaashyue", genq meiyeou tingshuo yeou "Inggwoshyue", "Meeigwoshyue". "Hannshyue" jey.geh mingcheng wanchyuan beaushyh Ou-Meei shyuejee duey nahshie yii.jing chernluen .de guulao-gwojia .de wenhuah .de ijoong chingkann .de tayduh.', u'"Hànxué" de míngchēng duì Zhōngguó yǒu yīdiǎn bùzūnjìng de yìwèi. Wǒmen tīngshuō yǒu "Yìndùxué", "Āijíxué", "Hànxué", ér méiyǒu tīngshuō yǒu "Xīlàxué", "Luómǎxué", gèng méiyǒu tīngshuō yǒu "Yīngguóxué", "Měiguóxué". "Hànxué" zhèige míngchēng wánquán biǎoshì Ōu-Měi xuézhě duì nàxiē yǐjing chénlún de gǔlǎo-guójiā de wénhuà de yīzhǒng qīngkàn de tàidù.'),
+            #(u'hairtz', u'háizi'), (u'ig', u'yīgè'), (u'sherm', u'shénme'),
+            #(u'sherm.me', u'shénme'), (u'tzeem.me', u'zěnme'),
+            #(u'tzeem.me', u'zěnme'), (u'tzemm', u'zènme'),
+            #(u'tzemm.me', u'zènme'), (u'jemm', u'zhème'),
+            #(u'jemm.me', u'zhème'), (u'nemm', u'neme'), (u'nemm.me', u'neme'),
+            #(u'.ne.me', u'neme'), (u'woom', u'wǒmen'), (u'shie.x', u'xièxie'),
+            #(u'duey .le vx', u'duì le duì le'), (u'j-h-eh', u'zhè'),
+            #(u"liibay’i", u'lǐbàiyī'), (u"san’g ren", u'sānge rén'),
+            #(u"shyr’ell", u"shí'èr")
+            ],
+        ('WadeGiles', ImmutableDict({}), 'Pinyin', ImmutableDict({})): [
+            (u'kuo', exception.AmbiguousConversionError),
+            ],
+        ('Jyutping', ImmutableDict({}), 'CantoneseYale', ImmutableDict({})): [
+            (u'gwong2jau1waa2', u'gwóngyāuwá'),
+            ],
+        ('Jyutping', ImmutableDict({}), 'CantoneseYale', ImmutableDict({})): [
+            (u'gwong2yau1waa2', u'gwóngyau1wá'),
+            ],
+        ('WadeGiles', ImmutableDict({'toneMarkType': 'SuperscriptNumbers'}),
+            'Pinyin', ImmutableDict({})): [
+            (u'kuo³-yü²', u'guǒyú'),
+            ],
+        ('WadeGiles', ImmutableDict({}), 'Pinyin', ImmutableDict({})): [
+            (u'kuo³-yü²', u'kuo³-yü²'),
+            ],
+        ('Pinyin', ImmutableDict({'toneMarkType': 'Numbers'}), 'MandarinIPA',
+            ImmutableDict({})): [
+            ('lao3shi1', u'lau˨˩.ʂʅ˥˥'),
+            ],
+        ('Pinyin', ImmutableDict({}), 'MandarinIPA', ImmutableDict({})): [
+            ('lao3shi1', 'lao3shi1'),
+            ],
+        ('Pinyin', ImmutableDict({'toneMarkType': 'Numbers'}),
+            'MandarinBraille', ImmutableDict({})): [
+            ('lao3shi1', u'⠇⠖⠄⠱⠁'),
+            ],
+        ('Pinyin', ImmutableDict({}), 'MandarinBraille', ImmutableDict({})): [
+            (u'lǎoshī', u'⠇⠖⠄⠱⠁'),
+            ('lao3shi1', 'lao3shi1'),
             ],
         }
 
@@ -643,12 +685,37 @@ class ReadingConverterValueTestCase(ReadingConverterTestCase):
         for key in self.CONVERSION_VALUES:
             readingA, optionsA, readingB, optionsB = key
             for referenceSource, referenceTarget in self.CONVERSION_VALUES[key]:
-                string = self.readingFactory.convert(referenceSource, readingA,
-                    readingB, sourceOptions=optionsA, targetOptions=optionsB)
-                self.assertEquals(string, referenceTarget,
-                        "Conversion for reading '" + readingA \
-                            + "' to reading '" + readingB + "' failed: \n" \
-                            + repr(string) + "\n" + repr(referenceTarget))
+                try:
+                    string = self.readingFactory.convert(referenceSource,
+                        readingA, readingB, sourceOptions=optionsA,
+                        targetOptions=optionsB)
+                except Exception, e:
+                    string = e
+                # if Exception raise, check if expected
+                if isinstance(string, Exception):
+                    if type(referenceTarget) not in [type(''), type(u'')] \
+                        and not isinstance(e, referenceTarget):
+                        self.assert_(False,
+                            "Expected Exception " + repr(referenceTarget) \
+                                + " but raised Exception" + repr(e) + ":\n" \
+                                + traceback.format_exc())
+                    elif type(referenceTarget) in [type(''), type(u'')]:
+                        self.assert_(False,
+                            "Expected " + repr(referenceTarget) \
+                                + " but received Exception " + repr(e) + ":\n" \
+                                + traceback.format_exc())
+                else:
+                    if type(referenceTarget) not in [type(''), type(u'')]:
+                        self.assert_(False,
+                            "Conversion should raise Exception " \
+                                + repr(referenceTarget) + " but returned " \
+                                + repr(string))
+                    else:
+                        self.assertEquals(string, referenceTarget,
+                                "Conversion for reading '" + readingA \
+                                    + "' to reading '" + readingB \
+                                    + "' failed: \n" + repr(string) + "\n" \
+                                    + repr(referenceTarget))
 
 
 class CharacterLookupTestCase(unittest.TestCase):
