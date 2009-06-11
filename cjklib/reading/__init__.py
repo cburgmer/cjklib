@@ -307,11 +307,7 @@ class ReadingFactory(object):
             C{driver://user:pass@host/database}.
         @type dbConnectInst: instance
         @param dbConnectInst: instance of a L{DatabaseConnector}
-        @bug: Specifying another database connector overwrites settings
-            of other instances.
         """
-        # rebind shared state variable to make it accessible to all instances
-        self.__dict__ = self.sharedState
         # get connector to database
         if dbConnectInst:
             self.db = dbConnectInst
