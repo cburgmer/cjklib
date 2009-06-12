@@ -333,6 +333,12 @@ def main():
             raise
         except KeyboardInterrupt:
             print >>sys.stderr, "Keyboard interrupt."
+            try:
+                # remove temporary tables
+                dbBuilder.clearTemporary()
+            except KeyboardInterrupt:
+                print >>sys.stderr, \
+                    "Interrupted while cleaning temporary tables"
 
 if __name__ == "__main__":
     main()

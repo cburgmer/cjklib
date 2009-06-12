@@ -66,8 +66,6 @@ package.
     Simplified Chinese), kIRG_JSource (Unicode, Japanese), kIRG_KPSource and
     kIRG_KSource (Unicode, Korean), kIRG_TSource (Unicode, Traditional Chinese),
     kIRG_VSource (Unicode, Vietnamese)
-@todo Fix:  On interruption (Ctrl+C) remove tables that were only created
-    because of dependencies.
 @todo Impl: Add way to directly specify file paths, not only possible locations
 """
 
@@ -3406,7 +3404,7 @@ class DatabaseBuilder:
         if not self.quiet and self.rebuildExisting:
             warn("Rebuilding tables and overwriting old ones...")
         builderClasses.reverse()
-        instancesUnrequestedTable = set()
+        self.instancesUnrequestedTable = set()
         while builderClasses:
             builder = builderClasses.pop()
             # check first if the table will only be created for resolving
@@ -3418,7 +3416,7 @@ class DatabaseBuilder:
                 #   dependencies and the table doesn't exists yet
                 if builder.PROVIDES in buildDependentTables \
                     and not self.db.engine.has_table(builder.PROVIDES):
-                    instancesUnrequestedTable.add(instance)
+                    self.instancesUnrequestedTable.add(instance)
 
                 if self.db:
                     if self.db.engine.has_table(builder.PROVIDES):
@@ -3460,9 +3458,19 @@ class DatabaseBuilder:
                 transaction.rollback()
                 raise
 
+        self.clearTemporary()
+
+    def clearTemporary(self):
+        """
+        Removes all tables only built temporarily as to satisfy build
+        dependencies. This method is called before L{build()} terminates. If the
+        build process is interruptes (e.g. by the user pressing Ctrl+C), this
+        method should be called as to make sure that these temporary tables are
+        removed and not included in later builds.
+        """
         # remove tables that where only created as build dependencies
-        if instancesUnrequestedTable:
-            for instance in instancesUnrequestedTable:
+        if 'instancesUnrequestedTable' in self.__dict__:
+            for instance in self.instancesUnrequestedTable:
                 if not self.quiet:
                     warn("Removing table '" + instance.PROVIDES \
                         + "' as it was only created to solve build " \
