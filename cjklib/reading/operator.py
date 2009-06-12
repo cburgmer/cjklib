@@ -1165,7 +1165,7 @@ class PinyinOperator(TonalRomanisationOperator):
     I{r} marking r-colouring should be an entity on its own account stressing
     the representation in the character string with an own character or rather
     stressing the monosyllabic nature and being part of a syllable of the
-    foregoing character. This can be configured once instantiation.
+    foregoing character. This can be configured at instantiation time.
 
     Source
     ======

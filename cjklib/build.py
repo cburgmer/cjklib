@@ -1724,8 +1724,6 @@ class ZVariantBuilder(EntryGeneratorBuilder):
     """
     Builds a list of glyph indices for characters.
     @todo Impl: Check if all Z-variants in LocaleCharacterVariant are included.
-    @todo Bug: Forms with two variants in CharacterDecomposition are missing,
-        e.g. ⾓.
     """
     PROVIDES = 'ZVariants'
     DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Unihan']
@@ -1741,7 +1739,7 @@ class ZVariantBuilder(EntryGeneratorBuilder):
 
     def getGenerator(self):
         decompositionTable = self.db.tables['CharacterDecomposition']
-        strokeOrderTable = self.db.tables['CharacterDecomposition']
+        strokeOrderTable = self.db.tables['StrokeOrder']
         unihanTable = self.db.tables['Unihan']
 
         characterSet = set(self.db.selectRows(
