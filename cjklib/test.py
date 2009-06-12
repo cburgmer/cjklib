@@ -266,6 +266,14 @@ class ReadingOperatorValueTestCase(ReadingOperatorTestCase):
     Runs reference checks on ReadingOperators. These tests assure that the given
     values are returned correctly.
     """
+    READING_DIALECTS = [('Pinyin', {'toneMarkType': 'Numbers'}),
+        ('Pinyin', {'Erhua': 'oneSyllable'}),
+        ('Pinyin', {'strictDiacriticPlacement': True}),
+        ('CantoneseYale', {'toneMarkType': 'Numbers'}),
+        ('CantoneseYale', {'strictDiacriticPlacement': True}),
+        ('Jyutping', {'missingToneMark': 'ignore'}),
+        ]
+
     DECOMPOSITION_VALUES = {
         ('Pinyin', ImmutableDict({})): [
             (u"tiān'ānmén", [u"tiān", "'", u"ān", u"mén"]),
@@ -306,9 +314,66 @@ class ReadingOperatorValueTestCase(ReadingOperatorTestCase):
             ],
         }
 
+    IS_READING_ENTITY_VALUES = {
+        ('Pinyin', ImmutableDict({})): [
+            (u"tiān", True),
+            (u"ān", True),
+            (u"mén", True),
+            (u"lào", True),
+            (u"xǐ", True),
+            (u"xian", True),
+            (u"ti\u0304an", True),
+            (u"tia\u0304n", True),
+            (u"laǒ", True),
+            (u"tīan", True),
+            (u"tīa", False),
+            (u"tiā", False),
+            ],
+        ('Pinyin', ImmutableDict({'strictDiacriticPlacement': True})): [
+            (u"tiān", True),
+            (u"ān", True),
+            (u"mén", True),
+            (u"lào", True),
+            (u"xǐ", True),
+            (u"xian", True),
+            (u"tia\u0304n", True),
+            (u"ti\u0304an", False),
+            (u"laǒ", False),
+            (u"tīan", False),
+            (u"tīa", False),
+            (u"tiā", False),
+            ],
+        ('CantoneseYale', ImmutableDict({})): [
+            (u'wā', True),
+            (u'gwóng', True),
+            (u'jàu', True),
+            (u'wá', True),
+            (u'néih', True),
+            (u'yuht', True),
+            (u'gwong', True),
+            (u'wa\u0304', True),
+            (u'jaù', True),
+            (u'gwongh', True),
+            (u'wáa', False),
+            ],
+        ('CantoneseYale', ImmutableDict({'strictDiacriticPlacement': True})): [
+            (u'wā', True),
+            (u'gwóng', True),
+            (u'jàu', True),
+            (u'wá', True),
+            (u'néih', True),
+            (u'yuht', True),
+            (u'gwong', True),
+            (u'wa\u0304', True),
+            (u'jaù', False),
+            (u'gwongh', False),
+            (u'wáa', False),
+            ],
+        }
+
     def testDecompositionReferences(self):
         """Test if the given decomposition references are reached."""
-        for key in self.COMPOSITION_VALUES:
+        for key in self.DECOMPOSITION_VALUES:
             reading, _ = key
             for string, targetDecomp in self.DECOMPOSITION_VALUES[key]:
                 decomposition = self.readingOperator[key].decompose(string)
@@ -327,6 +392,17 @@ class ReadingOperatorValueTestCase(ReadingOperatorTestCase):
                     "String " + repr(targetStr) + " of Composition " \
                         + repr(composition) + " not reached for reading '" \
                         + reading + "': " + repr(string))
+
+    def testEntityReferences(self):
+        """Test if the given entity references are accepted/rejected."""
+        for key in self.IS_READING_ENTITY_VALUES:
+            reading, dialectParams = key
+            for entity, target in self.IS_READING_ENTITY_VALUES[key]:
+                result = self.readingOperator[key].isReadingEntity(entity)
+                self.assertEquals(result, target,
+                    "Entity test for " + repr(entity) + " mismatches: " \
+                        + repr(result) + " but should be " + repr(target) \
+                        + " (" + reading + ", " + repr(dialectParams) + ")")
 
 
 class GRTestCase(unittest.TestCase):

@@ -1182,8 +1182,6 @@ class PinyinOperator(TonalRomanisationOperator):
     @todo Impl: ISO 7098 asks for conversion of C{。、·「」} to C{.,-«»}. What
         about C{，？《》：－}? Implement a method for conversion to be optionally
         used.
-    @todo Impl: Strict testing of tone mark placement. Currently it doesn't
-        matter where tones are placed. All combinations are recognised.
     @todo Impl: Special marker for neutral tone: 'mȧ' (u'm\u0227', reported by
         Ching-song Gene Hsiao: A Manual of Transcription Systems For Chinese,
         中文拼音手册. Far Eastern Publications, Yale University, New Haven,
@@ -1256,6 +1254,11 @@ class PinyinOperator(TonalRomanisationOperator):
             to C{'ignore'} this entity will not be valid and for segmentation
             the behaviour defined by C{'strictSegmentation'} will take affect.
             This option is only valid for the tone mark type C{'Numbers'}.
+        @keyword strictDiacriticPlacement: if set to C{True} syllables have to
+            follow the diacritic placement rule of Pinyin strictly (see
+            L{_placeNucleusToneMark()}). Wrong placement will result in
+            L{splitEntityTone()} raising an L{InvalidEntityError}. Defaults to
+            C{False}.
         @keyword yVowel: a character (or string) that is taken as alternative
             for I{ü} which depicts (among others) the close front rounded vowel
             [y] (IPA) in Pinyin and includes an umlaut. Changes forms of
@@ -1296,6 +1299,11 @@ class PinyinOperator(TonalRomanisationOperator):
                     + "' for keyword 'missingToneMark'")
             self.optionValue['missingToneMark'] = options['missingToneMark']
 
+        # should we check if the diacritics are placed correctly?
+        if 'strictDiacriticPlacement' in options:
+            self.optionValue['strictDiacriticPlacement'] \
+                = options['strictDiacriticPlacement']
+
         # set alternative ü vowel if given
         if 'yVowel' in options:
             if self.getOption('toneMarkType') == 'Diacritics' \
@@ -1333,8 +1341,8 @@ class PinyinOperator(TonalRomanisationOperator):
     def getDefaultOptions(cls):
         options = super(PinyinOperator, cls).getDefaultOptions()
         options.update({'toneMarkType': 'Diacritics',
-            'missingToneMark': 'noinfo', 'yVowel': u'ü',
-            'PinyinApostrophe': "'", 'Erhua': 'twoSyllables',
+            'missingToneMark': 'noinfo', 'strictDiacriticPlacement': False,
+            'yVowel': u'ü', 'PinyinApostrophe': "'", 'Erhua': 'twoSyllables',
             'PinyinApostropheFunction': cls.aeoApostropheRule})
 
         return options
@@ -1689,6 +1697,13 @@ class PinyinOperator(TonalRomanisationOperator):
                 # fifth tone doesn't have any marker
                 plainEntity = entity
                 tone = 5
+            # check if placement of dicritic is correct
+            if self.getOption('strictDiacriticPlacement'):
+                nfcEntity = unicodedata.normalize("NFC", unicode(entity))
+                if nfcEntity != self.getTonalEntity(plainEntity, tone):
+                    raise InvalidEntityError("Wrong placement of diacritic " \
+                        + " for '" + entity \
+                        + "' while strict checking enforced")
         # compose Unicode string (used for ê) and return with tone
         return unicodedata.normalize("NFC", plainEntity), tone
 
@@ -3199,6 +3214,11 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             segmentation the behaviour defined by C{'strictSegmentation'} will
             take affect. This option is only valid if the value C{'Numbers'} is
             given for the option I{toneMarkType}.
+        @keyword strictDiacriticPlacement: if set to C{True} syllables have to
+            follow the diacritic placement rule of Cantonese Yale strictly (see
+            L{getTonalEntity()}). Wrong placement will result in
+            L{splitEntityTone()} raising an L{InvalidEntityError}. Defaults to
+            C{False}.
         @keyword YaleFirstTone: tone in Yale which the first tone for tone marks
             with numbers should be mapped to. Value can be C{'1stToneLevel'} to
             map to the level tone with contour 55 or C{'1stToneFalling'} to map
@@ -3260,6 +3280,11 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                 + r"]?)")
             self.hCharRegex = re.compile(r"^.*(?:[aeiou]|m|ng)(h)")
 
+        # should we check if the diacritics are placed correctly?
+        if 'strictDiacriticPlacement' in options:
+            self.optionValue['strictDiacriticPlacement'] \
+                = options['strictDiacriticPlacement']
+
         # set split regular expression, works for all tone marks
         self.readingEntityRegex = re.compile(u'(?i)((?:' \
             + '|'.join([re.escape(v) for v in self._getDiacriticVowels()]) \
@@ -3269,7 +3294,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
     def getDefaultOptions(cls):
         options = super(CantoneseYaleOperator, cls).getDefaultOptions()
         options.update({'toneMarkType': 'Diacritics',
-            'missingToneMark': 'noinfo', 'YaleFirstTone': '1stToneLevel'})
+            'missingToneMark': 'noinfo', 'strictDiacriticPlacement': False,
+            'YaleFirstTone': '1stToneLevel'})
 
         return options
 
@@ -3433,6 +3459,13 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         except KeyError:
             raise InvalidEntityError("Invalid entity or no tone information " \
                 "given for '" + entity + "'")
+
+        # check if placement of dicritic is correct
+        if self.getOption('strictDiacriticPlacement'):
+            nfcEntity = unicodedata.normalize("NFC", unicode(entity))
+            if nfcEntity != self.getTonalEntity(plainEntity, tone):
+                raise InvalidEntityError("Wrong placement of diacritic for '" \
+                    + entity + "' while strict checking enforced")
 
         return unicodedata.normalize("NFC", plainEntity), tone
 
