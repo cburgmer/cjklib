@@ -50,11 +50,6 @@ from cjklib import build
 from cjklib import exception
 import cjklib
 
-DEFAULT_DATA_PATH = ['.']
-buildModule = __import__("cjklib.build")
-buildModulePath = os.path.dirname(os.path.abspath(buildModule.__file__))
-DEFAULT_DATA_PATH.append(os.path.join(buildModulePath, 'data'))
-
 BUILD_GROUPS = {
     # source based
     'packaged': ['PinyinSyllables', 'WadeGilesSyllables',
@@ -274,7 +269,10 @@ def main():
 
     # if no path set, assume default
     if not dataPathList:
-        dataPathList = DEFAULT_DATA_PATH
+        dataPathList = ['.']
+        buildModule = __import__("cjklib.build")
+        buildModulePath = os.path.dirname(os.path.abspath(buildModule.__file__))
+        dataPathList.append(os.path.join(buildModulePath, 'data'))
 
     dataPath = []
     for pathEntry in dataPathList:

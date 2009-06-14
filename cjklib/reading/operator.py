@@ -2644,6 +2644,8 @@ class GROperator(TonalRomanisationOperator):
 
         @rtype: set of str
         @return: set of supported syllables
+        @todo opt: optimize creation of rhotacised syllables, don't do one table
+            lookup per syllable, resulting in 9962 calls total
         """
         plainSyllables = self.getPlainReadingEntities()
 

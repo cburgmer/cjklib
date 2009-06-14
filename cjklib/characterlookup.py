@@ -48,11 +48,12 @@ class CharacterLookup:
     ========
     The following examples should give a quick view into how to use this
     package.
-        - Create the CharacterLookup object with default settings
-            (read from cjklib.conf or 'cjklib.db' in same directory as default):
+        - Create the CharacterLookup object with default settings (read from
+            cjklib.conf or 'cjklib.db' in same directory as default) and set
+            the character locale to traditional:
 
             >>> from cjklib import characterlookup
-            >>> cjk = characterlookup.CharacterLookup()
+            >>> cjk = characterlookup.CharacterLookup('T')
 
         - Get a list of characters, that are pronounced "국" in Korean:
 
@@ -61,13 +62,13 @@ class CharacterLookup:
 
         - Check if a character is included in another character as a component:
 
-            >>> cjk.isComponentInCharacter(u'女', u'好')
+            >>> cjk.isComponentInCharacter(u'玉', u'宝')
             True
 
-        - Get all Kangxi radical variants for Radical 184 (⾷) under the
-            traditional locale:
+        - Get all Kangxi radical variants for Radical 184 (⾷) (under the
+            traditional locale):
 
-            >>> cjk.getKangxiRadicalVariantForms(184, 'T')
+            >>> cjk.getKangxiRadicalVariantForms(184)
             [u'\u2ede', u'\u2edf']
 
     X{Character locale}
@@ -78,8 +79,8 @@ class CharacterLookup:
     locale.
 
     To deal with this circumstance I{CharacterLookup} works with a character
-    locale. Most of the methods of this class ask for a locale to be specified.
-    In these cases the output of the method depends on the specified locale.
+    locale. Most of the methods of this class need a locale context. In these
+    cases the output of the method depends on the specified locale.
 
     For example in the traditional locale 这 has 8 strokes, but in
     simplified Chinese it has only 7, as the radical ⻌ has different stroke
@@ -116,7 +117,7 @@ class CharacterLookup:
 
     Z-variants and character locales
     --------------------------------
-    Deviant stroke count, stroke order or decomposition into character
+    Varying stroke count, stroke order or decomposition into character
     components for different I{character locales} is implemented using different
     I{Z-variant}s. For the example given above the entry 这 with 8 strokes is
     given as one Z-variant and the form with 7 strokes is given as another
@@ -129,7 +130,7 @@ class CharacterLookup:
     Instead of specifying a certain Z-variant most functions will allow for
     passing of a character locale. Giving the locale will apply the default
     Z-variant given by the mapping defined in the database which can be obtained
-    by calling L{getLocaleDefaultZVariant()}.
+    by calling L{getDefaultZVariant()}.
 
     More complex relations as which of several Z-variants for a given character
     are used in a given locale are not covered.
@@ -249,8 +250,6 @@ class CharacterLookup:
     @todo Fix:  How to handle character forms (either decomposition or stroke
         order), that can only be found as a component in other characters? We
         already mark them by flagging it with an 'S'.
-    @todo Impl: Think about applying locale at object creation time and not
-        passing it on every method call. Would make the class easier to use.
     @todo Impl: Create a method for specifying which character range is of
         interest for the return values of methods. Narrowing the return results
         is a further way to locale dependant responses. E.g. cjknife could take
@@ -273,7 +272,7 @@ class CharacterLookup:
     several equivalent readings has limited use.
     """
 
-    def __init__(self, databaseUrl=None, dbConnectInst=None):
+    def __init__(self, locale, databaseUrl=None, dbConnectInst=None):
         """
         Initialises the CharacterLookup.
 
@@ -282,12 +281,19 @@ class CharacterLookup:
         databaseUrl, or an instance of L{DatabaseConnector} can be passed in
         dbConnectInst, the latter one being preferred if both are specified.
 
+        @type locale: str
+        @param locale: I{character locale} giving the context for glyph and
+            radical based functions, one character out of TCJKV.
         @type databaseUrl: str
         @param databaseUrl: database connection setting in the format
             C{driver://user:pass@host/database}.
         @type dbConnectInst: instance
         @param dbConnectInst: instance of a L{DatabaseConnector}
         """
+        if locale not in set('TCJKV'):
+            raise ValueError('Locale not one out of TCJKV: ' + repr(locale))
+        else:
+            self.locale = locale
         # get connector to database
         if dbConnectInst:
             self.db = dbConnectInst
@@ -518,6 +524,23 @@ class CharacterLookup:
         return self.db.selectRows(select([table.c.Variant, table.c.Type],
             table.c.ChineseCharacter == char).order_by(table.c.Variant))
 
+    def getDefaultZVariant(self, char):
+        """
+        Gets the default Z-variant for the given character under the chosen
+        I{character locale}.
+
+        The Z-variant returned is an index to the internal database of different
+        character glyphs and represents the most common glyph used under the
+        given locale.
+
+        @type char: str
+        @param char: Chinese character
+        @rtype: int
+        @return: Z-variant
+        @raise NoInformationError: if no Z-variant information is available
+        """
+        return self.getLocaleDefaultZVariant(char, self.locale)
+
     def getLocaleDefaultZVariant(self, char, locale):
         """
         Gets the default Z-variant for the given character under the given
@@ -576,19 +599,16 @@ class CharacterLookup:
     #}
     #{ Character stroke functions
 
-    def getStrokeCount(self, char, locale=None, zVariant=0):
+    def getStrokeCount(self, char, zVariant=None):
         """
         Gets the stroke count for the given character.
 
         @type char: str
         @param char: Chinese character
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV). Giving the locale
-            will apply the default I{Z-variant} defined by
-            L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
-            C{zVariant} will be ignored.
         @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character
+        @param zVariant: I{Z-variant} of the first character. This parameter is
+            optional and if omitted the default I{Z-variant} defined by
+            L{getDefaultZVariant()} will be used.
         @rtype: int
         @return: stroke count of given character
         @raise NoInformationError: if no stroke count information available
@@ -597,8 +617,8 @@ class CharacterLookup:
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
         """
-        if locale != None:
-            zVariant = self.getLocaleDefaultZVariant(char, locale)
+        if zVariant == None:
+            zVariant = self.getDefaultZVariant(char)
 
         # if table exists use it
         if self.hasStrokeCount:
@@ -967,7 +987,7 @@ class CharacterLookup:
         else:
             raise ValueError(name + " is no valid stroke name")
 
-    def getStrokeOrder(self, char, locale=None, zVariant=0):
+    def getStrokeOrder(self, char, zVariant=None):
         """
         Gets the stroke order sequence for the given character.
 
@@ -977,13 +997,10 @@ class CharacterLookup:
 
         @type char: str
         @param char: Chinese character
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV). Giving the locale
-            will apply the default I{Z-variant} defined by
-            L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
-            C{zVariant} will be ignored.
         @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character
+        @param zVariant: I{Z-variant} of the first character. This parameter is
+            optional and if omitted the default I{Z-variant} defined by
+            L{getDefaultZVariant()} will be used.
         @rtype: str
         @return: string of stroke abbreviations separated by spaces and hyphens.
         @raise ValueError: if an invalid I{character locale} is specified
@@ -1109,8 +1126,8 @@ class CharacterLookup:
                     "Character has no stroke order information")
             return strokeOrder
 
-        if locale != None:
-            zVariant = self.getLocaleDefaultZVariant(char, locale)
+        if zVariant == None:
+            zVariant = self.getDefaultZVariant(char)
         # if there is an entry for the whole character return it
         try:
             strokeOrder = getStrokeOrderEntry(char, zVariant)
@@ -1146,8 +1163,7 @@ class CharacterLookup:
                 "Character has no Kangxi radical information")
         return result
 
-    def getCharacterKangxiRadicalResidualStrokeCount(self, char, locale=None,
-        zVariant=0):
+    def getCharacterKangxiRadicalResidualStrokeCount(self, char, zVariant=None):
         u"""
         Gets the Kangxi radical form (either a I{Unicode radical form} or a
         I{Unicode radical variant}) found as a component in the character and
@@ -1171,13 +1187,10 @@ class CharacterLookup:
 
         @type char: str
         @param char: Chinese character
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV). Giving the locale
-            will apply the default I{Z-variant} defined by
-            L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
-            C{zVariant} will be ignored.
         @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character
+        @param zVariant: I{Z-variant} of the first character. This parameter is
+            optional and if omitted the default I{Z-variant} defined by
+            L{getDefaultZVariant()} will be used.
         @rtype: list of tuple
         @return: list of radical/variant form, its Z-variant, the main layout of
             the character (using a I{IDS operator}), the position of the radical
@@ -1187,7 +1200,7 @@ class CharacterLookup:
         """
         radicalIndex = self.getCharacterKangxiRadicalIndex(char)
         entries = self.getCharacterRadicalResidualStrokeCount(char,
-            radicalIndex, locale, zVariant)
+            radicalIndex, zVariant)
         if entries:
             return entries
         else:
@@ -1195,7 +1208,7 @@ class CharacterLookup:
                 "Character has no radical form information")
 
     def getCharacterRadicalResidualStrokeCount(self, char, radicalIndex,
-        locale=None, zVariant=0):
+        zVariant=None):
         u"""
         Gets the radical form (either a I{Unicode radical form} or a
         I{Unicode radical variant}) found as a component in the character and
@@ -1209,13 +1222,10 @@ class CharacterLookup:
         @param char: Chinese character
         @type radicalIndex: int
         @param radicalIndex: radical index
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV). Giving the locale
-            will apply the default I{Z-variant} defined by
-            L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
-            C{zVariant} will be ignored.
         @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character
+        @param zVariant: I{Z-variant} of the first character. This parameter is
+            optional and if omitted the default I{Z-variant} defined by
+            L{getDefaultZVariant()} will be used.
         @rtype: list of tuple
         @return: list of radical/variant form, its Z-variant, the main layout of
             the character (using a I{IDS operator}), the position of the radical
@@ -1235,8 +1245,8 @@ class CharacterLookup:
             or I{Unicode radical variant}, then this form is returned. In either
             case the radical form can be an ordinary character.
         """
-        if locale != None:
-            zVariant = self.getLocaleDefaultZVariant(char, locale)
+        if zVariant == None:
+            zVariant = self.getDefaultZVariant(char)
         table = self.db.tables['CharacterRadicalResidualStrokeCount']
         entries = self.db.selectRows(select([table.c.RadicalForm,
                 table.c.RadicalZVariant, table.c.MainCharacterLayout,
@@ -1298,8 +1308,7 @@ class CharacterLookup:
 
         return radicalDict
 
-    def getCharacterKangxiResidualStrokeCount(self, char, locale=None,
-        zVariant=0):
+    def getCharacterKangxiResidualStrokeCount(self, char, zVariant=None):
         u"""
         Gets the stroke count of the residual character components when leaving
         aside the radical form.
@@ -1311,13 +1320,10 @@ class CharacterLookup:
 
         @type char: str
         @param char: Chinese character
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV). Giving the locale
-            will apply the default I{Z-variant} defined by
-            L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
-            C{zVariant} will be ignored.
         @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character
+        @param zVariant: I{Z-variant} of the first character. This parameter is
+            optional and if omitted the default I{Z-variant} defined by
+            L{getDefaultZVariant()} will be used.
         @rtype: int
         @return: residual stroke count
         @raise NoInformationError: if no stroke count information available
@@ -1328,10 +1334,10 @@ class CharacterLookup:
         """
         radicalIndex = self.getCharacterKangxiRadicalIndex(char)
         return self.getCharacterResidualStrokeCount(char, radicalIndex,
-            locale, zVariant)
+            zVariant)
 
-    def getCharacterResidualStrokeCount(self, char, radicalIndex, locale=None,
-        zVariant=0):
+    def getCharacterResidualStrokeCount(self, char, radicalIndex,
+        zVariant=None):
         u"""
         Gets the stroke count of the residual character components when leaving
         aside the radical form.
@@ -1344,13 +1350,10 @@ class CharacterLookup:
         @param char: Chinese character
         @type radicalIndex: int
         @param radicalIndex: radical index
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV). Giving the locale
-            will apply the default I{Z-variant} defined by
-            L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
-            C{zVariant} will be ignored.
         @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character
+        @param zVariant: I{Z-variant} of the first character. This parameter is
+            optional and if omitted the default I{Z-variant} defined by
+            L{getDefaultZVariant()} will be used.
         @rtype: int
         @return: residual stroke count
         @raise NoInformationError: if no stroke count information available
@@ -1359,8 +1362,8 @@ class CharacterLookup:
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
         """
-        if locale != None:
-            zVariant = self.getLocaleDefaultZVariant(char, locale)
+        if zVariant == None:
+            zVariant = self.getDefaultZVariant(char)
         table = self.db.tables['CharacterResidualStrokeCount']
         entry = self.db.selectScalar(select([table.c.ResidualStrokeCount],
             and_(table.c.ChineseCharacter == char, table.c.ZVariant == zVariant,
@@ -1487,7 +1490,7 @@ class CharacterLookup:
     #}
     #{ Radical form functions
 
-    def getKangxiRadicalForm(self, radicalIdx, locale):
+    def getKangxiRadicalForm(self, radicalIdx):
         u"""
         Gets a I{Unicode radical form} for the given Kangxi radical index.
 
@@ -1496,8 +1499,6 @@ class CharacterLookup:
 
         @type radicalIdx: int
         @param radicalIdx: Kangxi radical index
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV)
         @rtype: str
         @return: I{Unicode radical form}
         @raise ValueError: if an invalid I{character locale} or radical index is
@@ -1515,11 +1516,11 @@ class CharacterLookup:
         table = self.db.tables['KangxiRadical']
         radicalForms = self.db.selectScalars(select([table.c.Form],
             and_(table.c.RadicalIndex == radicalIdx, table.c.Type == 'R',
-                table.c.Locale.like(self._locale(locale))))\
+                table.c.Locale.like(self._locale(self.locale))))\
             .order_by(table.c.SubIndex))
         return radicalForms[0]
 
-    def getKangxiRadicalVariantForms(self, radicalIdx, locale):
+    def getKangxiRadicalVariantForms(self, radicalIdx):
         """
         Gets a list of I{Unicode radical variant}s for the given Kangxi radical
         index.
@@ -1530,8 +1531,6 @@ class CharacterLookup:
 
         @type radicalIdx: int
         @param radicalIdx: Kangxi radical index
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV)
         @rtype: list of str
         @return: list of I{Unicode radical variant}s
         @raise ValueError: if an invalid I{character locale} is specified
@@ -1541,34 +1540,25 @@ class CharacterLookup:
         table = self.db.tables['KangxiRadical']
         return self.db.selectScalars(select([table.c.Form],
             and_(table.c.RadicalIndex == radicalIdx, table.c.Type == 'V',
-                table.c.Locale.like(self._locale(locale))))\
+                table.c.Locale.like(self._locale(self.locale))))\
             .order_by(table.c.SubIndex))
 
-    def getKangxiRadicalIndex(self, radicalForm, locale=None):
+    def getKangxiRadicalIndex(self, radicalForm):
         """
         Gets the Kangxi radical index for the given form.
 
         The given form might either be an I{Unicode radical form} or an
         I{equivalent character}.
 
-        If there is an entry for the given radical form it still might not be a
-        radical under the given character locale. So specifying a locale allows
-        strict radical handling.
-
         @type radicalForm: str
         @param radicalForm: radical form
-        @type locale: str
-        @param locale: optional I{character locale} (one out of TCJKV)
         @rtype: int
         @return: Kangxi radical index
         @raise ValueError: if invalid I{character locale} or radical form is
             specified
         """
         # check in radical table
-        if locale:
-            locale = self._locale(locale)
-        else:
-            locale = '%'
+        locale = self._locale(self.locale)
 
         table = self.db.tables['KangxiRadical']
         result = self.db.selectScalar(select([table.c.RadicalIndex],
@@ -1599,7 +1589,7 @@ class CharacterLookup:
         raise ValueError(radicalForm +  "is no valid Kangxi radical," \
             + " variant form or equivalent character")
 
-    def getKangxiRadicalRepresentativeCharacters(self, radicalIdx, locale):
+    def getKangxiRadicalRepresentativeCharacters(self, radicalIdx):
         u"""
         Gets a list of characters that represent the radical for the given
         Kangxi radical index.
@@ -1612,8 +1602,6 @@ class CharacterLookup:
 
         @type radicalIdx: int
         @param radicalIdx: Kangxi radical index
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV)
         @rtype: list of str
         @return: list of Chinese characters representing the radical for the
             given index, including Unicode radical and variant forms and their
@@ -1627,41 +1615,35 @@ class CharacterLookup:
         return self.db.selectScalars(union(
             select([kangxiTable.c.Form],
                 and_(kangxiTable.c.RadicalIndex == radicalIdx,
-                    kangxiTable.c.Locale.like(self._locale(locale)))),
+                    kangxiTable.c.Locale.like(self._locale(self.locale)))),
 
             select([equivalentTable.c.EquivalentForm],
                 and_(kangxiTable.c.RadicalIndex == radicalIdx,
-                    equivalentTable.c.Locale.like(self._locale(locale)),
-                    kangxiTable.c.Locale.like(self._locale(locale))),
+                    equivalentTable.c.Locale.like(self._locale(self.locale)),
+                    kangxiTable.c.Locale.like(self._locale(self.locale))),
                 from_obj=[kangxiTable.join(equivalentTable,
                     kangxiTable.c.Form == equivalentTable.c.Form)]),
 
             select([isolatedTable.c.EquivalentForm],
                 and_(isolatedTable.c.RadicalIndex == radicalIdx,
-                    isolatedTable.c.Locale.like(self._locale(locale))))))
+                    isolatedTable.c.Locale.like(self._locale(self.locale))))))
 
-    def isKangxiRadicalFormOrEquivalent(self, form, locale=None):
+    def isKangxiRadicalFormOrEquivalent(self, form):
         """
         Checks if the given form is a Kangxi radical form or a radical
         equivalent. This includes I{Unicode radical form}s,
         I{Unicode radical variant}s, I{equivalent character} and
         I{isolated radical character}s.
 
-        If there is an entry for the given radical form it still might not be a
-        radical under the given character locale. So specifying a locale allows
-        strict radical handling.
-
         @type form: str
         @param form: Chinese character
-        @type locale: str
-        @param locale: optional I{character locale} (one out of TCJKV)
         @rtype: bool
         @return: C{True} if given form is a radical or I{equivalent character},
             C{False} otherwise
         @raise ValueError: if an invalid I{character locale} is specified
         """
         try:
-            self.getKangxiRadicalIndex(form, locale)
+            self.getKangxiRadicalIndex(form)
             return True
         except ValueError:
             return False
@@ -1683,7 +1665,7 @@ class CharacterLookup:
         # U+2fd5
         return char >= u'⺀' and char <= u'⿕'
 
-    def getRadicalFormEquivalentCharacter(self, radicalForm, locale):
+    def getRadicalFormEquivalentCharacter(self, radicalForm):
         u"""
         Gets the I{equivalent character} of the given I{Unicode radical form} or
         I{Unicode radical variant}.
@@ -1700,8 +1682,6 @@ class CharacterLookup:
 
         @type radicalForm: str
         @param radicalForm: I{Unicode radical form}
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV)
         @rtype: str
         @return: I{equivalent character} form
         @raise UnsupportedError: if there is no supported
@@ -1715,14 +1695,14 @@ class CharacterLookup:
         table = self.db.tables['RadicalEquivalentCharacter']
         equivChar = self.db.selectScalar(select([table.c.EquivalentForm],
             and_(table.c.Form == radicalForm,
-                table.c.Locale.like(self._locale(locale)))))
+                table.c.Locale.like(self._locale(self.locale)))))
         if equivChar:
             return equivChar
         else:
             raise exception.UnsupportedError(
                 "no equivalent character supported for '" + radicalForm + "'")
 
-    def getCharacterEquivalentRadicalForms(self, equivalentForm, locale):
+    def getCharacterEquivalentRadicalForms(self, equivalentForm):
         """
         Gets I{Unicode radical form}s or I{Unicode radical variant}s for the
         given I{equivalent character}.
@@ -1736,8 +1716,6 @@ class CharacterLookup:
         @type equivalentForm: str
         @param equivalentForm: Equivalent character of I{Unicode radical form}
             or I{Unicode radical variant}
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV)
         @rtype: list of str
         @return: I{equivalent character} forms
         @raise ValueError: if invalid I{character locale} or equivalent
@@ -1746,7 +1724,7 @@ class CharacterLookup:
         table = self.db.tables['RadicalEquivalentCharacter']
         result = self.db.selectScalars(select([table.c.Form],
             and_(table.c.EquivalentForm == equivalentForm,
-                table.c.Locale.like(self._locale(locale)))))
+                table.c.Locale.like(self._locale(self.locale)))))
         if result:
             return result
         else:
@@ -1803,7 +1781,7 @@ class CharacterLookup:
         """
         return cls.isBinaryIDSOperator(char) or cls.isTrinaryIDSOperator(char)
 
-    def getCharactersForComponents(self, componentList, locale,
+    def getCharactersForComponents(self, componentList,
         includeEquivalentRadicalForms=True, resultIncludeRadicalForms=False):
         u"""
         Gets all characters that contain the given components.
@@ -1813,8 +1791,6 @@ class CharacterLookup:
 
         @type componentList: list of str
         @param componentList: list of character components
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV)
         @type includeEquivalentRadicalForms: bool
         @param includeEquivalentRadicalForms: if C{True} then characters in the
             given component list are interpreted as representatives for their
@@ -1846,36 +1822,35 @@ class CharacterLookup:
         for component in componentList:
             try:
                 # check if component is a radical and get index
-                radicalIdx = self.getKangxiRadicalIndex(component, locale)
+                radicalIdx = self.getKangxiRadicalIndex(component)
 
                 componentEquivalents = [component]
                 if includeEquivalentRadicalForms:
                     # if includeRadicalVariants is set get all forms
                     componentEquivalents = \
                         self.getKangxiRadicalRepresentativeCharacters(
-                            radicalIdx, locale)
+                            radicalIdx)
                 else:
                     if self.isRadicalChar(component):
                         try:
                             componentEquivalents.append(
                                 self.getRadicalFormEquivalentCharacter(
-                                    component, locale))
+                                    component))
                         except exception.UnsupportedError:
                             # pass if no equivalent char existent
                             pass
                     else:
                         componentEquivalents.extend(
-                            self.getCharacterEquivalentRadicalForms(component,
-                                locale))
+                            self.getCharacterEquivalentRadicalForms(component))
                 equivCharTable.append(componentEquivalents)
             except ValueError:
                 equivCharTable.append([component])
 
-        return self.getCharactersForEquivalentComponents(equivCharTable, locale,
+        return self.getCharactersForEquivalentComponents(equivCharTable,
             resultIncludeRadicalForms=resultIncludeRadicalForms)
 
     def getCharactersForEquivalentComponents(self, componentConstruct,
-        locale=None, resultIncludeRadicalForms=False):
+        resultIncludeRadicalForms=False, includeAllZVariants=False):
         u"""
         Gets all characters that contain at least one component per list entry,
         sorted by stroke count if available.
@@ -1884,18 +1859,16 @@ class CharacterLookup:
         set of characters per list entry of which at least one character must be
         a component in the given list.
 
-        If a I{character locale} is specified only characters will be returned
-        for which the locale's default I{Z-variant}'s decomposition will apply
-        to the given components. Otherwise all Z-variants will be considered.
-
         @type componentConstruct: list of list of str
         @param componentConstruct: list of character components given as single
             characters or, for alternative characters, given as a list
         @type resultIncludeRadicalForms: bool
         @param resultIncludeRadicalForms: if C{True} the result will include
             I{Unicode radical forms} and I{Unicode radical variants}
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV)
+        @type includeAllZVariants: bool
+        @param includeAllZVariants: if C{True} all matches will be returned, if
+            C{False} only those with z-Variant matching the locale's default one
+            will be returned
         @rtype: list of tuple
         @return: list of pairs of matching characters and their Z-variants
         @raise ValueError: if an invalid I{character locale} is specified
@@ -1920,11 +1893,11 @@ class CharacterLookup:
                 lookupTableAlias.c.ChineseCharacter.in_(characterList)))
 
         # join with LocaleCharacterVariant and allow only forms matching the
-        #   given locale, unless no locale entry exists
-        if locale:
+        #   given locale, unless includeAllZVariants is True
+        if not includeAllZVariants:
             joinTables.append(localeTable)
             filters.append(or_(localeTable.c.Locale == None,
-                localeTable.c.Locale.like(self._locale(locale))))
+                localeTable.c.Locale.like(self._locale(self.locale))))
 
         # include stroke count to sort
         if self.hasStrokeCount:
@@ -1954,7 +1927,7 @@ class CharacterLookup:
 
         return result
 
-    def getDecompositionEntries(self, char, locale=None, zVariant=0):
+    def getDecompositionEntries(self, char, zVariant=None):
         """
         Gets the decomposition of the given character into components from the
         database. The resulting decomposition is only the first layer in a tree
@@ -1969,20 +1942,17 @@ class CharacterLookup:
 
         @type char: str
         @param char: Chinese character that is to be decomposed into components
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV). Giving the locale
-            will apply the default I{Z-variant} defined by
-            L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
-            C{zVariant} will be ignored.
         @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character
+        @param zVariant: I{Z-variant} of the first character. This parameter is
+            optional and if omitted the default I{Z-variant} defined by
+            L{getDefaultZVariant()} will be used.
         @rtype: list
         @return: list of first layer decompositions
         @raise ValueError: if an invalid I{character locale} is specified
         """
-        if locale != None:
+        if zVariant == None:
             try:
-                zVariant = self.getLocaleDefaultZVariant(char, locale)
+                zVariant = self.getDefaultZVariant(char)
             except exception.NoInformationError:
                 # no decomposition available
                 return []
@@ -2056,7 +2026,7 @@ class CharacterLookup:
             index = index + 1
         return componentsList
 
-    def getDecompositionTreeList(self, char, locale=None, zVariant=0):
+    def getDecompositionTreeList(self, char, zVariant=None):
         """
         Gets the decomposition of the given character into components as a list
         of decomposition trees.
@@ -2072,20 +2042,17 @@ class CharacterLookup:
 
         @type char: str
         @param char: Chinese character that is to be decomposed into components
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV). Giving the locale
-            will apply the default I{Z-variant} defined by
-            L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
-            C{zVariant} will be ignored.
         @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character
+        @param zVariant: I{Z-variant} of the first character. This parameter is
+            optional and if omitted the default I{Z-variant} defined by
+            L{getDefaultZVariant()} will be used.
         @rtype: list
         @return: list of decomposition trees
         @raise ValueError: if an invalid I{character locale} is specified
         """
-        if locale != None:
+        if zVariant == None:
             try:
-                zVariant = self.getLocaleDefaultZVariant(char, locale)
+                zVariant = self.getDefaultZVariant(char)
             except exception.NoInformationError:
                 # no decomposition available
                 return []
@@ -2110,7 +2077,7 @@ class CharacterLookup:
             decompositionTreeList.append(decompositionTree)
         return decompositionTreeList
 
-    def isComponentInCharacter(self, component, char, locale=None, zVariant=0,
+    def isComponentInCharacter(self, component, char, zVariant=None,
         componentZVariant=None):
         """
         Checks if the given character contains the second character as a
@@ -2120,13 +2087,10 @@ class CharacterLookup:
         @param component: character questioned to be a component
         @type char: str
         @param char: Chinese character
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV). Giving the locale
-            will apply the default I{Z-variant} defined by
-            L{getLocaleDefaultZVariant()}. The Z-variant supplied with option
-            C{zVariant} will be ignored.
         @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character
+        @param zVariant: I{Z-variant} of the first character. This parameter is
+            optional and if omitted the default I{Z-variant} defined by
+            L{getDefaultZVariant()} will be used.
         @type componentZVariant: int
         @param componentZVariant: Z-variant of the component; if left out every
             Z-variant matches for that character.
@@ -2137,9 +2101,9 @@ class CharacterLookup:
         @todo Impl: Implement means to check if the component is really not
             found, or if our data is just insufficient.
         """
-        if locale != None:
+        if zVariant == None:
             try:
-                zVariant = self.getLocaleDefaultZVariant(char, locale)
+                zVariant = self.getDefaultZVariant(char)
             except exception.NoInformationError:
                 # TODO no way to check if our data is insufficent
                 return False
@@ -2152,7 +2116,7 @@ class CharacterLookup:
                     and_(table.c.ChineseCharacter == char,
                         table.c.ZVariant == zVariant,
                         table.c.Component == component)))
-            return zVariants and (componentZVariant == None \
+            return len(zVariants) > 0 and (componentZVariant == None \
                 or componentZVariant in zVariants)
         else:
             # use slow way with going through the decomposition tree

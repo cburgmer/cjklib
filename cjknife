@@ -121,10 +121,6 @@ class CharacterInfo:
         @type locale: str
         @param locale: I{character locale} (one out of TCJKV)
         """
-        self.characterLookup = characterlookup.CharacterLookup()
-        self.readingFactory = reading.ReadingFactory()
-        self.db = DatabaseConnector.getDBConnector()
-
         if locale:
             self.locale = locale
         elif dictionary and dictionary in self.DICTIONARY_INFO:
@@ -138,6 +134,11 @@ class CharacterInfo:
             self.reading = self.DICTIONARY_INFO[dictionary]['reading']
         else:
             self.reading = self.guessReading()
+
+        self.characterLookup = characterlookup.CharacterLookup(self.locale)
+        self.characterLookupTraditional = characterlookup.CharacterLookup('T')
+        self.readingFactory = reading.ReadingFactory()
+        self.db = DatabaseConnector.getDBConnector()
 
         self.availableDictionaries = None
 
@@ -409,27 +410,27 @@ class CharacterInfo:
             try:
                 # check if component is a radical and get index
                 radicalIdx = self.characterLookup.getKangxiRadicalIndex(
-                    component, self.locale)
+                    component)
 
                 if includeEquivalentRadicalForms:
                     # if includeRadicalVariants is set get all forms
                     componentEquivalents.update(self.characterLookup\
                         .getKangxiRadicalRepresentativeCharacters(
-                            radicalIdx, self.locale))
+                            radicalIdx))
                 else:
                     if self.characterLookup.isRadicalChar(component):
                         if component not in excludeEquivalentMapping:
                             try:
                                 componentEquivalents.add(self.characterLookup\
                                     .getRadicalFormEquivalentCharacter(
-                                        component, self.locale))
+                                        component))
                             except exception.UnsupportedError:
                                 # pass if no equivalent char existent
                                 pass
                     else:
                         componentEquivalents.update(set(self.characterLookup\
-                            .getCharacterEquivalentRadicalForms(component,
-                                self.locale)) - excludeEquivalentMapping)
+                            .getCharacterEquivalentRadicalForms(component)) \
+                            - excludeEquivalentMapping)
             except ValueError:
                 pass
 
@@ -780,7 +781,7 @@ class CharacterInfo:
             includeEquivalentRadicalForms)
         componentLookupResult \
             = self.characterLookup.getCharactersForEquivalentComponents(
-                equivCharTable, self.locale)
+                equivCharTable)
         return [char for char, _ in componentLookupResult]
 
     def getCharacterInformation(self, char):
@@ -822,22 +823,20 @@ class CharacterInfo:
         if self.characterLookup.isRadicalChar(char):
             infoDict['type'] = 'radical'
 
-            if self.characterLookup.isKangxiRadicalFormOrEquivalent(char,
-                self.locale):
+            if self.characterLookup.isKangxiRadicalFormOrEquivalent(char):
                 infoDict['radical index'] \
-                    = self.characterLookup.getKangxiRadicalIndex(char,
-                        self.locale)
-            elif self.characterLookup.isKangxiRadicalFormOrEquivalent(char,
-                'T'):
-                infoDict['radical index'] \
-                    = self.characterLookup.getKangxiRadicalIndex(char, 'T')
+                    = self.characterLookup.getKangxiRadicalIndex(char)
+            elif self.characterLookupTraditional\
+                .isKangxiRadicalFormOrEquivalent(char):
+                infoDict['radical index'] = self.characterLookupTraditional\
+                    .getKangxiRadicalIndex(char)
             else:
                 infoDict['radical index'] = None
 
             try:
                 infoDict['equivalent form'] \
                     = self.characterLookup.getRadicalFormEquivalentCharacter(
-                        char, self.locale)
+                        char)
             except exception.UnsupportedError:
                 pass
 
@@ -855,25 +854,24 @@ class CharacterInfo:
         if infoDict['radical index']:
             try:
                 infoDict['radical form'] \
-                    = self.characterLookup.getKangxiRadicalForm(
-                        infoDict['radical index'], 'T')
+                    = self.characterLookupTraditional.getKangxiRadicalForm(
+                        infoDict['radical index'])
                 localeVariantForm \
                     = self.characterLookup.getKangxiRadicalForm(
-                        infoDict['radical index'], self.locale)
+                        infoDict['radical index'])
                 variantList = []
                 if localeVariantForm != infoDict['radical form']:
                     variantList.append(localeVariantForm)
                 variantList.extend(
                     self.characterLookup.getKangxiRadicalVariantForms(
-                        infoDict['radical index'], self.locale))
+                        infoDict['radical index']))
                 infoDict['radical variants'] = variantList
             except exception.NoInformationError:
                 pass
 
         # stroke count
         try:
-            infoDict['stroke count'] = self.characterLookup.getStrokeCount(
-                char, self.locale)
+            infoDict['stroke count'] = self.characterLookup.getStrokeCount(char)
         except exception.NoInformationError:
             pass
 
@@ -904,9 +902,8 @@ class CharacterInfo:
 
         try:
             # character decomposition and stroke order
-            infoDict['default glyph'] \
-                = self.characterLookup.getLocaleDefaultZVariant(char,
-                    self.locale)
+            infoDict['default glyph'] = self.characterLookup.getDefaultZVariant(
+                char)
         except exception.NoInformationError:
             pass
 
