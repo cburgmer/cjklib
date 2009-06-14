@@ -114,7 +114,8 @@ class CharacterInfo:
         'T': 'Traditional variants'}
     """List of character variants and their names."""
 
-    def __init__(self, locale=None, readingN=None, dictionary=None):
+    def __init__(self, locale=None, characterDomain='Unicode', readingN=None,
+        dictionary=None):
         """
         Initialises the CharacterInfo object.
 
@@ -135,8 +136,10 @@ class CharacterInfo:
         else:
             self.reading = self.guessReading()
 
-        self.characterLookup = characterlookup.CharacterLookup(self.locale)
-        self.characterLookupTraditional = characterlookup.CharacterLookup('T')
+        self.characterLookup = characterlookup.CharacterLookup(self.locale,
+            characterDomain)
+        self.characterLookupTraditional = characterlookup.CharacterLookup('T',
+            characterDomain)
         self.readingFactory = reading.ReadingFactory()
         self.db = DatabaseConnector.getDBConnector()
 
@@ -792,6 +795,7 @@ class CharacterInfo:
             - char
             - locale
             - locale name
+            - character domain
             - code point hex
             - code point dec
             - type
@@ -816,6 +820,7 @@ class CharacterInfo:
         infoDict['char'] = char
         infoDict['locale'] = self.locale
         infoDict['locale name'] = self.CHAR_LOCALE_NAME[self.locale]
+        infoDict['characterDomain'] = self.characterLookup.characterDomain
         infoDict['codepoint hex'] = "0x%(decindex)x" % {'decindex': ord(char)}
         infoDict['codepoint dec'] = "%(decindex)s" % {'decindex': ord(char)}
 
@@ -1040,6 +1045,7 @@ General commands:
   -t, --target-reading=TARGET
                              set given reading as output reading
   -l, --locale=LOCALE        set locale, i.e. one character out of TCJKV
+  -d, --domain=DOMAIN        set character domain, e.g. 'GB2312'
   -L, --list-options         list available options for parameters
   -V, --version              print version number and exit
   -h, --help                 display this help and exit
@@ -1079,6 +1085,8 @@ along with cjklib.  If not, see <http://www.gnu.org/licenses/>."""
 def main():
     """
     Main method
+    @todo Fix: Check if user specified character domain is valid, don't show
+        stack trace.
     """
     # Alternative reading names lookup
     ALTERNATIVE_READING_NAMES = {'Hangul': ['hg'], 'Pinyin': ['py'],
@@ -1090,11 +1098,11 @@ def main():
     # parse command line parameters
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-            "i:a:r:f:q:k:p:o:m:s:t:l:c:b:e:x:w:LVh", ["help", "version",
-            "locale=", "source-reading=", "target-reading=", "information=",
-            "by-reading=", "get-reading=", "convert-form=", "by-radicalidx=",
-            "by-components=", "by-strokes=", "convert-reading=",
-            "set-dictionary=", "list-options"])
+            "i:a:r:f:q:k:p:o:m:s:t:l:d:c:b:e:x:w:LVh", ["help", "version",
+            "locale=", "domain=", "source-reading=", "target-reading=",
+            "information=", "by-reading=", "get-reading=", "convert-form=",
+            "by-radicalidx=", "by-components=", "by-strokes=",
+            "convert-reading=", "set-dictionary=", "list-options"])
     except getopt.GetoptError:
         # print help information and exit
         usage()
@@ -1124,6 +1132,10 @@ def main():
         charLocale = configSettings['locale']
     else:
         charLocale = None
+    if configSettings.has_key('domain'):
+        charDomain = configSettings['domain']
+    else:
+        charDomain = 'Unicode'
 
     # command that will be executed once all parameters are parsed
     command = None
@@ -1173,6 +1185,10 @@ def main():
                     + "' is not a valid locale"
                 sys.exit(1)
 
+        # setting of locale
+        elif o in ("-d", "--domain"):
+            charDomain = a
+
         # setting of dictionary
         elif o in ("-w", "--set-dictionary"):
             dictionaries = dict([(name.lower(), name) \
@@ -1190,8 +1206,8 @@ def main():
             parameter = a
 
     try:
-        charInfo = CharacterInfo(locale=charLocale, readingN=targetReading,
-            dictionary=dictionary)
+        charInfo = CharacterInfo(locale=charLocale, characterDomain=charDomain,
+            readingN=targetReading, dictionary=dictionary)
         charLocale = charInfo.locale
         dictionary = charInfo.dictionary
 
@@ -1208,7 +1224,8 @@ def main():
                 infoDict = charInfo.getCharacterInformation(parameter)
 
                 print ("Information for character " + infoDict['char'] + " (" \
-                    + infoDict['locale name'] + " locale)")\
+                    + infoDict['locale name'] + " locale, " \
+                    + infoDict['characterDomain'] + ' domain)')\
                     .encode(default_encoding, "replace")
                 print "Unicode codepoint: " + infoDict['codepoint hex'] + " (" \
                     + infoDict['codepoint dec'] + ", "+ infoDict['type'] \
@@ -1404,9 +1421,13 @@ def main():
             # locales
             print "current locale: " + charLocale + " (" \
                 + CharacterInfo.CHAR_LOCALE_NAME[charLocale] + ")"
-            print "Supported locales: " + ", ".join(
+            print "supported locales: " + ", ".join(
                 [key + ': ' + CharacterInfo.CHAR_LOCALE_NAME[key] \
                     for key in CharacterInfo.CHAR_LOCALE_NAME])
+            # character domain
+            print "current character domain: " + charDomain
+            print "available domains: " + ", ".join(
+                charInfo.characterLookup.getAvailableCharacterDomains())
             # readings
             print "current source reading: %s" % sourceReading
             print "current target reading: %s" % targetReading
@@ -1432,7 +1453,7 @@ def main():
                     dictData = CharacterInfo.DICTIONARY_INFO[dictionaryName]
                     dictionaryList.append(
                         "%s (%s)" % (dictionaryName, dictData['reading']))
-                print "supported dictionaries: " + ", ".join(dictionaryList)
+                print "available dictionaries: " + ", ".join(dictionaryList)
             else:
                 print "no dictionaries available"
 

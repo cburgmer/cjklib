@@ -240,6 +240,29 @@ class CharacterLookup:
     ========
     See module L{reading} for a detailed description.
 
+    Character domains
+    =================
+    Unicode encodes Chinese characters for all languages that make use of them,
+    but neither of those writing system make use of the whole spectrum encoded.
+    #While it is difficult, if not impossible, to make a clear distinction which
+    characters are used in on system and which not, there exist authorative
+    character sets that are widely used. Following one of those character sets
+    can decrease the amount of characters in question and focus on those
+    actually used in the given context.
+
+    In cjklib this concept is implemented as X{Character domain} and if a
+    L{CharacterLookup} instance is given a I{Character domain}, then its
+    reported results are limited to the characters therein.
+
+    For example limit results to the character encoding BIG5, which encodes
+    traditional Chinese characters:
+        >>> from cjklib import characterlookup
+        >>> cjk = characterlookup.CharacterLookup('T', 'BIG5')
+
+    Available I{character domains} can be checked via
+    L{getAvailableCharacterDomains()}. Special character domain C{Unicode}
+    represents the whole set of Chinese characters encoded in Unicode.
+
     @see:
         - Radicals:
             U{http://en.wikipedia.org/wiki/Radical_(Chinese_character)}
@@ -250,13 +273,10 @@ class CharacterLookup:
     @todo Fix:  How to handle character forms (either decomposition or stroke
         order), that can only be found as a component in other characters? We
         already mark them by flagging it with an 'S'.
-    @todo Impl: Create a method for specifying which character range is of
-        interest for the return values of methods. Narrowing the return results
-        is a further way to locale dependant responses. E.g. cjknife could take
-        this into account when only displaying characters that can be displayed
-        with the current locale (BIG5, GBK...).
     @todo Lang: Add option to component decomposition methods to stop on Kangxi
         radical forms without breaking further down beyond those.
+    @todo Impl: Further I{character domains} for Japanese, Cantonese, Korean,
+        Vietnamese
     """
 
     CHARARACTER_READING_MAPPING = {'Hangul': ('CharacterHangul', {}),
@@ -272,7 +292,8 @@ class CharacterLookup:
     several equivalent readings has limited use.
     """
 
-    def __init__(self, locale, databaseUrl=None, dbConnectInst=None):
+    def __init__(self, locale, characterDomain="Unicode", databaseUrl=None,
+        dbConnectInst=None):
         """
         Initialises the CharacterLookup.
 
@@ -284,6 +305,9 @@ class CharacterLookup:
         @type locale: str
         @param locale: I{character locale} giving the context for glyph and
             radical based functions, one character out of TCJKV.
+        @type characterDomain: str
+        @param characterDomain: I{character domain} (see
+            L{getAvailableCharacterDomains()})
         @type databaseUrl: str
         @param databaseUrl: database connection setting in the format
             C{driver://user:pass@host/database}.
@@ -299,6 +323,21 @@ class CharacterLookup:
             self.db = dbConnectInst
         else:
             self.db = dbconnector.DatabaseConnector.getDBConnector(databaseUrl)
+        # character domain
+        domainTable = characterDomain + 'Set'
+        if characterDomain == 'Unicode' \
+            or self.db.engine.has_table(domainTable):
+            # check column
+            if characterDomain != 'Unicode':
+                self.characterDomainTable = self.db.tables[domainTable]
+                if 'ChineseCharacter' not in self.characterDomainTable.columns:
+                    raise ValueError(
+                        "Character domain table '%s' " % domainTable \
+                            + "has no column 'ChineseCharacter'")
+
+            self.characterDomain = characterDomain
+        else:
+            raise ValueError("Unknown character domain '%s'" % characterDomain)
 
         self.readingFactory = None
 
@@ -317,6 +356,25 @@ class CharacterLookup:
         if not self.readingFactory:
             self.readingFactory = reading.ReadingFactory(dbConnectInst=self.db)
         return self.readingFactory
+
+    def getAvailableCharacterDomains(self):
+        """
+        Gets a list of all available I{character domains}. By default available
+        is domain C{Unicode}, which represents all Chinese characters encoded in
+        Unicode. Further domains can be given to the database as tables ending
+        in C{...Set} including a column C{ChineseCharacter}, e.g. C{GB2312Set}
+        and C{BIG5Set}.
+
+        @rtype: list of str
+        @return: list of supported I{character domains}
+        """
+        domains = ['Unicode']
+        for table in self.db.tables:
+            if table.endswith('Set') \
+                and 'ChineseCharacter' in self.db.tables[table].columns:
+                domains.append(table[:-3])
+
+        return domains
 
     #{ Character reading lookup
 
@@ -353,8 +411,18 @@ class CharacterLookup:
 
         # lookup characters
         table = self.db.tables[tableName]
+
+        # constrain to selected character domain
+        if self.characterDomain == 'Unicode':
+            fromObj = []
+        else:
+            fromObj = [table.join(self.characterDomainTable,
+                table.c.ChineseCharacter \
+                    == self.characterDomainTable.c.ChineseCharacter)]
+
         return self.db.selectScalars(select([table.c.ChineseCharacter],
-            table.c.Reading==readingString).order_by(table.c.ChineseCharacter))
+            table.c.Reading==readingString,
+            from_obj=fromObj).order_by(table.c.ChineseCharacter))
 
     def getReadingForCharacter(self, char, readingN, **options):
         """
@@ -500,9 +568,17 @@ class CharacterLookup:
                 + "' is not a valid variant type")
 
         table = self.db.tables['CharacterVariant']
+        # constrain to selected character domain
+        if self.characterDomain == 'Unicode':
+            fromObj = []
+        else:
+            fromObj = [table.join(self.characterDomainTable, table.c.Variant \
+                == self.characterDomainTable.c.ChineseCharacter)]
+
         return self.db.selectScalars(select([table.c.Variant],
             and_(table.c.ChineseCharacter == char,
-                table.c.Type == variantType)).order_by(table.c.Variant))
+                table.c.Type == variantType),
+            from_obj=fromObj).order_by(table.c.Variant))
 
     def getAllCharacterVariants(self, char):
         """
@@ -521,8 +597,16 @@ class CharacterLookup:
         @return: list of character variant(s) with their type
         """
         table = self.db.tables['CharacterVariant']
+        # constrain to selected character domain
+        if self.characterDomain == 'Unicode':
+            fromObj = []
+        else:
+            fromObj = [table.join(self.characterDomainTable, table.c.Variant \
+                == self.characterDomainTable.c.ChineseCharacter)]
+
         return self.db.selectRows(select([table.c.Variant, table.c.Type],
-            table.c.ChineseCharacter == char).order_by(table.c.Variant))
+            table.c.ChineseCharacter == char,
+            from_obj=fromObj).order_by(table.c.Variant))
 
     def getDefaultZVariant(self, char):
         """
@@ -643,7 +727,8 @@ class CharacterLookup:
 
     def getStrokeCountDict(self):
         """
-        Gets the full stroke count table from the database.
+        Gets the stroke count table from the database for all characters in the
+        chosen I{character domain}.
 
         @rtype: dict
         @return: dictionary of key pair character, Z-variant and value stroke
@@ -653,8 +738,17 @@ class CharacterLookup:
             stroke order information without being bound to a specific glyph.
         """
         table = self.db.tables['StrokeCount']
+        # constrain to selected character domain
+        if self.characterDomain == 'Unicode':
+            fromObj = []
+        else:
+            fromObj = [table.join(self.characterDomainTable,
+                table.c.ChineseCharacter \
+                    == self.characterDomainTable.c.ChineseCharacter)]
+
         result = self.db.selectRows(select(
-            [table.c.ChineseCharacter, table.c.ZVariant, table.c.StrokeCount]))
+            [table.c.ChineseCharacter, table.c.ZVariant, table.c.StrokeCount],
+            from_obj=fromObj))
         return dict([((char, zVariant), strokeCount) \
             for char, zVariant, strokeCount in result])
 
@@ -1376,8 +1470,8 @@ class CharacterLookup:
 
     def getCharacterResidualStrokeCountDict(self):
         """
-        Gets the full table of stroke counts of the residual character
-        components from the database.
+        Gets the table of stroke counts of the residual character components
+        from the database for all characters in the chosen I{character domain}.
 
         A typical entry looks like C{(u'众', 0): {9: [4]}},
         and can be accessed as C{residualCountDict[(u'众', 0)][9]} with the
@@ -1390,9 +1484,17 @@ class CharacterLookup:
         residualCountDict = {}
         # get entries from database
         table = self.db.tables['CharacterResidualStrokeCount']
+        # constrain to selected character domain
+        if self.characterDomain == 'Unicode':
+            fromObj = []
+        else:
+            fromObj = [table.join(self.characterDomainTable,
+                table.c.ChineseCharacter \
+                    == self.characterDomainTable.c.ChineseCharacter)]
+
         entries = self.db.selectRows(select([table.c.ChineseCharacter,
             table.c.ZVariant, table.c.RadicalIndex,
-            table.c.ResidualStrokeCount]))
+            table.c.ResidualStrokeCount], from_obj=fromObj))
         for entry in entries:
             char, zVariant, radicalIndex, residualStrokeCount = entry
 
@@ -1419,8 +1521,16 @@ class CharacterLookup:
             AND kRSKangxi IS NULL;).
         """
         table = self.db.tables['CharacterKangxiRadical']
+        # constrain to selected character domain
+        if self.characterDomain == 'Unicode':
+            fromObj = []
+        else:
+            fromObj = [table.join(self.characterDomainTable,
+                table.c.ChineseCharacter \
+                    == self.characterDomainTable.c.ChineseCharacter)]
+
         return self.db.selectScalars(select([table.c.ChineseCharacter],
-            table.c.RadicalIndex == radicalIndex))
+            table.c.RadicalIndex == radicalIndex, from_obj=fromObj))
 
     def getCharactersForRadicalIndex(self, radicalIndex):
         """
@@ -1437,8 +1547,16 @@ class CharacterLookup:
         @return: list of matching Chinese characters
         """
         table = self.db.tables['CharacterResidualStrokeCount']
+        # constrain to selected character domain
+        if self.characterDomain == 'Unicode':
+            fromObj = []
+        else:
+            fromObj = [table.join(self.characterDomainTable,
+                table.c.ChineseCharacter \
+                    == self.characterDomainTable.c.ChineseCharacter)]
+
         return self.db.selectScalars(select([table.c.ChineseCharacter],
-            table.c.RadicalIndex == radicalIndex))
+            table.c.RadicalIndex == radicalIndex, from_obj=fromObj))
 
     def getResidualStrokeCountForKangxiRadicalIndex(self, radicalIndex):
         """
@@ -1457,14 +1575,19 @@ class CharacterLookup:
         """
         kangxiTable = self.db.tables['CharacterKangxiRadical']
         residualTable = self.db.tables['CharacterResidualStrokeCount']
+        fromObj = [residualTable.join(kangxiTable,
+            and_(residualTable.c.ChineseCharacter \
+                == kangxiTable.c.ChineseCharacter,
+                residualTable.c.RadicalIndex == kangxiTable.c.RadicalIndex))]
+        # constrain to selected character domain
+        if self.characterDomain != 'Unicode':
+            fromObj[0] = fromObj[0].join(self.characterDomainTable,
+                residualTable.c.ChineseCharacter \
+                    == self.characterDomainTable.c.ChineseCharacter)
+
         return self.db.selectRows(select([residualTable.c.ChineseCharacter,
             residualTable.c.ResidualStrokeCount],
-            kangxiTable.c.RadicalIndex == radicalIndex,
-            from_obj=[residualTable.join(kangxiTable,
-                and_(residualTable.c.ChineseCharacter \
-                        == kangxiTable.c.ChineseCharacter,
-                    residualTable.c.RadicalIndex \
-                        == kangxiTable.c.RadicalIndex))]))
+            kangxiTable.c.RadicalIndex == radicalIndex, from_obj=fromObj))
 
     def getResidualStrokeCountForRadicalIndex(self, radicalIndex):
         """
@@ -1483,9 +1606,17 @@ class CharacterLookup:
         @return: list of matching Chinese characters with residual stroke count
         """
         table = self.db.tables['CharacterResidualStrokeCount']
+        # constrain to selected character domain
+        if self.characterDomain == 'Unicode':
+            fromObj = []
+        else:
+            fromObj = [table.join(self.characterDomainTable,
+                table.c.ChineseCharacter \
+                    == self.characterDomainTable.c.ChineseCharacter)]
+
         return self.db.selectRows(
             select([table.c.ChineseCharacter, table.c.ResidualStrokeCount],
-                table.c.RadicalIndex == radicalIndex))
+                table.c.RadicalIndex == radicalIndex, from_obj=fromObj))
 
     #}
     #{ Radical form functions
@@ -1595,7 +1726,8 @@ class CharacterLookup:
         Kangxi radical index.
 
         This includes the radical form(s), character equivalents
-        and variant forms and equivalents.
+        and variant forms and equivalents. Results are not limited to the chosen
+        I{character domain}.
 
         E.g. character for I{to speak/to say/talk/word} (Pinyin I{yán}):
         ⾔ (0x2f94), 言 (0x8a00), ⻈ (0x2ec8), 讠 (0x8ba0), 訁 (0x8a01)
@@ -1675,7 +1807,8 @@ class CharacterLookup:
         U{http://www.unicode.org/unicode/reports/tr30/#HanRadicalFolding}.
         All radical forms except U+2E80 (⺀) have an equivalent character. These
         equivalent characters are not necessarily visual identical and can be
-        subject to major variation.
+        subject to major variation. Results are not limited to the chosen
+        I{character domain}.
 
         This method may raise a UnsupportedError if there is no supported
         I{equivalent character} form.
@@ -1911,6 +2044,11 @@ class CharacterLookup:
                     table.c.ChineseCharacter \
                         == joinTables[0].c.ChineseCharacter,
                     table.c.ZVariant == joinTables[0].c.ZVariant))
+        # constrain to selected character domain
+        if self.characterDomain != 'Unicode':
+            fromObject = fromObject.join(self.characterDomainTable,
+                joinTables[-1].c.ChineseCharacter \
+                    == self.characterDomainTable.c.ChineseCharacter)
 
         sel = select([joinTables[0].c.ChineseCharacter,
             joinTables[0].c.ZVariant], and_(*filters), from_obj=[fromObject],
@@ -1969,7 +2107,8 @@ class CharacterLookup:
 
     def getDecompositionEntriesDict(self):
         """
-        Gets the full decomposition table from the database.
+        Gets the decomposition table from the database for all characters in the
+        chosen I{character domain}.
 
         @rtype: dict
         @return: dictionary with key pair character, Z-variant and the first
@@ -1978,8 +2117,16 @@ class CharacterLookup:
         decompDict = {}
         # get entries from database
         table = self.db.tables['CharacterDecomposition']
+        # constrain to selected character domain
+        if self.characterDomain == 'Unicode':
+            fromObj = []
+        else:
+            fromObj = [table.join(self.characterDomainTable,
+                table.c.ChineseCharacter \
+                    == self.characterDomainTable.c.ChineseCharacter)]
+
         entries = self.db.selectRows(select([table.c.ChineseCharacter,
-            table.c.ZVariant, table.c.Decomposition])\
+            table.c.ZVariant, table.c.Decomposition], from_obj=fromObj)\
                 .order_by(table.c.SubIndex))
         for char, zVariant, decomposition in entries:
             if (char, zVariant) not in decompDict:

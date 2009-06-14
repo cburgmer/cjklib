@@ -62,10 +62,6 @@ package.
         Reading table 'JyutpingSyllables' from file
         './cjklib/data/jyutpingsyllables.csv'
 
-@todo Impl: Further character domains: BIG5 (Taiwan), kIRG_GSource (Unicode,
-    Simplified Chinese), kIRG_JSource (Unicode, Japanese), kIRG_KPSource and
-    kIRG_KSource (Unicode, Korean), kIRG_TSource (Unicode, Traditional Chinese),
-    kIRG_VSource (Unicode, Vietnamese)
 @todo Impl: Add way to directly specify file paths, not only possible locations
 """
 
@@ -463,7 +459,8 @@ class UnihanBuilder(EntryGeneratorBuilder):
         'kRSKangXi': Text(), 'kRSKorean': Text(),
         'kSimplifiedVariant': Text(), 'kTotalStrokes': Integer(),
         'kTraditionalVariant': Text(), 'kVietnamese': Text(),
-        'kZVariant': Text()}
+        'kZVariant': Text(), 'kGB0': String(4), 'kBigFive': String(4),
+        'kXHC1983': Text()}
     unihanGenerator = None
 
     def __init__(self, dataPath, dbConnectInst, quiet=False):
@@ -547,7 +544,7 @@ class SlimUnihanBuilder(UnihanBuilder):
         'kRSJapanese', 'kRSKanWa', 'kRSKangXi', 'kRSKorean', 'kSemanticVariant',
         'kSimplifiedVariant', 'kSpecializedSemanticVariant', 'kTotalStrokes',
         'kTraditionalVariant', 'kVietnamese', 'kXHC1983', 'kZVariant',
-        'kIICore', 'kGB0']
+        'kIICore', 'kGB0', 'kBigFive']
     """Keys for that data is read into the Unihan table in database."""
 
     def getUnihanGenerator(self):
@@ -1100,6 +1097,14 @@ class GB2312SetBuilder(UnihanCharacterSetBuilder):
     """
     PROVIDES = 'GB2312Set'
     COLUMN_SOURCE = 'kGB0'
+
+
+class BIG5SetBuilder(UnihanCharacterSetBuilder):
+    """
+    Builds a simple list of all characters in the Chinese standard X{GB2312-80}.
+    """
+    PROVIDES = 'BIG5Set'
+    COLUMN_SOURCE = 'kBigFive'
 
 #}
 #{ Unihan reading information
