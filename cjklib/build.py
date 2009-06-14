@@ -1784,7 +1784,8 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
             """
             self.characterSet = characterSet
             self.quiet = quiet
-            self.cjk = characterlookup.CharacterLookup(
+            # create instance, locale is not important, we supply own zVariant
+            self.cjk = characterlookup.CharacterLookup('T',
                 dbConnectInst=dbConnectInst)
             # make sure a currently existing table is not used
             self.cjk.hasStrokeCount = False
@@ -1861,7 +1862,8 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             self.tableEntries = tableEntries
             self.preferredBuilder = preferredBuilder
             self.quiet = quiet
-            self.cjk = characterlookup.CharacterLookup(
+            # create instance, locale is not important, we supply own zVariant
+            self.cjk = characterlookup.CharacterLookup('T',
                 dbConnectInst=dbConnectInst)
             self.db = dbConnectInst
 
@@ -2052,7 +2054,8 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
             @param characterSet: set of characters to generate the table for
             """
             self.characterSet = characterSet
-            self.cjk = characterlookup.CharacterLookup(
+            # create instance, locale is not important, we supply own zVariant
+            self.cjk = characterlookup.CharacterLookup('T',
                 dbConnectInst=dbConnectInst)
 
         def getComponents(self, char, zVariant, decompositionDict,
@@ -2148,8 +2151,10 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
             """
             self.characterSet = characterSet
             self.quiet = quiet
-            self.cjk = characterlookup.CharacterLookup(
-                dbConnectInst=dbConnectInst)
+            self.cjkDict = {}
+            for loc in ['T', 'C', 'J', 'K', 'V']:
+                self.cjkDict[loc] = characterlookup.CharacterLookup(loc,
+                    dbConnectInst=dbConnectInst)
             self.radicalForms = None
 
         def getFormRadicalIndex(self, form):
@@ -2166,8 +2171,9 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                 for loc in ['T', 'C', 'J', 'K', 'V']:
                     for radicalIdx in range(1, 215):
                         for f in \
-                            self.cjk.getKangxiRadicalRepresentativeCharacters(
-                                radicalIdx, loc):
+                            self.cjkDict[loc]\
+                                .getKangxiRadicalRepresentativeCharacters(
+                                    radicalIdx):
                             self.radicalForms[f] = radicalIdx
 
             if form not in self.radicalForms:
@@ -2287,7 +2293,8 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                             #   layout from IDS and parent character and store
                             #   in layout stack to be consumed by following
                             #   Chinese characters
-                            if self.cjk.isTrinaryIDSOperator(entry):
+                            if characterlookup.CharacterLookup\
+                                .isTrinaryIDSOperator(entry):
                                 posRange = [2, 1, 0]
                             else:
                                 posRange = [1, 0]
@@ -2391,12 +2398,12 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
 
         def generator(self):
             """Provides the radical/stroke count entries."""
-            strokeCountDict = self.cjk.getStrokeCountDict()
-            decompositionDict = self.cjk.getDecompositionEntriesDict()
+            strokeCountDict = self.cjkDict['T'].getStrokeCountDict()
+            decompositionDict = self.cjkDict['T'].getDecompositionEntriesDict()
             entryDict = {}
 
             for char, zVariant in self.characterSet:
-                if self.cjk.isRadicalChar(char):
+                if self.cjkDict['T'].isRadicalChar(char):
                     # ignore Unicode radical forms
                     continue
 
@@ -2458,7 +2465,8 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
             @param characterSet: set of characters to generate the table for
             """
             self.characterSet = characterSet
-            self.cjk = characterlookup.CharacterLookup(
+            # create instance, locale is not important, we supply own zVariant
+            self.cjk = characterlookup.CharacterLookup('T',
                 dbConnectInst=dbConnectInst)
 
         def getEntries(self, char, zVariant, radicalDict):
@@ -2477,7 +2485,7 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
                 forms, don't just choose random one. See the following list::
 
                 >>> from cjklib import characterlookup
-                >>> cjk = characterlookup.CharacterLookup()
+                >>> cjk = characterlookup.CharacterLookup('T')
                 >>> for char in cjk.db.selectSoleValue('CharacterRadicalResidualStrokeCount',
                 ...     'ChineseCharacter', distinctValues=True):
                 ...     try:
