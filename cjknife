@@ -1094,6 +1094,7 @@ def main():
         'CantoneseYale': ['cy']}
 
     default_encoding = locale.getpreferredencoding()
+    output_encoding = sys.stdout.encoding or getpreferredencoding() or 'ascii'
 
     # parse command line parameters
     try:
@@ -1163,7 +1164,7 @@ def main():
             if readingLookup.has_key(a.lower()):
                 sourceReading = readingLookup[a.lower()]
             else:
-                print "error:", "'" + a.encode(default_encoding, "replace") \
+                print "error:", "'" + a.encode(output_encoding, "replace") \
                     + "' is not a valid reading name"
                 sys.exit(1)
 
@@ -1172,7 +1173,7 @@ def main():
             if readingLookup.has_key(a.lower()):
                 targetReading = readingLookup[a.lower()]
             else:
-                print "error:", "'" + a.encode(default_encoding, "replace") \
+                print "error:", "'" + a.encode(output_encoding, "replace") \
                     + "' is not a valid reading name"
                 sys.exit(1)
 
@@ -1181,7 +1182,7 @@ def main():
             if a.upper() in 'TCJKV':
                 charLocale = a.upper()
             else:
-                print "error:", "'" + a.encode(default_encoding, "replace") \
+                print "error:", "'" + a.encode(output_encoding, "replace") \
                     + "' is not a valid locale"
                 sys.exit(1)
 
@@ -1196,7 +1197,7 @@ def main():
             if a.lower() in dictionaries:
                 dictionary = dictionaries[a.lower()]
             else:
-                print "error:", "'" + a.encode(default_encoding, "replace") \
+                print "error:", "'" + a.encode(output_encoding, "replace") \
                     + "' is not a valid dictionary"
                 sys.exit(1)
 
@@ -1226,14 +1227,14 @@ def main():
                 print ("Information for character " + infoDict['char'] + " (" \
                     + infoDict['locale name'] + " locale, " \
                     + infoDict['characterDomain'] + ' domain)')\
-                    .encode(default_encoding, "replace")
+                    .encode(output_encoding, "replace")
                 print "Unicode codepoint: " + infoDict['codepoint hex'] + " (" \
                     + infoDict['codepoint dec'] + ", "+ infoDict['type'] \
                     + " form)"
                 if 'equivalent form' in infoDict:
                     print ("Equivalent character form: " \
                         + infoDict['equivalent form'])\
-                        .encode(default_encoding, "replace")
+                        .encode(output_encoding, "replace")
 
                 if infoDict['radical index']:
                     radicalForms = ""
@@ -1245,14 +1246,14 @@ def main():
                             + ", ".join(infoDict['radical variants'])
                     print ("Radical index: " + str(infoDict['radical index']) \
                         + radicalForms)\
-                        .encode(default_encoding, "replace")
+                        .encode(output_encoding, "replace")
 
                 if 'stroke count' in infoDict:
                     strokeCount = str(infoDict['stroke count'])
                 else:
                     strokeCount = 'N/A'
                 print ("Stroke count: " + strokeCount)\
-                    .encode(default_encoding, "replace")
+                    .encode(output_encoding, "replace")
 
                 if infoDict['type'] == 'character':
                     readingList = infoDict['readings'].keys()
@@ -1260,14 +1261,14 @@ def main():
                     for readingN in readingList:
                         print ("Phonetic data (" + readingN + "): " \
                             + ", ".join(infoDict['readings'][readingN]))\
-                        .encode(default_encoding, "replace")
+                            .encode(output_encoding, "replace")
 
                     variantList = infoDict['variants'].keys()
                     variantList.sort()
                     for variantType in variantList:
                         print (variantType + ': ' \
                             + ', '.join(infoDict['variants'][variantType]))\
-                            .encode(default_encoding, "replace")
+                            .encode(output_encoding, "replace")
 
                 glyphList = infoDict['glyphs'].keys()
                 glyphList.sort()
@@ -1287,11 +1288,11 @@ def main():
                         stringList = getDecompositionForList(
                             infoDict['glyphs'][glyph]['decomposition'])
                         print ("\n".join(stringList))\
-                            .encode(default_encoding, "replace")
+                            .encode(output_encoding, "replace")
                     if 'stroke order' in infoDict['glyphs'][glyph]:
                         print ("Stroke order: " \
                             + infoDict['glyphs'][glyph]['stroke order'])\
-                            .encode(default_encoding, "replace")
+                            .encode(output_encoding, "replace")
             else:
                 print "error: bad parameter"
                 sys.exit(1)
@@ -1302,7 +1303,7 @@ def main():
                 try:
                     readingList = charInfo.getReadingForCharacters(parameter)
                     print getPrintableList(readingList, " ")\
-                        .encode(default_encoding, "replace")
+                        .encode(output_encoding, "replace")
                 except exception.UnsupportedError:
                     print "error: no character mapping for this reading"
                     sys.exit(1)
@@ -1320,11 +1321,11 @@ def main():
                         + "traditional forms"
                 if simplified == traditional:
                     print "Chinese simplified/Traditional: " \
-                        + simplified.encode(default_encoding, "replace")
+                        + simplified.encode(output_encoding, "replace")
                 else:
                     print "Chinese simplified: " \
-                        + simplified.encode(default_encoding, "replace")
-                    print "Traditional: " + traditional.encode(default_encoding,
+                        + simplified.encode(output_encoding, "replace")
+                    print "Traditional: " + traditional.encode(output_encoding,
                         "replace")
 
         # character lookup by reading
@@ -1332,7 +1333,7 @@ def main():
             try:
                 characterList = charInfo.getCharactersForReading(parameter,
                     sourceReading)
-                print "".join(characterList).encode(default_encoding, "replace")
+                print "".join(characterList).encode(output_encoding, "replace")
             except exception.UnsupportedError:
                 print "error: no character mapping for this reading"
                 sys.exit(1)
@@ -1348,7 +1349,7 @@ def main():
                 for residualStrokeCount in sorted(strokeCountDict.keys()):
                     print '+' + str(residualStrokeCount) + ': ' \
                         + ''.join(strokeCountDict[residualStrokeCount])\
-                            .encode(default_encoding, "replace")
+                            .encode(output_encoding, "replace")
             except ValueError:
                 print "error: bad parameter"
                 sys.exit(1)
@@ -1356,7 +1357,7 @@ def main():
         # character lookup by components
         elif command in ("-p", "--by-components"):
             charList = charInfo.getCharactersForComponents(parameter)
-            print ''.join(charList).encode(default_encoding, "replace")
+            print ''.join(charList).encode(output_encoding, "replace")
 
         # TODO
         ## character lookup by stroke order
@@ -1365,20 +1366,20 @@ def main():
                 #parameter, charLocale, 0.46)
             #strokeLookupResult.sort(reverse=True, key=operator.itemgetter(2))
             #charList = [char for char, _, _ in strokeLookupResult]
-            #print ''.join(charList).encode(default_encoding, "replace")
+            #print ''.join(charList).encode(output_encoding, "replace")
 
         # reading conversion
         elif command in ("-m", "--convert-reading"):
             try:
                 print charInfo.convertReading(parameter, sourceReading,
-                    targetReading).encode(default_encoding, "replace")
+                    targetReading).encode(output_encoding, "replace")
             except exception.DecompositionError, m:
                 print "error: invalid input string:", \
-                    unicode(m.message).encode(default_encoding, "replace")
+                    unicode(m.message).encode(output_encoding, "replace")
                 sys.exit(1)
             except exception.ConversionError, m:
                 print "error: can't convert input string:", \
-                    unicode(m.message).encode(default_encoding, "replace")
+                    unicode(m.message).encode(output_encoding, "replace")
                 sys.exit(1)
             except exception.UnsupportedError:
                 print "error: conversion for given readings not supported"
@@ -1397,7 +1398,7 @@ def main():
                     sourceReading)
                 for c, r, t in results:
                     print (c + ", " + r + ", " + t)\
-                        .encode(default_encoding, "replace")
+                        .encode(output_encoding, "replace")
             except exception.UnsupportedError, e:
                 print "error: conversion for given readings not supported"
                 sys.exit(1)
@@ -1411,7 +1412,7 @@ def main():
                     sourceReading, command[1])
                 for c, r, t in results:
                     print (c + ", " + r + ", " + t)\
-                        .encode(default_encoding, "replace")
+                        .encode(output_encoding, "replace")
             except exception.UnsupportedError, e:
                 print "error: conversion for given readings not supported"
                 sys.exit(1)

@@ -63,6 +63,14 @@ package.
         './cjklib/data/jyutpingsyllables.csv'
 
 @todo Impl: Add way to directly specify file paths, not only possible locations
+@todo Bug:  Deleting a table and creating it anew with different layout will
+    fail as sqlalchemy still asumes the old layout (Line 1437,
+    "self.db.execute(table.insert(), entries)")
+@todo Impl: Implement UnihanBuilder52 for Unicode 5.2.0 which ships with several
+    text files included in one .zip
+@todo Impl: Include new source kHanyuPinyin for Pinyin. Think about extending
+    the Pinyin tables with source information, allowing for selection of a
+    subset of sources.
 """
 
 import types

@@ -797,7 +797,7 @@ class ReadingConverterValueTestCase(ReadingConverterTestCase):
 class CharacterLookupTestCase(unittest.TestCase):
     """Base class for testing the L{characterlookup.CharacterLookup} class."""
     def setUp(self):
-        self.characterLookup = characterlookup.CharacterLookup()
+        self.characterLookup = characterlookup.CharacterLookup('T')
 
 
 class CharacterLookupReadingMethodsTestCase(CharacterLookupTestCase,

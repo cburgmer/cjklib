@@ -17,6 +17,7 @@
 
 """
 Provides the central Chinese character based functions.
+@todo Fix:  Move examples and scripts to use new layout of CharacterLookup
 """
 
 # import math

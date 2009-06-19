@@ -1748,12 +1748,19 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
         if fromReading == "Pinyin":
             initial, final = fromOperator.getOnsetRhyme(plainEntity)
 
-            try:
-                transSyllable = self.pinyinInitial2Braille[initial] \
-                    + self.pinyinFinal2Braille[final]
-            except KeyError:
-                raise ConversionError("conversion for entity '" \
-                    + plainEntity + "' not supported")
+            if plainEntity not in ['zi', 'ci', 'si', 'zhi', 'chi', 'shi', 'ri']:
+                try:
+                    transSyllable = self.pinyinInitial2Braille[initial] \
+                        + self.pinyinFinal2Braille[final]
+                except KeyError:
+                    raise ConversionError("conversion for entity '" \
+                        + plainEntity + "' not supported")
+            else:
+                try:
+                    transSyllable = self.pinyinInitial2Braille[initial]
+                except KeyError:
+                    raise ConversionError("conversion for entity '" \
+                        + plainEntity + "' not supported")
         elif fromReading == "MandarinBraille":
             # mapping from Braille to Pinyin is ambiguous
             initial, final = fromOperator.getOnsetRhyme(plainEntity)

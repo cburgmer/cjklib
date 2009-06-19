@@ -716,7 +716,6 @@ class TonalFixedEntityOperator(ReadingOperator):
             return False
 
 
-
 class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
     """
     Provides an abstract L{RomanisationOperator} for tonal languages
@@ -2113,12 +2112,6 @@ class GROperator(TonalRomanisationOperator):
         + "([aeiouy]+)((?:ngl|ng|n|l)?)$")
     """Regular expression describing the syllable structure in GR (C,V,C)."""
 
-    _syllableToneLookup = None
-    """Holds the tonal syllable to plain syllable & tone lookup table."""
-
-    _abbrConversionLookup = None
-    """Holds the abbreviated entity lookup table."""
-
     DB_RHOTACISED_FINAL_MAPPING = {1: 'GRFinal_T1', 2: 'GRFinal_T2',
         3: 'GRFinal_T3', 4: 'GRFinal_T4'}
     """Database fields for tonal Erlhuah syllables."""
@@ -2464,7 +2457,7 @@ class GROperator(TonalRomanisationOperator):
         return tonalEntity
 
     def splitEntityTone(self, entity):
-        if self._syllableToneLookup == None:
+        if not hasattr(self, '_syllableToneLookup'):
             self._syllableToneLookup = {}
             for plainEntity in self.getPlainReadingEntities():
                 for tone in self.getTones():
@@ -2495,8 +2488,25 @@ class GROperator(TonalRomanisationOperator):
         @raise InvalidEntityError: if the entity is invalid.
         @raise UnsupportedError: if the given entity is an Erlhuah form or the
             syllable is not supported in this given tone.
-        @todo Fix:  Build lookup for performance reasons.
         """
+        # build lookup table, don't query db for every call
+        if not hasattr(self, '_rhotacisedFinals'):
+            table = self.db.tables['GRRhotacisedFinals']
+
+            finalTypes = [column.name for column in table.c \
+                if column.name != 'GRFinal']
+
+            self._rhotacisedFinals = dict([(final, {}) for final in finalTypes])
+
+            columns = [table.c.GRFinal]
+            columns.extend([table.c[final] for final in finalTypes])
+            for row in self.db.selectRows(select(columns)):
+                nonRhotacisedFinal = row[0]
+                for idx, column in enumerate(finalTypes):
+                    if row[idx + 1]:
+                        self._rhotacisedFinals[column][nonRhotacisedFinal] \
+                            = row[idx + 1]
+
         if tone not in self.getTones():
             raise InvalidEntityError("Invalid tone information given for '" \
                 + plainEntity + "': '" + unicode(tone) + "'")
@@ -2524,12 +2534,10 @@ class GROperator(TonalRomanisationOperator):
             column = self.DB_RHOTACISED_FINAL_MAPPING[baseTone]
 
         table = self.db.tables['GRRhotacisedFinals']
-        tonalFinal = self.db.selectScalar(select([table.c[column]],
-            table.c.GRFinal == v + c2))
-        if not tonalFinal:
+        if v + c2 not in self._rhotacisedFinals[column]:
             raise UnsupportedError("No Erlhuah form for '" \
                 + plainEntity + "' and tone '" + tone + "'")
-
+        tonalFinal = self._rhotacisedFinals[column][v + c2]
 
         # use selected apostrophe
         if self.getOption('GRRhotacisedFinalApostrophe') \
@@ -2553,7 +2561,7 @@ class GROperator(TonalRomanisationOperator):
         @rtype: dict
         @return: lookup table of abbreviated forms
         """
-        if self._abbrConversionLookup == None:
+        if not hasattr(self, '_abbrConversionLookup'):
             self._abbrConversionLookup = {}
 
             fullEntities = self.getFullReadingEntities()
@@ -2644,28 +2652,28 @@ class GROperator(TonalRomanisationOperator):
 
         @rtype: set of str
         @return: set of supported syllables
-        @todo opt: optimize creation of rhotacised syllables, don't do one table
-            lookup per syllable, resulting in 9962 calls total
         """
-        plainSyllables = self.getPlainReadingEntities()
+        # cache results as this method is used twice locally
+        if not hasattr(self, '_syllableSet'):
+            plainSyllables = self.getPlainReadingEntities()
 
-        syllableSet = set()
-        for syllable in plainSyllables:
-            for tone in self.getTones():
-                syllableSet.add(self.getTonalEntity(syllable, tone))
+            self._syllableSet = set()
+            for syllable in plainSyllables:
+                for tone in self.getTones():
+                    self._syllableSet.add(self.getTonalEntity(syllable, tone))
 
-        # Erlhuah
-        for syllable in plainSyllables:
-            for tone in self.getTones():
-                try:
-                    erlhuahSyllable = self.getRhotacisedTonalEntity(syllable,
-                        tone)
-                    syllableSet.add(erlhuahSyllable)
-                except UnsupportedError:
-                    # ignore errors about tone combinations that don't exist
-                    pass
+            # Erlhuah
+            for syllable in plainSyllables:
+                for tone in self.getTones():
+                    try:
+                        erlhuahSyllable = self.getRhotacisedTonalEntity(
+                            syllable, tone)
+                        self._syllableSet.add(erlhuahSyllable)
+                    except UnsupportedError:
+                        # ignore errors about tone combinations that don't exist
+                        pass
 
-        return syllableSet
+        return self._syllableSet.copy()
 
     def getReadingEntities(self):
         syllableSet = self.getFullReadingEntities()
@@ -2674,7 +2682,8 @@ class GROperator(TonalRomanisationOperator):
         return syllableSet
 
     def isReadingEntity(self, entity):
-        # overwrite default method, use lookup dictionary
+        # overwrite default method, use lookup dictionary, otherwise we would
+        #   end up in an recursive call
         return RomanisationOperator.isReadingEntity(self, entity)
 
 
