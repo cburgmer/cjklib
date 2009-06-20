@@ -63,9 +63,6 @@ package.
         './cjklib/data/jyutpingsyllables.csv'
 
 @todo Impl: Add way to directly specify file paths, not only possible locations
-@todo Bug:  Deleting a table and creating it anew with different layout will
-    fail as sqlalchemy still asumes the old layout (Line 1437,
-    "self.db.execute(table.insert(), entries)")
 @todo Impl: Implement UnihanBuilder52 for Unicode 5.2.0 which ships with several
     text files included in one .zip
 @todo Impl: Include new source kHanyuPinyin for Pinyin. Think about extending
@@ -132,7 +129,13 @@ class TableBuilder(object):
         """
         Removes the table provided by the TableBuilder from the database.
         """
-        pass
+        # get drop table statement
+        table = Table(self.PROVIDES, self.db.metadata)
+        table.drop()
+        # remove table from metadata so that recreating a table with a different
+        #   schema won't raise an exception. Especially for tables created via
+        #   plain sql create command
+        self.db.metadata.remove(table)
 
     def findFile(self, fileNames, fileType=None):
         """
@@ -280,11 +283,6 @@ class EntryGeneratorBuilder(TableBuilder):
 
         for index in self.buildIndexObjects(self.PROVIDES, self.INDEX_KEYS):
             index.create()
-
-    def remove(self):
-        # get drop table statement
-        table = Table(self.PROVIDES, self.db.metadata)
-        table.drop()
 
 
 class ListGenerator:
@@ -1449,11 +1447,6 @@ class CSVFileLoader(TableBuilder):
         # get create index statement
         for index in self.buildIndexObjects(self.PROVIDES, self.INDEX_KEYS):
             index.create()
-
-    def remove(self):
-        # get drop table statement
-        table = Table(self.PROVIDES, self.db.metadata)
-        table.drop()
 
 
 class PinyinSyllablesBuilder(CSVFileLoader):
@@ -2984,16 +2977,20 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         if not hasFTS3:
             table = Table(self.PROVIDES, self.db.metadata)
             table.drop()
+            self.db.metadata.remove(table)
         else:
             preparer = self.db.engine.dialect.identifier_preparer
             view = Table(self.PROVIDES, self.db.metadata)
             dropViewStatement = text("DROP VIEW %s" \
                 % preparer.format_table(view))
             self.db.execute(dropViewStatement)
+            self.db.metadata.remove(view)
             table = Table(self.PROVIDES + '_Normal', self.db.metadata)
             table.drop()
+            self.db.metadata.remove(table)
             table = Table(self.PROVIDES + '_Text', self.db.metadata)
             table.drop()
+            self.db.metadata.remove(table)
 
 
 class WordIndexBuilder(EntryGeneratorBuilder):
