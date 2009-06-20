@@ -241,9 +241,6 @@ class RomanisationOperator(ReadingOperator):
         if 'case' in options:
             self.optionValue['case'] = options['case']
 
-        self.syllableTable = None
-        self.substringSet = None
-
     @classmethod
     def getDefaultOptions(cls):
         options = super(RomanisationOperator, cls).getDefaultOptions()
@@ -476,13 +473,13 @@ class RomanisationOperator(ReadingOperator):
         @return: true if this string is a substring of a syllable, false
             otherwise
         """
-        if self.substringSet == None:
+        if not hasattr(self, '_substringSet'):
             # build index as called for the first time
-            self.substringSet = set()
+            self._substringSet = set()
             for syllable in self.getReadingEntities():
                 for i in range(len(syllable)):
-                    self.substringSet.add(syllable[0:i+1])
-        return string in self.substringSet
+                    self._substringSet.add(syllable[0:i+1])
+        return string in self._substringSet
 
     def isReadingEntity(self, entity):
         """
@@ -504,10 +501,10 @@ class RomanisationOperator(ReadingOperator):
         elif self.getOption('case') == 'upper' and entity.upper() != entity:
             return False
 
-        if self.syllableTable == None:
+        if not hasattr(self, '_syllableTable'):
             # set used syllables
-            self.syllableTable = self.getReadingEntities()
-        return entity.lower() in self.syllableTable
+            self._syllableTable = self.getReadingEntities()
+        return entity.lower() in self._syllableTable
 
     def getReadingEntities(self):
         """
@@ -613,8 +610,6 @@ class TonalFixedEntityOperator(ReadingOperator):
         """
         super(TonalFixedEntityOperator, self).__init__(**options)
 
-        self.plainEntityTable = None
-
     def getTones(self):
         """
         Returns a set of tones supported by the reading. These tones don't
@@ -701,10 +696,10 @@ class TonalFixedEntityOperator(ReadingOperator):
         @return: C{True} if string is an entity of the reading, C{False}
             otherwise.
         """
-        if self.plainEntityTable == None:
+        if not hasattr(self, '_plainEntityTable'):
             # set used syllables
-            self.plainEntityTable = self.getPlainReadingEntities()
-        return entity in self.plainEntityTable
+            self._plainEntityTable = self.getPlainReadingEntities()
+        return entity in self._plainEntityTable
 
     def isReadingEntity(self, entity):
         # reimplement to keep memory footprint small
@@ -863,8 +858,6 @@ class TonalIPAOperator(TonalFixedEntityOperator):
                     + "' for keyword 'missingToneMark'")
             self.optionValue['missingToneMark'] = options['missingToneMark']
 
-        self.toneMarkLookup = None
-
         # split regex
         self.splitRegex = re.compile('([\.\s]+)')
 
@@ -1002,22 +995,29 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         @return: tone
         @raise InvalidEntityError: if the toneMark does not exist.
         """
-        if self.toneMarkLookup == None:
+        if not hasattr(self, '_toneMarkLookup'):
             toneMarkType = self.getOption('toneMarkType')
             # create lookup dict
-            self.toneMarkLookup = {}
+            self._toneMarkLookup = {}
             for tone in self.getTones():
                 if tone == None:
                     continue
-                toneMark = self.TONE_MARK_MAPPING[toneMarkType][tone]
-                if toneMark not in self.toneMarkLookup \
-                    or (toneMark in self.TONE_MARK_PREFER[toneMarkType] \
-                    and self.TONE_MARK_PREFER[toneMarkType][toneMark] \
-                        == tone):
-                    self.toneMarkLookup[toneMark] = tone
+                mark = self.TONE_MARK_MAPPING[toneMarkType][tone]
+                # fill lookup with tone mark, overwrite if another tone mark
+                #   was already entered but the current tone mark is prefered
+                if mark not in self._toneMarkLookup \
+                    or (mark in self.TONE_MARK_PREFER[toneMarkType] \
+                    and self.TONE_MARK_PREFER[toneMarkType][mark] == tone):
+                    self._toneMarkLookup[mark] = tone
+                elif mark not in self.TONE_MARK_PREFER[toneMarkType]:
+                    # not specifying a preference mapping for more than two
+                    #   possible tones will result in undefined mapping
+                    raise Exception(
+                        "Ambiguous tone mark '%s' found" % mark \
+                        + ", but no preference mapping defined.")
 
-        if toneMark in self.toneMarkLookup:
-            return self.toneMarkLookup[toneMark]
+        if toneMark in self._toneMarkLookup:
+            return self._toneMarkLookup[toneMark]
         else:
             raise InvalidEntityError("Invalid tone mark given with '" \
                 + toneMark + "'")
@@ -3628,6 +3628,8 @@ class CantoneseIPAOperator(TonalIPAOperator):
             'MidStopped_Long': u'˧˧', 'MidLowStopped_Long': u'˨˨'},
         #'Diacritics': {}
         }
+    # The mapping is injective for the restriction on the seven basic tones,
+    #   i.e. L{getToneForToneMark()} knows what to return for each tone mark
 
     def __init__(self, **options):
         """
@@ -3739,28 +3741,6 @@ class CantoneseIPAOperator(TonalIPAOperator):
                 + self.TONE_MARK_MAPPING[self.getOption('toneMarkType')][tone]
         return unicodedata.normalize("NFC", entity)
 
-    def splitEntityTone(self, entity):
-        # get decomposed Unicode string, e.g. C{'â'} to C{'u\u0302'}
-        entity = unicodedata.normalize("NFD", unicode(entity))
-
-        toneMarkType = self.getOption('toneMarkType')
-        if toneMarkType == 'None':
-            return unicodedata.normalize("NFC", entity), None
-        else:
-            matchObj = self.TONE_MARK_REGEX[toneMarkType].search(entity)
-            if matchObj:
-                toneMark = matchObj.group(1)
-                # strip off tone mark
-                plainEntity = entity.replace(toneMark, '')
-
-                baseTone = self.getBaseToneForToneMark(toneMark)
-
-                return unicodedata.normalize("NFC", plainEntity), baseTone
-            elif self.getOption('missingToneMark') == 'noinfo':
-                return unicodedata.normalize("NFC", entity), None
-
-        raise InvalidEntityError("Invalid entity given for '" + entity + "'")
-
     def getExplicitTone(self, plainSyllable, baseTone):
         """
         Gets the explicit tone for the given plain syllable and base tone.
@@ -3795,21 +3775,12 @@ class CantoneseIPAOperator(TonalIPAOperator):
 
         return baseTone
 
-    def getBaseToneForToneMark(self, toneMark):
-        """
-        Gets the base tone (one of the 6/7 general tones) for the given tone
-        mark.
-
-        @type toneMark: str
-        @param toneMark: tone mark representation of the tone
-        @rtype: str
-        @return: base tone
-        @raise InvalidEntityError: if the toneMark does not exist.
-        """
-        if self.toneMarkLookup == None:
-            # create lookup dict
-            self.toneMarkLookup = {}
+    def getToneForToneMark(self, toneMark):
+        # overwrite parent method to deal with variable tone count
+        if not hasattr(self, '_toneMarkLookup'):
             toneMarkType = self.getOption('toneMarkType')
+            # create lookup dict
+            self._toneMarkLookup = {}
             for tone in self.TONE_MARK_MAPPING[toneMarkType]:
                 mark = self.TONE_MARK_MAPPING[toneMarkType][tone]
 
@@ -3821,13 +3792,22 @@ class CantoneseIPAOperator(TonalIPAOperator):
                     elif self.getOption('stopTones') == 'none':
                         reportTone, _ = self.STOP_TONES_EXPLICIT[tone]
 
-                if mark not in self.toneMarkLookup \
+                # fill lookup with tone mark, overwrite if another tone mark
+                #   was already entered but the current tone mark is prefered
+                if mark not in self._toneMarkLookup \
                     or (mark in self.TONE_MARK_PREFER[toneMarkType] \
                     and self.TONE_MARK_PREFER[toneMarkType][mark] == tone):
-                    self.toneMarkLookup[mark] = reportTone
+                    self._toneMarkLookup[mark] = reportTone
+                elif mark not in self.TONE_MARK_PREFER[toneMarkType]\
+                    and self._toneMarkLookup[mark] != reportTone:
+                    # not specifying a preference mapping for more than two
+                    #   possible tones will result in undefined mapping
+                    raise Exception(
+                        "Ambiguous tone mark '%s' found" % mark \
+                        + ", but no preference mapping defined.")
 
-        if toneMark in self.toneMarkLookup:
-            return self.toneMarkLookup[toneMark]
+        if toneMark in self._toneMarkLookup:
+            return self._toneMarkLookup[toneMark]
         else:
             raise InvalidEntityError("Invalid tone mark given with '" \
                 + toneMark + "'")
