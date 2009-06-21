@@ -2796,6 +2796,15 @@ class MandarinIPAOperator(TonalIPAOperator):
 class MandarinBrailleOperator(ReadingOperator):
     u"""
     Provides an operator on strings written in the X{Braille} system.
+
+    In Braille the fifth tone of Mandarin Chinese is indicated without a tone
+    mark making a pure entity ambiguous if entities without tonal information
+    are mixed in. As by default Braille seems to be frequently written omitting
+    tone marks where unnecessary, the option C{missingToneMark} controlling the
+    behaviour of absent tone marking is set to C{'extended'}, allowing the
+    mixing of entities with fifth and with no tone. If lossless conversion is
+    needed, this option should be set to C{'fifth'}, forbidding entities
+    without tonal information.
     """
     READING_NAME = "MandarinBraille"
 
@@ -2808,8 +2817,32 @@ class MandarinBrailleOperator(ReadingOperator):
         @param options: extra options
         @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
             given, default settings will be assumed.
+        @keyword toneMarkType: if set to C{'Braille'} tones will be marked
+            (using the Braille characters ), if set to C{'None'} no tone marks
+            will be used and no tonal information will be supplied at all.
+        @keyword missingToneMark: if set to C{'fifth'} missing tone marks are
+            interpreted as fifth tone (which by default lack a tone mark), if
+            set to C{'extended'} missing tonal information is allowed and takes
+            on the same form as fifth tone, rendering conversion processes
+            lossy.
         """
         super(MandarinBrailleOperator, self).__init__(**options)
+
+        # check which tone marks to use
+        if 'toneMarkType' in options:
+            if options['toneMarkType'] not in ['Braille', 'None']:
+                raise ValueError("Invalid option '" \
+                    + str(options['toneMarkType']) \
+                    + "' for keyword 'toneMarkType'")
+            self.optionValue['toneMarkType'] = options['toneMarkType']
+
+        # check if we have to be strict on tones, i.e. report missing tone info
+        if 'missingToneMark' in options:
+            if options['missingToneMark'] not in ['fifth', 'extended']:
+                raise ValueError("Invalid option '" \
+                    + str(options['missingToneMark']) \
+                    + "' for keyword 'missingToneMark'")
+            self.optionValue['missingToneMark'] = options['missingToneMark']
 
         # split regex
         initials = ''.join(self.db.selectScalars(
@@ -2824,6 +2857,14 @@ class MandarinBrailleOperator(ReadingOperator):
             + u'])[' + re.escape(''.join(self.TONEMARKS)) + ']?)')
         self.brailleRegex = re.compile(ur'([⠀-⣿]+|[^⠀-⣿]+)')
 
+    @classmethod
+    def getDefaultOptions(cls):
+        options = super(MandarinBrailleOperator, cls).getDefaultOptions()
+        options.update({'toneMarkType': 'Braille',
+            'missingToneMark': 'extended'})
+
+        return options
+
     def getTones(self):
         """
         Returns a set of tones supported by the reading.
@@ -2831,7 +2872,12 @@ class MandarinBrailleOperator(ReadingOperator):
         @rtype: set
         @return: set of supported tone marks.
         """
-        return range(1, 6)
+        tones = range(1, 6)
+        if self.getOption('missingToneMark') == 'extended' \
+            or self.getOption('toneMarkType') == 'None':
+            tones.append(None)
+
+        return tones
 
     def decompose(self, string):
         """
@@ -2920,7 +2966,10 @@ class MandarinBrailleOperator(ReadingOperator):
         if tone not in self.getTones():
             raise InvalidEntityError("Invalid tone information given for '" \
                 + plainEntity + "': '" + str(tone) + "'")
-        return plainEntity + self.TONEMARKS[tone-1]
+        if self.getOption('toneMarkType') == 'None' or tone == None:
+            return plainEntity
+        else:
+            return plainEntity + self.TONEMARKS[tone-1]
 
     def splitEntityTone(self, entity):
         """
@@ -2933,10 +2982,13 @@ class MandarinBrailleOperator(ReadingOperator):
         @return: plain entity without tone mark and additionally the tone
         @raise InvalidEntityError: if the entity is invalid.
         """
-        if entity[-1] in self.TONEMARKS:
-            return entity[:-1], self.TONEMARKS.index(entity[-1]) + 1
+        if self.getOption('toneMarkType') == 'None':
+            return entity, None
         else:
-            return entity, 5
+            if entity[-1] in self.TONEMARKS:
+                return entity[:-1], self.TONEMARKS.index(entity[-1]) + 1
+            else:
+                return entity, 5
 
     def isReadingEntity(self, entity):
         if not entity:

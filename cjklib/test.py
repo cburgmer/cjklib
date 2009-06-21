@@ -56,6 +56,7 @@ class ReadingOperatorTestCase(unittest.TestCase):
         ('Pinyin', {'Erhua': 'oneSyllable'}),
         ('CantoneseYale', {'toneMarkType': 'Numbers'}),
         ('Jyutping', {'missingToneMark': 'ignore'}),
+        ('MandarinBraille', {'missingToneMark': 'fifth'}),
         ]
     """Further reading dialect forms included in testing."""
 
@@ -753,6 +754,32 @@ class ReadingConverterValueTestCase(ReadingConverterTestCase):
         ('Pinyin', ImmutableDict({}), 'MandarinBraille', ImmutableDict({})): [
             (u'lǎoshī', u'⠇⠖⠄⠱⠁'),
             ('lao3shi1', 'lao3shi1'),
+            (u'mò', u'⠍⠢⠆'),
+            (u'mè', u'⠍⠢⠆'),
+            (u'gu', u'⠛⠥'),
+            ],
+        ('Pinyin', ImmutableDict({'toneMarkType': 'Numbers'}),
+            'MandarinBraille', ImmutableDict({})): [
+            (u'Qing ni deng yi1xia!', u'⠅⠡ ⠝⠊ ⠙⠼ ⠊⠁⠓⠫⠰⠂'),
+            (u'mangwen shushe', u'⠍⠦⠒ ⠱⠥⠱⠢'),
+            (u'shi4yong', u'⠱⠆⠹'),
+            (u'yi1xia', u'⠊⠁⠓⠫'),
+            (u'yi3xia', u'⠊⠄⠓⠫'),
+            (u'gu', u'⠛⠥'),
+            ],
+        ('MandarinBraille', ImmutableDict({}), 'Pinyin',
+            ImmutableDict({'toneMarkType': 'Numbers'})): [
+            (u'⠍⠢⠆', exception.AmbiguousConversionError), # mo/me
+            (u'⠇⠢⠆', exception.AmbiguousConversionError), # lo/le
+            (u'⠢⠆', exception.AmbiguousConversionError),  # o/e
+            (u'⠛⠥', u'gu5'),
+            (u'⠛⠥⠁', u'gu1'),
+            (u'⠛⠬', u'ju5'),
+            ],
+        ('Pinyin', ImmutableDict({'toneMarkType': 'Numbers'}),
+            'MandarinBraille', ImmutableDict({'missingToneMark': 'fifth'})): [
+            (u'gu', exception.ConversionError),
+            (u'gu5', u'⠛⠥'),
             ],
         }
 

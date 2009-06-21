@@ -1538,19 +1538,32 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
 
 
 class PinyinBrailleConverter(DialectSupportReadingConverter):
-    """
-    PinyinBrailleConverter defines a converter between the Chinese romanisation
-    I{Hanyu Pinyin} (with tone marks as numbers) and the I{Braille} system for
-    Mandarin.
+    u"""
+    PinyinBrailleConverter defines a converter between the Mandarin Chinese
+    romanisation I{Hanyu Pinyin} and the I{Braille} system for Mandarin Chinese.
 
     Conversion from Braille to Pinyin is ambiguous. The syllable pairs mo/me,
-    e/o and le/lo will yield an L{AmbiguousConversionError}.
+    e/o and le/lo will yield an L{AmbiguousConversionError}. Furthermore
+    conversion from Pinyin to Braille is lossy if tones are omitted, which seems
+    to be frequent in writing Braille for Chinese. Braille doesn't mark the
+    fifth tone, so converting back to Pinyin will give syllables without a tone
+    mark the fifth tone, changing originally unknown ones. See
+    L{MandarinBrailleOperator}.
+
+    Examples
+    ========
+    Convert from Pinyin to Braille using the L{ReadingFactory}:
+
+        >>> from cjklib.reading import ReadingFactory
+        >>> f = ReadingFactory()
+        >>> f.convert(u'Qǐng nǐ děng yīxià!', 'Pinyin', 'MandarinBraille',
+        ...     targetOptions={'toneMarkType': 'None'})
+        u'\u2805\u2821 \u281d\u280a \u2819\u283c \u280a\u2813\u282b\u2830\u2802'
 
     @see:
         - How is Chinese written in Braille?:
             U{http://www.braille.ch/pschin-e.htm}
         - Chinese Braille: U{http://en.wikipedia.org/wiki/Chinese_braille}
-    @todo Impl: Move the toneMarks option to the L{MandarinBrailleOperator}.
     """
     CONVERSION_DIRECTIONS = [('Pinyin', 'MandarinBraille'),
         ('MandarinBraille', 'Pinyin')]
@@ -1575,14 +1588,8 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
             source readings.
         @keyword targetOperators: list of L{ReadingOperator}s used for handling
             target readings.
-        @keyword toneMarks: if set to C{True} tone marks will be used when
-            converted to Braille representation.
         """
         super(PinyinBrailleConverter, self).__init__(*args, **options)
-        # use tone marks when converting to Braille?
-        if 'toneMarks' in options:
-            self.optionValue['toneMarks'] = options['toneMarks']
-
         # get mappings
         self._createMappings()
 
@@ -1607,13 +1614,6 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
         braillePunctuation.sort(lambda x,y: len(y) - len(x))
         self.braillePunctuationRegex = re.compile(ur'(' \
             + '|'.join([re.escape(p) for p in braillePunctuation]) + '|.+?)')
-
-    @classmethod
-    def getDefaultOptions(cls):
-        options = super(PinyinBrailleConverter, cls).getDefaultOptions()
-        options.update({'toneMarks': True})
-
-        return options
 
     def _createMappings(self):
         """
@@ -1793,9 +1793,6 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
             else:
                 transSyllable = forms[0]
 
-        # remove tone information
-        if not self.getOption('toneMarks'):
-            tone = None
         try:
             return self._getToOperator(toReading).getTonalEntity(transSyllable,
                 tone)
