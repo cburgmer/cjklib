@@ -758,7 +758,7 @@ class PinyinDialectConverter(ReadingConverter):
                 except InvalidEntityError, e:
                     # handle this as a conversion error as the converted
                     #   syllable is not accepted by the operator
-                    raise ConversionError(e.message)
+                    raise ConversionError(*e.args)
             elif entry == self._getToOperator(fromReading)\
                 .getOption('PinyinApostrophe'):
                 toReadingEntities.append(self._getToOperator(toReading)\
@@ -892,7 +892,7 @@ class WadeGilesDialectConverter(EntityWiseReadingConverter):
         except InvalidEntityError, e:
             # handle this as a conversion error as the converted syllable is not
             #   accepted by the operator
-            raise ConversionError(e.message)
+            raise ConversionError(*e.args)
 
 
 class PinyinWadeGilesConverter(RomanisationConverter):
@@ -970,7 +970,7 @@ class PinyinWadeGilesConverter(RomanisationConverter):
         except InvalidEntityError, e:
             # handle this as a conversion error as the converted syllable is not
             #   accepted by the operator
-            raise ConversionError(e.message)
+            raise ConversionError(*e.args)
 
 
 class GRDialectConverter(ReadingConverter):
@@ -1210,7 +1210,7 @@ class GRPinyinConverter(RomanisationConverter):
         except InvalidEntityError, e:
             # handle this as a conversion error as the converted syllable is not
             #   accepted by the operator
-            raise ConversionError(e.message)
+            raise ConversionError(*e.args)
 
     def _getGROperator(self):
         """Creates an instance of a GROperator if needed and returns it."""
@@ -1799,7 +1799,7 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
         except InvalidEntityError, e:
             # handle this as a conversion error as the converted syllable is not
             #   accepted by the operator
-            raise ConversionError(e.message)
+            raise ConversionError(*e.args)
 
 
 class JyutpingDialectConverter(EntityWiseReadingConverter):
@@ -1827,7 +1827,7 @@ class JyutpingDialectConverter(EntityWiseReadingConverter):
         except InvalidEntityError, e:
             # handle this as a conversion error as the converted syllable is not
             #   accepted by the operator
-            raise ConversionError(e.message)
+            raise ConversionError(*e.args)
 
 
 class CantoneseYaleDialectConverter(EntityWiseReadingConverter):
@@ -1864,7 +1864,7 @@ class CantoneseYaleDialectConverter(EntityWiseReadingConverter):
         except InvalidEntityError, e:
             # handle this as a conversion error as the converted syllable is not
             #   accepted by the operator
-            raise ConversionError(e.message)
+            raise ConversionError(*e.args)
 
 
 class JyutpingYaleConverter(RomanisationConverter):
@@ -1964,7 +1964,7 @@ class JyutpingYaleConverter(RomanisationConverter):
         except InvalidEntityError, e:
             # handle this as a conversion error as the converted syllable is not
             #   accepted by the operator
-            raise ConversionError(e.message)
+            raise ConversionError(*e.args)
 
 
 class BridgeConverter(ReadingConverter):

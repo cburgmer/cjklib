@@ -46,6 +46,12 @@ from cjklib import characterlookup
 from cjklib import reading
 from cjklib import exception
 
+# work around http://bugs.python.org/issue2517
+if sys.version_info[0:2] == (2, 5):
+    getExceptionString = lambda e: unicode(e.message)
+else:
+    getExceptionString = lambda e: unicode(e)
+
 def getConfigSettings():
     """
     Gets the script config from cjklib config file.
@@ -1375,11 +1381,11 @@ def main():
                     targetReading).encode(output_encoding, "replace")
             except exception.DecompositionError, m:
                 print "error: invalid input string:", \
-                    unicode(m.message).encode(output_encoding, "replace")
+                    getExceptionString(m).encode(output_encoding, "replace")
                 sys.exit(1)
             except exception.ConversionError, m:
                 print "error: can't convert input string:", \
-                    unicode(m.message).encode(output_encoding, "replace")
+                    getExceptionString(m).encode(output_encoding, "replace")
                 sys.exit(1)
             except exception.UnsupportedError:
                 print "error: conversion for given readings not supported"
