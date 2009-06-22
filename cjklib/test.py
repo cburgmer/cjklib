@@ -305,6 +305,9 @@ class ReadingOperatorValueTestCase(ReadingOperatorTestCase):
             (u'yut6yu5', [u'yut6', u'yu5']),
             (u'nei5hou2', [u'nei5', u'hou2']),
             ],
+        ('Jyutping', ImmutableDict({})): [
+            (u'gwong2zau1waa2', [u'gwong2', u'zau1', u'waa2']),
+            ],
         }
 
     COMPOSITION_VALUES = {
@@ -728,10 +731,23 @@ class ReadingConverterValueTestCase(ReadingConverterTestCase):
             (u'kuo', exception.AmbiguousConversionError),
             ],
         ('Jyutping', ImmutableDict({}), 'CantoneseYale', ImmutableDict({})): [
-            (u'gwong2jau1waa2', u'gwóngyāuwá'),
+            (u'gwong2zau1waa2', u'gwóngjāuwá'),
+            ],
+        ('Jyutping', ImmutableDict({}), 'CantoneseYale',
+            ImmutableDict({'YaleFirstTone': '1stToneFalling'})): [
+            (u'gwong2zau1waa2', u'gwóngjàuwá'),
             ],
         ('Jyutping', ImmutableDict({}), 'CantoneseYale', ImmutableDict({})): [
             (u'gwong2yau1waa2', u'gwóngyau1wá'),
+            ],
+        ('CantoneseYale', ImmutableDict({}), 'Jyutping', ImmutableDict({})): [
+            (u'gwóngjāuwá', u'gwong2zau1waa2'),
+            (u'gwóngjàuwá', u'gwong2zau1waa2'),
+            ],
+        ('CantoneseYale', ImmutableDict({}), 'CantoneseYale',
+            ImmutableDict({'toneMarkType': 'Numbers'})): [
+            (u'gwóngjāuwá', u'gwong2jau1wa2'),
+            (u'gwóngjàuwá', u'gwong2jau1wa2'),
             ],
         ('WadeGiles', ImmutableDict({'toneMarkType': 'SuperscriptNumbers'}),
             'Pinyin', ImmutableDict({})): [

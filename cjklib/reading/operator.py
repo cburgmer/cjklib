@@ -2924,7 +2924,7 @@ class MandarinBrailleOperator(ReadingOperator):
 
     def getSpaceSeparatedEntities(self, readingEntities):
         """
-        Inserts spaces between to Braille entities for a given list of reading
+        Inserts spaces between two Braille entities for a given list of reading
         entities.
 
         Spaces in the Braille system are applied between words. This is not

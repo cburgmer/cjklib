@@ -1868,7 +1868,7 @@ class CantoneseYaleDialectConverter(EntityWiseReadingConverter):
 
 
 class JyutpingYaleConverter(RomanisationConverter):
-    """
+    u"""
     Provides a converter between the Cantonese romanisation systems I{Jyutping}
     and I{Cantonese Yale}.
 
@@ -1885,6 +1885,14 @@ class JyutpingYaleConverter(RomanisationConverter):
     tone in general while Jyutping does not. On conversion it is thus important
     to choose the correct mapping. This can be configured by applying a special
     instance of a L{CantoneseYaleOperator}.
+
+    Example:
+
+        >>> from cjklib.reading import ReadingFactory
+        >>> f = ReadingFactory()
+        >>> f.convert(u'gwong2zau1waa2', 'Jyutping', 'CantoneseYale',
+        ...     targetOptions={'YaleFirstTone': '1stToneFalling'})
+        u'gw\xf3ngj\xe0uw\xe1'
     """
     CONVERSION_DIRECTIONS = [('Jyutping', 'CantoneseYale'),
         ('CantoneseYale', 'Jyutping')]

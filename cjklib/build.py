@@ -2855,6 +2855,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         # register view so processes depending on this succeed, see special
         #   view handling in DatabaseBuilder.__init__, workaround for SQLalchemy
         # TODO Bug in SQLalchemy that doesn't reflect table on reload?
+        #   http://www.sqlalchemy.org/trac/ticket/1410
         #t = Table(tableName, self.db.metadata, autoload=True, useexisting=True)
         self.db.engine.reflecttable(view)
 
