@@ -708,6 +708,11 @@ class ReadingConverterValueTestCase(ReadingConverterTestCase):
     Runs reference checks on ReadingConverters. These tests assure that the
     given values are returned correctly.
     @todo Fix: Include further GR test cases (uncomment)
+    @todo Fix: Remodel to include cases like
+        ('Jyutping', ImmutableDict({}), 'CantoneseYale', ImmutableDict({})): [
+            (u'gwong2zau1waa2', u'gwóngjàuwá'),
+            ],
+        where conversion needs option 'YaleFirstTone': '1stToneFalling'
     """
     CONVERSION_VALUES = {
         # Extract from Y.R. Chao's Sayable Chinese quoted from English Wikipedia
@@ -733,10 +738,6 @@ class ReadingConverterValueTestCase(ReadingConverterTestCase):
         ('Jyutping', ImmutableDict({}), 'CantoneseYale', ImmutableDict({})): [
             (u'gwong2zau1waa2', u'gwóngjāuwá'),
             ],
-        ('Jyutping', ImmutableDict({}), 'CantoneseYale',
-            ImmutableDict({'YaleFirstTone': '1stToneFalling'})): [
-            (u'gwong2zau1waa2', u'gwóngjàuwá'),
-            ],
         ('Jyutping', ImmutableDict({}), 'CantoneseYale', ImmutableDict({})): [
             (u'gwong2yau1waa2', u'gwóngyau1wá'),
             ],
@@ -748,6 +749,25 @@ class ReadingConverterValueTestCase(ReadingConverterTestCase):
             ImmutableDict({'toneMarkType': 'Numbers'})): [
             (u'gwóngjāuwá', u'gwong2jau1wa2'),
             (u'gwóngjàuwá', u'gwong2jau1wa2'),
+            ],
+        ('CantoneseYale', ImmutableDict({'toneMarkType': 'Numbers'}),
+            'CantoneseYale', ImmutableDict({})): [
+            (u'gwong2jau1wa2', u'gwóngjāuwá'),
+            (u'gwong2jauwa2', exception.ConversionError),
+            ],
+        ('CantoneseYale', ImmutableDict({'toneMarkType': 'Numbers',
+            'YaleFirstTone': '1stToneFalling'}), 'CantoneseYale',
+            ImmutableDict({})): [
+            (u'gwong2jau1wa2', u'gwóngjàuwá'),
+            ],
+        #('CantoneseYale', ImmutableDict({'strictDiacriticPlacement': True}),
+            #'CantoneseYale', ImmutableDict({'toneMarkType': 'Numbers'})): [
+            #(u'gwóngjaùwá', exception.InvalidEntityError),
+            #], # TODO see todo in CantoneseYaleOperator
+        ('GR', ImmutableDict({'GRSyllableSeparatorApostrophe': "'"}),
+            'GR', ImmutableDict({'GRRhotacisedFinalApostrophe': "'"})): [
+            (u"tian'anmen", u'tian’anmen'),
+            (u'jie’l', u"jie'l")
             ],
         ('WadeGiles', ImmutableDict({'toneMarkType': 'SuperscriptNumbers'}),
             'Pinyin', ImmutableDict({})): [

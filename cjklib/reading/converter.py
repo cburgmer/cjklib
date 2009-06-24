@@ -1842,7 +1842,17 @@ class CantoneseYaleDialectConverter(EntityWiseReadingConverter):
     distinction between the high level tone and the high falling tone. On
     conversion to the form with diacritical marks it is thus important to choose
     the correct mapping. This can be configured by applying a special instance
-    of a L{CantoneseYaleOperator}.
+    of a L{CantoneseYaleOperator} (or telling the L{ReadingFactory} which
+    operator to use).
+
+    Example:
+
+        >>> from cjklib.reading import ReadingFactory
+        >>> f = ReadingFactory()
+        >>> f.convert(u'gwong2jau1wa2', 'CantoneseYale', 'CantoneseYale',
+        ...     sourceOptions={'toneMarkType': 'Numbers',
+        ...         'YaleFirstTone': '1stToneFalling'})
+        u'gw\xf3ngj\xe0uw\xe1'
     """
     CONVERSION_DIRECTIONS = [('CantoneseYale', 'CantoneseYale')]
 
@@ -1883,28 +1893,30 @@ class JyutpingYaleConverter(RomanisationConverter):
     As described in L{CantoneseYaleOperator} the Cantonese Yale romanisation
     system makes a distinction between the high level tone and the high falling
     tone in general while Jyutping does not. On conversion it is thus important
-    to choose the correct mapping. This can be configured by applying a special
-    instance of a L{CantoneseYaleOperator}.
+    to choose the correct mapping. This can be configured by applying the option
+    C{YaleFirstTone} when construction the converter (or telling the
+    L{ReadingFactory} which converter to use).
 
     Example:
 
         >>> from cjklib.reading import ReadingFactory
         >>> f = ReadingFactory()
         >>> f.convert(u'gwong2zau1waa2', 'Jyutping', 'CantoneseYale',
-        ...     targetOptions={'YaleFirstTone': '1stToneFalling'})
+        ...     YaleFirstTone='1stToneFalling')
         u'gw\xf3ngj\xe0uw\xe1'
     """
     CONVERSION_DIRECTIONS = [('Jyutping', 'CantoneseYale'),
         ('CantoneseYale', 'Jyutping')]
-    # retain all information when converting Yale, use special dialect
-    DEFAULT_READING_OPTIONS = {'CantoneseYale': {'toneMarkType': 'Internal'},
-        'Jyutping': {}}
+    # use special dialect for Yale to retain information for first tone and
+    #   missing tones
+    DEFAULT_READING_OPTIONS = {'Jyutping': {},
+        'CantoneseYale': {'toneMarkType': 'Internal'}}
 
-    DEFAULT_TONE_MAPPING = {2: '2ndTone', 3: '3rdTone', 4: '4thTone',
-        5: '5thTone', 6: '6thTone'}
+    DEFAULT_TONE_MAPPING = {1: '1stToneLevel', 2: '2ndTone', 3: '3rdTone',
+        4: '4thTone', 5: '5thTone', 6: '6thTone'}
     """
-    Mapping of Jyutping tones to Yale tones. Tone 1 needs to be handled
-    independently.
+    Mapping of Jyutping tones to Yale tones. Tone 1 can be changed via option
+    'YaleFirstTone'.
     """
 
     def __init__(self, *args, **options):
@@ -1920,8 +1932,35 @@ class JyutpingYaleConverter(RomanisationConverter):
             source readings.
         @keyword targetOperators: list of L{ReadingOperator}s used for handling
             target readings.
+        @keyword YaleFirstTone: tone in Yale which the first tone from Jyutping
+            should be mapped to. Value can be C{'1stToneLevel'} to map to the
+            level tone with contour 55 or C{'1stToneFalling'} to map to the
+            falling tone with contour 53. This is only important if the target
+            reading dialect uses diacritical tone marks.
         """
         super(JyutpingYaleConverter, self).__init__(*args, **options)
+
+        # set the YaleFirstTone for handling ambiguous conversion of first
+        #   tone in Cantonese that has two different representations in Yale,
+        #   but only one in Jyutping
+        if 'YaleFirstTone' in options:
+            if options['YaleFirstTone'] not in ['1stToneLevel',
+                '1stToneFalling']:
+                raise ValueError("Invalid option '" \
+                    + unicode(options['YaleFirstTone']) \
+                    + "' for keyword 'YaleFirstTone'")
+            self.optionValue['YaleFirstTone'] = options['YaleFirstTone']
+
+        self.optionValue['defaultToneMapping'][1] \
+            = self.optionValue['YaleFirstTone']
+
+    @classmethod
+    def getDefaultOptions(cls):
+        options = super(JyutpingYaleConverter, cls).getDefaultOptions()
+        options.update({'YaleFirstTone': '1stToneLevel',
+            'defaultToneMapping': cls.DEFAULT_TONE_MAPPING})
+
+        return options
 
     def convertBasicEntity(self, entity, fromReading, toReading):
         # split syllable into plain part and tonal information
@@ -1948,12 +1987,8 @@ class JyutpingYaleConverter(RomanisationConverter):
             # get tone
             if not tone:
                 transTone = None
-            elif tone != 1:
-                transTone = self.DEFAULT_TONE_MAPPING[tone]
             else:
-                # get setting from operator
-                transTone \
-                    = self._getToOperator(toReading).getOption('YaleFirstTone')
+                transTone = self.optionValue['defaultToneMapping'][tone]
 
         if not transSyllable:
             raise ConversionError("conversion for entity '" + plainSyllable \

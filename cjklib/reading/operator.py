@@ -1187,6 +1187,11 @@ class PinyinOperator(TonalRomanisationOperator):
         Connecticut, 1985, ISBN 0-88710-141-0.), and '·ma' (u'\xb7ma', check!:
         现代汉语词典（第5版）[Xiàndài Hànyǔ Cídiǎn 5. Edition]. 商务印书馆
         [Shāngwù Yìnshūguǎn], Beijing, 2005, ISBN 7-100-04385-9.)
+    @todo Fix: Option C{strictDiacriticPlacement} has only small influence as
+        long segmentation doesn't work for wrongly placed diacritics (e.g.
+        f.decompose(u"peínǐ", 'Pinyin', strictDiacriticPlacement=False) does
+        not work). Misplaced diacritics can change segmentation (e.g.
+        f.decompose(u'hónglùo', 'Pinyin')).
     """
     READING_NAME = 'Pinyin'
 
@@ -1413,6 +1418,8 @@ class PinyinOperator(TonalRomanisationOperator):
             if diacriticEntityCount > numberEntityCount:
                 toneMarkType = 'Diacritics'
             else:
+                # even if equal prefer numbers, as in case of missing tone marks
+                #   we rather asume tone 'None' which is possible here
                 toneMarkType = 'Numbers'
 
         # guess ü vowel
@@ -2186,6 +2193,10 @@ class GROperator(TonalRomanisationOperator):
         @param string: GR string
         @rtype: dict
         @return: dictionary of basic keyword settings
+        @todo Impl: Both options C{'GRRhotacisedFinalApostrophe'} and
+            C{'GRSyllableSeparatorApostrophe'} can be set independantly as
+            the former one should only be found before an C{l} and the latter
+            mostly before vowels.
         """
         APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
         readingStr = unicodedata.normalize("NFC", unicode(string))
@@ -3192,8 +3203,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
     represent tones this distinction is not made. The mapping of the tone number
     C{1} to either the high level or the high falling tone can be given by the
     user and is important when conversion is done involving this abbreviated
-    form of the Yale romanisation. By default the the high level tone will be
-    used as this primary use is indicated in the given sources.
+    form of the Yale romanisation. By default the high level tone will be used
+    as this primary use is indicated in the given sources.
 
     Sources
     =======
@@ -3207,6 +3218,10 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             U{http://books.google.de/books?id=czbGJLu59S0C}
         - Modern Cantonese Phonology (Preview):
             U{http://books.google.de/books?id=QWNj5Yj6_CgC}
+    @todo Fix: Option C{strictDiacriticPlacement} has only small influence as
+        long segmentation doesn't work for wrongly placed diacritics (e.g.
+        f.decompose(u'gwóngjaù', 'CantoneseYale',
+        strictDiacriticPlacement=False) does not work).
     """
     READING_NAME = 'CantoneseYale'
 
@@ -3285,7 +3300,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         @keyword YaleFirstTone: tone in Yale which the first tone for tone marks
             with numbers should be mapped to. Value can be C{'1stToneLevel'} to
             map to the level tone with contour 55 or C{'1stToneFalling'} to map
-            to the falling tone with contour 53.
+            to the falling tone with contour 53. This option can only be used
+            for tone mark type C{'Numbers'}.
         """
         super(CantoneseYaleOperator, self).__init__(**options)
 
@@ -3314,8 +3330,11 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         # set the YaleFirstTone for handling ambiguous conversion of first
         #   tone in Cantonese that has two different representations in Yale
         if 'YaleFirstTone' in options:
+            if self.optionValue['toneMarkType'] != 'Numbers':
+                raise ValueError("Option 'YaleFirstTone' is only valid with" \
+                    + " option 'toneMarkType' set to 'Numbers'")
             if options['YaleFirstTone'] not in ['1stToneLevel',
-                '1stToneFalling', 'None']:
+                '1stToneFalling']:
                 raise ValueError("Invalid option '" \
                     + unicode(options['YaleFirstTone']) \
                     + "' for keyword 'YaleFirstTone'")
@@ -3428,6 +3447,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             if diacriticEntityCount > numberEntityCount:
                 toneMarkType = 'Diacritics'
             else:
+                # even if equal prefer numbers, as in case of missing tone marks
+                #   we rather asume tone 'None' which is possible here
                 toneMarkType = 'Numbers'
 
         return {'toneMarkType': toneMarkType}
