@@ -17,7 +17,9 @@
 
 """
 Provides the central Chinese character based functions.
-@todo Fix:  Move examples and scripts to use new layout of CharacterLookup
+@todo Fix:  Move examples and scripts to use new layout of CharacterLookup.
+    Don't mention a ValueError any more, as locale is specified at instantiation
+    time.
 """
 
 # import math
@@ -719,9 +721,7 @@ class CharacterLookup:
             # use incomplete way with using the stroke order (there might be
             #   less stroke order entries than stroke count entries)
             try:
-                so = self.getStrokeOrder(char, zVariant=zVariant)
-                strokeList = so.replace(' ', '-').split('-')
-                return len(strokeList)
+                return len(self.getStrokeOrder(char, zVariant=zVariant))
             except exception.NoInformationError:
                 raise exception.NoInformationError(
                     "Character has no stroke count information")
@@ -965,7 +965,7 @@ class CharacterLookup:
         #resultList = []
         ## check exact match of stroke order for all possible matches
         #for char, zVariant in results:
-            #so = self.getStrokeOrder(char, locale, zVariant)
+            #so = self.getStrokeOrderAbbrev(char, locale, zVariant)
             #soList = so.replace(' ', '-').split('-')
             #if soList == strokeList:
                 #resultList.append((char, zVariant))
@@ -1030,7 +1030,7 @@ class CharacterLookup:
             #distinctValues=True)
         #resultList = []
         #for char, zVariant in results:
-            #so = self.getStrokeOrder(char, locale, zVariant)
+            #so = self.getStrokeOrderAbbrev(char, locale, zVariant)
             #soList = so.replace(' ', '-').split('-')
             #estimate = 1.0 / \
                 #(math.sqrt(1.0 + (8*float(self.getStrokeOrderDistance(
@@ -1087,8 +1087,31 @@ class CharacterLookup:
         Gets the stroke order sequence for the given character.
 
         The stroke order is constructed using the character decomposition into
-        components. As the stroke order information for some components might be
-        not obtainable the returned stroke order might be partial.
+        components.
+
+        @type char: str
+        @param char: Chinese character
+        @type zVariant: int
+        @param zVariant: I{Z-variant} of the first character. This parameter is
+            optional and if omitted the default I{Z-variant} defined by
+            L{getDefaultZVariant()} will be used.
+        @rtype: list
+        @return: list of Unicode strokes
+        @raise NoInformationError: if no stroke order information available
+        """
+        strokeOrderAbbrev = self.getStrokeOrderAbbrev(char, zVariant)
+        strokeOrder = []
+        for stroke in strokeOrderAbbrev.replace(' ', '-').split('-'):
+            strokeOrder.append(self.getStrokeForAbbrev(stroke))
+        return strokeOrder
+
+    def getStrokeOrderAbbrev(self, char, zVariant=None):
+        """
+        Gets the stroke order sequence for the given character as a string of
+        stroke abbreviated names separated by spaces and hyphens.
+
+        The stroke order is constructed using the character decomposition into
+        components.
 
         @type char: str
         @param char: Chinese character
@@ -1098,7 +1121,6 @@ class CharacterLookup:
             L{getDefaultZVariant()} will be used.
         @rtype: str
         @return: string of stroke abbreviations separated by spaces and hyphens.
-        @raise ValueError: if an invalid I{character locale} is specified
         @raise NoInformationError: if no stroke order information available
         @todo Lang: Add stroke order source to stroke order data so that in
             general different and contradicting stroke order information can be

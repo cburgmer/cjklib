@@ -490,7 +490,12 @@ class CharacterInfo:
         @raise UnsupportedError: if source or target reading is not supported
             for conversion.
         @todo Fix:  Conversion without tones will mostly break as the target
-            reading doesn't support missing tone information.
+            reading doesn't support missing tone information. Prefering
+            'Diacritic' version (Pinyin/CantoneseYale) over 'Numbers' as tone
+            marks in the absence of any marks would solve this issue (forcing
+            fifth tone), but would mean we prefer possible false information
+            over the less specific estimation of the given entities as missing
+            tonal information.
         """
         if not toReading:
             toReading = self.reading
@@ -941,6 +946,9 @@ class CharacterInfo:
                     infoDict['glyphs'][zVariant]['stroke order'] \
                         =  self.characterLookup.getStrokeOrder(char,
                             zVariant=zVariant)
+                    infoDict['glyphs'][zVariant]['stroke order abbrev'] \
+                        =  self.characterLookup.getStrokeOrderAbbrev(char,
+                            zVariant=zVariant)
                 except exception.NoInformationError:
                     pass
         except exception.NoInformationError:
@@ -1296,8 +1304,10 @@ def main():
                         print ("\n".join(stringList))\
                             .encode(output_encoding, "replace")
                     if 'stroke order' in infoDict['glyphs'][glyph]:
-                        print ("Stroke order: " \
-                            + infoDict['glyphs'][glyph]['stroke order'])\
+                        print ("Stroke order: " + ''.join(
+                            infoDict['glyphs'][glyph]['stroke order']) + ' (' \
+                            + infoDict['glyphs'][glyph]['stroke order abbrev'] \
+                            + ')')\
                             .encode(output_encoding, "replace")
             else:
                 print "error: bad parameter"
