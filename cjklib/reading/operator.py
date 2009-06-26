@@ -1092,8 +1092,9 @@ class PinyinOperator(TonalRomanisationOperator):
 
     Features:
         - tones marked by either diacritics or numbers,
+        - flexibility with misplaced tone marks on input,
+        - correct placement of apostrophes to separate syllables,
         - alternative representation of I{ü}-character,
-        - correct placement of apostrophes,
         - guessing of input form (I{reading dialect}),
         - support for Erhua and
         - splitting of syllables into onset and rhyme.
@@ -1166,6 +1167,20 @@ class PinyinOperator(TonalRomanisationOperator):
     stressing the monosyllabic nature and being part of a syllable of the
     foregoing character. This can be configured at instantiation time.
 
+    Placement of tones
+    ==================
+    Tone marks, if using the standard form with diacritics, are placed according
+    to official Pinyin rules (see L{_placeNucleusToneMark()}). The
+    PinyinOperator by default tries to work around misplaced tone marks though,
+    e.g. I{*tīan'ānmén} (correct: I{tiān'ānmén}), to ease handling of malformed
+    input. There are cases though, where this generous behaviour leads to a
+    different segmentation compared to the strict interpretation, as for
+    I{*hónglùo} which can fall into I{hóng *lùo} (correct: I{hóng luò}) or
+    I{hóng lù o} (also, using the first example, I{tī an ān mén}). As the latter
+    result also stems from a wrong transcription, no means are implemented to
+    disambiguate between both solutions. The general behaviour is controlled
+    with option C{'strictDiacriticPlacement'}.
+
     Source
     ======
     - Yǐn Bīnyōng (尹斌庸), Mary Felley (傅曼丽): Chinese romanization:
@@ -1187,11 +1202,6 @@ class PinyinOperator(TonalRomanisationOperator):
         Connecticut, 1985, ISBN 0-88710-141-0.), and '·ma' (u'\xb7ma', check!:
         现代汉语词典（第5版）[Xiàndài Hànyǔ Cídiǎn 5. Edition]. 商务印书馆
         [Shāngwù Yìnshūguǎn], Beijing, 2005, ISBN 7-100-04385-9.)
-    @todo Fix: Option C{strictDiacriticPlacement} has only small influence as
-        long segmentation doesn't work for wrongly placed diacritics (e.g.
-        f.decompose(u"peínǐ", 'Pinyin', strictDiacriticPlacement=False) does
-        not work). Misplaced diacritics can change segmentation (e.g.
-        f.decompose(u'hónglùo', 'Pinyin')).
     """
     READING_NAME = 'Pinyin'
 
@@ -1581,6 +1591,37 @@ class PinyinOperator(TonalRomanisationOperator):
                 precedingEntity = None
 
         return True
+
+    def _hasSyllableSubstring(self, string):
+        # reimplement to allow for misplaced tone marks
+        def stripDiacritic(string):
+            """Strip one tonal diacritic mark of string."""
+            string = unicodedata.normalize("NFD", unicode(string))
+            for toneMark in self.TONEMARK_MAP:
+                index = string.find(toneMark)
+                if index >= 0:
+                    # only remove one occurence so that multi-entity strings are
+                    #   not merged to one, e.g. xīān
+                    return string.replace(toneMark, '', 1)
+            return string
+
+        if not hasattr(self, '_substringSet'):
+            # build index as called for the first time
+            if self.getOption('toneMarkType') == 'Diacritics':
+                # we remove diacritics, so plain entities suffice
+                entities = self.getPlainReadingEntities()
+            else:
+                entities = self.getReadingEntities()
+
+            self._substringSet = set()
+            for syllable in entities:
+                for i in range(len(syllable)):
+                    self._substringSet.add(syllable[0:i+1])
+
+        if self.getOption('toneMarkType') == 'Diacritics':
+            return stripDiacritic(string) in self._substringSet
+        else:
+            return string in self._substringSet
 
     def getTonalEntity(self, plainEntity, tone):
         # get normalised Unicode string, e.g. C{'e\u0302'} to C{'ê'}
@@ -3181,7 +3222,9 @@ class JyutpingOperator(TonalRomanisationOperator):
 
 class CantoneseYaleOperator(TonalRomanisationOperator):
     u"""
-    Provides an operator for the X{Cantonese Yale} romanisation.
+    Provides an operator for the X{Cantonese Yale} romanisation. For conversion
+    between different representations the L{CantoneseYaleDialectConverter} can
+    be used.
 
     Features:
         - tones marked by either diacritics or numbers,
@@ -3206,6 +3249,16 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
     form of the Yale romanisation. By default the high level tone will be used
     as this primary use is indicated in the given sources.
 
+    Placement of tones
+    ==================
+    Tone marks, if using the standard form with diacritics, are placed according
+    to Cantonese Yale rules (see L{getTonalEntity()}). The CantoneseYaleOperator
+    by default tries to work around misplaced tone marks though to ease handling
+    of malformed input. There are cases, where this generous behaviour leads to
+    a different segmentation compared to the strict interpretation. No means are
+    implemented to disambiguate between both solutions. The general behaviour is
+    controlled with option C{'strictDiacriticPlacement'}.
+
     Sources
     =======
     - Stephen Matthews, Virginia Yip: Cantonese: A Comprehensive Grammar.
@@ -3218,10 +3271,6 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             U{http://books.google.de/books?id=czbGJLu59S0C}
         - Modern Cantonese Phonology (Preview):
             U{http://books.google.de/books?id=QWNj5Yj6_CgC}
-    @todo Fix: Option C{strictDiacriticPlacement} has only small influence as
-        long segmentation doesn't work for wrongly placed diacritics (e.g.
-        f.decompose(u'gwóngjaù', 'CantoneseYale',
-        strictDiacriticPlacement=False) does not work).
     """
     READING_NAME = 'CantoneseYale'
 
@@ -3463,6 +3512,40 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
     def compose(self, readingEntities):
         return "".join(readingEntities)
+
+    def _hasSyllableSubstring(self, string):
+        # reimplement to allow for misplaced tone marks
+        def stripDiacritic(string):
+            """Strip one tonal diacritic mark of string."""
+            string = unicodedata.normalize("NFD", unicode(string))
+            for toneMark, _ in self.TONE_MARK_MAPPING['Diacritics'].values():
+                index = string.find(toneMark)
+                if toneMark and index >= 0:
+                    # only remove one occurence so that multi-entity strings are
+                    #   not merged to one, e.g. xīān (for Pinyin)
+                    return string.replace(toneMark, '', 1)
+            return string
+
+        if not hasattr(self, '_substringSet'):
+            # build index as called for the first time
+            if self.getOption('toneMarkType') == 'Diacritics':
+                # we remove diacritics, so plain entities suffice
+                entities = self.getPlainReadingEntities()
+                # extend with low tone indicator 'h'
+                for entity in entities.copy():
+                    entities.add(self.getTonalEntity(entity, '6thTone'))
+            else:
+                entities = self.getReadingEntities()
+
+            self._substringSet = set()
+            for syllable in entities:
+                for i in range(len(syllable)):
+                    self._substringSet.add(syllable[0:i+1])
+
+        if self.getOption('toneMarkType') == 'Diacritics':
+            return stripDiacritic(string) in self._substringSet
+        else:
+            return string in self._substringSet
 
     def getTonalEntity(self, plainEntity, tone):
         """

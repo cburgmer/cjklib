@@ -54,7 +54,9 @@ class ReadingOperatorTestCase(unittest.TestCase):
     """Base class for testing of L{ReadingOperator}s."""
     READING_DIALECTS = [('Pinyin', {'toneMarkType': 'Numbers'}),
         ('Pinyin', {'Erhua': 'oneSyllable'}),
+        ('Pinyin', {'strictDiacriticPlacement': 'True'}),
         ('CantoneseYale', {'toneMarkType': 'Numbers'}),
+        ('CantoneseYale', {'strictDiacriticPlacement': 'True'}),
         ('Jyutping', {'missingToneMark': 'ignore'}),
         ('MandarinBraille', {'missingToneMark': 'fifth'}),
         ]
@@ -281,6 +283,8 @@ class ReadingOperatorValueTestCase(ReadingOperatorTestCase):
             ("xian", ["xian"]),
             (u"xīān", [u"xī", u"ān"]),
             (u"lao3tou2r5", [u"lao3", u"tou2", u"r5"]),
+            (u"peínǐ", [u'peí', u'nǐ']), # wrong placement of tone
+            (u"hónglùo", [u'hóng', u'lùo']), # wrong placement of tone
             ],
         ('Pinyin', ImmutableDict({'toneMarkType': 'Numbers'})): [
             (u"tian1'an1men2", [u"tian1", "'", u"an1", u"men2"]),
@@ -291,6 +295,14 @@ class ReadingOperatorValueTestCase(ReadingOperatorTestCase):
             (u"lao3tour2", [u"lao3", u"tour2"]),
             (u"er2hua4yin1", [u"er2", u"hua4", u"yin1"]),
             ],
+        ('Pinyin', ImmutableDict({'strictDiacriticPlacement': True})): [
+            (u"tiān'ānmén", [u"tiān", "'", u"ān", u"mén"]),
+            ("xian", ["xian"]),
+            (u"xīān", [u"xī", u"ān"]),
+            (u"lao3tou2r5", [u"lao3", u"tou2", u"r5"]),
+            (u"peínǐ", [u'peínǐ']), # wrong placement of tone
+            (u"hónglùo", [u'hóng', u'lù', u'o']), # wrong placement of tone
+            ],
         ('Hangul', ImmutableDict({})): [
             (u"한글은 한국어의 고유", [u"한", u"글", u"은", u" ",
                 u"한", u"국", u"어", u"의", u" ", u"고", u"유"]),
@@ -299,11 +311,18 @@ class ReadingOperatorValueTestCase(ReadingOperatorTestCase):
             (u'gwóngjàuwá', [u'gwóng', u'jàu', u'wá']),
             (u'yuhtyúh', [u'yuht', u'yúh']),
             (u'néihhóu', [u'néih', u'hóu']),
+            (u'gwóngjaù', [u'gwóng', u'jaù']), # wrong placement of tone
             ],
         ('CantoneseYale', ImmutableDict({'toneMarkType': 'Numbers'})): [
             (u'gwong2jau1wa2', [u'gwong2', u'jau1', u'wa2']),
             (u'yut6yu5', [u'yut6', u'yu5']),
             (u'nei5hou2', [u'nei5', u'hou2']),
+            ],
+        ('CantoneseYale', ImmutableDict({'strictDiacriticPlacement': True})): [
+            (u'gwóngjàuwá', [u'gwóng', u'jàu', u'wá']),
+            (u'yuhtyúh', [u'yuht', u'yúh']),
+            (u'néihhóu', [u'néih', u'hóu']),
+            (u'gwóngjaù', [u'gwóngjaù']), # wrong placement of tone
             ],
         ('Jyutping', ImmutableDict({})): [
             (u'gwong2zau1waa2', [u'gwong2', u'zau1', u'waa2']),
@@ -710,8 +729,8 @@ class ReadingConverterValueTestCase(ReadingConverterTestCase):
     @todo Fix: Include further GR test cases (uncomment)
     @todo Fix: Remodel to include cases like
         ('Jyutping', ImmutableDict({}), 'CantoneseYale', ImmutableDict({})): [
-            (u'gwong2zau1waa2', u'gwóngjàuwá'),
-            ],
+        (u'gwong2zau1waa2', u'gwóngjàuwá'),
+        ],
         where conversion needs option 'YaleFirstTone': '1stToneFalling'
     """
     CONVERSION_VALUES = {
