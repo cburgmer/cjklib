@@ -157,6 +157,8 @@ flexible switching between reading dialects.
 
 __all__ = ['operator', 'converter', 'ReadingFactory']
 
+import types
+
 from cjklib.exception import UnsupportedError
 from cjklib.dbconnector import DatabaseConnector
 import operator
@@ -184,21 +186,40 @@ class ReadingFactory(object):
         of specifying an operator twice, one per options, one per concrete
         instance (similar to sourceOptions and targetOptions)?
     """
-    READING_OPERATORS = [operator.HangulOperator, operator.PinyinOperator,
-        operator.WadeGilesOperator, operator.GROperator,
-        operator.MandarinIPAOperator, operator.MandarinBrailleOperator,
-        operator.JyutpingOperator, operator.CantoneseYaleOperator,
-        operator.CantoneseIPAOperator, operator.HiraganaOperator,
-        operator.KatakanaOperator, operator.KanaOperator]
-    """A list of supported reading operators."""
-    READING_CONVERTERS = [converter.PinyinDialectConverter,
-        converter.WadeGilesDialectConverter, converter.PinyinWadeGilesConverter,
-        converter.GRDialectConverter, converter.GRPinyinConverter,
-        converter.PinyinIPAConverter, converter.PinyinBrailleConverter,
-        converter.JyutpingDialectConverter,
-        converter.CantoneseYaleDialectConverter,
-        converter.JyutpingYaleConverter, converter.BridgeConverter]
-    """A list of supported reading converters. """
+    @staticmethod
+    def getReadingOperatorClasses():
+        """
+        Gets all classes implementing L{ReadingOperator} from module
+        L{reading.operator}.
+
+        @rtype: list
+        @return: list of all classes inheriting form L{ReadingOperator}
+        """
+        # get all non-abstract classes that inherit from ReadingOperator
+        readingOperatorClasses = [clss for clss in operator.__dict__.values() \
+            if type(clss) == types.TypeType \
+            and issubclass(clss, operator.ReadingOperator) \
+            and clss.READING_NAME]
+
+        return readingOperatorClasses
+
+    @staticmethod
+    def getReadingConverterClasses():
+        """
+        Gets all classes implementing L{ReadingConverter} from module
+        L{reading.converter}.
+
+        @rtype: list
+        @return: list of all classes inheriting form L{ReadingConverter}
+        """
+        # get all non-abstract classes that inherit from ReadingConverter
+        readingConverterClasses = [clss \
+            for clss in converter.__dict__.values() \
+            if type(clss) == types.TypeType \
+            and issubclass(clss, converter.ReadingConverter) \
+            and clss.CONVERSION_DIRECTIONS]
+
+        return readingConverterClasses
 
     sharedState = {'readingOperatorClasses': {}, 'readingConverterClasses': {}}
     """
@@ -320,9 +341,9 @@ class ReadingFactory(object):
             self.sharedState[self.db]['readingOperatorInstances'] = {}
             self.sharedState[self.db]['readingConverterInstances'] = {}
         # publish default reading operators and converters
-            for readingOperator in self.READING_OPERATORS:
+            for readingOperator in self.getReadingOperatorClasses():
                 self.publishReadingOperator(readingOperator)
-            for readingConverter in self.READING_CONVERTERS:
+            for readingConverter in self.getReadingConverterClasses():
                 self.publishReadingConverter(readingConverter)
 
     #{ Meta
