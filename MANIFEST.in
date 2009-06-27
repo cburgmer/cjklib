@@ -2,7 +2,6 @@ include cjklib/data/*.csv
 include cjklib/data/*.sql
 include cjklib/*.py
 include cjklib/reading/*.py
-include runtest.py
 include setup.py
 include cjknife
 include buildcjkdb

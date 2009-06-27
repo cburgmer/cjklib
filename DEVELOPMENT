@@ -1,29 +1,39 @@
+Introduction
+------------
+Short documentation about steps helping in development.
+
+nosetest from http://somethingaboutorange.com/mrl/projects/nose is used in
+the following paragraphs.
+
 Test cases
 ------------
 Run
-  python runtest.py
-to run the test cases included in cjklib/test.py.
+  nosetests cjklib/test/*.py
+or to ommit current slow tests:
+  nosetests cjklib/test/*.py -e testDecomposeKeepsSyllablePairs
+    -e CompositionIsStrict -e testGetCharactersForReadingAcceptsAllEntities
+to use the test cases included in cjklib/test/.
 
 Coverage
 ------------
-Using the coverage tool by Gareth Rees included in Debian as python-coverage
-code coverage can be derived by using the unit tests:
-  python-coverage -x runtest.py
+Run
+  nosetests cjklib/test/* --with-coverage --cover-package=cjklib
+    --cover-html --cover-html-dir=coverage
 
-Coverage results can be shown for each file with e.g.:
-  python-coverage -a cjklib/reading.py
-which creates the file cjklib/reading.py,coverage.
-
-The accumulated coverage in file .coverage can be deleted using
-  python-coverage -e
+HTML files showing the source code's coverage can then be accessed from
+coverage/index.html.
 
 Profiling
 ------------
 Profiling is mostly used to learn about the runtime behaviour of a program
 and find inefficient parts of the code. It also allows epydoc to generate call
 graphs for inclusion in the API documentation:
-  python -m profile -o unittest.pstat runtest.py
+  python -m profile -o unittest.pstat /usr/bin/nosetests cjklib/test/*.py
+
 generates the file unittest.pstat that is used for further processing.
+
+Profiling offered by nosetest seems not to work together with epydoc:
+  nosetests cjklib/test/* --with-profile --profile-stats-file=unittest.pstat
 
 Documentation
 ------------
