@@ -393,7 +393,9 @@ class CharacterLookup:
         @rtype: list of str
         @return: list of characters for the given reading
         @raise UnsupportedError: if no mapping between characters and target
-            reading exists.
+            reading exists. Either the database wasn't build with the table
+            needed or the given reading cannot be converted to any of the
+            available mappings.
         @raise ConversionError: if conversion from the internal source reading
             to the given target reading fails.
         """
@@ -523,7 +525,12 @@ class CharacterLookup:
         """
         # iterate all available char-reading mappings to find a compatible
         # reading
-        for characterReading in self.CHARARACTER_READING_MAPPING.keys():
+        for characterReading in self.CHARARACTER_READING_MAPPING:
+            # check first if database has the table in need
+            table, _ = self.CHARARACTER_READING_MAPPING[characterReading]
+            if not self.db.engine.has_table(table):
+                continue
+
             if readingN == characterReading:
                 return characterReading
             else:

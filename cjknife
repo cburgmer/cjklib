@@ -1321,7 +1321,9 @@ def main():
                     print getPrintableList(readingList, " ")\
                         .encode(output_encoding, "replace")
                 except exception.UnsupportedError:
-                    print "error: no character mapping for this reading"
+                    print "error: no character mapping for this reading." \
+                        + " Maybe the mapping in question has not been " \
+                        + "installed."
                     sys.exit(1)
                 except exception.ConversionError:
                     print "error: unable to convert to internal reading"
@@ -1351,7 +1353,8 @@ def main():
                     sourceReading)
                 print "".join(characterList).encode(output_encoding, "replace")
             except exception.UnsupportedError:
-                print "error: no character mapping for this reading"
+                print "error: no character mapping for this reading." \
+                    + " Maybe the mapping in question has not been installed."
                 sys.exit(1)
             except exception.ConversionError:
                 print "error: unable to convert to internal reading"
