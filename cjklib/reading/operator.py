@@ -1602,8 +1602,10 @@ class PinyinOperator(TonalRomanisationOperator):
                 if index >= 0:
                     # only remove one occurence so that multi-entity strings are
                     #   not merged to one, e.g. xīān
-                    return string.replace(toneMark, '', 1)
-            return string
+                    string = string.replace(toneMark, '', 1)
+                    break
+
+            return unicodedata.normalize("NFC", string)
 
         if not hasattr(self, '_substringSet'):
             # build index as called for the first time
@@ -3523,8 +3525,10 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                 if toneMark and index >= 0:
                     # only remove one occurence so that multi-entity strings are
                     #   not merged to one, e.g. xīān (for Pinyin)
-                    return string.replace(toneMark, '', 1)
-            return string
+                    string = string.replace(toneMark, '', 1)
+                    break
+
+            return unicodedata.normalize("NFC", string)
 
         if not hasattr(self, '_substringSet'):
             # build index as called for the first time
