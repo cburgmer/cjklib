@@ -471,6 +471,40 @@ class CharacterLookup:
         else:
             return readings
 
+    def hasMappingForCharacterToReading(self, readingN):
+        """"
+        Returns C{True} if a mapping between Chinese characters and the given
+        I{reading} is supported.
+
+        @type readingN: str
+        @param readingN: name of reading
+        @rtype: bool
+        @return: C{True} if a mapping between Chinese characters and the given
+            I{reading} is supported, C{False} otherwise.
+        """
+        try:
+            self._getCompatibleCharacterReading(readingN, toCharReading=True)
+            return True
+        except exception.UnsupportedError:
+            return False
+
+    def hasMappingForReadingToCharacter(self, readingN):
+        """"
+        Returns C{True} if a mapping between the given I{reading} and Chinese
+        characters is supported.
+
+        @type readingN: str
+        @param readingN: name of reading
+        @rtype: bool
+        @return:C{True} if a mapping between the given I{reading} and Chinese
+            characters is supported, C{False} otherwise.
+        """
+        try:
+            self._getCompatibleCharacterReading(readingN, toCharReading=False)
+            return True
+        except exception.UnsupportedError:
+            return False
+
     def _getCompatibleCharacterReading(self, readingN, toCharReading=True):
         """
         Gets a reading where a mapping from to Chinese characters is supported
@@ -492,16 +526,21 @@ class CharacterLookup:
         for characterReading in self.CHARARACTER_READING_MAPPING.keys():
             if readingN == characterReading:
                 return characterReading
-            elif toCharReading:
-                if self._getReadingFactory().isReadingConversionSupported(
-                    readingN, characterReading):
-                    return characterReading
-            elif not toCharReading:
-                if self._getReadingFactory().isReadingConversionSupported(
-                    characterReading, readingN):
-                    return characterReading
-        raise exception.UnsupportedError("reading '" + readingN \
-            + "' not supported for character lookup")
+            else:
+                if toCharReading:
+                    if self._getReadingFactory().isReadingConversionSupported(
+                        readingN, characterReading):
+                        return characterReading
+                else:
+                    if self._getReadingFactory().isReadingConversionSupported(
+                        characterReading, readingN):
+                        return characterReading
+        if toCharReading:
+            raise exception.UnsupportedError(
+                "No mapping from characters to reading '%s'" % readingN)
+        else:
+            raise exception.UnsupportedError(
+                "No mapping from reading '%s' to characterss" % readingN)
 
     #}
 
