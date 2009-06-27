@@ -865,7 +865,7 @@ class TonalIPAOperator(TonalFixedEntityOperator):
     def getDefaultOptions(cls):
         options = super(TonalIPAOperator, cls).getDefaultOptions()
         options.update({'toneMarkType': cls.DEFAULT_TONE_MARK_TYPE,
-            'missingToneMark': 'noinfo', 'preferTone': cls.TONE_MARK_PREFER})
+            'missingToneMark': 'noinfo'})
 
         return options
 
@@ -3365,7 +3365,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         # check if we have to be strict on tones, i.e. report missing tone info
         if 'missingToneMark' in options:
-            if option['toneMarkType'] not in ['Numbers', 'Internal', 'None']:
+            if options['toneMarkType'] not in ['Numbers', 'Internal', 'None']:
                 raise ValueError("keyword 'missingToneMark' is only valid if" \
                     + " tone mark type is set to 'Numbers', 'Internal' and "\
                     + "'None'")
@@ -3762,7 +3762,7 @@ class CantoneseIPAOperator(TonalIPAOperator):
     """
 
     TONE_MARK_PREFER = {'Numbers': {'1': 'HighLevel'},
-        'ChaoDigits': {}, 'IPAToneBar': {}, 'Diacritics': {}}
+        'ChaoDigits': {}, 'IPAToneBar': {}, 'Diacritics': {}, 'None': {}}
 
     TONE_MARK_MAPPING = {'Numbers': {'HighLevel': '1', 'MidLevel': '3',
             'MidLowLevel': '6', 'HighRising': '2', 'MidLowRising': '5',
@@ -3798,6 +3798,9 @@ class CantoneseIPAOperator(TonalIPAOperator):
             given, default settings will be assumed.
         @keyword toneMarkType: type of tone marks, one out of C{'Numbers'},
             C{'ChaoDigits'}, C{'IPAToneBar'}, C{'Diacritics'}, C{'None'}
+        @keyword missingToneMark: if set to C{'noinfo'} no tone information
+            will be deduced when no tone mark is found (takes on value C{None}),
+            if set to C{'ignore'} this entity will not be valid.
         @keyword 1stToneName: tone for mark 1 under tone mark type C{'Numbers'},
             either I{'HighLevel'} or I{'HighFalling'}.
         @keyword stopTones: if set to C{'none'} the basic 6 (7) tones will be
@@ -3807,11 +3810,15 @@ class CantoneseIPAOperator(TonalIPAOperator):
         """
         super(CantoneseIPAOperator, self).__init__(**options)
 
-        if self.getOption('toneMarkType') == 'Diacritics':
+        toneMarkType = self.getOption('toneMarkType')
+        if toneMarkType == 'Diacritics':
             raise NotImplementedError() # TODO
 
+        # set prefer tone to correct tone mark type
+        self.optionValue['preferTone'] = self.TONE_MARK_PREFER[toneMarkType]
+
         if '1stToneName' in options:
-            if self.getOption('toneMarkType') != 'Numbers':
+            if toneMarkType != 'Numbers':
                 raise ValueError("keyword '1stToneName' is only valid if" \
                     + " tone mark type is set to 'Numbers'")
             if options['1stToneName'] not in self.TONES:
@@ -3819,7 +3826,7 @@ class CantoneseIPAOperator(TonalIPAOperator):
                     + str(options['1stToneName']) \
                     + "' for keyword '1stToneName'")
 
-            self.optionValue['toneMarkPrefer']['1'] = options['1stToneName']
+            self.optionValue['preferTone']['1'] = options['1stToneName']
 
         if 'stopTones' in options:
             if options['stopTones'] not in ['none', 'general', 'explicit']:
@@ -3843,7 +3850,8 @@ class CantoneseIPAOperator(TonalIPAOperator):
     @classmethod
     def getDefaultOptions(cls):
         options = super(CantoneseIPAOperator, cls).getDefaultOptions()
-        options.update({'stopTones': 'none'})
+        options.update({'stopTones': 'none', '1stToneName': 'HighLevel',
+            'preferTone': cls.TONE_MARK_PREFER[options['toneMarkType']]})
 
         return options
 
@@ -3897,7 +3905,7 @@ class CantoneseIPAOperator(TonalIPAOperator):
                 + self.TONE_MARK_MAPPING[self.getOption('toneMarkType')][tone]
         return unicodedata.normalize("NFC", entity)
 
-    def getExplicitTone(self, plainSyllable, baseTone):
+    def getExplicitTone(self, plainEntity, baseTone):
         """
         Gets the explicit tone for the given plain syllable and base tone.
 
@@ -3906,8 +3914,8 @@ class CantoneseIPAOperator(TonalIPAOperator):
         more precise in denoting the vowel length that influences the tone
         contour.
 
-        @type plainSyllable: str
-        @param plainSyllable: syllable without tonal information
+        @type plainEntity: str
+        @param plainEntity: syllable without tonal information
         @type baseTone: str
         @param baseTone: tone
         @rtype: str
@@ -3920,14 +3928,14 @@ class CantoneseIPAOperator(TonalIPAOperator):
             table = self.db.tables['CantoneseIPAInitialFinal']
             unreleasedFinal, vowelLength = self.db.selectRow(
                 select([table.c.UnreleasedFinal, table.c.VowelLength],
-                    table.c.IPA == plainSyllable))
+                    table.c.IPA == plainEntity))
             if unreleasedFinal:
                 return self.stopToneLookup[baseTone][vowelLength]
 
         if baseTone in self.STOP_TONES:
             # general stop tone that couldn't be dealt with
             raise InvalidEntityError("Invalid tone information given for '" \
-                + plainEntity + "': '" + str(tone) + "'")
+                + plainEntity + "': '" + str(baseTone) + "'")
 
         return baseTone
 
@@ -3951,10 +3959,10 @@ class CantoneseIPAOperator(TonalIPAOperator):
                 # fill lookup with tone mark, overwrite if another tone mark
                 #   was already entered but the current tone mark is prefered
                 if mark not in self._toneMarkLookup \
-                    or (mark in self.TONE_MARK_PREFER[toneMarkType] \
-                    and self.TONE_MARK_PREFER[toneMarkType][mark] == tone):
+                    or (mark in self.getOption('preferTone') \
+                    and self.getOption('preferTone')[mark] == tone):
                     self._toneMarkLookup[mark] = reportTone
-                elif mark not in self.TONE_MARK_PREFER[toneMarkType]\
+                elif mark not in self.getOption('preferTone')\
                     and self._toneMarkLookup[mark] != reportTone:
                     # not specifying a preference mapping for more than two
                     #   possible tones will result in undefined mapping
