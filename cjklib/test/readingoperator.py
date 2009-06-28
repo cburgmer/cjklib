@@ -429,6 +429,72 @@ class CanoneseIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     def cleanDecomposition(self, decomposition, reading, **options):
         return [entity for entity in decomposition if entity != '.']
 
+    def testEntityCountConstant(self):
+        """
+        Test if the number of reading entities reported by
+        C{getReadingEntities()} is constant between different stop tone
+        realisations.
+        """
+        if not hasattr(self.readingOperatorClass, "getReadingEntities"):
+            return
+
+        entityCount = None
+        for stopTones in ['none', 'general', 'explicit']:
+            count = len(self.f.getReadingEntities(self.READING_NAME,
+                stopTones=stopTones))
+            if entityCount != None:
+                self.assertEquals(entityCount, count)
+
+    def testReportedToneValid(self):
+        """
+        Test if the tone reported by C{splitEntityTone()} is valid for the given
+        entity.
+        """
+        if not hasattr(self.readingOperatorClass, "isToneValid"):
+            return
+
+        forms = [{}]
+        forms.extend(self.DIALECTS)
+        for dialect in forms:
+            ipaOperator = self.f.createReadingOperator(self.READING_NAME,
+                **dialect)
+
+            entities = ipaOperator.getReadingEntities()
+            for entity in entities:
+                plainEntity, tone = ipaOperator.splitEntityTone(entity)
+
+                self.assert_(ipaOperator.isToneValid(plainEntity, tone),
+                    "Tone %s is invalid with plain entity %s" \
+                        % (repr(tone), repr(plainEntity)) \
+                    + ' (reading %s, dialect %s)' \
+                        % (self.READING_NAME, dialect))
+
+    def testBaseExplicitTones(self):
+        """
+        Test if the tones reported by C{getBaseTone()} and C{getExplicitTone()}
+        are valid.
+        """
+        forms = [{}]
+        forms.extend(self.DIALECTS)
+        for dialect in forms:
+            ipaOperator = self.f.createReadingOperator(self.READING_NAME,
+                **dialect)
+            for tone in ipaOperator.getTones():
+                tone = ipaOperator.getBaseTone(tone)
+                self.assert_(tone == None or tone in ipaOperator.TONES)
+
+            entities = ipaOperator.getPlainReadingEntities()
+            for plainEntity in entities:
+                for tone in ipaOperator.getTones():
+                    try:
+                        explicitTone = ipaOperator.getExplicitTone(plainEntity,
+                            tone)
+                        self.assert_(explicitTone == None \
+                            or explicitTone in ipaOperator.TONES \
+                            or explicitTone in ipaOperator.STOP_TONES_EXPLICIT)
+                    except exception.InvalidEntityError:
+                        pass
+
 # TODO
 #class CantoneseIPAOperatorReferenceTest(ReadingOperatorReferenceTest,
     #unittest.TestCase):

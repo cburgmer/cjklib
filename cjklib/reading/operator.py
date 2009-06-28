@@ -669,7 +669,11 @@ class TonalFixedEntityOperator(ReadingOperator):
         syllableSet = set()
         for syllable in self.getPlainReadingEntities():
             for tone in self.getTones():
-                syllableSet.add(self.getTonalEntity(syllable, tone))
+                try:
+                    syllableSet.add(self.getTonalEntity(syllable, tone))
+                except InvalidEntityError:
+                    # not all combinations of entities and tones are valid
+                    pass
         return syllableSet
 
     def getPlainReadingEntities(self):
@@ -800,7 +804,7 @@ class TonalIPAOperator(TonalFixedEntityOperator):
     @todo Fix:  Get all diacritics used in IPA as tones for L{TONE_MARK_REGEX}.
     """
     TONE_MARK_REGEX = {'Numbers': re.compile(r'(\d)$'),
-        'ChaoDigits': re.compile(r'(12345+)$'),
+        'ChaoDigits': re.compile(r'([12345]+)$'),
         'IPAToneBar': re.compile(ur'([˥˦˧˨˩꜈꜉꜊꜋꜌]+)$'),
         'Diacritics': re.compile(ur'([\u0300\u0301\u0302\u0303\u030c]+)')
         }
@@ -838,7 +842,9 @@ class TonalIPAOperator(TonalFixedEntityOperator):
             C{'ChaoDigits'}, C{'IPAToneBar'}, C{'Diacritics'}, C{'None'}
         @keyword missingToneMark: if set to C{'noinfo'} no tone information
             will be deduced when no tone mark is found (takes on value C{None}),
-            if set to C{'ignore'} this entity will not be valid.
+            if set to C{'ignore'} this entity will not be valid. Either
+            behaviour only becomes effective if the chosen C{'toneMarkType'}
+            makes no use of empty tone marks.
         """
         super(TonalIPAOperator, self).__init__(**options)
 
@@ -975,13 +981,15 @@ class TonalIPAOperator(TonalFixedEntityOperator):
             matchObj = self.TONE_MARK_REGEX[toneMarkType].search(entity)
             if matchObj:
                 toneMark = matchObj.group(1)
-                tone = self.getToneForToneMark(toneMark)
+            else:
+                toneMark = ''
 
+            tone = self.getToneForToneMark(toneMark)
+
+            if tone in self.getTones():
                 # strip off tone mark
                 plainEntity = entity.replace(toneMark, '')
                 return unicodedata.normalize("NFC", plainEntity), tone
-            elif self.getOption('missingToneMark') == 'noinfo':
-                return unicodedata.normalize("NFC", entity), None
 
         raise InvalidEntityError("Invalid entity given for '" + entity + "'")
 
@@ -999,7 +1007,7 @@ class TonalIPAOperator(TonalFixedEntityOperator):
             toneMarkType = self.getOption('toneMarkType')
             # create lookup dict
             self._toneMarkLookup = {}
-            for tone in self.getTones():
+            for tone in self.TONE_MARK_MAPPING[toneMarkType]:
                 if tone == None:
                     continue
                 mark = self.TONE_MARK_MAPPING[toneMarkType][tone]
@@ -1018,6 +1026,8 @@ class TonalIPAOperator(TonalFixedEntityOperator):
 
         if toneMark in self._toneMarkLookup:
             return self._toneMarkLookup[toneMark]
+        elif toneMark == '' and self.getOption('missingToneMark') == 'noinfo':
+            return None
         else:
             raise InvalidEntityError("Invalid tone mark given with '" \
                 + toneMark + "'")
@@ -2374,7 +2384,6 @@ class GROperator(TonalRomanisationOperator):
         # split syllable into CVC parts
         matchObj = self.SYLLABLE_STRUCTURE.match(plainSyllable)
         if not matchObj:
-            print plainSyllable
             raise InvalidEntityError("Invalid entity given for '" \
                 + plainSyllable + "'")
 
@@ -2790,7 +2799,7 @@ class MandarinIPAOperator(TonalIPAOperator):
     READING_NAME = "MandarinIPA"
 
     TONE_MARK_PREFER = {'Numbers': {'3': '3rdToneRegular', '5': '5thTone'},
-        'ChaoDigits': {}, 'IPAToneBar': {}, 'Diacritics': {}}
+        'ChaoDigits': {'': '5thTone'}, 'IPAToneBar': {}, 'Diacritics': {}}
 
     TONES = ['1stTone', '2ndTone', '3rdToneRegular', '3rdToneLow',
         '4thTone', '5thTone', '5thToneHalfHigh', '5thToneMiddle',
@@ -3711,7 +3720,7 @@ class CantoneseIPAOperator(TonalIPAOperator):
             numbers (e.g. 55), IPA tone bar characters or IPA diacritics,
         - choice between high level and high falling tone for number marks,
         - flexible set of tones,
-        - support for stop tones,
+        - support for X{stop tones},
         - handling of variable vowel length for tone contours of stop tone
             syllables and
         - splitting of syllables into onset and rhyme.
@@ -3725,6 +3734,16 @@ class CantoneseIPAOperator(TonalIPAOperator):
             55 for the high level tone,
         - IPAToneBar, IPA modifying tone bar characters, e.g. ɛw˥˥,
         - None, no support for tone marks
+
+    Implementational details
+    ------------------------
+    The operator comes with three different set of tones to accommodate the user
+    but at the same time handle all different tone types. This setting is
+    controlled by option C{'stopTones'}, where C{'none'} will force the set of 7
+    basic tones, C{'general'} will add the three stop tones found in
+    L{STOP_TONES}, and C{'explicit'} will add one stop tone for each possible
+    vowel length i.e. I{short} and I{long}, making up the maximum count of 13.
+    Internally the set with explicit stop tones is used.
 
     Sources
     =======
@@ -3765,8 +3784,13 @@ class CantoneseIPAOperator(TonalIPAOperator):
     for explicit marking short/long pronunciation.
     """
 
-    TONE_MARK_PREFER = {'Numbers': {'1': 'HighLevel'},
-        'ChaoDigits': {}, 'IPAToneBar': {}, 'Diacritics': {}, 'None': {}}
+    TONE_MARK_PREFER = {'Numbers': {'1': 'HighLevel', '3': 'MidLevel',
+            '6': 'MidLowLevel'},
+        'ChaoDigits': {'55': 'HighLevel', '33': 'MidLevel',
+            '22': 'MidLowLevel'},
+        'IPAToneBar': {u'˥˥': 'HighLevel', u'˧˧': 'MidLevel',
+            u'˨˨': 'MidLowLevel'},
+        'Diacritics': {}}
 
     TONE_MARK_MAPPING = {'Numbers': {'HighLevel': '1', 'MidLevel': '3',
             'MidLowLevel': '6', 'HighRising': '2', 'MidLowRising': '5',
@@ -3789,7 +3813,8 @@ class CantoneseIPAOperator(TonalIPAOperator):
         #'Diacritics': {}
         }
     # The mapping is injective for the restriction on the seven basic tones,
-    #   i.e. L{getToneForToneMark()} knows what to return for each tone mark
+    #   and together with TONE_MARK_PREFER L{getToneForToneMark()} knows what to
+    #   return for each tone mark
 
     def __init__(self, **options):
         """
@@ -3805,8 +3830,12 @@ class CantoneseIPAOperator(TonalIPAOperator):
         @keyword missingToneMark: if set to C{'noinfo'} no tone information
             will be deduced when no tone mark is found (takes on value C{None}),
             if set to C{'ignore'} this entity will not be valid.
-        @keyword 1stToneName: tone for mark 1 under tone mark type C{'Numbers'},
-            either I{'HighLevel'} or I{'HighFalling'}.
+        @keyword 1stToneName: tone for mark C{'1'} under tone mark type
+            C{'Numbers'}, either I{'HighLevel'} or I{'HighFalling'} for
+            syllables without stop tones. For the latter tone mark C{'1'} will
+            still resolve to I{'HighLevel'}, I{'HighStopped'} or
+            I{'HighStopped_Short'} and I{'HighStopped_Long'} depending on the
+            value of option C{'stopTones'}.
         @keyword stopTones: if set to C{'none'} the basic 6 (7) tones will be
             used and stop tones will be reported as one of them, if set to
             C{'general'} the three stop tones will be included, if set to
@@ -3818,9 +3847,6 @@ class CantoneseIPAOperator(TonalIPAOperator):
         if toneMarkType == 'Diacritics':
             raise NotImplementedError() # TODO
 
-        # set prefer tone to correct tone mark type
-        self.optionValue['preferTone'] = self.TONE_MARK_PREFER[toneMarkType]
-
         if '1stToneName' in options:
             if toneMarkType != 'Numbers':
                 raise ValueError("keyword '1stToneName' is only valid if" \
@@ -3830,7 +3856,7 @@ class CantoneseIPAOperator(TonalIPAOperator):
                     + str(options['1stToneName']) \
                     + "' for keyword '1stToneName'")
 
-            self.optionValue['preferTone']['1'] = options['1stToneName']
+            self.optionValue['1stToneName'] = options['1stToneName']
 
         if 'stopTones' in options:
             if options['stopTones'] not in ['none', 'general', 'explicit']:
@@ -3854,8 +3880,7 @@ class CantoneseIPAOperator(TonalIPAOperator):
     @classmethod
     def getDefaultOptions(cls):
         options = super(CantoneseIPAOperator, cls).getDefaultOptions()
-        options.update({'stopTones': 'none', '1stToneName': 'HighLevel',
-            'preferTone': cls.TONE_MARK_PREFER[options['toneMarkType']]})
+        options.update({'stopTones': 'none', '1stToneName': 'HighLevel'})
 
         return options
 
@@ -3864,7 +3889,7 @@ class CantoneseIPAOperator(TonalIPAOperator):
         if self.getOption('stopTones') == 'general':
             tones.extend(self.STOP_TONES.keys())
         elif self.getOption('stopTones') == 'explicit':
-            tones.extend(self.STOP_EXPLICIT.keys())
+            tones.extend(self.STOP_TONES_EXPLICIT.keys())
         if self.getOption('missingToneMark') == 'noinfo' \
             or self.getOption('toneMarkType') == 'None':
             tones.append(None)
@@ -3896,18 +3921,117 @@ class CantoneseIPAOperator(TonalIPAOperator):
         return (entry[0], entry[1])
 
     def getTonalEntity(self, plainEntity, tone):
-        if tone not in self.getTones():
-            raise InvalidEntityError("Invalid tone information given for '" \
-                + plainEntity + "': '" + str(tone) + "'")
-        if self.getOption('toneMarkType') == "None" or tone == None:
+        # reimplement to work with variable tone count
+        if not self.isToneValid(plainEntity, tone):
+            raise InvalidEntityError(
+                "Syllable '%s' can not occur with tone '%s'" \
+                    % (plainEntity, str(tone)))
+
+        # find explicit form
+        explicitTone = self.getExplicitTone(plainEntity, tone)
+
+        toneMarkType = self.getOption('toneMarkType')
+        if toneMarkType == "None" or explicitTone == None:
             entity = plainEntity
         else:
-            # find explicit form
-            tone = self.getExplicitTone(plainEntity, tone)
-
             entity = plainEntity \
-                + self.TONE_MARK_MAPPING[self.getOption('toneMarkType')][tone]
+                + self.TONE_MARK_MAPPING[toneMarkType][explicitTone]
         return unicodedata.normalize("NFC", entity)
+
+    def splitEntityTone(self, entity):
+        # encapsulate parent class' method to work with variable tone count
+        plainEntity, baseTone \
+            = super(CantoneseIPAOperator, self).splitEntityTone(entity)
+
+        if self.getOption('toneMarkType') == 'Numbers' \
+            and baseTone == 'HighLevel' \
+            and not self.hasStopTone(plainEntity):
+            # for tone mark type 'Numbers' use user preference with 1st tone
+            baseTone = self.getOption('1stToneName')
+
+        # convert base tone to dialect setting
+        if self.getOption('stopTones') == 'none' or baseTone == None:
+            tone = baseTone
+        else:
+            explicitTone = self.getExplicitTone(plainEntity, baseTone)
+
+            if explicitTone in self.TONES \
+                or self.getOption('stopTones') == 'explicit':
+                tone = explicitTone
+            elif self.getOption('stopTones') == 'general':
+                tone, _ = explicitTone.split('_')
+
+        return plainEntity, tone
+
+    def isToneValid(self, plainEntity, tone):
+        """
+        Checks if the given plain entity and tone combination is valid.
+
+        Only syllables with unreleased finals occur with stop tones, other forms
+        must not (see L{hasStopTone()}).
+
+        @type plainEntity: str
+        @param plainEntity: entity without tonal information
+        @type tone: str
+        @param tone: tone
+        @rtype: bool
+        @return: C{True} if given combination is valid, C{False} otherwise
+        """
+        if tone not in self.getTones():
+            raise InvalidEntityError(
+                "Invalid tone information given for '%s': '%s'" \
+                    % (plainEntity, str(tone)))
+
+        if self.hasStopTone(plainEntity):
+            if self.getOption('stopTones') == 'none':
+                # stop tones are realised with base tones
+                return tone in ['HighLevel', 'MidLevel', 'MidLowLevel', None]
+            else:
+                if self.getOption('stopTones') == 'general':
+                    # general stop tones
+                    return tone not in self.TONES
+                else:
+                    if tone == None:
+                        return True
+                    elif tone not in self.STOP_TONES_EXPLICIT:
+                        return False
+                    # we need to check the syllable length
+                    _, length = self.STOP_TONES_EXPLICIT[tone]
+                    return length == self._getUnreleasedFinalData()[plainEntity]
+        else:
+            return tone == None or tone in self.TONES
+
+    def hasStopTone(self, plainEntity):
+        """
+        Checks if the given plain syllable can occur with stop tones which is
+        the case for syllables with unreleased finals.
+
+        @type plainEntity: str
+        @param plainEntity: entity without tonal information
+        @rtype: bool
+        @return: C{True} if given syllable can occur with stop tones, C{False}
+            otherwise
+        """
+        return plainEntity in self._getUnreleasedFinalData()
+
+    @classmethod
+    def getBaseTone(cls, tone):
+        """
+        Gets the base tone for stop tones. The returned tone is one out of
+        L{CantoneseIPAOperator.TONES}.
+
+        @type tone: str
+        @param tone: tone
+        @rtype: str
+        @return: base tone
+        """
+        if tone == None or tone in cls.TONES:
+            return tone
+        elif tone in cls.STOP_TONES:
+            return cls.STOP_TONES[tone]
+        else:
+            baseTone, _ = cls.STOP_TONES_EXPLICIT[tone]
+            return baseTone
 
     def getExplicitTone(self, plainEntity, baseTone):
         """
@@ -3929,53 +4053,44 @@ class CantoneseIPAOperator(TonalIPAOperator):
         # only need explicit tones
         if baseTone in self.stopToneLookup:
             # check if we have an unreleased final consonant
-            table = self.db.tables['CantoneseIPAInitialFinal']
-            unreleasedFinal, vowelLength = self.db.selectRow(
-                select([table.c.UnreleasedFinal, table.c.VowelLength],
-                    table.c.IPA == plainEntity))
-            if unreleasedFinal:
+            if self.hasStopTone(plainEntity):
+                vowelLength = self._getUnreleasedFinalData()[plainEntity]
                 return self.stopToneLookup[baseTone][vowelLength]
-
-        if baseTone in self.STOP_TONES:
-            # general stop tone that couldn't be dealt with
-            raise InvalidEntityError("Invalid tone information given for '" \
-                + plainEntity + "': '" + str(baseTone) + "'")
+            elif baseTone in self.STOP_TONES:
+                # baseTone is a general stop tone but entity doesn't support
+                #   stop tones
+                raise InvalidEntityError(
+                    "Invalid tone information given for '%s': '%s'" \
+                        % (plainEntity, str(baseTone)))
 
         return baseTone
 
     def getToneForToneMark(self, toneMark):
-        # overwrite parent method to deal with variable tone count
-        if not hasattr(self, '_toneMarkLookup'):
-            toneMarkType = self.getOption('toneMarkType')
-            # create lookup dict
-            self._toneMarkLookup = {}
-            for tone in self.TONE_MARK_MAPPING[toneMarkType]:
-                mark = self.TONE_MARK_MAPPING[toneMarkType][tone]
+        """
+        Gets the base tone for the given tone mark.
 
-                # get base tone
-                reportTone = tone
-                if reportTone not in self.TONES:
-                    if self.getOption('stopTones') == 'general':
-                        reportTone = self.STOP_TONES[tone]
-                    elif self.getOption('stopTones') == 'none':
-                        reportTone, _ = self.STOP_TONES_EXPLICIT[tone]
+        @type toneMark: str
+        @param toneMark: tone mark representation of the tone
+        @rtype: str
+        @return: tone
+        @raise InvalidEntityError: if the toneMark does not exist.
+        """
+        tone = super(CantoneseIPAOperator, self).getToneForToneMark(toneMark)
+        # tone might be a explicit tone
+        return self.getBaseTone(tone)
 
-                # fill lookup with tone mark, overwrite if another tone mark
-                #   was already entered but the current tone mark is prefered
-                if mark not in self._toneMarkLookup \
-                    or (mark in self.getOption('preferTone') \
-                    and self.getOption('preferTone')[mark] == tone):
-                    self._toneMarkLookup[mark] = reportTone
-                elif mark not in self.getOption('preferTone')\
-                    and self._toneMarkLookup[mark] != reportTone:
-                    # not specifying a preference mapping for more than two
-                    #   possible tones will result in undefined mapping
-                    raise Exception(
-                        "Ambiguous tone mark '%s' found" % mark \
-                        + ", but no preference mapping defined.")
+    def _getUnreleasedFinalData(self):
+        """
+        Gets the table information about unreleased finals from the database.
 
-        if toneMark in self._toneMarkLookup:
-            return self._toneMarkLookup[toneMark]
-        else:
-            raise InvalidEntityError("Invalid tone mark given with '" \
-                + toneMark + "'")
+        @rtype: dict
+        @return: dict containing the length information of syllables with
+            unreleased finals
+        """
+        if not hasattr(self, '_unreleasedFinalData'):
+            table = self.db.tables['CantoneseIPAInitialFinal']
+            self._unreleasedFinalData = dict(self.db.selectRows(
+                select([table.c.IPA, table.c.VowelLength],
+                    table.c.UnreleasedFinal == 'U')))
+
+        return self._unreleasedFinalData
