@@ -44,8 +44,11 @@ class ReadingOperatorTest():
 
     def shortDescription(self):
         methodName = getattr(self, self.id().split('.')[-1])
+        # get whole doc string and remove superfluous white spaces
         noWhitespaceDoc = re.sub('\s+', ' ', methodName.__doc__.strip())
-        clearName = re.sub('C\{([^\}]*)}', r'\1', noWhitespaceDoc)
+        # remove markup for epytext format
+        clearName = re.sub('[CL]\{([^\}]*)}', r'\1', noWhitespaceDoc)
+        # add name of reading
         return clearName + ' (for %s)' % self.READING_NAME
 
 
@@ -312,6 +315,45 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                             % (self.READING_NAME, dialect))
 
 
+class ReadingOperatorTestCaseCheck(unittest.TestCase):
+    """
+    Checks if every L{ReadingOperator} has its own
+    L{ReadingOperatorConsistencyTest}.
+    """
+    def testEveryOperatorHasConsistencyTest(self):
+        """
+        Check if every reading has a test case.
+        """
+        testClasses = self.getReadingOperatorConsistencyTestClasses()
+        testClassReadingNames = [clss.READING_NAME for clss in testClasses]
+        self.f = ReadingFactory()
+
+        for clss in self.f.getReadingOperatorClasses():
+            self.assert_(clss.READING_NAME in testClassReadingNames,
+                "Reading %s has no ReadingOperatorConsistencyTest" \
+                    % clss.READING_NAME)
+
+    @staticmethod
+    def getReadingOperatorConsistencyTestClasses():
+        """
+        Gets all classes implementing L{ReadingOperatorConsistencyTest}.
+
+        @rtype: list
+        @return: list of all classes inheriting form
+            L{ReadingOperatorConsistencyTest}
+        """
+        # get all non-abstract classes that inherit from
+        #   ReadingOperatorConsistencyTest
+        testModule = __import__("cjklib.test.readingoperator")
+        testClasses = [clss for clss \
+            in testModule.test.readingoperator.__dict__.values() \
+            if type(clss) == types.TypeType \
+            and issubclass(clss, ReadingOperatorConsistencyTest) \
+            and clss.READING_NAME]
+
+        return testClasses
+
+
 class ReadingOperatorReferenceTest(ReadingOperatorTest):
     """
     Base class for testing of references against L{ReadingOperator}s.
@@ -376,7 +418,7 @@ class CanoneseIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
 
     DIALECTS = [{'toneMarkType': 'Numbers'},
         {'toneMarkType': 'ChaoDigits'},
-        #{'toneMarkType': 'Diacritics'}, # TODO NotImplementedError
+        # {'toneMarkType': 'Diacritics'}, # TODO NotImplementedError
         {'toneMarkType': 'None'},
         {'toneMarkType': 'Numbers', '1stToneName': 'HighFalling'},
         {'missingToneMark': 'ignore'},
@@ -1352,7 +1394,7 @@ class MandarinIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
 
     DIALECTS = [{'toneMarkType': 'Numbers'},
         {'toneMarkType': 'ChaoDigits'},
-        #{'toneMarkType': 'Diacritics'}, # TODO NotImplementedError
+        # {'toneMarkType': 'Diacritics'}, # TODO NotImplementedError
         {'toneMarkType': 'None'},
         {'missingToneMark': 'ignore'},
         ]

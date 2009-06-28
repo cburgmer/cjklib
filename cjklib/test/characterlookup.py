@@ -33,8 +33,10 @@ class CharacterLookupTest():
 
     def shortDescription(self):
         methodName = getattr(self, self.id().split('.')[-1])
+        # get whole doc string and remove superfluous white spaces
         noWhitespaceDoc = re.sub('\s+', ' ', methodName.__doc__.strip())
-        return re.sub('C\{([^\}]*)}', r'\1', noWhitespaceDoc)
+        # remove markup for epytext format
+        return re.sub('[CL]\{([^\}]*)}', r'\1', noWhitespaceDoc)
 
 
 class CharacterLookupReadingMethodsTestCase(CharacterLookupTest,

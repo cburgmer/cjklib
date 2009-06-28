@@ -47,8 +47,11 @@ class ReadingConverterTest():
 
     def shortDescription(self):
         methodName = getattr(self, self.id().split('.')[-1])
+        # get whole doc string and remove superfluous white spaces
         noWhitespaceDoc = re.sub('\s+', ' ', methodName.__doc__.strip())
-        clearName = re.sub('C\{([^\}]*)}', r'\1', noWhitespaceDoc)
+        # remove markup for epytext format
+        clearName = re.sub('[CL]\{([^\}]*)}', r'\1', noWhitespaceDoc)
+        # add information about conversion direction
         return clearName + ' (for %s to %s)' % self.CONVERSION_DIRECTION
 
     @staticmethod
@@ -154,6 +157,50 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
                     % (repr(option), repr(instance.getOption(option)),
                         repr(defaultInstance.getOption(option))) \
                 + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
+
+
+class ReadingConverterTestCaseCheck(unittest.TestCase):
+    """
+    Checks if every L{ReadingConverter} has its own
+    L{ReadingConverterConsistencyTest}.
+    """
+    def testEveryConverterHasConsistencyTest(self):
+        """
+        Check if every reading has a test case.
+        """
+        testClasses = self.getReadingConverterConsistencyTestClasses()
+        testClassReadingNames = [clss.CONVERSION_DIRECTION for clss \
+            in testClasses]
+        self.f = ReadingFactory()
+
+        for clss in self.f.getReadingConverterClasses():
+            for direction in clss.CONVERSION_DIRECTIONS:
+                if direction in converter.BridgeConverter.CONVERSION_DIRECTIONS:
+                    continue # TODO no need for test classes for bridge conversions?
+
+                self.assert_(direction in testClassReadingNames,
+                    "Conversion from %s to %s" % direction \
+                    + "has no ReadingOperatorConsistencyTest")
+
+    @staticmethod
+    def getReadingConverterConsistencyTestClasses():
+        """
+        Gets all classes implementing L{ReadingConverterConsistencyTest}.
+
+        @rtype: list
+        @return: list of all classes inheriting form
+            L{ReadingConverterConsistencyTest}
+        """
+        # get all non-abstract classes that inherit from
+        #   ReadingConverterConsistencyTest
+        testModule = __import__("cjklib.test.readingconverter")
+        testClasses = [clss for clss \
+            in testModule.test.readingconverter.__dict__.values() \
+            if type(clss) == types.TypeType \
+            and issubclass(clss, ReadingConverterConsistencyTest) \
+            and clss.CONVERSION_DIRECTION]
+
+        return testClasses
 
 
 class ReadingConverterReferenceTest(ReadingConverterTest):
