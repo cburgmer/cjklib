@@ -1960,13 +1960,10 @@ class WadeGilesOperator(TonalRomanisationOperator):
         return options
 
     def getTones(self):
-        if self.getOption('missingToneMark') == 'fifth':
-            tones = [1, 2, 3, 4, None]
-        else:
-            tones = range(1, 6)
-            if self.getOption('toneMarkType') == 'None' \
-                or self.getOption('missingToneMark') == 'noinfo':
-                tones.append(None)
+        tones = range(1, 6)
+        if self.getOption('toneMarkType') == 'None' \
+            or self.getOption('missingToneMark') == 'noinfo':
+            tones.append(None)
         return tones
 
     def compose(self, readingEntities):
