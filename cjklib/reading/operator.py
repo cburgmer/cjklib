@@ -1277,7 +1277,7 @@ class PinyinOperator(TonalRomanisationOperator):
             deduced when no tone mark is found (takes on value C{None}), if set
             to C{'ignore'} this entity will not be valid and for segmentation
             the behaviour defined by C{'strictSegmentation'} will take affect.
-            This option is only valid for the tone mark type C{'Numbers'}.
+            This option only has effect for the tone mark type C{'Numbers'}.
         @keyword strictDiacriticPlacement: if set to C{True} syllables have to
             follow the diacritic placement rule of Pinyin strictly (see
             L{_placeNucleusToneMark()}). Wrong placement will result in
@@ -1313,10 +1313,6 @@ class PinyinOperator(TonalRomanisationOperator):
 
         # check if we have to be strict on tones, i.e. report missing tone info
         if 'missingToneMark' in options:
-            if self.getOption('toneMarkType') != 'Numbers':
-                raise ValueError("keyword 'missingToneMark' is only valid if" \
-                    + " tone mark type is set to 'Numbers'")
-
             if options['missingToneMark'] not in ['fifth', 'noinfo', 'ignore']:
                 raise ValueError("Invalid option '" \
                     + str(options['missingToneMark']) \
@@ -1925,7 +1921,8 @@ class WadeGilesOperator(TonalRomanisationOperator):
             will be deduced when no tone mark is found (takes on value C{None}),
             if set to C{'ignore'} this entity will not be valid and for
             segmentation the behaviour defined by C{'strictSegmentation'} will
-            take affect.
+            take affect. This options only has effect for tone mark type
+            C{'Numbers'} and C{'SuperscriptNumbers'}.
         """
         super(WadeGilesOperator, self).__init__(**options)
         # set alternate apostrophe if given
@@ -1947,12 +1944,6 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
         # check behaviour on missing tone info
         if 'missingToneMark' in options:
-            if self.getOption('toneMarkType') not in ['Numbers',
-                'SuperscriptNumbers']:
-                raise ValueError("keyword 'missingToneMark' is only valid if" \
-                    + " tone mark type is set to 'Numbers' or " \
-                    + "'SuperscriptNumbers'")
-
             if options['missingToneMark'] not in ['fifth', 'noinfo', 'ignore']:
                 raise ValueError("Invalid option '" \
                     + str(options['missingToneMark']) \
@@ -3350,8 +3341,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             will be deduced when no tone mark is found (takes on value C{None}),
             if set to C{'ignore'} this entity will not be valid and for
             segmentation the behaviour defined by C{'strictSegmentation'} will
-            take affect. This option is only valid if the value C{'Numbers'} is
-            given for the option I{toneMarkType}.
+            take affect. This option only has effect if the value C{'Numbers'}
+            is given for the option I{toneMarkType}.
         @keyword strictDiacriticPlacement: if set to C{True} syllables have to
             follow the diacritic placement rule of Cantonese Yale strictly (see
             L{getTonalEntity()}). Wrong placement will result in
@@ -3376,11 +3367,6 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         # check if we have to be strict on tones, i.e. report missing tone info
         if 'missingToneMark' in options:
-            if options['toneMarkType'] not in ['Numbers', 'Internal', 'None']:
-                raise ValueError("keyword 'missingToneMark' is only valid if" \
-                    + " tone mark type is set to 'Numbers', 'Internal' and "\
-                    + "'None'")
-
             if options['missingToneMark'] not in ['noinfo', 'ignore']:
                 raise ValueError("Invalid option '" \
                     + str(options['missingToneMark']) \
@@ -3390,9 +3376,6 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         # set the YaleFirstTone for handling ambiguous conversion of first
         #   tone in Cantonese that has two different representations in Yale
         if 'YaleFirstTone' in options:
-            if self.optionValue['toneMarkType'] != 'Numbers':
-                raise ValueError("Option 'YaleFirstTone' is only valid with" \
-                    + " option 'toneMarkType' set to 'Numbers'")
             if options['YaleFirstTone'] not in ['1stToneLevel',
                 '1stToneFalling']:
                 raise ValueError("Invalid option '" \
@@ -3831,11 +3814,10 @@ class CantoneseIPAOperator(TonalIPAOperator):
             will be deduced when no tone mark is found (takes on value C{None}),
             if set to C{'ignore'} this entity will not be valid.
         @keyword 1stToneName: tone for mark C{'1'} under tone mark type
-            C{'Numbers'}, either I{'HighLevel'} or I{'HighFalling'} for
-            syllables without stop tones. For the latter tone mark C{'1'} will
-            still resolve to I{'HighLevel'}, I{'HighStopped'} or
-            I{'HighStopped_Short'} and I{'HighStopped_Long'} depending on the
-            value of option C{'stopTones'}.
+            C{'Numbers'} for ambiguous mapping between tones I{'HighLevel'} or I{'HighFalling'} under syllables without stop tones. For the latter
+            tone mark C{'1'} will still resolve to I{'HighLevel'},
+            I{'HighStopped'} or I{'HighStopped_Short'} and I{'HighStopped_Long'}
+            depending on the value of option C{'stopTones'}.
         @keyword stopTones: if set to C{'none'} the basic 6 (7) tones will be
             used and stop tones will be reported as one of them, if set to
             C{'general'} the three stop tones will be included, if set to
@@ -3848,9 +3830,6 @@ class CantoneseIPAOperator(TonalIPAOperator):
             raise NotImplementedError() # TODO
 
         if '1stToneName' in options:
-            if toneMarkType != 'Numbers':
-                raise ValueError("keyword '1stToneName' is only valid if" \
-                    + " tone mark type is set to 'Numbers'")
             if options['1stToneName'] not in self.TONES:
                 raise ValueError("Invalid option '" \
                     + str(options['1stToneName']) \
