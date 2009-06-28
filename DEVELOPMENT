@@ -2,7 +2,7 @@ Introduction
 ------------
 Short documentation about steps helping in development.
 
-nosetest from http://somethingaboutorange.com/mrl/projects/nose is used in
+nosetests from http://somethingaboutorange.com/mrl/projects/nose is used in
 the following paragraphs.
 
 Test cases

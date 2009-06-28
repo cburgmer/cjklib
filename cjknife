@@ -1158,7 +1158,7 @@ def main():
 
     # start to check parameters
     if len(opts) == 0:
-        print "use parameter -h for a short summary on supported functions"
+        print "Use parameter -h for a short summary on supported functions"
 
     for o, a in opts:
         a = a.decode(default_encoding)
@@ -1178,7 +1178,7 @@ def main():
             if readingLookup.has_key(a.lower()):
                 sourceReading = readingLookup[a.lower()]
             else:
-                print "error:", "'" + a.encode(output_encoding, "replace") \
+                print "Error:", "'" + a.encode(output_encoding, "replace") \
                     + "' is not a valid reading name"
                 sys.exit(1)
 
@@ -1187,7 +1187,7 @@ def main():
             if readingLookup.has_key(a.lower()):
                 targetReading = readingLookup[a.lower()]
             else:
-                print "error:", "'" + a.encode(output_encoding, "replace") \
+                print "Error:", "'" + a.encode(output_encoding, "replace") \
                     + "' is not a valid reading name"
                 sys.exit(1)
 
@@ -1196,7 +1196,7 @@ def main():
             if a.upper() in 'TCJKV':
                 charLocale = a.upper()
             else:
-                print "error:", "'" + a.encode(output_encoding, "replace") \
+                print "Error:", "'" + a.encode(output_encoding, "replace") \
                     + "' is not a valid locale"
                 sys.exit(1)
 
@@ -1211,7 +1211,7 @@ def main():
             if a.lower() in dictionaries:
                 dictionary = dictionaries[a.lower()]
             else:
-                print "error:", "'" + a.encode(output_encoding, "replace") \
+                print "Error:", "'" + a.encode(output_encoding, "replace") \
                     + "' is not a valid dictionary"
                 sys.exit(1)
 
@@ -1310,7 +1310,7 @@ def main():
                             + ')')\
                             .encode(output_encoding, "replace")
             else:
-                print "error: bad parameter"
+                print "Error: bad parameter"
                 sys.exit(1)
 
         elif command in ("-q", "-r", "-f", "--get-reading", "--convert-form"):
@@ -1321,12 +1321,12 @@ def main():
                     print getPrintableList(readingList, " ")\
                         .encode(output_encoding, "replace")
                 except exception.UnsupportedError:
-                    print "error: no character mapping for this reading." \
+                    print "Error: no character mapping for this reading." \
                         + " Maybe the mapping in question has not been " \
                         + "installed."
                     sys.exit(1)
                 except exception.ConversionError:
-                    print "error: unable to convert to internal reading"
+                    print "Error: unable to convert to internal reading"
                     sys.exit(1)
 
             # conversion between simplified/traditional forms
@@ -1335,7 +1335,7 @@ def main():
                 traditional= getPrintableList(charInfo.getTraditional(
                     parameter))
                 if not parameter in (simplified, traditional):
-                    print "warning: input string has mixed simplified and " \
+                    print "Warning: input string has mixed simplified and " \
                         + "traditional forms"
                 if simplified == traditional:
                     print "Chinese simplified/Traditional: " \
@@ -1353,11 +1353,11 @@ def main():
                     sourceReading)
                 print "".join(characterList).encode(output_encoding, "replace")
             except exception.UnsupportedError:
-                print "error: no character mapping for this reading." \
+                print "Error: no character mapping for this reading." \
                     + " Maybe the mapping in question has not been installed."
                 sys.exit(1)
             except exception.ConversionError:
-                print "error: unable to convert to internal reading"
+                print "Error: unable to convert to internal reading"
                 sys.exit(1)
 
         # character lookup by Kangxi radical index
@@ -1370,7 +1370,7 @@ def main():
                         + ''.join(strokeCountDict[residualStrokeCount])\
                             .encode(output_encoding, "replace")
             except ValueError:
-                print "error: bad parameter"
+                print "Error: bad parameter"
                 sys.exit(1)
 
         # character lookup by components
@@ -1393,24 +1393,24 @@ def main():
                 print charInfo.convertReading(parameter, sourceReading,
                     targetReading).encode(output_encoding, "replace")
             except exception.DecompositionError, m:
-                print "error: invalid input string:", \
+                print "Error: invalid input string:", \
                     getExceptionString(m).encode(output_encoding, "replace")
                 sys.exit(1)
             except exception.ConversionError, m:
-                print "error: can't convert input string:", \
+                print "Error: can't convert input string:", \
                     getExceptionString(m).encode(output_encoding, "replace")
                 sys.exit(1)
             except exception.UnsupportedError:
-                print "error: conversion for given readings not supported"
+                print "Error: conversion for given readings not supported"
                 sys.exit(1)
             except exception.AmbiguousConversionError:
-                print "error: input reading is ambiguous, can't convert"
+                print "Error: input reading is ambiguous, can't convert"
                 sys.exit(1)
 
         # dictionary search
         elif command == "-x":
             if not charInfo.hasDictionary():
-                print "error: no dictionary available"
+                print "Error: no dictionary available"
                 sys.exit(1)
             try:
                 results = charInfo.searchDictionaryExact(parameter,
@@ -1419,12 +1419,12 @@ def main():
                     print (c + ", " + r + ", " + t)\
                         .encode(output_encoding, "replace")
             except exception.UnsupportedError, e:
-                print "error: conversion for given readings not supported"
+                print "Error: conversion for given readings not supported"
                 sys.exit(1)
 
         elif command in ("-c", "-b", "-e"):
             if not charInfo.hasDictionary():
-                print "error: no dictionary available"
+                print "Error: no dictionary available"
                 sys.exit(1)
             try:
                 results = charInfo.searchDictionaryContaining(parameter,
@@ -1433,24 +1433,24 @@ def main():
                     print (c + ", " + r + ", " + t)\
                         .encode(output_encoding, "replace")
             except exception.UnsupportedError, e:
-                print "error: conversion for given readings not supported"
+                print "Error: conversion for given readings not supported"
                 sys.exit(1)
 
         # listing of available options for parameter setting
         elif command in ("-L", "--list-options"):
             # locales
-            print "current locale: " + charLocale + " (" \
+            print "Current locale: " + charLocale + " (" \
                 + CharacterInfo.CHAR_LOCALE_NAME[charLocale] + ")"
-            print "supported locales: " + ", ".join(
-                [key + ': ' + CharacterInfo.CHAR_LOCALE_NAME[key] \
-                    for key in CharacterInfo.CHAR_LOCALE_NAME])
+            print "Supported locales: " + ", ".join(
+                ["%s: %s" % entry for entry \
+                    in sorted(CharacterInfo.CHAR_LOCALE_NAME.items())])
             # character domain
-            print "current character domain: " + charDomain
-            print "available domains: " + ", ".join(
+            print "Current character domain: " + charDomain
+            print "Available domains: " + ", ".join(
                 charInfo.characterLookup.getAvailableCharacterDomains())
             # readings
-            print "current source reading: %s" % sourceReading
-            print "current target reading: %s" % targetReading
+            print "Current source reading: %s" % sourceReading
+            print "Current target reading: %s" % targetReading
             readingsList = []
             for readingName in reading.ReadingFactory().getSupportedReadings():
                 if ALTERNATIVE_READING_NAMES.has_key(readingName):
@@ -1459,12 +1459,12 @@ def main():
                         + ")")
                 else:
                     readingsList.append(readingName)
-            print "supported readings: " + ", ".join(readingsList)
+            print "Supported readings: " + ", ".join(readingsList)
             # dictionary
             if dictionary:
-                print "current dictionary: %s" % dictionary
+                print "Current dictionary: %s" % dictionary
             else:
-                print "currently no dictionary set"
+                print "Currently no dictionary set"
 
             availableDictionaries = charInfo.getAvailableDictionaries()
             if availableDictionaries:
@@ -1473,12 +1473,12 @@ def main():
                     dictData = CharacterInfo.DICTIONARY_INFO[dictionaryName]
                     dictionaryList.append(
                         "%s (%s)" % (dictionaryName, dictData['reading']))
-                print "available dictionaries: " + ", ".join(dictionaryList)
+                print "Available dictionaries: " + ", ".join(dictionaryList)
             else:
-                print "no dictionaries available"
+                print "No dictionaries available"
 
         else:
-            print "error: command unknown"
+            print "Error: command unknown"
             usage()
             sys.exit(1)
 

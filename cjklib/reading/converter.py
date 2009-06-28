@@ -587,8 +587,8 @@ class PinyinDialectConverter(ReadingConverter):
 
         - Fix cosmetic errors in Pinyin input (note tone mark and apostrophe):
 
-            >>> f.convert(u"Wǒ peí nǐ qù xīān.", 'Pinyin', 'Pinyin')
-            u"W\u01d2 p\xe9i n\u01d0 q\xf9 x\u012b'\u0101n."
+            >>> f.convert(u"Wǒ peí nǐ qù Xīān.", 'Pinyin', 'Pinyin')
+            u"W\u01d2 p\xe9i n\u01d0 q\xf9 X\u012b'\u0101n."
     """
     CONVERSION_DIRECTIONS = [('Pinyin', 'Pinyin')]
 
