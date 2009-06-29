@@ -46,6 +46,8 @@ For more complex operators, see L{PinyinOperator} or L{MandarinIPAOperator}.
 import re
 import unicodedata
 import copy
+import types
+from functools import partial
 
 from sqlalchemy import Table, Column, Integer, String
 from sqlalchemy import select, union
@@ -1498,9 +1500,13 @@ class PinyinOperator(TonalRomanisationOperator):
         """
         newReadingEntities = []
         precedingEntity = None
+
+        apostropheFunction = self.getOption('PinyinApostropheFunction')
+        if type(apostropheFunction) == types.MethodType:
+            apostropheFunction = partial(apostropheFunction, self)
+
         for entity in readingEntities:
-            if self.getOption('PinyinApostropheFunction')(self, precedingEntity,
-                entity):
+            if apostropheFunction(precedingEntity, entity):
                 newReadingEntities.append(self.getOption('PinyinApostrophe'))
 
             newReadingEntities.append(entity)
