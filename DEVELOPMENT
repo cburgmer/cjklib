@@ -11,7 +11,7 @@ Run
   nosetests cjklib/test/*.py
 or to ommit current slow tests:
   nosetests cjklib/test/*.py -e testDecomposeKeepsSyllablePairs
-    -e CompositionIsStrict -e testGetCharactersForReadingAcceptsAllEntities
+    -e testGetCharactersForReadingAcceptsAllEntities
 to use the test cases included in cjklib/test/.
 
 Coverage
