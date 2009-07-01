@@ -280,7 +280,8 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
     def testDecomposeKeepsSyllablePairs(self):
         """
         Test if all pairs of reading entities returned by
-        C{getReadingEntities()} are decomposed into the same pairs again.
+        C{getReadingEntities()} are decomposed into the same pairs again and
+        possibly are strict.
         """
         if not hasattr(self.readingOperatorClass, "getReadingEntities"):
             return
@@ -298,16 +299,33 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                             self.READING_NAME, **dialect)
 
                         if hasattr(self, 'cleanDecomposition'):
-                            decomposition = self.cleanDecomposition(
+                            cleanDecomposition = self.cleanDecomposition(
                                 decomposition, self.READING_NAME, **dialect)
+                        else:
+                            cleanDecomposition = decomposition
 
-                        self.assertEquals(decomposition, pair,
+                        self.assertEquals(cleanDecomposition, pair,
                             "decompose doesn't keep entity pair %s: %s" \
-                                % (repr(pair), repr(decomposition)) \
+                                % (repr(pair), repr(cleanDecomposition)) \
                         + ' (reading %s, dialect %s)' \
                             % (self.READING_NAME, dialect))
+
+                        # test if method exists and by default is not False
+                        if hasattr(self.readingOperatorClass,
+                            "isStrictDecomposition") \
+                            and self.f.isStrictDecomposition([]) != False: # TODO this doesn't capture bugs in isStrictDecomposition that return False for an empty array
+
+                            strict = self.f.isStrictDecomposition(decomposition,
+                                self.READING_NAME, **dialect)
+
+                            self.assert_(strict,
+                                "Decomposition for pair %s is not strict" \
+                                    % repr(string) \
+                                + ' (reading %s, dialect %s)' \
+                                    % (self.READING_NAME, dialect))
+
                     except exception.DecompositionError:
-                        self.fail('decomposition fails for pair %s' \
+                        self.fail('Decomposition fails for pair %s' \
                             % repr(pair) \
                         + ' (reading %s, dialect %s)' \
                             % (self.READING_NAME, dialect))
@@ -735,28 +753,6 @@ class PinyinOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
             self._operators.append((reading, options, op))
 
         return op.removeApostrophes(decomposition)
-
-    def testPinyinCompositionIsStrict(self):
-        """
-        Tests if the PinyinOperator's C{compose()} method creates strict
-        strings.
-        """
-        forms = [{}]
-        forms.extend(self.DIALECTS)
-        for dialect in forms:
-            pinyinOperator = self.f.createReadingOperator(self.READING_NAME,
-                **dialect)
-            entities = pinyinOperator.getReadingEntities()
-            for entityA in entities:
-                for entityB in entities:
-                    pair = [entityA, entityB]
-                    string = pinyinOperator.compose(pair)
-                    decomposition = pinyinOperator.decompose(string)
-                    self.assert_(
-                        pinyinOperator.isStrictDecomposition(decomposition),
-                        "Pair %s is not strict" % repr(pair) \
-                        + ' (reading %s, dialect %s)' \
-                            % (self.READING_NAME, dialect))
 
 
 class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
