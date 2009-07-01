@@ -2278,7 +2278,7 @@ class GROperator(TonalRomanisationOperator):
             if precedingEntity and self.isReadingEntity(precedingEntity) \
                 and self.isReadingEntity(entity):
 
-                if entity[0] in ['a', 'e', 'i', 'o', 'u']:
+                if entity[0].lower() in ['a', 'e', 'i', 'o', 'u']:
                     newReadingEntities.append(
                         self.getOption('GRSyllableSeparatorApostrophe'))
 
@@ -2293,7 +2293,7 @@ class GROperator(TonalRomanisationOperator):
             if precedingEntity and self.isReadingEntity(precedingEntity) \
                 and self.isReadingEntity(entity):
 
-                if entity[0] in ['a', 'e', 'i', 'o', 'u']:
+                if entity[0].lower() in ['a', 'e', 'i', 'o', 'u']:
                     return False
 
             precedingEntity = entity
@@ -2307,9 +2307,11 @@ class GROperator(TonalRomanisationOperator):
         substringIndex = 1
         while substringIndex <= len(string) and \
             (self._hasSyllableSubstring(string[0:substringIndex].lower()) \
-                or string[0:substringIndex] == "'"):
+                or string[0:substringIndex] \
+                    == self.getOption('GRSyllableSeparatorApostrophe')):
             syllable = string[0:substringIndex]
-            if self.isReadingEntity(syllable) or syllable == "'":
+            if self.isReadingEntity(syllable) \
+                or syllable == self.getOption('GRSyllableSeparatorApostrophe'):
                 remaining = string[substringIndex:]
                 if remaining != '':
                     remainingParts = self._recursiveSegmentation(remaining)
@@ -2331,7 +2333,9 @@ class GROperator(TonalRomanisationOperator):
         """
         if len(readingEntities) == 0:
             return []
-        elif len(readingEntities) > 2 and readingEntities[1] == "'" \
+        elif len(readingEntities) > 2 \
+            and readingEntities[1] \
+                == self.getOption('GRSyllableSeparatorApostrophe') \
             and self.isReadingEntity(readingEntities[0]) \
             and self.isReadingEntity(readingEntities[2]):
             # apostrophe on pos #1 preceded and followed by a syllable
@@ -2652,14 +2656,19 @@ class GROperator(TonalRomanisationOperator):
         """
         Returns true if the given entity is an abbreviated spelling.
 
-        Reading entities will be handled as being case insensitive.
+        Case of characters will be handled depending on the setting for option
+        C{'case'}.
 
         @type entity: str
         @param entity: entity to check
         @rtype: bool
         @return: C{True} if entity is an abbreviated form.
         """
-        return entity in self._getAbbreviatedLookup()
+        # check capitalisation
+        if self.getOption('case') == 'lower' and entity.lower() != entity:
+            return False
+
+        return entity.lower() in self._getAbbreviatedLookup()
 
     def convertAbbreviatedEntity(self, entity):
         """

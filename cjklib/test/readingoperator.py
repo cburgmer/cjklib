@@ -1132,17 +1132,100 @@ class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         {'strictSegmentation': True},
         ]
 
+    def cleanDecomposition(self, decomposition, reading, **options):
+        if not hasattr(self, '_operators'):
+            self._operators = []
+        for operatorReading, operatorOptions, op in self._operators:
+            if reading == operatorReading and options == operatorOptions:
+                break
+        else:
+            op = self.f.createReadingOperator(reading, **options)
+            self._operators.append((reading, options, op))
+
+        return op.removeApostrophes(decomposition)
+
+    def testValidAbbreviatedEntitiesAccepted(self):
+        """
+        Test if all abbreviated reading entities returned by
+        C{getAbbreviatedEntities()} are accepted by C{isAbbreviatedEntity()}.
+        """
+        if not hasattr(self.readingOperatorClass, "getAbbreviatedEntities"):
+            return
+
+        forms = [{}]
+        forms.extend(self.DIALECTS)
+        for dialect in forms:
+            grOperator = self.f.createReadingOperator(self.READING_NAME,
+                **dialect)
+            entities = grOperator.getAbbreviatedEntities()
+            for entity in entities:
+                self.assert_(
+                    grOperator.isAbbreviatedEntity(entity),
+                    "Abbreviated entity %s not accepted" % repr(entity) \
+                        + ' (reading %s, dialect %s)' \
+                            % (self.READING_NAME, dialect))
+
 
 #TODO
 class GROperatorReferenceTest(ReadingOperatorReferenceTest,
     unittest.TestCase):
     READING_NAME = 'GR'
 
-    DECOMPOSITION_REFERENCES = []
+    DECOMPOSITION_REFERENCES = [
+        ({}, [
+            (u"tian’anmen", ["tian", u"’", "an", "men"]),
+            (u"Beeijing", ["Beei", "jing"]),
+            (u"faan-guohlai", ["faan", "-", "guoh", "lai"]),
+            (u'"Haeshianq gen Muh.jianq"', ['"', "Hae", "shianq", " ", "gen",
+                " ", "Muh", ".jianq", '"']),
+            (u"keesh", ["kee", "sh"]),
+            (u"yeou ideal", ["yeou", " ", "i", "deal"]),
+            (u"TIAN’ANMEN", ["TIAN", u"’", "AN", "MEN"]),
+            ]),
+        ]
 
-    COMPOSITION_REFERENCES = []
+    COMPOSITION_REFERENCES = [
+        ({}, [
+            (["tian", "an", "men"], u"tian’anmen"),
+            (["tian", u"’", "an", "men"], u"tian’anmen"),
+            (["Beei", "jing"], u"Beeijing"),
+            (["yeou", " ", "i", "deal"], u"yeou ideal"),
+            (["faan", "-", "guoh", "lai"], u"faan-guohlai"),
+            (["TIAN", "AN", "MEN"], u"TIAN’ANMEN"),
+            ]),
+        ]
 
-    READING_ENTITY_REFERENCES = []
+    READING_ENTITY_REFERENCES = [
+        ({}, [
+            (u"shau", True),
+            (u"shao", True),
+            (u"shaw", True),
+            ]),
+        ]
+
+    ABBREVIATED_READING_ENTITY_REFERENCES = [
+        ({}, [
+            (u"sh", True),
+            (u"SH", True),
+            ]),
+        ]
+
+    def testAbbreviatedEntitiesReferences(self):
+        """
+        Test if abbreviated reading entity references are accepted by
+        C{isAbbreviatedEntity()}.
+        """
+        for dialect, references in self.ABBREVIATED_READING_ENTITY_REFERENCES:
+            grOperator = self.f.createReadingOperator(self.READING_NAME,
+                **dialect)
+            for reference, target in references:
+                result = grOperator.isAbbreviatedEntity(reference)
+
+                self.assertEquals(result, target,
+                    "Target %s of %s not reached: %s" \
+                        % (repr(target), repr(reference), repr(result)) \
+                    + ' (reading %s, dialect %s)' \
+                        % (self.READING_NAME, dialect))
 
     # The following mappings are taken from the Pinyin-to-GR Conversion Tables
     # written/compiled by Richard Warmington,
