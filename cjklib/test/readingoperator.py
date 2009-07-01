@@ -682,7 +682,6 @@ class PinyinOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'Pinyin'
 
-    @staticmethod
     def noToneApostropheRule(precedingEntity, followingEntity):
         return precedingEntity and precedingEntity[0].isalpha() \
             and not precedingEntity[-1].isdigit() \
@@ -697,8 +696,7 @@ class PinyinOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         {'toneMarkType': 'None'},
         {'PinyinApostrophe': u'’'},
         {'toneMarkType': 'Numbers',
-            'PinyinApostropheFunction': \
-                PinyinOperatorConsistencyTestCase.noToneApostropheRule},
+            'PinyinApostropheFunction': noToneApostropheRule},
         {'Erhua': 'oneSyllable'},
         {'strictDiacriticPlacement': True},
         {'strictSegmentation': True},
