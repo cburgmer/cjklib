@@ -17,8 +17,6 @@
 
 """
 Provides the library's unit tests for the L{reading.operator} classes.
-
-@todo Impl: Add consistency tests for 'case' option with romanisations.
 """
 import re
 import types
@@ -519,6 +517,7 @@ class CanoneseYaleOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         {'toneMarkType': 'None'},
         {'strictDiacriticPlacement': True},
         {'strictSegmentation': True},
+        {'case': 'lower'},
         ]
 
 
@@ -607,6 +606,7 @@ class JyutpingOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         {'missingToneMark': 'ignore'},
         {'missingToneMark': 'ignore', 'strictSegmentation': True},
         {'strictSegmentation': True},
+        {'case': 'lower'},
         ]
 
 
@@ -721,6 +721,7 @@ class PinyinOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         {'Erhua': 'oneSyllable'},
         {'strictDiacriticPlacement': True},
         {'strictSegmentation': True},
+        {'case': 'lower'},
         ]
 
     def cleanDecomposition(self, decomposition, reading, **options):
@@ -1223,6 +1224,7 @@ class WadeGilesOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         {'missingToneMark': 'ignore', 'strictSegmentation': True},
         {'strictSegmentation': True},
         {'WadeGilesApostrophe': u"'"},
+        {'case': 'lower'},
         ]
 
     def cleanDecomposition(self, decomposition, reading, **options):
@@ -1258,6 +1260,7 @@ class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         {'GRRhotacisedFinalApostrophe': "'"},
         {'GRSyllableSeparatorApostrophe': "'"},
         {'strictSegmentation': True},
+        {'case': 'lower'},
         ]
 
     def cleanDecomposition(self, decomposition, reading, **options):

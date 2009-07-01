@@ -211,6 +211,18 @@ class RomanisationOperator(ReadingOperator):
     X{unambiguous decomposition} can not be made. These decompositions can be
     accessed through method L{getDecompositions()}, even in a cases where a
     strict decomposition exists.
+
+    X{Letter case}
+    ==============
+    Romanisations are special to other readings as their entities can be written
+    in upper or lower X{case}, or in a mix of them. By default operators will
+    recognise both, this behaviour can be changed with option C{'case'} which
+    can alternatively be changed to C{'lower'}. Upper case is not explicitly
+    supported. If such a writing is needed, this behaviour can be implemented
+    by choosing lower case and converting strings to and from the operator
+    manually. Method L{getReadingEntities()} will by default return lower case
+    entities.
+
     @todo Impl: Optimise decompose() as to incorporate segment() and prune the
         tree while it is created. Does this though yield significant
         improvement? Would at least be O(n).
@@ -230,9 +242,8 @@ class RomanisationOperator(ReadingOperator):
             raise an exception if an alphabetic string is parsed which can not
             be segmented into single reading entities. If C{False} the aforesaid
             string will be returned unsegmented.
-        @keyword case: if set to C{'lower'}/C{'upper'}, only lower/upper
-            case will be supported, respectively, if set to C{'both'} both upper
-            and lower case will be supported.
+        @keyword case: if set to C{'lower'}, only lower case will be supported,
+            if set to C{'both'} a mix of upper and lower case will be supported.
         @todo Bug:  With C{strictSegmentation} set to False (default) invalid
             romanisation strings can evolve, e.g.:
 
@@ -247,6 +258,9 @@ class RomanisationOperator(ReadingOperator):
                 = options['strictSegmentation']
 
         if 'case' in options:
+            if options['case'] not in ['lower', 'both']:
+                raise ValueError("Invalid option '" + str(options['case']) \
+                    + "' for keyword 'case'")
             self.optionValue['case'] = options['case']
 
     @classmethod
@@ -495,7 +509,8 @@ class RomanisationOperator(ReadingOperator):
         operator, i.e. it is a valid entity of the reading returned by the
         segmentation method.
 
-        Reading entities will be handled as being case insensitive.
+        Case of characters will be handled depending on the setting for option
+        C{'case'}.
 
         @type entity: str
         @param entity: entity to check
@@ -505,8 +520,6 @@ class RomanisationOperator(ReadingOperator):
         """
         # check capitalisation
         if self.getOption('case') == 'lower' and entity.lower() != entity:
-            return False
-        elif self.getOption('case') == 'upper' and entity.upper() != entity:
             return False
 
         if not hasattr(self, '_syllableTable'):
@@ -747,6 +760,8 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
             raise an exception if an alphabetic string is parsed which can not
             be segmented into single reading entities. If C{False} the aforesaid
             string will be returned unsegmented.
+        @keyword case: if set to C{'lower'}, only lower case will be supported,
+            if set to C{'both'} a mix of upper and lower case will be supported.
         """
         super(TonalRomanisationOperator, self).__init__(**options)
 
@@ -767,7 +782,8 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
         recognised by the romanisation operator, i.e. it is a valid entity of
         the reading returned by the segmentation method.
 
-        Reading entities will be handled as being case insensitive.
+        Case of characters will be handled depending on the setting for option
+        C{'case'}.
 
         @type entity: str
         @param entity: entity to check
@@ -777,8 +793,6 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
         """
         # check for special capitalisation
         if self.getOption('case') == 'lower' and entity.lower() != entity:
-            return False
-        elif self.getOption('case') == 'upper' and entity.upper() != entity:
             return False
 
         return TonalFixedEntityOperator.isPlainReadingEntity(self,
@@ -1276,6 +1290,8 @@ class PinyinOperator(TonalRomanisationOperator):
             raise an exception if an alphabetic string is parsed which can not
             be segmented into single reading entities. If C{False} the aforesaid
             string will be returned unsegmented.
+        @keyword case: if set to C{'lower'}, only lower case will be supported,
+            if set to C{'both'} a mix of upper and lower case will be supported.
         @keyword toneMarkType: if set to C{'Diacritics'} tones will be marked
             using diacritic marks, if set to C{'Numbers'} appended numbers from
             1 to 5 will be used to mark tones, if set to C{'None'} no tone marks
@@ -1933,6 +1949,8 @@ class WadeGilesOperator(TonalRomanisationOperator):
             raise an exception if an alphabetic string is parsed which can not
             be segmented into single reading entities. If C{False} the aforesaid
             string will be returned unsegmented.
+        @keyword case: if set to C{'lower'}, only lower case will be supported,
+            if set to C{'both'} a mix of upper and lower case will be supported.
         @keyword WadeGilesApostrophe: an alternate apostrophe that is taken
             instead of the default one.
         @keyword toneMarkType: if set to C{'Numbers'} appended numbers from 1 to
@@ -2210,6 +2228,8 @@ class GROperator(TonalRomanisationOperator):
             raise an exception if an alphabetic string is parsed which can not
             be segmented into single reading entities. If C{False} the aforesaid
             string will be returned unsegmented.
+        @keyword case: if set to C{'lower'}, only lower case will be supported,
+            if set to C{'both'} a mix of upper and lower case will be supported.
         @keyword abbreviations: if set to C{True} abbreviated spellings will be
             supported.
         @keyword GRRhotacisedFinalApostrophe: an alternate apostrophe that is
@@ -3151,6 +3171,8 @@ class JyutpingOperator(TonalRomanisationOperator):
             raise an exception if an alphabetic string is parsed which can not
             be segmented into single reading entities. If C{False} the aforesaid
             string will be returned unsegmented.
+        @keyword case: if set to C{'lower'}, only lower case will be supported,
+            if set to C{'both'} a mix of upper and lower case will be supported.
         @keyword toneMarkType: if set to C{'Numbers'} the default form of
             appended numbers from 1 to 6 will be used to mark tones, if set to
             C{'None'} no tone marks will be used and no tonal information will
@@ -3363,6 +3385,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             raise an exception if an alphabetic string is parsed which can not
             be segmented into single reading entities. If C{False} the aforesaid
             string will be returned unsegmented.
+        @keyword case: if set to C{'lower'}, only lower case will be supported,
+            if set to C{'both'} a mix of upper and lower case will be supported.
         @keyword toneMarkType: if set to C{'Diacritics'} tones will be marked
             using diacritic marks and the character I{h} for low tones, if set
             to C{'Numbers'} appended numbers from 1 to 6 will be used to mark
