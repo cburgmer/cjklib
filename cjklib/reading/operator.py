@@ -1196,7 +1196,9 @@ class PinyinOperator(TonalRomanisationOperator):
     I{r} marking r-colouring should be an entity on its own account stressing
     the representation in the character string with an own character or rather
     stressing the monosyllabic nature and being part of a syllable of the
-    foregoing character. This can be configured at instantiation time.
+    foregoing character. This can be configured at instantiation time. By
+    default the two-syllable form is chosen, which is more general as both
+    examples are allowed: C{banr} and C{ban r}.
 
     Placement of tones
     ==================
@@ -1260,7 +1262,7 @@ class PinyinOperator(TonalRomanisationOperator):
     """
 
     PINYIN_SOUND_REGEX \
-        = re.compile(u'(?i)^([^aeiuoü]*)([aeiuoü]*)([^aeiuoü]*)$')
+        = re.compile(u'(?iu)^([^aeiuoü]*)([aeiuoü]*)([^aeiuoü]*)$')
     """
     Regular Expression matching onset, nucleus and coda. Syllables 'n', 'ng',
     'r' (for Erhua) and 'ê' have to be handled separately.
@@ -1350,11 +1352,11 @@ class PinyinOperator(TonalRomanisationOperator):
         # set alternative ü vowel if given
         if 'yVowel' in options:
             if self.getOption('toneMarkType') == 'Diacritics' \
-                and options['yVowel'] != u'ü':
+                and options['yVowel'].lower() != u'ü':
                 raise ValueError("keyword 'yVowel' is not valid for tone mark" \
                     + " type 'Diacritics'")
 
-            self.optionValue['yVowel'] = options['yVowel']
+            self.optionValue['yVowel'] = options['yVowel'].lower()
 
         # set alternative apostrophe if given
         if 'PinyinApostrophe' in options:
@@ -1443,7 +1445,7 @@ class PinyinOperator(TonalRomanisationOperator):
                 numberEntityCount = numberEntityCount + 1
             else:
                 for vowel in diacriticVowels:
-                    if vowel in entity:
+                    if vowel in entity.lower():
                         diacriticEntityCount = diacriticEntityCount + 1
                         break
         # compare statistics
@@ -1466,7 +1468,7 @@ class PinyinOperator(TonalRomanisationOperator):
             yVowel = u'ü'
         else:
             for vowel in Y_VOWEL_LIST:
-                if vowel in readingStr:
+                if vowel in readingStr.lower():
                     yVowel = vowel
                     break
             else:
@@ -1480,16 +1482,17 @@ class PinyinOperator(TonalRomanisationOperator):
         else:
             PinyinApostrophe = "'"
 
-        # guess Erhua
+        # guess Erhua, if r found surrounded by non-alpha assume twoSyllables
         Erhua = 'twoSyllables'
         if toneMarkType == 'Numbers':
             lastIndex = 0
             while lastIndex != -1:
-                lastIndex = readingStr.find('r', lastIndex+1)
+                # find all instances of 'r' with following non-alpha
+                lastIndex = readingStr.lower().find('r', lastIndex+1)
                 if lastIndex > 1:
                     if len(readingStr) > lastIndex + 1 \
-                        and readingStr[lastIndex + 1] in '12345':
-                        if readingStr[lastIndex - 1] in '12345':
+                        and not readingStr[lastIndex + 1].isalpha():
+                        if not readingStr[lastIndex - 1].isalpha():
                             # found a preceding number that should be a tone
                             #   mark for another syllable, thus r5 is isolated
                             break

@@ -130,6 +130,36 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                         repr(defaultInstance.getOption(option))) \
                 + ' (reading %s)' % self.READING_NAME)
 
+    def testGuessReadingDialect(self):
+        """
+        Test if option dict returned by C{guessReadingDialect()} is well-formed
+        and options are included in dict from C{getDefaultOptions()}.
+        """
+        if not hasattr(self.readingOperatorClass, 'guessReadingDialect'):
+            return
+
+        defaultOptions = self.readingOperatorClass.getDefaultOptions()
+
+        readingDialect = self.readingOperatorClass.guessReadingDialect('')
+
+        self.assertEquals(type(defaultOptions), type({}),
+            "Guessed options %s is not of type dict" % repr(readingDialect) \
+            + ' (reading %s)' % self.READING_NAME)
+        # test if option names are well-formed
+        for option in readingDialect:
+            self.assertEquals(type(option), type(''),
+                "Option %s is not of type str" % repr(option) \
+                + ' (reading %s)' % self.READING_NAME)
+
+        # test inclusion in default set
+        for option in readingDialect:
+            self.assert_(option in defaultOptions,
+                "Option %s not found in default options" % repr(option) \
+                + ' (reading %s)' % self.READING_NAME)
+
+        # test instantiation of default options
+        defaultInstance = self.readingOperatorClass(**readingDialect)
+
     def testValidReadingEntitiesAccepted(self):
         """
         Test if all reading entities returned by C{getReadingEntities()} are
@@ -375,20 +405,29 @@ class ReadingOperatorReferenceTest(ReadingOperatorTest):
     Base class for testing of references against L{ReadingOperator}s.
     These tests assure that the given values are returned correctly.
     """
+
     DECOMPOSITION_REFERENCES = []
     """
     References to test C{decompose()} operation.
     List of dialect/reference tuples, schema: ({dialect}, [(reference, target)])
     """
+
     COMPOSITION_REFERENCES = []
     """
     References to test C{compose()} operation.
     List of dialect/reference tuples, schema: ({}, [(reference, target)])
     """
+
     READING_ENTITY_REFERENCES = []
     """
     References to test C{isReadingEntity()} operation.
     List of dialect/reference tuples, schema: ({}, [(reference, target)])
+    """
+
+    GUESS_DIALECT_REFERENCES = []
+    """
+    References to test C{guessReadingDialect()} operation.
+    List of reference/dialect tuples, schema: (reference, {})
     """
 
     def testDecompositionReferences(self):
@@ -426,6 +465,25 @@ class ReadingOperatorReferenceTest(ReadingOperatorTest):
                         % (repr(target), repr(reference), repr(result)) \
                     + ' (reading %s, dialect %s)' \
                         % (self.READING_NAME, dialect))
+
+    def testGuessDialectReferences(self):
+        """Test if C{guessReadingDialect()} guesses the needed options."""
+        if not hasattr(self.readingOperatorClass, 'guessReadingDialect'):
+            return
+
+        for reference, dialect in self.GUESS_DIALECT_REFERENCES:
+            result = self.readingOperatorClass.guessReadingDialect(reference)
+            for option, value in dialect.items():
+                self.assert_(option in result,
+                    "Guessed dialect doesn't include option  %s" \
+                        % repr(option) \
+                    + ' (reading %s, dialect %s)' \
+                        % (self.READING_NAME, dialect))
+                self.assertEquals(result[option], value,
+                    "Target for option %s=%s not reached for %s: %s" \
+                        % (repr(option), repr(value), repr(reference),
+                            repr(result[option])) \
+                    + ' (reading %s)' % self.READING_NAME)
 
 
 class CanoneseIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
@@ -614,6 +672,8 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u'SIK', False),
             ]),
         ]
+
+    GUESS_DIALECT_REFERENCES = []
 
 
 class JyutpingOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
@@ -1195,6 +1255,29 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ]),
         ]
 
+    GUESS_DIALECT_REFERENCES = [
+        (u"tiān'ānmén", {'toneMarkType': 'Diacritics',
+            'PinyinApostrophe': "'"}),
+        (u"tiān’ānmén", {'toneMarkType': 'Diacritics',
+            'PinyinApostrophe': u"’"}),
+        (u"xīān", {'toneMarkType': 'Diacritics'}),
+        (u"tian1'an1men2", {'toneMarkType': 'Numbers',
+            'PinyinApostrophe': "'"}),
+        (u"nv3hai2", {'toneMarkType': 'Numbers', 'yVowel': 'v'}),
+        (u"NV3HAI2", {'toneMarkType': 'Numbers', 'yVowel': 'v'}),
+        (u"nǚhái", {'toneMarkType': 'Diacritics', 'yVowel': u'ü'}),
+        (u"NǙHÁI", {'toneMarkType': 'Diacritics', 'yVowel': u'ü'}),
+        (u"xi1'an1", {'toneMarkType': 'Numbers', 'PinyinApostrophe': "'"}),
+        (u"lao3tou2r5", {'toneMarkType': 'Numbers',
+            'Erhua': 'twoSyllables'}),
+        (u"lao3tour2", {'toneMarkType': 'Numbers', 'Erhua': 'oneSyllable'}),
+        (u"peínǐ", {'toneMarkType': 'Diacritics'}), # wrong placement of tone
+        (u"TIĀNĀNMÉN", {'toneMarkType': 'Diacritics'}),
+        (u"e5'r5", {'toneMarkType': 'Numbers', 'PinyinApostrophe': "'",
+            'Erhua': 'twoSyllables'}),
+        (u"yi xia r ", {'toneMarkType': 'Numbers', 'Erhua': 'twoSyllables'}),
+        ]
+
     def testStrictDecompositionReferences(self):
         """Test if the given decomposition references pass strictness test."""
         for dialect, references in self.STRICT_DECOMPOSITION_REFERENCES:
@@ -1329,6 +1412,8 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"shaw", True),
             ]),
         ]
+
+    GUESS_DIALECT_REFERENCES = []
 
     ABBREVIATED_READING_ENTITY_REFERENCES = [
         ({}, [
