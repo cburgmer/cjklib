@@ -26,14 +26,14 @@ Decompose a reading string in I{Gwoyeu Romatzyh} into single entities:
     >>> from cjklib.reading import ReadingFactory
     >>> f = ReadingFactory()
     >>> f.decompose('"Hannshyue" .de mingcheng duey Jonggwo [...]', 'GR')
-    ['"', 'Hann', 'shyue', '" ', '.de', ' ', 'ming', 'cheng', ' ', 'duey',
-    ' ', 'Jong', 'gwo', ' [...]']
+    ['"', 'Hann', 'shyue', '" ', '.de', ' ', 'ming', 'cheng', ' ', 'duey', \
+' ', 'Jong', 'gwo', ' [...]']
 
 The same can be done by directly using the operator's instance:
 
     >>> from cjklib.reading import operator
     >>> cy = operator.CantoneseYaleOperator()
-    >>> cy.decompose('gwóngjàuwá')
+    >>> cy.decompose(u'gwóngjàuwá')
     [u'gw\xf3ng', u'j\xe0u', u'w\xe1']
 
 Composing will reverse the process, using a I{Pinyin} string:
@@ -247,6 +247,7 @@ class RomanisationOperator(ReadingOperator):
         @todo Bug:  With C{strictSegmentation} set to False (default) invalid
             romanisation strings can evolve, e.g.:
 
+                >>> from cjklib.reading import ReadingFactory
                 >>> f = ReadingFactory()
                 >>> f.decompose(f.compose(['ti', 'anr'], 'Pinyin'), 'Pinyin')
                 ['tian', 'r']
@@ -1076,9 +1077,6 @@ class SimpleEntityOperator(ReadingOperator):
 
     def compose(self, readingEntities):
         return ''.join(readingEntities)
-
-    def isReadingEntity(self, entity):
-        raise NotImplemented()
 
 
 class HangulOperator(SimpleEntityOperator):

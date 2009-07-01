@@ -1108,7 +1108,8 @@ def main():
         'CantoneseYale': ['cy']}
 
     default_encoding = locale.getpreferredencoding()
-    output_encoding = sys.stdout.encoding or getpreferredencoding() or 'ascii'
+    output_encoding = sys.stdout.encoding or locale.getpreferredencoding() \
+        or 'ascii'
 
     # parse command line parameters
     try:
