@@ -697,7 +697,8 @@ class PinyinOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         {'toneMarkType': 'None'},
         {'PinyinApostrophe': u'’'},
         {'toneMarkType': 'Numbers',
-            'PinyinApostropheFunction': noToneApostropheRule},
+            'PinyinApostropheFunction': \
+                PinyinOperatorConsistencyTestCase.noToneApostropheRule},
         {'Erhua': 'oneSyllable'},
         {'strictDiacriticPlacement': True},
         {'strictSegmentation': True},
@@ -713,7 +714,7 @@ class PinyinOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
             op = self.f.createReadingOperator(reading, **options)
             self._operators.append((reading, options, op))
 
-        return self.op.removeApostrophes(decomposition)
+        return op.removeApostrophes(decomposition)
 
     def testPinyinCompositionIsStrict(self):
         """
@@ -1106,7 +1107,7 @@ class WadeGilesOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
             op = self.f.createReadingOperator(reading, **options)
             self._operators.append((reading, options, op))
 
-        return self.op.removeHyphens(decomposition)
+        return op.removeHyphens(decomposition)
 
 
 # TODO
