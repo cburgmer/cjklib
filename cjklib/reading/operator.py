@@ -233,6 +233,12 @@ class RomanisationOperator(ReadingOperator):
         @keyword case: if set to C{'lower'}/C{'upper'}, only lower/upper
             case will be supported, respectively, if set to C{'both'} both upper
             and lower case will be supported.
+        @todo Bug:  With C{strictSegmentation} set to False (default) invalid
+            romanisation strings can evolve, e.g.:
+
+                >>> f = ReadingFactory()
+                >>> f.decompose(f.compose(['ti', 'anr'], 'Pinyin'), 'Pinyin')
+                ['tian', 'r']
         """
         super(RomanisationOperator, self).__init__(**options)
 
@@ -711,8 +717,9 @@ class TonalFixedEntityOperator(ReadingOperator):
         # reimplement to keep memory footprint small
         # remove tone mark form and check plain entity
         try:
-            plainEntity, _ = self.splitEntityTone(entity)
-            return self.isPlainReadingEntity(plainEntity)
+            plainEntity, tone = self.splitEntityTone(entity)
+            return self.isPlainReadingEntity(plainEntity) \
+                and tone in self.getTones()
         except InvalidEntityError:
             return False
 
@@ -1354,7 +1361,7 @@ class PinyinOperator(TonalRomanisationOperator):
 
         # set split regular expression, works for all 3 main dialects, get at
         #   least the whole alphabet to have a conservative recognition
-        self.readingEntityRegex = re.compile(u'(?i)((?:' \
+        self.readingEntityRegex = re.compile(u'(?iu)((?:' \
             + '|'.join([re.escape(v) for v in self._getDiacriticVowels()]) \
             + '|' + re.escape(self.getOption('yVowel')) \
             + u'|[a-zêü])+[12345]?)')
@@ -1410,7 +1417,7 @@ class PinyinOperator(TonalRomanisationOperator):
 
         diacriticVowels = PinyinOperator._getDiacriticVowels()
         # split regex for all dialect forms
-        entities = re.findall(u'(?i)((?:' + '|'.join(diacriticVowels) \
+        entities = re.findall(u'(?iu)((?:' + '|'.join(diacriticVowels) \
             + '|'.join(Y_VOWEL_LIST) + u'|[a-uw-zê])+[12345]?)', readingStr)
 
         # guess one of main dialects: tone mark type
@@ -1566,13 +1573,13 @@ class PinyinOperator(TonalRomanisationOperator):
 
                 # take care of corner case Erhua form e'r, that needs to be
                 #   distinguished from er
-                if plainSyllable == 'r':
+                if plainSyllable.lower() == 'r':
                     precedingPlainSyllable, _ \
                         = self.splitEntityTone(precedingEntity)
-                    return precedingPlainSyllable == 'e'
+                    return precedingPlainSyllable.lower() == 'e'
 
-                return plainSyllable[0] in ['a', 'e', 'o'] \
-                    or plainSyllable in ['n', 'ng', 'nr', 'ngr']
+                return plainSyllable[0].lower() in ['a', 'e', 'o'] \
+                    or plainSyllable.lower() in ['n', 'ng', 'nr', 'ngr']
         return False
 
     def isStrictDecomposition(self, readingEntities):
@@ -1825,6 +1832,18 @@ class PinyinOperator(TonalRomanisationOperator):
             for tone in tones:
                 syllableSet.add(self.getTonalEntity(syllable, tone))
         return syllableSet
+
+    def isReadingEntity(self, entity):
+        # overwrite to check tone of entity 'r' (Erhua)
+        try:
+            plainEntity, tone = self.splitEntityTone(entity)
+            if plainEntity.lower() == 'r' and tone not in [5, None]:
+                # shallow test
+                return False
+            return self.isPlainReadingEntity(plainEntity) \
+                and tone in self.getTones()
+        except InvalidEntityError:
+            return False
 
     def getOnsetRhyme(self, plainSyllable):
         """
@@ -3410,7 +3429,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         # create tone regex
         if self.getOption('toneMarkType') != 'None':
-            self.primaryToneRegex = re.compile(r"(?i)^[a-z]+([" \
+            self.primaryToneRegex = re.compile(r"(?iu)^[a-z]+([" \
                 + r"".join(set([re.escape(toneMark) for toneMark, hChar \
                     in self.TONE_MARK_MAPPING[self.getOption('toneMarkType')]\
                         .values()])) \
@@ -3423,7 +3442,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                 = options['strictDiacriticPlacement']
 
         # set split regular expression, works for all tone marks
-        self.readingEntityRegex = re.compile(u'(?i)((?:' \
+        self.readingEntityRegex = re.compile(u'(?iu)((?:' \
             + '|'.join([re.escape(v) for v in self._getDiacriticVowels()]) \
             + u'|[a-z])+[0123456]?)')
 

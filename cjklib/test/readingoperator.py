@@ -533,11 +533,13 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u'yuhtyúh', [u'yuht', u'yúh']),
             (u'néihhóu', [u'néih', u'hóu']),
             (u'gwóngjaù', [u'gwóng', u'jaù']), # wrong placement of tone
+            (u'GWÓNGJÀUWÁ', [u'GWÓNG', u'JÀU', u'WÁ']),
             ]),
         ({'toneMarkType': 'Numbers'}, [
             (u'gwong2jau1wa2', [u'gwong2', u'jau1', u'wa2']),
             (u'yut6yu5', [u'yut6', u'yu5']),
             (u'nei5hou2', [u'nei5', u'hou2']),
+            (u'GWONG2JAU1WA2', [u'GWONG2', u'JAU1', u'WA2']),
             ]),
         ({'strictDiacriticPlacement': True}, [
             (u'gwóngjàuwá', [u'gwóng', u'jàu', u'wá']),
@@ -561,6 +563,8 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u'jaù', True),
             (u'gwongh', True),
             (u'wáa', False),
+            (u'GWÓNG', True),
+            (u'SIK', True),
             ]),
         ({'strictDiacriticPlacement': True}, [
             (u'wā', True),
@@ -574,6 +578,23 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u'jaù', False),
             (u'gwongh', False),
             (u'wáa', False),
+            (u'GWÓNG', True),
+            (u'SIK', True),
+            ]),
+        ({'case': 'lower'}, [
+            (u'wā', True),
+            (u'gwóng', True),
+            (u'jàu', True),
+            (u'wá', True),
+            (u'néih', True),
+            (u'yuht', True),
+            (u'gwong', True),
+            (u'wa\u0304', True),
+            (u'jaù', True),
+            (u'gwongh', True),
+            (u'wáa', False),
+            (u'GWÓNG', False),
+            (u'SIK', False),
             ]),
         ]
 
@@ -754,6 +775,10 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"er2hua4yin1", [u"er2", u"hua4", u"yin1"]),
             (u"peínǐ", [u'peí', u'nǐ']), # wrong placement of tone
             (u"hónglùo", [u'hóng', u'lùo']), # wrong placement of tone
+            (u"Tiān'ānmén", [u"Tiān", "'", u"ān", u"mén"]),
+            (u"TIĀN'ĀNMÉN", [u"TIĀN", "'", u"ĀN", u"MÉN"]),
+            ("XIAN", ["XIAN"]),
+            (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
             ]),
         ({'toneMarkType': 'Numbers'}, [
             (u"tiān'ānmén", [u"tiān", "'", u"ānmén"]),
@@ -767,6 +792,10 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"er2hua4yin1", [u"er2", u"hua4", u"yin1"]),
             (u"peínǐ", [u'peínǐ']), # wrong placement of tone
             (u"hónglùo", [u'hónglùo']), # wrong placement of tone
+            (u"Tiān'ānmén", [u"Tiān", "'", u"ānmén"]),
+            (u"TIĀN'ĀNMÉN", [u"TIĀN", "'", u"ĀNMÉN"]),
+            ("XIAN", ["XIAN"]),
+            (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
             ]),
         ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
             (u"tiān'ānmén", [u"tiān", "'", u"ānmén"]),
@@ -780,6 +809,10 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"er2hua4yin1", [u"er2", u"hua4", u"yin1"]),
             (u"peínǐ", [u'peínǐ']), # wrong placement of tone
             (u"hónglùo", [u'hónglùo']), # wrong placement of tone
+            (u"Tiān'ānmén", [u"Tiān", "'", u"ānmén"]),
+            (u"TIĀN'ĀNMÉN", [u"TIĀN", "'", u"ĀNMÉN"]),
+            ("XIAN", ["XIAN"]),
+            (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
             ]),
         ({'Erhua': 'oneSyllable'}, [
             (u"tiān'ānmén", [u"tiān", "'", u"ān", u"mén"]),
@@ -793,6 +826,10 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"er2hua4yin1", [u"er2", u"hua4", u"yin1"]),
             (u"peínǐ", [u'peí', u'nǐ']), # wrong placement of tone
             (u"hónglùo", [u'hóng', u'lùo']), # wrong placement of tone
+            (u"Tiān'ānmén", [u"Tiān", "'", u"ān", u"mén"]),
+            (u"TIĀN'ĀNMÉN", [u"TIĀN", "'", u"ĀN", u"MÉN"]),
+            ("XIAN", ["XIAN"]),
+            (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
             ]),
         ({'strictDiacriticPlacement': True}, [
             (u"tiān'ānmén", [u"tiān", "'", u"ān", u"mén"]),
@@ -806,6 +843,27 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"er2hua4yin1", [u"er2", u"hua4", u"yin1"]),
             (u"peínǐ", [u'peínǐ']), # wrong placement of tone
             (u"hónglùo", [u'hóng', u'lù', u'o']), # wrong placement of tone
+            (u"Tiān'ānmén", [u"Tiān", "'", u"ān", u"mén"]),
+            (u"TIĀN'ĀNMÉN", [u"TIĀN", "'", u"ĀN", u"MÉN"]),
+            ("XIAN", ["XIAN"]),
+            (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
+            ]),
+        ({'case': 'lower'}, [
+            (u"tiān'ānmén", [u"tiān", "'", u"ān", u"mén"]),
+            ("xian", ["xian"]),
+            (u"xīān", [u"xī", u"ān"]),
+            (u"tian1'an1men2", [u"tian1", "'", u"an1", u"men2"]),
+            (u"tian'anmen", [u"tian", "'", u"an", u"men"]),
+            (u"xi1an1", [u"xi1", u"an1"]),
+            (u"lao3tou2r5", [u"lao3", u"tou2", u"r5"]),
+            (u"lao3tour2", [u"lao3", u"tour2"]),
+            (u"er2hua4yin1", [u"er2", u"hua4", u"yin1"]),
+            (u"peínǐ", [u'peí', u'nǐ']), # wrong placement of tone
+            (u"hónglùo", [u'hóng', u'lùo']), # wrong placement of tone
+            (u"Tiān'ānmén", [u"Tiān", "'", u"ān", u"mén"]),
+            (u"TIĀN'ĀNMÉN", [u"TIĀN", "'", u"ĀNMÉN"]),
+            ("XIAN", ["XIAN"]),
+            (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
             ]),
         ]
 
@@ -825,6 +883,9 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"er2", u"hua4", u"yin1"], u"er2hua4yin1"),
             ([u'peí', u'nǐ'], u"peínǐ"), # wrong placement of tone
             ([u'hóng', u'lùo'], u"hónglùo"), # wrong placement of tone
+            ([u"TIĀN", u"ĀN", u"MÉN"], u"TIĀN'ĀNMÉN"),
+            ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1AN1MEN2", ),
+            ([u"e", u"r"], u"e'r"),
             ]),
         ({'toneMarkType': 'Numbers'}, [
             ([u"tiān", u"ān", u"mén"], u"tiānānmén"),
@@ -841,6 +902,9 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"er2", u"hua4", u"yin1"], u"er2hua4yin1"),
             ([u'peí', u'nǐ'], u"peínǐ"), # wrong placement of tone
             ([u'hóng', u'lùo'], u"hónglùo"), # wrong placement of tone
+            ([u"TIĀN", u"ĀN", u"MÉN"], u"TIĀNĀNMÉN"),
+            ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1'AN1MEN2", ),
+            ([u"e", u"r"], u"e'r"),
             ]),
         ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
             ([u"tiān", u"ān", u"mén"], u"tiānānmén"),
@@ -857,6 +921,9 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"er2", u"hua4", u"yin1"], u"er2hua4yin1"),
             ([u'peí', u'nǐ'], u"peínǐ"), # wrong placement of tone
             ([u'hóng', u'lùo'], u"hónglùo"), # wrong placement of tone
+            ([u"TIĀN", u"ĀN", u"MÉN"], u"TIĀNĀNMÉN"),
+            ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1'AN1MEN2", ),
+            ([u"e5", u"r5"], u"e5'r5"),
             ]),
         ({'Erhua': 'oneSyllable'}, [
             ([u"tiān", u"ān", u"mén"], u"tiān'ānmén"),
@@ -873,6 +940,9 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"er2", u"hua4", u"yin1"], u"er2hua4yin1"),
             ([u'peí', u'nǐ'], u"peínǐ"), # wrong placement of tone
             ([u'hóng', u'lùo'], u"hónglùo"), # wrong placement of tone
+            ([u"TIĀN", u"ĀN", u"MÉN"], u"TIĀN'ĀNMÉN"),
+            ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1AN1MEN2", ),
+            ([u"e", u"r"], u"er"), # TODO
             ]),
         ({'toneMarkType': 'Numbers', 'Erhua': 'oneSyllable'}, [
             ([u"tiān", u"ān", u"mén"], u"tiānānmén"),
@@ -889,6 +959,9 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"er2", u"hua4", u"yin1"], u"er2hua4yin1"),
             ([u'peí', u'nǐ'], u"peínǐ"), # wrong placement of tone
             ([u'hóng', u'lùo'], u"hónglùo"), # wrong placement of tone
+            ([u"TIĀN", u"ĀN", u"MÉN"], u"TIĀNĀNMÉN"),
+            ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1'AN1MEN2", ),
+            ([u"e", u"r"], u"er"), # TODO
             ]),
         ({'strictDiacriticPlacement': True}, [
             ([u"tiān", u"ān", u"mén"], u"tiān'ānmén"),
@@ -905,6 +978,9 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"er2", u"hua4", u"yin1"], u"er2hua4yin1"),
             ([u'peí', u'nǐ'], u"peínǐ"), # wrong placement of tone
             ([u'hóng', u'lùo'], u"hónglùo"), # wrong placement of tone
+            ([u"TIĀN", u"ĀN", u"MÉN"], u"TIĀN'ĀNMÉN"),
+            ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1AN1MEN2", ),
+            ([u"e", u"r"], u"e'r"),
             ]),
         ]
 
@@ -930,6 +1006,10 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"angr", False),
             (u"er", True),
             (u"r", True),
+            (u"TIĀN", True),
+            (u"XIAN", True),
+            (u"TIAN1", False),
+            (u"r1", False),
             ]),
         ({'toneMarkType': 'Numbers'}, [
             (u"tiān", False),
@@ -952,6 +1032,10 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"angr", False),
             (u"er", True),
             (u"r", True),
+            (u"TIĀN", False),
+            (u"XIAN", True),
+            (u"TIAN1", True),
+            (u"r1", False),
             ]),
         ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
             (u"tiān", False),
@@ -974,6 +1058,10 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"angr", False),
             (u"er", False),
             (u"r", False),
+            (u"TIĀN", False),
+            (u"XIAN", False),
+            (u"TIAN1", True),
+            (u"r1", False),
             ]),
         ({'Erhua': 'oneSyllable'}, [
             (u"tiān", True),
@@ -996,6 +1084,10 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"angr", True),
             (u"er", True),
             (u"r", False),
+            (u"TIĀN", True),
+            (u"XIAN", True),
+            (u"TIAN1", False),
+            (u"r1", False),
             ]),
         ({'strictDiacriticPlacement': True}, [
             (u"tiān", True),
@@ -1018,6 +1110,36 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"angr", False),
             (u"er", True),
             (u"r", True),
+            (u"TIĀN", True),
+            (u"XIAN", True),
+            (u"TIAN1", False),
+            (u"r1", False),
+            ]),
+        ({'case': 'lower'}, [
+            (u"tiān", True),
+            (u"ān", True),
+            (u"mén", True),
+            (u"lào", True),
+            (u"xǐ", True),
+            (u"tian1", False),
+            (u"an1", False),
+            (u"men2", False),
+            (u"lao4", False),
+            (u"xi3", False),
+            (u"xian", True),
+            (u"ti\u0304an", True),
+            (u"tia\u0304n", True),
+            (u"laǒ", True),
+            (u"tīan", True),
+            (u"tīa", False),
+            (u"tiā", False),
+            (u"angr", False),
+            (u"er", True),
+            (u"r", True),
+            (u"TIĀN", False),
+            (u"XIAN", False),
+            (u"TIAN1", False),
+            (u"r1", False),
             ]),
         ]
 
@@ -1032,6 +1154,8 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"tian", "'", u"an", u"men"], True),
             ([u"lao3", u"angr2"], True),
             ([u"lao3", u"ang2", u"r5"], True),
+            ([u"TIĀN", u"ĀN", u"MÉN"], False),
+            ([u"TIAN1", u"AN1", u"MEN2"], True),
             ]),
         ({'toneMarkType': 'Numbers'}, [
             ([u"tiān", "'", u"ān", u"mén"], True),
@@ -1043,6 +1167,8 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"tian", "'", u"an", u"men"], True),
             ([u"lao3", u"angr2"], True),
             ([u"lao3", u"ang2", u"r5"], False),
+            ([u"TIĀN", u"ĀN", u"MÉN"], True),
+            ([u"TIAN1", u"AN1", u"MEN2"], False),
             ]),
         ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
             ([u"tiān", "'", u"ān", u"mén"], True),
@@ -1054,6 +1180,8 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"tian", "'", u"an", u"men"], True),
             ([u"lao3", u"angr2"], True),
             ([u"lao3", u"ang2", u"r5"], False),
+            ([u"TIĀN", u"ĀN", u"MÉN"], True),
+            ([u"TIAN1", u"AN1", u"MEN2"], False),
             ]),
         ({'toneMarkType': 'Numbers', 'Erhua': 'oneSyllable'}, [
             ([u"tiān", "'", u"ān", u"mén"], True),
@@ -1065,6 +1193,8 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"tian", "'", u"an", u"men"], True),
             ([u"lao3", u"angr2"], False),
             ([u"lao3", u"ang2", u"r5"], False),
+            ([u"TIĀN", u"ĀN", u"MÉN"], True),
+            ([u"TIAN1", u"AN1", u"MEN2"], False),
             ]),
         ]
 
