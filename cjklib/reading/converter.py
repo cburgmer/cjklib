@@ -755,9 +755,6 @@ class PinyinDialectConverter(ReadingConverter):
                 # capitalisation
                 if self._getToOperator(toReading).getOption('case') == 'lower':
                     plainSyllable = plainSyllable.lower()
-                elif self._getToOperator(toReading).getOption('case') \
-                    == 'upper':
-                    plainSyllable = plainSyllable.upper()
 
                 try:
                     toReadingEntities.append(
@@ -890,8 +887,6 @@ class WadeGilesDialectConverter(EntityWiseReadingConverter):
         # capitalisation
         if self._getToOperator(toReading).getOption('case') == 'lower':
             plainSyllable = plainSyllable.lower()
-        elif self._getToOperator(toReading).getOption('case') == 'upper':
-            plainSyllable = plainSyllable.upper()
 
         # get syllable with tone mark
         try:
@@ -915,11 +910,14 @@ class PinyinWadeGilesConverter(RomanisationConverter):
     to at least implement means to support concrete shapes found in the usage of
     big bodies e.g. libraries.
 
-    Upper or lower case will be transfered between syllables, no special
-    formatting according to the standards (i.e. Pinyin) will be made. Upper/
-    lower case will be identified according to three classes: either the whole
-    syllable is upper case, only the initial letter is upper case or otherwise
-    the whole syllable is assumed being lower case.
+    Upper- or lowercase will be transfered between syllables, no special
+    formatting according to anyhow defined standards will be guaranteed.
+    Upper-/lowercase will be identified according to three classes: either the
+    whole syllable is uppercase, only the initial letter is uppercase
+    (titlecase) or otherwise the whole syllable is assumed being lowercase. For
+    entities of single latin characters uppercase has precedence over titlecase,
+    e.g. I{R5} will convert to I{ER5} when Erhua forms are "unroled", not to
+    I{Er5}.
 
     Conversion cannot in general be done in a one-to-one manner. Standard Pinyin
     has no notion to explicitly specify missing tonal information while this is
@@ -1045,8 +1043,6 @@ class GRDialectConverter(ReadingConverter):
         # capitalisation
         if self._getToOperator(toReading).getOption('case') == 'lower':
             readingEntities = [entity.lower() for entity in readingEntities]
-        elif self._getToOperator(toReading).getOption('case') == 'upper':
-            readingEntities = [entity.upper() for entity in readingEntities]
 
         # convert rhotacised final apostrophe
         fromApostrophe = self._getFromOperator(fromReading)\
@@ -1077,11 +1073,14 @@ class GRPinyinConverter(RomanisationConverter):
         - configurable mapping of options neutral tone when converting from GR,
         - conversion of abbreviated forms of GR.
 
-    Upper or lower case will be transfered between syllables, no special
-    formatting according to the standards (i.e. Pinyin) will be made. Upper/
-    lower case will be identified according to three classes: either the whole
-    syllable is upper case, only the initial letter is upper case or otherwise
-    the whole syllable is assumed being lower case.
+    Upper- or lowercase will be transfered between syllables, no special
+    formatting according to anyhow defined standards will be guaranteed.
+    Upper-/lowercase will be identified according to three classes: either the
+    whole syllable is uppercase, only the initial letter is uppercase
+    (titlecase) or otherwise the whole syllable is assumed being lowercase. For
+    entities of single latin characters uppercase has precedence over titlecase,
+    e.g. I{I} will convert to I{YI} from Gwoyeu Romatzyh to Pinyin, not to
+    I{Yi}.
 
     Limitations
     ===========
@@ -1825,8 +1824,6 @@ class JyutpingDialectConverter(EntityWiseReadingConverter):
         # capitalisation
         if self._getToOperator(toReading).getOption('case') == 'lower':
             plainSyllable = plainSyllable.lower()
-        elif self._getToOperator(toReading).getOption('case') == 'upper':
-            plainSyllable = plainSyllable.upper()
 
         # get syllable with tone mark
         try:
@@ -1872,8 +1869,6 @@ class CantoneseYaleDialectConverter(EntityWiseReadingConverter):
         # capitalisation
         if self._getToOperator(toReading).getOption('case') == 'lower':
             plainSyllable = plainSyllable.lower()
-        elif self._getToOperator(toReading).getOption('case') == 'upper':
-            plainSyllable = plainSyllable.upper()
 
         # get syllable with tone mark
         try:
@@ -1890,11 +1885,13 @@ class JyutpingYaleConverter(RomanisationConverter):
     Provides a converter between the Cantonese romanisation systems I{Jyutping}
     and I{Cantonese Yale}.
 
-    Upper or lower case will be transfered between syllables, no special
-    formatting according to the standards will be made. Upper/lower case will be
-    identified according to three classes: either the whole syllable is upper
-    case, only the initial letter is upper case or otherwise the whole syllable
-    is assumed being lower case.
+    Upper- or lowercase will be transfered between syllables, no special
+    formatting according to anyhow defined standards will be guaranteed.
+    Upper-/lowercase will be identified according to three classes: either the
+    whole syllable is uppercase, only the initial letter is uppercase
+    (titlecase) or otherwise the whole syllable is assumed being lowercase. For
+    entities of single latin characters uppercase has precedence over titlecase,
+    e.g. I{E5} will convert to I{ÉH} in Cantonese Yale, not to I{Éh}.
 
     High Level vs. High Falling Tone
     ================================
@@ -1912,6 +1909,11 @@ class JyutpingYaleConverter(RomanisationConverter):
         >>> f.convert(u'gwong2zau1waa2', 'Jyutping', 'CantoneseYale',
         ...     YaleFirstTone='1stToneFalling')
         u'gw\xf3ngj\xe0uw\xe1'
+
+    @todo Fix: Extend dialect C{'Internal'} for CantoneseYale, so that letter
+        case is transfered over one character syllables with low tone (adding
+        a second letter 'h'). See test case
+        L{test.readingconverter.testLetterCaseConversion()}.
     """
     CONVERSION_DIRECTIONS = [('Jyutping', 'CantoneseYale'),
         ('CantoneseYale', 'Jyutping')]
