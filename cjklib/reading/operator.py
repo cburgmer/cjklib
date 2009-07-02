@@ -2733,7 +2733,7 @@ class GROperator(TonalRomanisationOperator):
             if entity.isupper():
                 originalEntity = originalEntity.upper()
             elif entity.istitle():
-                originalEntity = originalEntity.capitalize()
+                originalEntity = originalEntity.title()
 
             return originalEntity
         else:

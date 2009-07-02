@@ -442,7 +442,7 @@ class EntityWiseReadingConverter(ReadingConverter):
 
 
 class RomanisationConverter(DialectSupportReadingConverter):
-    """
+    u"""
     Defines an abstract L{ReadingConverter} between two or more
     I{romanisation}s.
 
@@ -453,11 +453,13 @@ class RomanisationConverter(DialectSupportReadingConverter):
     step thus involves three single conversion steps using a default form. This
     default form can be defined in L{DEFAULT_READING_OPTIONS}.
 
-    Upper or lower case will be transfered between syllables, no special
+    Upper- or lowercase will be transfered between syllables, no special
     formatting according to anyhow defined standards will be guaranteed.
-    Upper/lower case will be identified according to three classes: either the
-    whole syllable is upper case, only the initial letter is upper case or
-    otherwise the whole syllable is assumed being lower case.
+    Upper-/lowercase will be identified according to three classes: either the
+    whole syllable is uppercase, only the initial letter is uppercase
+    (titlecase) or otherwise the whole syllable is assumed being lowercase. For
+    entities of single latin characters uppercase has precedence over titlecase,
+    e.g. I{E5} will convert to I{ÉH} in Cantonese Yale, not to I{Éh}.
 
     The class itself can't be used directly, it has to be subclassed and
     L{convertBasicEntity()} has to be implemented, as to make the translation of

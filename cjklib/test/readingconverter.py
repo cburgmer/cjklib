@@ -158,9 +158,9 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
                         repr(defaultInstance.getOption(option))) \
                 + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
 
-    def testUpperToLowerCase(self):
+    def testLetterCaseConversion(self):
         """
-        Check if upper case entities get converted to lower case entities.
+        Check if letter case is transferred during conversion.
         """
         fromReadingClass = self.f.getReadingOperatorClass(self.fromReading)
         if not issubclass(fromReadingClass, operator.RomanisationOperator) \
@@ -172,6 +172,8 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
             or 'case' not in toReadingClass.getDefaultOptions():
             return
 
+        import unicodedata
+
         # TODO extend once unit test includes reading dialects
         entities = self.f.getReadingEntities(self.fromReading)
         for dialect in self.OPTIONS_LIST:
@@ -182,14 +184,49 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
                     self.assert_(toEntity.islower(),
                         'Mismatch in letter case for conversion %s to %s' \
                             % (repr(entity), repr(toEntity)) \
-                        + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
+                        + ' (conversion %s to %s, options %s)' \
+                            % (self.fromReading, self.toReading, dialect))
+
+                    if 'sourceOptions' in dialect \
+                        and 'case' in dialect['sourceOptions'] \
+                        and dialect['sourceOptions']['case'] == 'lower':
+                        # the following conversions only hold for upper case
+                        continue
 
                     toEntity = self.f.convert(entity.upper(), self.fromReading,
                         self.toReading, **dialect)
                     self.assert_(toEntity.isupper(),
                         'Mismatch in letter case for conversion %s to %s' \
                             % (repr(entity.upper()), repr(toEntity)) \
-                        + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
+                        + ' (conversion %s to %s, options %s)' \
+                            % (self.fromReading, self.toReading, dialect))
+
+                    ownDialect = dialect.copy()
+                    if 'targetOptions' not in ownDialect:
+                        ownDialect['targetOptions'] = {}
+                    ownDialect['targetOptions']['case'] = 'lower' # TODO
+                    toEntity = self.f.convert(entity.upper(), self.fromReading,
+                        self.toReading, **ownDialect)
+
+                    self.assert_(toEntity.islower(),
+                        'Mismatch in conversion to lower case from %s to %s' \
+                            % (repr(entity.upper()), repr(toEntity)) \
+                        + ' (conversion %s to %s, options %s)' \
+                            % (self.fromReading, self.toReading, dialect))
+
+                    toEntity = self.f.convert(entity.title(), self.fromReading,
+                        self.toReading, **dialect)
+
+                    # trade-off for one-char entities: upper-case goes for title
+                    oneCharEntity = len([c for c \
+                        in unicodedata.normalize("NFD", unicode(entity)) \
+                        if 'a' <= c <= 'z']) == 1
+                    self.assert_(toEntity.istitle() \
+                            or (oneCharEntity and toEntity.isupper()),
+                        'Mismatch in title case for conversion %s to %s' \
+                            % (repr(entity.title()), repr(toEntity)) \
+                        + ' (conversion %s to %s, options %s)' \
+                            % (self.fromReading, self.toReading, dialect))
                 except exception.ConversionError:
                     pass
 
