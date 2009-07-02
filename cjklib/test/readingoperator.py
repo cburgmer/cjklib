@@ -343,7 +343,8 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                         # test if method exists and by default is not False
                         if hasattr(self.readingOperatorClass,
                             "isStrictDecomposition") \
-                            and self.f.isStrictDecomposition([]) != False: # TODO this doesn't capture bugs in isStrictDecomposition that return False for an empty array
+                            and self.f.isStrictDecomposition([],
+                                self.READING_NAME, **dialect) != False: # TODO this doesn't capture bugs in isStrictDecomposition that return False for an empty array
 
                             strict = self.f.isStrictDecomposition(decomposition,
                                 self.READING_NAME, **dialect)
