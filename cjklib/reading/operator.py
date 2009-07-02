@@ -2725,11 +2725,11 @@ class GROperator(TonalRomanisationOperator):
             not needed for import here then
         """
         if self.isAbbreviatedEntity(entity):
-            if self._getAbbreviatedLookup()[entity] == None:
+            if self._getAbbreviatedLookup()[entity.lower()] == None:
                 raise AmbiguousConversionError("conversion for entity '" \
                     + entity + "' is ambiguous")
 
-            originalEntity = self._getAbbreviatedLookup()[entity]
+            originalEntity = self._getAbbreviatedLookup()[entity.lower()]
             if entity.isupper():
                 originalEntity = originalEntity.upper()
             elif entity.istitle():
@@ -3459,7 +3459,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                     in self.TONE_MARK_MAPPING[self.getOption('toneMarkType')]\
                         .values()])) \
                 + r"]?)")
-            self.hCharRegex = re.compile(r"^.*(?:[aeiou]|m|ng)(h)")
+            self.hCharRegex = re.compile(r"(?i)^.*(?:[aeiou]|m|ng)(h)")
 
         # should we check if the diacritics are placed correctly?
         if 'strictDiacriticPlacement' in options:
@@ -3625,6 +3625,10 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             nonVowelH, vowels, nonVowelT = matchObj.groups()
             # place 'h' after vowel (or after syllable for syllabic nasal) and
             #   diacritic on first vowel/first character for syllabic nasal
+            if plainEntity.isupper():
+                # make 'h' upper case if entity is upper case
+                hChar = hChar.upper()
+
             if vowels:
                 vowels = unicodedata.normalize("NFC", vowels[0] + toneMark \
                     + vowels[1:] + hChar)
@@ -3674,7 +3678,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             hChar = ''
 
         try:
-            tone = self.toneMarkLookup[(toneMark, hChar)]
+            tone = self.toneMarkLookup[(toneMark.lower(), hChar)]
         except KeyError:
             raise InvalidEntityError("Invalid entity or no tone information " \
                 "given for '" + entity + "'")

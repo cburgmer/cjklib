@@ -25,7 +25,7 @@ import re
 import types
 import unittest
 
-from cjklib.reading import ReadingFactory, converter
+from cjklib.reading import ReadingFactory, converter, operator
 from cjklib import exception
 
 class ReadingConverterTest():
@@ -158,6 +158,41 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
                         repr(defaultInstance.getOption(option))) \
                 + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
 
+    def testUpperToLowerCase(self):
+        """
+        Check if upper case entities get converted to lower case entities.
+        """
+        fromReadingClass = self.f.getReadingOperatorClass(self.fromReading)
+        if not issubclass(fromReadingClass, operator.RomanisationOperator) \
+            or 'case' not in fromReadingClass.getDefaultOptions():
+            return
+
+        toReadingClass = self.f.getReadingOperatorClass(self.toReading)
+        if not issubclass(toReadingClass, operator.RomanisationOperator) \
+            or 'case' not in toReadingClass.getDefaultOptions():
+            return
+
+        # TODO extend once unit test includes reading dialects
+        entities = self.f.getReadingEntities(self.fromReading)
+        for dialect in self.OPTIONS_LIST:
+            for entity in entities:
+                try:
+                    toEntity = self.f.convert(entity, self.fromReading,
+                        self.toReading, **dialect)
+                    self.assert_(toEntity.islower(),
+                        'Mismatch in letter case for conversion %s to %s' \
+                            % (repr(entity), repr(toEntity)) \
+                        + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
+
+                    toEntity = self.f.convert(entity.upper(), self.fromReading,
+                        self.toReading, **dialect)
+                    self.assert_(toEntity.isupper(),
+                        'Mismatch in letter case for conversion %s to %s' \
+                            % (repr(entity.upper()), repr(toEntity)) \
+                        + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
+                except exception.ConversionError:
+                    pass
+
 
 class ReadingConverterTestCaseCheck(unittest.TestCase):
     """
@@ -248,15 +283,23 @@ class CantoneseYaleDialectReferenceTest(ReadingConverterReferenceTest,
         ({'sourceOptions': {}, 'targetOptions': {'toneMarkType': 'Numbers'}}, [
             (u'gwóngjāuwá', u'gwong2jau1wa2'),
             (u'gwóngjàuwá', u'gwong2jau1wa2'),
+            (u'GWÓNGJĀUWÁ', u'GWONG2JAU1WA2'),
+            (u'sīsísisìhsíhsihsīksiksihk', u'si1si2si3si4si5si6sik1sik3sik6'),
+            (u'SÌSÍSISÌHSÍHSIHSĪKSIKSIHK', u'SI1SI2SI3SI4SI5SI6SIK1SIK3SIK6'),
             ]),
         ({'sourceOptions': {'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
             (u'gwong2jau1wa2', u'gwóngjāuwá'),
             (u'gwong2jauwa2', exception.ConversionError),
+            (u'GWONG2JAU1WA2', u'GWÓNGJĀUWÁ'),
+            (u'si1si2si3si4si5si6sik1sik3sik6', u'sīsísisìhsíhsihsīksiksihk'),
+            (u'SI1SI2SI3SI4SI5SI6SIK1SIK3SIK6', u'SĪSÍSISÌHSÍHSIHSĪKSIKSIHK'),
             ]),
         ({'sourceOptions': {'toneMarkType': 'Numbers',
             'YaleFirstTone': '1stToneFalling'},
             'targetOptions': {}}, [
             (u'gwong2jau1wa2', u'gwóngjàuwá'),
+            (u'si1si2si3si4si5si6sik1sik3sik6', u'sìsísisìhsíhsihsīksiksihk'),
+            (u'SI1SI2SI3SI4SI5SI6SIK1SIK3SIK6', u'SÌSÍSISÌHSÍHSIHSĪKSIKSIHK'),
             ]),
         ({'sourceOptions': {'strictDiacriticPlacement': True},
             'targetOptions': {'toneMarkType': 'Numbers'}}, [
@@ -302,6 +345,7 @@ class JyutpingYaleReferenceTest(ReadingConverterReferenceTest,
         ({'sourceOptions': {}, 'targetOptions': {}}, [
             (u'gwong2zau1waa2', u'gwóngjāuwá'),
             (u'gwong2yau1waa2', u'gwóngyau1wá'),
+            (u'GWONG2ZAU1WAA2', u'GWÓNGJĀUWÁ'),
             ]),
         ]
 
@@ -320,6 +364,7 @@ class YaleJyutpingReferenceTest(ReadingConverterReferenceTest,
         ({'sourceOptions': {}, 'targetOptions': {}}, [
             (u'gwóngjāuwá', u'gwong2zau1waa2'),
             (u'gwóngjàuwá', u'gwong2zau1waa2'),
+            (u'GWÓNGJĀUWÁ', u'GWONG2ZAU1WAA2'),
             ]),
         ]
 
@@ -337,8 +382,16 @@ class PinyinDialectReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('Pinyin', 'Pinyin')
 
     CONVERSION_REFERENCES = [
+        ({'sourceOptions': {}, 'targetOptions': {}}, [
+            (u'xīān', u"xī'ān"),
+            ]),
         ({'sourceOptions': {'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
             ('lao3shi1', u'lǎoshī'),
+            ]),
+        ({'sourceOptions': {'toneMarkType': 'Numbers', 'yVowel': 'v'},
+            'targetOptions': {}}, [
+            ('nv3hai2', u'nǚhái'),
+            ('NV3HAI2', u'NǙHÁI'),
             ]),
         ]
 
@@ -373,10 +426,12 @@ class WadeGilesPinyinReferenceTest(ReadingConverterReferenceTest,
         ({'sourceOptions': {}, 'targetOptions': {}}, [
             (u'kuo', exception.AmbiguousConversionError),
             (u'kuo³-yü²', u'kuo³-yü²'),
+            (u'kuo3-yü2', u'guǒyú'),
             ]),
         ({'sourceOptions': {'toneMarkType': 'SuperscriptNumbers'},
             'targetOptions': {}}, [
             (u'kuo³-yü²', u'guǒyú'),
+            (u'KUO³-YÜ²', u'GUǑYÚ'),
             ]),
         ]
 
@@ -545,6 +600,7 @@ class PinyinIPAReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_REFERENCES = [
         ({'sourceOptions': {'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
             ('lao3shi1', u'lau˨˩.ʂʅ˥˥'),
+            ('LAO3SHI1', u'lau˨˩.ʂʅ˥˥'),
             ]),
         ({'sourceOptions': {}, 'targetOptions': {}}, [
             ('lao3shi1', 'lao3shi1'),

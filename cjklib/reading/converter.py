@@ -747,7 +747,8 @@ class PinyinDialectConverter(ReadingConverter):
                 # check for special vowel for ü on input
                 if self.fromYVowel != self.toYVowel:
                     plainSyllable = plainSyllable.replace(self.fromYVowel,
-                        self.toYVowel)
+                        self.toYVowel).replace(self.fromYVowel.upper(),
+                        self.toYVowel.upper())
 
                 # capitalisation
                 if self._getToOperator(toReading).getOption('case') == 'lower':
