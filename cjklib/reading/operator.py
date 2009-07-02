@@ -1474,7 +1474,7 @@ class PinyinOperator(TonalRomanisationOperator):
             else:
                 yVowel = u'ü'
 
-        # guess apostrophe vowel
+        # guess apostrophe
         for apostrophe in APOSTROPHE_LIST:
             if apostrophe in readingStr:
                 PinyinApostrophe = apostrophe
@@ -1924,7 +1924,6 @@ class WadeGilesOperator(TonalRomanisationOperator):
         Warn/Error on syllables which are ambiguous when asume apostrophe are
         omitted. b) 'hsu' is no valid syllable but can be viewed as 'hsü'.
         Compare to different 'implementations' of the Wade-Giles romanisation.
-    @todo Impl: C{guessReadingDialect()} for C{'toneMarkType'}
     """
     READING_NAME = 'WadeGiles'
 
@@ -2003,6 +2002,51 @@ class WadeGilesOperator(TonalRomanisationOperator):
             'toneMarkType': 'Numbers', 'missingToneMark': u'noinfo'})
 
         return options
+
+    @classmethod
+    def guessReadingDialect(cls, string, includeToneless=False):
+        u"""
+        Takes a string written in Wade-Giles and guesses the reading dialect.
+
+        Options C{'toneMarkType'} and C{'WadeGilesApostrophe'} are tested.
+
+        @type string: str
+        @param string: Wade-Giles string
+        @rtype: dict
+        @return: dictionary of basic keyword settings
+        """
+        APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
+
+        # split regex for all dialect forms
+        entities = re.findall(u"((?:" + '|'.join(APOSTROPHE_LIST) \
+            + u"|[A-ZÜa-zü])+[12345¹²³⁴⁵]?)", string)
+
+        # guess one of main dialects: tone mark type
+        superscriptEntityCount = 0
+        digitEntityCount = 0
+        for entity in entities:
+            # take entity (which can be several connected syllables) and check
+            if entity[-1] in '12345':
+                digitEntityCount = digitEntityCount + 1
+            elif entity[-1] in u'¹²³⁴⁵':
+                superscriptEntityCount = superscriptEntityCount + 1
+
+        # compare statistics
+        if digitEntityCount > superscriptEntityCount:
+            toneMarkType = 'Numbers'
+        else:
+            toneMarkType = 'SuperscriptNumbers'
+
+        # guess apostrophe
+        for apostrophe in APOSTROPHE_LIST:
+            if apostrophe in string:
+                WadeGilesApostrophe = apostrophe
+                break
+        else:
+            WadeGilesApostrophe = "'"
+
+        return {'toneMarkType': toneMarkType,
+            'WadeGilesApostrophe': WadeGilesApostrophe}
 
     def getTones(self):
         tones = range(1, 6)
@@ -2289,7 +2333,7 @@ class GROperator(TonalRomanisationOperator):
         APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
         readingStr = unicodedata.normalize("NFC", unicode(string))
 
-        # guess apostrophe vowel
+        # guess apostrophe
         for apostrophe in APOSTROPHE_LIST:
             if apostrophe in readingStr:
                 break

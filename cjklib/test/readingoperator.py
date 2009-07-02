@@ -1329,16 +1329,22 @@ class WadeGilesOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
 
 
 # TODO
-#class WadeGilesOperatorReferenceTest(ReadingOperatorReferenceTest,
-    #unittest.TestCase):
-    #READING_NAME = 'WadeGiles'
+class WadeGilesOperatorReferenceTest(ReadingOperatorReferenceTest,
+    unittest.TestCase):
+    READING_NAME = 'WadeGiles'
 
-    #DECOMPOSITION_REFERENCES = []
+    DECOMPOSITION_REFERENCES = []
 
-    #COMPOSITION_REFERENCES = []
+    COMPOSITION_REFERENCES = []
 
-    #READING_ENTITY_REFERENCES = []
+    READING_ENTITY_REFERENCES = []
 
+    GUESS_DIALECT_REFERENCES = [
+        (u"K’ung³-tzǔ³", {'toneMarkType': 'SuperscriptNumbers',
+            'WadeGilesApostrophe': u'’'}),
+        (u"Ssŭma Ch'ien", {'WadeGilesApostrophe': "'"}),
+        (u"Shih3-Chi4", {'toneMarkType': 'Numbers'}),
+        ]
 
 class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     unittest.TestCase):
