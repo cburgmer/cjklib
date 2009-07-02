@@ -202,6 +202,29 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                         + ' (reading %s, dialect %s)' \
                             % (self.READING_NAME, dialect))
 
+    def testOnsetRhyme(self):
+        """Test if all plain entities are accepted by C{getOnsetRhyme()}."""
+        if not hasattr(self.readingOperatorClass, "getPlainReadingEntities") \
+            or not hasattr(self.readingOperatorClass, "testOnsetRhyme"):
+            return
+
+        forms = [{}]
+        forms.extend(self.DIALECTS)
+        for dialect in forms:
+            readingOperator = self.f.createReadingOperator(self.READING_NAME,
+                **dialect)
+            plainEntities = readingOperator.getPlainReadingEntities()
+            for plainEntity in plainEntities:
+                try:
+                    result = readingOperator.getOnsetRhyme(plainEntity)
+                except exception.InvalidEntityError:
+                    self.fail("Plain entity %s not accepted" \
+                        % repr(plainEntity) \
+                        + ' (reading %s, dialect %s)' \
+                            % (self.READING_NAME, dialect))
+                except exception.UnsupportedError:
+                    pass
+
     def testDecomposeIsIdentityForSingleEntity(self):
         """
         Test if all reading entities returned by C{getReadingEntities()} are
@@ -256,7 +279,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                             self.READING_NAME, **dialect),
                         entity,
                         "Entity %s not preserved in composition" % repr(entity)\
-                            + "of getTonalEntity() and splitEntityTone()" \
+                            + " of getTonalEntity() and splitEntityTone()" \
                             + ' (reading %s, dialect %s)' \
                                 % (self.READING_NAME, dialect))
                 except exception.UnsupportedError:
@@ -649,6 +672,8 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u'wáa', False),
             (u'GWÓNG', True),
             (u'SIK', True),
+            (u'bàt', False), # stop tone
+            (u'bat4', False), # stop tone
             ]),
         ({'strictDiacriticPlacement': True}, [
             (u'wā', True),
@@ -664,6 +689,8 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u'wáa', False),
             (u'GWÓNG', True),
             (u'SIK', True),
+            (u'bàt', False), # stop tone
+            (u'bat4', False), # stop tone
             ]),
         ({'case': 'lower'}, [
             (u'wā', True),
@@ -679,6 +706,8 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u'wáa', False),
             (u'GWÓNG', False),
             (u'SIK', False),
+            (u'bàt', False), # stop tone
+            (u'bat4', False), # stop tone
             ]),
         ]
 
@@ -710,7 +739,22 @@ class JyutpingOperatorReferenceTest(ReadingOperatorReferenceTest,
 
     COMPOSITION_REFERENCES = []
 
-    READING_ENTITY_REFERENCES = []
+    READING_ENTITY_REFERENCES = [
+        ({}, [
+            (u'si1', True),
+            (u'si2', True),
+            (u'si3', True),
+            (u'si4', True),
+            (u'si5', True),
+            (u'si6', True),
+            (u'sik1', True),
+            (u'sik2', False), # stop tone
+            (u'sik3', True),
+            (u'sik4', False), # stop tone
+            (u'sik5', False), # stop tone
+            (u'sik6', True),
+            ]),
+        ]
 
 
 class HangulOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,

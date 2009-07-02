@@ -1878,6 +1878,8 @@ class PinyinOperator(TonalRomanisationOperator):
         the following three examples: I{yi}, I{zhi} and I{zi} to express
         phonological difference.
 
+        Returned strings will be lowercase.
+
         @type plainSyllable: str
         @param plainSyllable: syllable without tone marks
         @rtype: tuple of str
@@ -1888,11 +1890,13 @@ class PinyinOperator(TonalRomanisationOperator):
         """
         erhuaForm = False
         if self.getOption('Erhua') == 'oneSyllable' \
-            and plainSyllable.endswith('r') and plainSyllable != 'er':
+            and plainSyllable.lower().endswith('r') \
+            and plainSyllable.lower() != 'er':
                 plainSyllable = plainSyllable[:-1]
                 erhuaForm = True
 
-        elif plainSyllable == 'r' and self.getOption('Erhua') == 'twoSyllables':
+        elif plainSyllable.lower() == 'r' \
+            and self.getOption('Erhua') == 'twoSyllables':
             raise UnsupportedError("Not supported for '" + plainSyllable + "'")
 
         table = self.db.tables['PinyinInitialFinal']
@@ -2935,9 +2939,9 @@ class MandarinIPAOperator(TonalIPAOperator):
             nucleus or tone invalid).
         """
         table = self.db.tables['MandarinIPAInitialFinal']
-        entry = set(self.db.selectRow(
+        entry = self.db.selectRow(
             select([table.c.IPAInitial, table.c.IPAFinal],
-                table.c.IPA == plainSyllable)))
+                table.c.IPA == plainSyllable))
         if not entry:
             raise InvalidEntityError("'" + plainSyllable \
                 + "' not a valid IPA form in this system'")
@@ -3265,16 +3269,16 @@ class JyutpingOperator(TonalRomanisationOperator):
         return "".join(readingEntities)
 
     def getTonalEntity(self, plainEntity, tone):
-        if self.getOption('toneMarkType') == 'None':
-            return plainEntity
-
         if tone != None:
             tone = int(tone)
-        if tone not in self.getTones():
-            raise InvalidEntityError("Invalid tone information given for '" \
-                + plainEntity + "': '" + str(tone) + "'")
-        if tone == None:
+        if not self.isToneValid(plainEntity, tone):
+            raise InvalidEntityError(
+                "Syllable '%s' can not occur with tone '%s'" \
+                    % (plainEntity, str(tone)))
+
+        if self.getOption('toneMarkType') == 'None' or tone == None:
             return plainEntity
+
         return plainEntity + str(tone)
 
     def splitEntityTone(self, entity):
@@ -3284,13 +3288,40 @@ class JyutpingOperator(TonalRomanisationOperator):
         matchObj = re.search(u"[123456]$", entity)
         if matchObj:
             tone = int(matchObj.group(0))
-            return entity[0:len(entity)-1], tone
+            plainEntity = entity[0:len(entity)-1]
+
+            if not self.isToneValid(plainEntity, tone):
+                raise InvalidEntityError(
+                    "Syllable '%s' can not occur with tone '%s'" \
+                        % (plainEntity, str(tone)))
+            return plainEntity, tone
         else:
             if self.getOption('missingToneMark') == 'ignore':
                 raise InvalidEntityError("No tone information given for '" \
                     + entity + "'")
             else:
                 return entity, None
+
+    def isToneValid(self, plainEntity, tone):
+        """
+        Checks if the given plain entity and tone combination is valid.
+
+        Only syllables with unreleased finals occur with stop tones, other forms
+        must not (see L{hasStopTone()}).
+
+        @type plainEntity: str
+        @param plainEntity: entity without tonal information
+        @type tone: str
+        @param tone: tone
+        @rtype: bool
+        @return: C{True} if given combination is valid, C{False} otherwise
+        """
+        if tone not in self.getTones():
+            raise InvalidEntityError(
+                "Invalid tone information given for '%s': '%s'" \
+                    % (plainEntity, str(tone)))
+
+        return not self.hasStopTone(plainEntity) or tone in [1, 3, 6, None]
 
     def getPlainReadingEntities(self):
         return set(self.db.selectScalars(
@@ -3302,6 +3333,8 @@ class JyutpingOperator(TonalRomanisationOperator):
 
         The syllabic nasals I{m}, I{ng} will be regarded as being finals.
 
+        Returned strings will be lowercase.
+
         @type plainSyllable: str
         @param plainSyllable: syllable without tone marks
         @rtype: tuple of str
@@ -3311,14 +3344,42 @@ class JyutpingOperator(TonalRomanisationOperator):
             same vowels. What semantics/view do we want to provide on the
             syllable parts?
         """
-        table = self.db.tables['JyutpingInitialFinal']
-        entry = self.db.selectRow(
-            select([table.c.JyutpingInitial, table.c.JyutpingFinal],
-                table.c.Jyutping == plainSyllable.lower()))
-        if not entry:
+        if plainSyllable.lower() not in self._getSyllableData():
             raise InvalidEntityError("'" + plainSyllable \
                 + "' not a valid plain Jyutping syllable'")
-        return (entry[0], entry[1])
+
+        return self._getSyllableData()[plainSyllable.lower()]
+
+    def hasStopTone(self, plainEntity):
+        """
+        Checks if the given plain syllable can occur with stop tones which is
+        the case for syllables with unreleased finals.
+
+        @type plainEntity: str
+        @param plainEntity: entity without tonal information
+        @rtype: bool
+        @return: C{True} if given syllable can occur with stop tones, C{False}
+            otherwise
+        """
+        _, final = self.getOnsetRhyme(plainEntity)
+        return final and final[-1] in ['p', 't', 'k']
+
+    def _getSyllableData(self):
+        """
+        Gets the table information about syllable structure from the database.
+
+        @rtype: dict
+        @return: dict containing the intial, nucleus and coda for each syllable
+        """
+        if not hasattr(self, '_syllableData'):
+            table = self.db.tables['JyutpingInitialFinal']
+            result = self.db.selectRows(
+                select([table.c.Jyutping, table.c.JyutpingInitial,
+                    table.c.JyutpingFinal]))
+
+            self._syllableData = dict([(s, (i, f)) for s, i, f in result])
+
+        return self._syllableData
 
 
 class CantoneseYaleOperator(TonalRomanisationOperator):
@@ -3648,17 +3709,19 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         """
         @todo Lang: Place the tone mark on the first character of the nucleus?
         """
-        if tone not in self.getTones():
-            raise InvalidEntityError("Invalid tone information given for '" \
-                + plainEntity + "': '" + unicode(tone) + "'")
+        if not self.isToneValid(plainEntity, tone):
+            raise InvalidEntityError(
+                "Syllable '%s' can not occur with tone '%s'" \
+                    % (plainEntity, str(tone)))
 
-        if self.getOption('toneMarkType') == 'None':
+        toneMarkType = self.getOption('toneMarkType')
+
+        if toneMarkType == 'None':
             return plainEntity
 
-        toneMark, hChar = self.TONE_MARK_MAPPING[
-            self.getOption('toneMarkType')][tone]
+        toneMark, hChar = self.TONE_MARK_MAPPING[toneMarkType][tone]
 
-        if self.getOption('toneMarkType') == 'Diacritics':
+        if toneMarkType == 'Diacritics':
             # split entity into vowel (aeiou) and non-vowel part for placing
             #   marks
             matchObj = re.match('(?i)^([^aeiou]*?)([aeiou]*)([^aeiou]*)$',
@@ -3682,7 +3745,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                     + toneMark + nonVowelT[1:] + hChar)
 
             return nonVowelH + vowels + nonVowelT
-        elif self.getOption('toneMarkType') in ['Numbers', 'Internal']:
+        elif toneMarkType in ['Numbers', 'Internal']:
             return plainEntity + toneMark
 
     def splitEntityTone(self, entity):
@@ -3717,13 +3780,18 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         matchObj = self.hCharRegex.search(plainEntity)
         if matchObj:
             hChar = matchObj.group(1)
-            plainEntity = plainEntity[0:matchObj.start(1)] \
-                + plainEntity[matchObj.end(1):]
+            plainEntity = unicodedata.normalize("NFC",
+                plainEntity[0:matchObj.start(1)] \
+                    + plainEntity[matchObj.end(1):])
         else:
             hChar = ''
 
         try:
             tone = self.toneMarkLookup[(toneMark, hChar.lower())]
+            # make sure stop tones always have the level tone, for diacritics
+            if self.hasStopTone(plainEntity) and tone == '1stToneFalling' \
+                and self.getOption('toneMarkType') == 'Numbers':
+                tone = '1stToneLevel'
         except KeyError:
             raise InvalidEntityError("Invalid entity or no tone information " \
                 "given for '" + entity + "'")
@@ -3735,7 +3803,34 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                 raise InvalidEntityError("Wrong placement of diacritic for '" \
                     + entity + "' while strict checking enforced")
 
-        return unicodedata.normalize("NFC", plainEntity), tone
+        if not self.isToneValid(plainEntity, tone):
+            raise InvalidEntityError(
+                "Syllable '%s' can not occur with tone '%s'" \
+                    % (plainEntity, str(tone)))
+
+        return plainEntity, tone
+
+    def isToneValid(self, plainEntity, tone):
+        """
+        Checks if the given plain entity and tone combination is valid.
+
+        Only syllables with unreleased finals occur with stop tones, other forms
+        must not (see L{hasStopTone()}).
+
+        @type plainEntity: str
+        @param plainEntity: entity without tonal information
+        @type tone: str
+        @param tone: tone
+        @rtype: bool
+        @return: C{True} if given combination is valid, C{False} otherwise
+        """
+        if tone not in self.getTones():
+            raise InvalidEntityError(
+                "Invalid tone information given for '%s': '%s'" \
+                    % (plainEntity, str(tone)))
+
+        return not self.hasStopTone(plainEntity) or tone in ['1stToneLevel',
+            '3rdTone', '6thTone', None]
 
     def getPlainReadingEntities(self):
         return set(self.db.selectScalars(select(
@@ -3747,6 +3842,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         The syllabic nasals I{m}, I{ng} will be returned as final. Syllables yu,
         yun, yut will fall into (y, yu, ), (y, yu, n) and (y, yu, t).
+
+        Returned strings will be lowercase.
 
         @type plainSyllable: str
         @param plainSyllable: syllable without tone marks
@@ -3765,6 +3862,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         The syllabic nasals I{m}, I{ng} will be returned as coda. Syllables yu,
         yun, yut will fall into (y, yu, ), (y, yu, n) and (y, yu, t).
 
+        Returned strings will be lowercase.
+
         @type plainSyllable: str
         @param plainSyllable: syllable in the Yale romanisation system without
             tone marks
@@ -3776,17 +3875,42 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             finals with same vowels. What semantics/view do we want to provide
             on the syllable parts?
         """
-        # if tone mark exist, split off
-        table = self.db.tables['CantoneseYaleInitialNucleusCoda']
-        entry = self.db.selectRow(
-            select([table.c.CantoneseYaleInitial, table.c.CantoneseYaleNucleus,
-                table.c.CantoneseYaleCoda],
-                table.c.CantoneseYale == plainSyllable.lower()))
-        if not entry:
+        if plainSyllable.lower() not in self._getSyllableData():
             raise InvalidEntityError("'" + plainSyllable \
                 + "' not a valid plain Cantonese Yale syllable'")
 
-        return (entry[0], entry[1], entry[2])
+        return self._getSyllableData()[plainSyllable.lower()]
+
+    def hasStopTone(self, plainEntity):
+        """
+        Checks if the given plain syllable can occur with stop tones which is
+        the case for syllables with unreleased finals.
+
+        @type plainEntity: str
+        @param plainEntity: entity without tonal information
+        @rtype: bool
+        @return: C{True} if given syllable can occur with stop tones, C{False}
+            otherwise
+        """
+        _, _, coda = self.getOnsetNucleusCoda(plainEntity)
+        return coda in ['p', 't', 'k']
+
+    def _getSyllableData(self):
+        """
+        Gets the table information about syllable structure from the database.
+
+        @rtype: dict
+        @return: dict containing the intial, nucleus and coda for each syllable
+        """
+        if not hasattr(self, '_syllableData'):
+            table = self.db.tables['CantoneseYaleInitialNucleusCoda']
+            result = self.db.selectRows(select([table.c.CantoneseYale,
+                table.c.CantoneseYaleInitial, table.c.CantoneseYaleNucleus,
+                table.c.CantoneseYaleCoda]))
+
+            self._syllableData = dict([(s, (i, n, c)) for s, i, n, c in result])
+
+        return self._syllableData
 
 
 class CantoneseIPAOperator(TonalIPAOperator):
@@ -4044,6 +4168,11 @@ class CantoneseIPAOperator(TonalIPAOperator):
                 tone = explicitTone
             elif self.getOption('stopTones') == 'general':
                 tone, _ = explicitTone.split('_')
+
+        if not self.isToneValid(plainEntity, tone):
+            raise InvalidEntityError(
+                "Syllable '%s' can not occur with tone '%s'" \
+                    % (plainEntity, str(tone)))
 
         return plainEntity, tone
 
