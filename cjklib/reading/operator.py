@@ -1924,6 +1924,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
         Warn/Error on syllables which are ambiguous when asume apostrophe are
         omitted. b) 'hsu' is no valid syllable but can be viewed as 'hsü'.
         Compare to different 'implementations' of the Wade-Giles romanisation.
+    @todo Impl: C{guessReadingDialect()} for C{'toneMarkType'}
     """
     READING_NAME = 'WadeGiles'
 
@@ -3678,7 +3679,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             hChar = ''
 
         try:
-            tone = self.toneMarkLookup[(toneMark.lower(), hChar)]
+            tone = self.toneMarkLookup[(toneMark, hChar.lower())]
         except KeyError:
             raise InvalidEntityError("Invalid entity or no tone information " \
                 "given for '" + entity + "'")
