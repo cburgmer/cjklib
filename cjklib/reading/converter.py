@@ -475,12 +475,12 @@ class RomanisationConverter(DialectSupportReadingConverter):
                     toReadingEntity = self.convertBasicEntity(entity.lower(),
                         fromReading, toReading)
 
-                    # transfer capitalisation, target reading dialect will to
-                    #   final transformation (lower/upper/both)
+                    # transfer letter case, target reading dialect will take
+                    #   care of final transformation (lower/both)
                     if entity.isupper():
                         toReadingEntity = toReadingEntity.upper()
                     elif entity.istitle():
-                        toReadingEntity = toReadingEntity.capitalize()
+                        toReadingEntity = toReadingEntity.title()
 
                     toSequence.append(toReadingEntity)
                 toEntitySequence.append(toSequence)
@@ -741,6 +741,7 @@ class PinyinDialectConverter(ReadingConverter):
                         and self._getToOperator('Pinyin').getOption('Erhua') \
                             == 'ignore') \
                         or self.getOption('breakUpErhua') == 'on'):
+                    # transfer letter case, title() cannot be tested, len() == 1
                     if plainSyllable.isupper():
                         plainSyllable = 'ER'
                     else:
@@ -2071,6 +2072,36 @@ class BridgeConverter(ReadingConverter):
         for fromReading, bridgeReading, toReading in self.CONVERSION_BRIDGE:
             self.bridgeLookup[(fromReading, toReading)] = bridgeReading
 
+        self.conversionOptions = options
+
+    @classmethod
+    def getDefaultOptions(cls):
+        # merge together options of converters involved in bridge conversion
+        def mergeOptions(defaultOptions, options):
+            for option, value in options.items():
+                assert(option not in defaultOptions \
+                    or defaultOptions[option] == value)
+                defaultOptions[option] = value
+
+        converterClassLookup = {}
+        for clss in cjklib.reading.ReadingFactory.getReadingConverterClasses():
+            for fromReading, targetReading in clss.CONVERSION_DIRECTIONS:
+                converterClassLookup[(fromReading, targetReading)] = clss
+
+        # get default options for all converters used
+        defaultOptions = super(BridgeConverter, cls).getDefaultOptions()
+        for fromReading, bridgeReading, targetReading in cls.CONVERSION_BRIDGE:
+            # from direction
+            fromDefaultOptions = converterClassLookup[
+                    (fromReading, bridgeReading)].getDefaultOptions()
+            mergeOptions(defaultOptions, fromDefaultOptions)
+            # to direction
+            toDefaultOptions = converterClassLookup[
+                    (bridgeReading, targetReading)].getDefaultOptions()
+            mergeOptions(defaultOptions, toDefaultOptions)
+
+        return defaultOptions
+
     def convertEntities(self, readingEntities, fromReading, toReading):
         if (fromReading, toReading) not in self.CONVERSION_DIRECTIONS:
             raise UnsupportedError("conversion direction from '" \
@@ -2078,12 +2109,15 @@ class BridgeConverter(ReadingConverter):
         bridgeReading = self.bridgeLookup[(fromReading, toReading)]
 
         # to bridge reading
+        options = self.conversionOptions.copy()
+        options['sourceOperators'] = [self._getFromOperator(fromReading)]
         bridgeReadingEntities = self.readingFact.convertEntities(
-            readingEntities, fromReading, bridgeReading,
-            sourceOperators=[self._getFromOperator(fromReading)])
+            readingEntities, fromReading, bridgeReading, **options)
 
         # from bridge reading
+        options = self.conversionOptions.copy()
+        options['targetOperators'] = [self._getToOperator(toReading)]
         toReadingEntities = self.readingFact.convertEntities(
-            bridgeReadingEntities, bridgeReading, toReading,
-            targetOperators=[self._getToOperator(toReading)])
+            bridgeReadingEntities, bridgeReading, toReading, **options)
+
         return toReadingEntities

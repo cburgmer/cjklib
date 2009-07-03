@@ -472,7 +472,9 @@ class ReadingFactory(object):
 
         self._checkSpecialOperators(fromReading, toReading, args, options)
 
-        converterInst = converterClass(dbConnectInst=self.db, *args, **options)
+        opt = options.copy()
+        opt['dbConnectInst'] = self.db
+        converterInst = converterClass(*args, **options)
         if 'hideComplexConverter' not in options \
             or options['hideComplexConverter']:
             return ReadingFactory.SimpleReadingConverterAdaptor(
@@ -577,8 +579,10 @@ class ReadingFactory(object):
         # get cache
         instanceCache = self.sharedState[self.db]['readingConverterInstances']
         if cacheKey not in instanceCache:
-            conv = self.createReadingConverter(fromReading, toReading,
-                hideComplexConverter=False, *args, **options)
+            opt = options.copy()
+            opt['hideComplexConverter'] = False
+            conv = self.createReadingConverter(fromReading, toReading, *args,
+                **options)
             # use instance for all supported conversion directions
             for convFromReading, convToReading in conv.CONVERSION_DIRECTIONS:
                 oCacheKey = ((convFromReading, convToReading),

@@ -247,9 +247,6 @@ class ReadingConverterTestCaseCheck(unittest.TestCase):
 
         for clss in self.f.getReadingConverterClasses():
             for direction in clss.CONVERSION_DIRECTIONS:
-                if direction in converter.BridgeConverter.CONVERSION_DIRECTIONS:
-                    continue # TODO no need for test classes for bridge conversions?
-
                 self.assert_(direction in testClassReadingNames,
                     "Conversion from %s to %s" % direction \
                     + "has no ReadingOperatorConsistencyTest")
@@ -643,3 +640,167 @@ class PinyinIPAReferenceTest(ReadingConverterReferenceTest,
             ('lao3shi1', 'lao3shi1'),
             ]),
         ]
+
+
+class WadeGilesIPAConsistencyTest(ReadingConverterConsistencyTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('WadeGiles', 'MandarinIPA')
+
+    # TODO add another sandhi function reference
+    OPTIONS_LIST = [{'sandhiFunction': None},
+        {'coarticulationFunction': \
+            converter.PinyinIPAConverter.finalECoarticulation}]
+
+
+# TODO
+class WadeGilesIPAReferenceTest(ReadingConverterReferenceTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('WadeGiles', 'MandarinIPA')
+
+    CONVERSION_REFERENCES = [
+        ({'sourceOptions': {}, 'targetOptions': {}}, [
+            (u'kuo3-yü2', u'kuo˨˩.y˧˥'),
+            (u'LAO3-SHIH1', u'lau˨˩.ʂʅ˥˥'),
+            ]),
+        ({'sourceOptions': {'toneMarkType': 'SuperscriptNumbers'},
+            'targetOptions': {}}, [
+            (u'LAO3-SHIH1', 'LAO3-SHIH1'),
+            (u'LAO³-SHIH¹', u'lau˨˩.ʂʅ˥˥'),
+            ]),
+        ]
+
+
+class MandarinBrailleIPAConsistencyTest(ReadingConverterConsistencyTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('MandarinBraille', 'MandarinIPA')
+
+    # TODO add another sandhi function reference
+    OPTIONS_LIST = [{'sandhiFunction': None},
+        {'coarticulationFunction': \
+            converter.PinyinIPAConverter.finalECoarticulation}]
+
+
+## TODO
+#class MandarinBrailleIPAReferenceTest(ReadingConverterReferenceTest,
+    #unittest.TestCase):
+    #CONVERSION_DIRECTION = ('MandarinBraille', 'MandarinIPA')
+
+    #CONVERSION_REFERENCES = [
+        #({'sourceOptions': {}, 'targetOptions': {}}, [
+            #]),
+        #]
+
+
+class BrailleGRConsistencyTest(ReadingConverterConsistencyTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('MandarinBraille', 'GR')
+
+
+## TODO
+#class BrailleGRReferenceTest(ReadingConverterReferenceTest,
+    #unittest.TestCase):
+    #CONVERSION_DIRECTION = ('MandarinBraille', 'GR')
+
+    #CONVERSION_REFERENCES = [
+        #({'sourceOptions': {}, 'targetOptions': {}}, [
+            #]),
+        #]
+
+
+class GRBrailleConsistencyTest(ReadingConverterConsistencyTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('GR', 'MandarinBraille')
+
+
+## TODO
+#class GRBrailleReferenceTest(ReadingConverterReferenceTest,
+    #unittest.TestCase):
+    #CONVERSION_DIRECTION = ('GR', 'MandarinBraille')
+
+    #CONVERSION_REFERENCES = [
+        #({'sourceOptions': {}, 'targetOptions': {}}, [
+            #]),
+        #]
+
+
+class GRIPAConsistencyTest(ReadingConverterConsistencyTest, unittest.TestCase):
+    CONVERSION_DIRECTION = ('GR', 'MandarinIPA')
+
+    # TODO add another sandhi function reference
+    OPTIONS_LIST = [{'sandhiFunction': None},
+        {'coarticulationFunction': \
+            converter.PinyinIPAConverter.finalECoarticulation}]
+
+
+## TODO
+#class GRIPAGilesReferenceTest(ReadingConverterReferenceTest,
+    #unittest.TestCase):
+    #CONVERSION_DIRECTION = ('GR', 'MandarinIPA')
+
+    #CONVERSION_REFERENCES = [
+        #({'sourceOptions': {}, 'targetOptions': {}}, [
+            #]),
+        #]
+
+
+class GRWadeGilesConsistencyTest(ReadingConverterConsistencyTest, unittest.TestCase):
+    CONVERSION_DIRECTION = ('GR', 'WadeGiles')
+
+
+## TODO
+#class GRWadeGilesReferenceTest(ReadingConverterReferenceTest,
+    #unittest.TestCase):
+    #CONVERSION_DIRECTION = ('GR', 'WadeGiles')
+
+    #CONVERSION_REFERENCES = [
+        #({'sourceOptions': {}, 'targetOptions': {}}, [
+            #]),
+        #]
+
+
+class WadeGilesGRConsistencyTest(ReadingConverterConsistencyTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('WadeGiles', 'GR')
+
+
+## TODO
+#class WadeGilesGRReferenceTest(ReadingConverterReferenceTest,
+    #unittest.TestCase):
+    #CONVERSION_DIRECTION = ('WadeGiles', 'GR')
+
+    #CONVERSION_REFERENCES = [
+        #({'sourceOptions': {}, 'targetOptions': {}}, [
+            #]),
+        #]
+
+
+class WadeGilesBrailleConsistencyTest(ReadingConverterConsistencyTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('WadeGiles', 'MandarinBraille')
+
+
+## TODO
+#class WadeGilesBrailleReferenceTest(ReadingConverterReferenceTest,
+    #unittest.TestCase):
+    #CONVERSION_DIRECTION = ('WadeGiles', 'MandarinBraille')
+
+    #CONVERSION_REFERENCES = [
+        #({'sourceOptions': {}, 'targetOptions': {}}, [
+            #]),
+        #]
+
+
+class BrailleWadeGilesConsistencyTest(ReadingConverterConsistencyTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('MandarinBraille', 'WadeGiles')
+
+
+## TODO
+#class BrailleWadeGilesReferenceTest(ReadingConverterReferenceTest,
+    #unittest.TestCase):
+    #CONVERSION_DIRECTION = ('MandarinBraille', 'WadeGiles')
+
+    #CONVERSION_REFERENCES = [
+        #({'sourceOptions': {}, 'targetOptions': {}}, [
+            #]),
+        #]
