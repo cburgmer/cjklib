@@ -3723,8 +3723,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         if toneMarkType == 'Diacritics':
             # split entity into vowel (aeiou) and non-vowel part for placing
-            #   marks
-            matchObj = re.match('(?i)^([^aeiou]*?)([aeiou]*)([^aeiou]*)$',
+            #   marks, h only for initial
+            matchObj = re.match('(?i)^([^aeiou]*?)([aeiou]*)([^haeiou]*)$',
                 plainEntity)
             if not matchObj:
                 raise InvalidEntityError("Invalid entity given for '" \
