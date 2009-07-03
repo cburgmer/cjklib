@@ -86,7 +86,7 @@ In the context of this library the term I{reading} will refer to two things: the
 realisation of expressing the pronunciation (e.g. the specific romanisation) on
 the one hand, and the specific reading of a given character on the other hand.
 
-Technical Implementation
+Technical implementation
 ========================
 While module L{characterlookup} includes the functions for mapping a character
 to its potential reading, module C{reading} is specialised on all functionality

@@ -1913,7 +1913,7 @@ class JyutpingYaleConverter(RomanisationConverter):
     @todo Fix: Extend dialect C{'Internal'} for CantoneseYale, so that letter
         case is transfered over one character syllables with low tone (adding
         a second letter 'h'). See test case
-        L{test.readingconverter.testLetterCaseConversion()}.
+        L{test.readingconverter.ReadingConverterConsistencyTest.testLetterCaseConversion()}.
     """
     CONVERSION_DIRECTIONS = [('Jyutping', 'CantoneseYale'),
         ('CantoneseYale', 'Jyutping')]

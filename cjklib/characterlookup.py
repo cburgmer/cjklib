@@ -474,7 +474,7 @@ class CharacterLookup:
             return readings
 
     def hasMappingForCharacterToReading(self, readingN):
-        """"
+        """
         Returns C{True} if a mapping between Chinese characters and the given
         I{reading} is supported.
 
@@ -491,7 +491,7 @@ class CharacterLookup:
             return False
 
     def hasMappingForReadingToCharacter(self, readingN):
-        """"
+        """
         Returns C{True} if a mapping between the given I{reading} and Chinese
         characters is supported.
 
