@@ -25,9 +25,9 @@ class DecompositionError(Exception):
     reading string has a bad format).
     """
 
-class AmbiguousDecompositonError(DecompositionError):
+class AmbiguousDecompositionError(DecompositionError):
     """
-    An AmbiguousDecompositonError is raised when decomposition of a string
+    An AmbiguousDecompositionError is raised when decomposition of a string
     written in a reading is ambiguous.
     """
 

@@ -54,7 +54,7 @@ from sqlalchemy import select, union
 from sqlalchemy.sql import and_, or_, not_
 
 from cjklib.exception import (AmbiguousConversionError, DecompositionError,
-    AmbiguousDecompositonError, InvalidEntityError, UnsupportedError)
+    AmbiguousDecompositionError, InvalidEntityError, UnsupportedError)
 from cjklib.dbconnector import DatabaseConnector
 
 class ReadingOperator(object):
@@ -291,7 +291,7 @@ class RomanisationOperator(ReadingOperator):
         @param string: reading string
         @rtype: list of str
         @return: a list of basic entities of the input string
-        @raise AmbiguousDecompositonError: if decomposition is ambiguous.
+        @raise AmbiguousDecompositionError: if decomposition is ambiguous.
         @raise DecompositionError: if the given string has a wrong format.
         """
         decompositionParts = self.getDecompositionTree(string)
@@ -320,7 +320,7 @@ class RomanisationOperator(ReadingOperator):
                             strictDecomposition.extend(decomposition)
                             break
                     else:
-                        raise AmbiguousDecompositonError("decomposition of '" \
+                        raise AmbiguousDecompositionError("decomposition of '" \
                             + string + "' ambiguous: '" \
                             + ''.join(decomposition) + "'")
 
@@ -1614,11 +1614,15 @@ class PinyinOperator(TonalRomanisationOperator):
         @return: true if decomposition is strict, false otherwise
         """
         precedingEntity = None
+
+        apostropheFunction = self.getOption('PinyinApostropheFunction')
+        if type(apostropheFunction) == types.MethodType:
+            apostropheFunction = partial(apostropheFunction, self)
+
         for entity in readingEntities:
             if self.isReadingEntity(entity):
                 # Pinyin syllable
-                if self.getOption('PinyinApostropheFunction')(self,
-                    precedingEntity, entity):
+                if apostropheFunction(precedingEntity, entity):
                     return False
 
                 precedingEntity = entity

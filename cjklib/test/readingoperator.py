@@ -246,7 +246,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                         + " is not identical: %s" % repr(entities) \
                         + ' (reading %s, dialect %s)' \
                             % (self.READING_NAME, dialect))
-                except exception.AmbiguousDecompositonError:
+                except exception.AmbiguousDecompositionError:
                     self.fail("ambiguous decomposition for %s" % repr(entity) \
                         + ' (reading %s, dialect %s)' \
                             % (self.READING_NAME, dialect))
@@ -378,6 +378,11 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                                 + ' (reading %s, dialect %s)' \
                                     % (self.READING_NAME, dialect))
 
+                    except exception.AmbiguousDecompositionError:
+                        self.fail('Decomposition ambiguous for pair %s' \
+                            % repr(pair) \
+                        + ' (reading %s, dialect %s)' \
+                            % (self.READING_NAME, dialect))
                     except exception.DecompositionError:
                         self.fail('Decomposition fails for pair %s' \
                             % repr(pair) \
