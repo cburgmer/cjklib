@@ -360,6 +360,44 @@ class CharacterLookup:
             self.readingFactory = reading.ReadingFactory(dbConnectInst=self.db)
         return self.readingFactory
 
+    #{ Character domains
+
+    def filterDomainCharacters(self, charList):
+        """
+        Filters a given list of characters to match only those inside the
+        current I{character domain}. Returns the characters in the given order.
+
+        @type charList: list of str
+        @param charList: characters to filter
+        @rtype: list of str
+        @return: list of characters inside the current I{character domain}
+        """
+        # constrain to selected character domain
+        if self.characterDomain == 'Unicode':
+            return charList
+        else:
+            filteredCharList = set(self.db.selectScalars(select(
+                [self.characterDomainTable.c.ChineseCharacter],
+                self.characterDomainTable.c.ChineseCharacter.in_(charList))))
+            # sort
+            sortedFiltered = []
+            for char in charList:
+                if char in filteredCharList:
+                    sortedFiltered.append(char)
+            return sortedFiltered
+
+    def isCharacterInDomain(self, char):
+        """
+        Checks if the given character is inside the current character domain.
+
+        @type char: str
+        @param char: Chinese character for lookup
+        @rtype: bool
+        @return: C{True} if character is inside the current character domain,
+            C{False} otherwise.
+        """
+        return char in self.filterDomainCharacters([char])
+
     def getAvailableCharacterDomains(self):
         """
         Gets a list of all available I{character domains}. By default available
