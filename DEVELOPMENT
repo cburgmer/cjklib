@@ -2,8 +2,20 @@ Introduction
 ------------
 Short documentation about steps helping in development.
 
-nosetests from http://somethingaboutorange.com/mrl/projects/nose is used in
-the following paragraphs.
+Path
+----
+Make sure you always use the newest version of cjklib by appending the
+following lines to your ~/.bashrc:
+
+cjklibroot=/home/christoph/dokumente/projekte/cjklib/trunk
+export PYTHONPATH=$PYTHONPATH:$cjklibroot
+
+Additional software
+-------------------
+* epydoc from http://epydoc.sourceforge.net is used to generate the API
+  documentation.
+* nosetests from http://somethingaboutorange.com/mrl/projects/nose is used
+  for unit testing.
 
 Test cases
 ------------
@@ -13,6 +25,15 @@ or to ommit current slow tests:
   nosetests cjklib/test/*.py -e testDecomposeKeepsSyllablePairs
     -e testGetCharactersForReadingAcceptsAllEntities
 to use the test cases included in cjklib/test/.
+
+To check documentation included in doc strings ("doctest"), on BASH do:
+  nosetests --with-doctest cjklib.characterlookup cjklib.reading
+    cjklib.reading.operator cjklib.reading.converter
+
+You need to patch doctest.py as it is currently not capable of reporting
+strings in Unicode: http://bugs.python.org/issue1293741. Another bug will
+lead to results in Unicode being reported as wrong:
+http://bugs.python.org/issue3955.
 
 Coverage
 ------------

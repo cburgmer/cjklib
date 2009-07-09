@@ -19,8 +19,9 @@ increasing set of pages.
 
 Installing
 ----------
-If installing from the source package content has to be extracted from the
-archive first. Then the files needed can be installed on the system by running:
+If you are installing from the source package, its content has to be extracted
+from the archive first. Then the files needed can be installed on the system by
+running:
 
 # python setup.py install
 

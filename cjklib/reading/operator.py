@@ -2964,6 +2964,16 @@ class MandarinBrailleOperator(ReadingOperator):
     mixing of entities with fifth and with no tone. If lossless conversion is
     needed, this option should be set to C{'fifth'}, forbidding entities
     without tonal information.
+
+    A small trick to get Braille output into an easily readable form on a normal
+    screen; do:
+
+        >>> import unicodedata
+        >>> input = u'⠅⠡ ⠝⠊ ⠙⠼ ⠊⠁⠓⠫⠰⠂'
+        >>> [unicodedata.name(char).replace('BRAILLE PATTERN DOTS-', 'P') \\
+        ...     for char in input]
+        ['P13', 'P16', 'SPACE', 'P1345', 'P24', 'SPACE', 'P145', 'P3456', \
+'SPACE', 'P24', 'P1', 'P125', 'P1246', 'P56', 'P2']
     """
     READING_NAME = "MandarinBraille"
 
