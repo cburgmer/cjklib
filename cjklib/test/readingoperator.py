@@ -1548,11 +1548,12 @@ class WadeGilesOperatorReferenceTest(ReadingOperatorReferenceTest,
         ({'WadeGilesApostrophe': "'"}, [
             ([u"Ssuma", " ", u"Ch'ien"], u"Ssuma Ch'ien"),
             ]),
-        ({'toneMarkType': 'Numbers'}, [
+        ({}, [
             ([u"Shih3", "-", u"Chi4"], u"Shih3-Chi4"),
             ([u"Shih3", u"Chi4"], u"Shih3-Chi4"),
+            (['t', u'‘', 'ung1'], exception.CompositionError),
             ]),
-        ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
+        ({'missingToneMark': 'ignore'}, [
             ([u"Shih3", "-", u"Chi"], u"Shih3-Chi"),
             ([u"Shih3", u"Chi"], u"Shih3Chi"),
             ([u"Shih", u"Chi4"], exception.CompositionError),
@@ -1640,6 +1641,7 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (["faan", "-", "guoh", "lai"], u"faan-guohlai"),
             (["TIAN", "AN", "MEN"], u"TIAN’ANMEN"),
             (["yeou", " ", "i", "dea'l"], exception.CompositionError),
+            (["jie", u"’", "l"], exception.CompositionError),
             ]),
         ]
 
@@ -1648,7 +1650,9 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"shau", True),
             (u"shao", True),
             (u"shaw", True),
-            (u"dea'l", False),
+            (u"dea’l", False),
+            (u"jie’l", True),
+            (u"jie'l", False),
             ]),
         ]
 

@@ -1580,8 +1580,14 @@ class PinyinOperator(TonalRomanisationOperator):
                         and entity[0] in self._readingCharacters) \
                     or (not precedingEntityIsReading and entityIsReading \
                         and precedingEntity[-1] in self._readingCharacters)):
+
+                    if precedingEntityIsReading:
+                        offendingEntity = entity
+                    else:
+                        offendingEntity = precedingEntity
                     raise CompositionError(
-                        "Unable to delimit non-reading entity '%s'" % entity)
+                        "Unable to delimit non-reading entity '%s'" \
+                            % offendingEntity)
 
             newReadingEntities.append(entity)
             precedingEntity = entity
@@ -2150,15 +2156,26 @@ class WadeGilesOperator(TonalRomanisationOperator):
                 else:
                     # check if composition won't combine reading and non-reading
                     #   entities, allow tone digits to separate
+                    #   also disallow cases like ['t', u'‘', 'ung1']
                     if precedingEntity[-1] not in ['1', '2', '3', '4', '5',
                             u'¹', u'²', u'³', u'⁴', u'⁵'] \
                         and ((precedingEntityIsReading and not entityIsReading \
                             and entity[0] in self._readingCharacters) \
                         or (not precedingEntityIsReading and entityIsReading \
                             and precedingEntity[-1] \
-                                in self._readingCharacters)):
+                                in self._readingCharacters) \
+                        or (precedingEntity \
+                                == self.getOption('WadeGilesApostrophe') \
+                            and entity[0] in self._readingCharacters \
+                            and precedingEntity != entity)):
+
+                        if precedingEntityIsReading:
+                            offendingEntity = entity
+                        else:
+                            offendingEntity = precedingEntity
                         raise CompositionError(
-                            "Unable to delimit non-reading entity '%s'" % entity)
+                            "Unable to delimit non-reading entity '%s'" \
+                                % offendingEntity)
             newReadingEntities.append(entity)
             precedingEntity = entity
         return ''.join(newReadingEntities)
@@ -2461,17 +2478,26 @@ class GROperator(TonalRomanisationOperator):
 
                 if precedingEntityIsReading and entityIsReading \
                     and entity[0].lower() in ['a', 'e', 'i', 'o', 'u']:
-                    newReadingEntities.append(
-                        self.getOption('GRSyllableSeparatorApostrophe'))
+                    newReadingEntities.append(separator)
                 # check if composition won't combine reading and non-reading e.
+                #   also disallow cases like ['jie', "'", 'l']
                 elif ((precedingEntityIsReading and not entityIsReading \
                         and entity[0] in self._readingCharacters \
                         and entity != separator) \
                     or (not precedingEntityIsReading and entityIsReading \
                         and precedingEntity[-1] in self._readingCharacters \
-                        and precedingEntity != separator)):
+                        and precedingEntity != separator) \
+                    or (precedingEntity \
+                            == self.getOption('GRRhotacisedFinalApostrophe') \
+                        and not entityIsReading and entity[0] == 'l')):
+
+                    if precedingEntityIsReading:
+                        offendingEntity = entity
+                    else:
+                        offendingEntity = precedingEntity
                     raise CompositionError(
-                        "Unable to delimit non-reading entity '%s'" % entity)
+                        "Unable to delimit non-reading entity '%s'" \
+                            % offendingEntity)
 
             newReadingEntities.append(entity)
             precedingEntity = entity
@@ -3399,8 +3425,14 @@ class JyutpingOperator(TonalRomanisationOperator):
                         and entity[0] in self._readingCharacters) \
                     or (not precedingEntityIsReading and entityIsReading \
                         and precedingEntity[-1] in self._readingCharacters)):
+
+                    if precedingEntityIsReading:
+                        offendingEntity = entity
+                    else:
+                        offendingEntity = precedingEntity
                     raise CompositionError(
-                        "Unable to delimit non-reading entity '%s'" % entity)
+                        "Unable to delimit non-reading entity '%s'" \
+                            % offendingEntity)
 
             precedingEntity = entity
 
@@ -3830,8 +3862,14 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                         and entity[0] in self._readingCharacters) \
                     or (not precedingEntityIsReading and entityIsReading \
                         and precedingEntity[-1] in self._readingCharacters)):
+
+                    if precedingEntityIsReading:
+                        offendingEntity = entity
+                    else:
+                        offendingEntity = precedingEntity
                     raise CompositionError(
-                        "Unable to delimit non-reading entity '%s'" % entity)
+                        "Unable to delimit non-reading entity '%s'" \
+                            % offendingEntity)
 
             precedingEntity = entity
 
