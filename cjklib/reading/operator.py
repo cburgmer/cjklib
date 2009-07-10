@@ -44,6 +44,7 @@ Composing will reverse the process, using a I{Pinyin} string:
 For more complex operators, see L{PinyinOperator} or L{MandarinIPAOperator}.
 """
 import re
+import string
 import unicodedata
 import copy
 import types
@@ -54,7 +55,8 @@ from sqlalchemy import select, union
 from sqlalchemy.sql import and_, or_, not_
 
 from cjklib.exception import (AmbiguousConversionError, DecompositionError,
-    AmbiguousDecompositionError, InvalidEntityError, UnsupportedError)
+    AmbiguousDecompositionError, InvalidEntityError, CompositionError,
+    UnsupportedError)
 from cjklib.dbconnector import DatabaseConnector
 
 class ReadingOperator(object):
@@ -105,7 +107,7 @@ class ReadingOperator(object):
         """
         Returns the reading operator's default options.
 
-        The default implementation returns an empty dictionary. The keyword
+        The base class' implementation returns an empty dictionary. The keyword
         'dbConnectInst' is not regarded a configuration option of the operator
         and is thus not included in the dict returned.
 
@@ -133,7 +135,7 @@ class ReadingOperator(object):
         The returned list contains a mix of basic reading entities and other
         characters e.g. spaces and punctuation marks.
 
-        The default implementation will raise a NotImplementedError.
+        The base class' implementation will raise a NotImplementedError.
 
         @type string: str
         @param string: reading string
@@ -147,12 +149,17 @@ class ReadingOperator(object):
         """
         Composes the given list of basic entities to a string.
 
-        The default implementation will raise a NotImplementedError.
+        Composing entities can raise a L{CompositionError} if a non-reading
+        entity is about to be joined with a reading entity and will result in
+        a string that is impossible to decompose.
+
+        The base class' implementation will raise a NotImplementedError.
 
         @type readingEntities: list of str
         @param readingEntities: list of basic entities or other content
         @rtype: str
         @return: composed entities
+        @raise CompositionError: if the given entities can not be composed.
         """
         raise NotImplementedError
 
@@ -162,7 +169,7 @@ class ReadingOperator(object):
         operator, i.e. it is a valid entity of the reading returned by
         L{decompose()}.
 
-        The default implementation will raise a NotImplementedError.
+        The base class' implementation will raise a NotImplementedError.
 
         @type entity: str
         @param entity: entity to check
@@ -244,13 +251,6 @@ class RomanisationOperator(ReadingOperator):
             string will be returned unsegmented.
         @keyword case: if set to C{'lower'}, only lower case will be supported,
             if set to C{'both'} a mix of upper and lower case will be supported.
-        @todo Bug:  With C{strictSegmentation} set to False (default) invalid
-            romanisation strings can evolve, e.g.:
-
-                >>> from cjklib.reading import ReadingFactory
-                >>> f = ReadingFactory()
-                >>> f.decompose(f.compose(['ti', 'anr'], 'Pinyin'), 'Pinyin')
-                ['tian', 'r']
         """
         super(RomanisationOperator, self).__init__(**options)
 
@@ -270,6 +270,19 @@ class RomanisationOperator(ReadingOperator):
         options.update({'strictSegmentation': False, 'case': 'both'})
 
         return options
+
+    def getReadingCharacters(self):
+        """
+        Gets a list of characters parsed by this reading operator as reading
+        entities. For alphabetic characters, lower case is returned.
+
+        Separators like the apostrophe (C{'}) in Pinyin are not part of reading
+        entities and as such not included.
+
+        @rtype: set
+        @return: set of characters parsed by the reading operator
+        """
+        return set(string.ascii_lowercase)
 
     def decompose(self, string):
         """
@@ -392,6 +405,11 @@ class RomanisationOperator(ReadingOperator):
         entities of the romanisation. Characters not part of the romanisation
         will not be dealt with, this is the task of the more general decompose
         method.
+
+        Option C{'strictSegmentation'} controls the behaviour of this method for
+        strings that cannot be parsed. If set to C{True} segmentation will raise
+        an exception, if set to C{False} the given string will be returned
+        unsegmented.
 
         @type string: str
         @param string: reading string
@@ -533,7 +551,7 @@ class RomanisationOperator(ReadingOperator):
         Gets a set of all entities supported by the reading.
 
         The list is used in the segmentation process to find entity boundaries.
-        The default implementation will raise a NotImplementedError.
+        The base class' implementation will raise a NotImplementedError.
 
         @rtype: set of str
         @return: set of supported syllables
@@ -638,7 +656,7 @@ class TonalFixedEntityOperator(ReadingOperator):
         necessarily reflect the tones of the underlying language but may defer
         to reflect notational or other features.
 
-        The default implementation will raise a NotImplementedError.
+        The base class' implementation will raise a NotImplementedError.
 
         @rtype: list
         @return: list of supported tone marks.
@@ -649,7 +667,7 @@ class TonalFixedEntityOperator(ReadingOperator):
         """
         Gets the entity with tone mark for the given plain entity and tone.
 
-        The default implementation will raise a NotImplementedError.
+        The base class' implementation will raise a NotImplementedError.
 
         @type plainEntity: str
         @param plainEntity: entity without tonal information
@@ -667,7 +685,7 @@ class TonalFixedEntityOperator(ReadingOperator):
         Splits the entity into an entity without tone mark (plain entity) and
         the entity's tone.
 
-        The default implementation will raise a NotImplementedError.
+        The base class' implementation will raise a NotImplementedError.
 
         @type entity: str
         @param entity: entity with tonal information
@@ -703,7 +721,7 @@ class TonalFixedEntityOperator(ReadingOperator):
         Gets the list of plain entities supported by this reading. Different to
         L{getReadingEntities()} the entities will carry no tone mark.
 
-        The default implementation will raise a NotImplementedError.
+        The base class' implementation will raise a NotImplementedError.
 
         @rtype: set of str
         @return: set of supported syllables
@@ -826,6 +844,8 @@ class TonalIPAOperator(TonalFixedEntityOperator):
 
     @todo Lang: Shed more light on representations of tones in IPA.
     @todo Fix:  Get all diacritics used in IPA as tones for L{TONE_MARK_REGEX}.
+    @todo Fix:  What about CompositionError? All romanisations raise it, but
+        they have a distinct set of characters that belong to the reading.
     """
     TONE_MARK_REGEX = {'Numbers': re.compile(r'(\d)$'),
         'ChaoDigits': re.compile(r'([12345]+)$'),
@@ -1229,12 +1249,14 @@ class PinyinOperator(TonalRomanisationOperator):
     @todo Impl: ISO 7098 asks for conversion of C{。、·「」} to C{.,-«»}. What
         about C{，？《》：－}? Implement a method for conversion to be optionally
         used.
-    @todo Impl: Special marker for neutral tone: 'mȧ' (u'm\u0227', reported by
+    @todo Impl: Special marker for neutral tone: 'mȧ' (u'm\\u0227', reported by
         Ching-song Gene Hsiao: A Manual of Transcription Systems For Chinese,
         中文拼音手册. Far Eastern Publications, Yale University, New Haven,
-        Connecticut, 1985, ISBN 0-88710-141-0.), and '·ma' (u'\xb7ma', check!:
+        Connecticut, 1985, ISBN 0-88710-141-0.), and '·ma' (u'\\xb7ma', check!:
         现代汉语词典（第5版）[Xiàndài Hànyǔ Cídiǎn 5. Edition]. 商务印书馆
         [Shāngwù Yìnshūguǎn], Beijing, 2005, ISBN 7-100-04385-9.)
+    @todo Fix:  Currently changing the C{ü} to something else will still include
+        the original syllable in the set. Rethink.
     """
     READING_NAME = 'Pinyin'
 
@@ -1403,6 +1425,8 @@ class PinyinOperator(TonalRomanisationOperator):
         @rtype: list of str
         @return: list of Pinyin vowels with diacritical marks
         """
+        # no need to take care of user specified ü, as this is not possible for
+        #   tone mark type 'Diacritics' by convention
         vowelList = []
         for vowel in PinyinOperator.TONEMARK_VOWELS:
             for mark in PinyinOperator.TONEMARK_MAP.keys():
@@ -1503,6 +1527,17 @@ class PinyinOperator(TonalRomanisationOperator):
         return {'toneMarkType': toneMarkType, 'yVowel': yVowel,
             'PinyinApostrophe': PinyinApostrophe, 'Erhua': Erhua}
 
+    def getReadingCharacters(self):
+        characters = set(string.ascii_lowercase + u'üê')
+        characters.add(self.getOption('yVowel'))
+        characters.update([u'\u0308', u'\u0302']) # NFD combining diacritics
+        # add NFC vowels, strip of combining diacritical marks
+        characters.update([c for c in self._getDiacriticVowels() \
+            if len(c) == 1])
+        characters.update(['1', '2', '3', '4', '5'])
+        characters.update(self.TONEMARK_MAP.keys())
+        return characters
+
     def getTones(self):
         tones = range(1, 6)
         if self.getOption('toneMarkType') == 'None' \
@@ -1522,6 +1557,9 @@ class PinyinOperator(TonalRomanisationOperator):
         @rtype: str
         @return: composed entities
         """
+        if not hasattr(self, '_readingCharacters'):
+            self._readingCharacters = self.getReadingCharacters()
+
         newReadingEntities = []
         precedingEntity = None
 
@@ -1532,6 +1570,18 @@ class PinyinOperator(TonalRomanisationOperator):
         for entity in readingEntities:
             if apostropheFunction(precedingEntity, entity):
                 newReadingEntities.append(self.getOption('PinyinApostrophe'))
+            elif precedingEntity and entity:
+                # check if composition won't combine reading and non-reading e.
+                precedingEntityIsReading = self.isReadingEntity(precedingEntity)
+                entityIsReading = self.isReadingEntity(entity)
+                # allow tone digits to separate
+                if precedingEntity[-1] not in ['1', '2', '3', '4', '5'] \
+                    and ((precedingEntityIsReading and not entityIsReading \
+                        and entity[0] in self._readingCharacters) \
+                    or (not precedingEntityIsReading and entityIsReading \
+                        and precedingEntity[-1] in self._readingCharacters)):
+                    raise CompositionError(
+                        "Unable to delimit non-reading entity '%s'" % entity)
 
             newReadingEntities.append(entity)
             precedingEntity = entity
@@ -2056,6 +2106,14 @@ class WadeGilesOperator(TonalRomanisationOperator):
         return {'toneMarkType': toneMarkType,
             'WadeGilesApostrophe': WadeGilesApostrophe}
 
+    def getReadingCharacters(self):
+        characters = set(string.ascii_lowercase + u'ü')
+        characters.add(u'\u0308') # NFD combining diacritics
+        characters.update(['1', '2', '3', '4', '5', u'¹', u'²', u'³', u'⁴',
+            u'⁵'])
+        characters.add(self.getOption('WadeGilesApostrophe'))
+        return characters
+
     def getTones(self):
         tones = range(1, 6)
         if self.getOption('toneMarkType') == 'None' \
@@ -2073,15 +2131,34 @@ class WadeGilesOperator(TonalRomanisationOperator):
         @rtype: str
         @return: composed entities
         """
+        if not hasattr(self, '_readingCharacters'):
+            self._readingCharacters = self.getReadingCharacters()
+
         newReadingEntities = []
         precedingEntity = None
+
         for entity in readingEntities:
-            # check if we have to syllables
-            if precedingEntity and self.isReadingEntity(precedingEntity) and \
-                self.isReadingEntity(entity):
-                # syllables are separated by a hyphen in the strict
-                #   interpretation of Wade-Giles
-                newReadingEntities.append("-")
+            if precedingEntity and entity:
+                precedingEntityIsReading = self.isReadingEntity(precedingEntity)
+                entityIsReading = self.isReadingEntity(entity)
+
+                # check if we have to syllables
+                if precedingEntityIsReading and entityIsReading:
+                    # syllables are separated by a hyphen in the strict
+                    #   interpretation of Wade-Giles
+                    newReadingEntities.append("-")
+                else:
+                    # check if composition won't combine reading and non-reading
+                    #   entities, allow tone digits to separate
+                    if precedingEntity[-1] not in ['1', '2', '3', '4', '5',
+                            u'¹', u'²', u'³', u'⁴', u'⁵'] \
+                        and ((precedingEntityIsReading and not entityIsReading \
+                            and entity[0] in self._readingCharacters) \
+                        or (not precedingEntityIsReading and entityIsReading \
+                            and precedingEntity[-1] \
+                                in self._readingCharacters)):
+                        raise CompositionError(
+                            "Unable to delimit non-reading entity '%s'" % entity)
             newReadingEntities.append(entity)
             precedingEntity = entity
         return ''.join(newReadingEntities)
@@ -2351,6 +2428,12 @@ class GROperator(TonalRomanisationOperator):
         return {'GRRhotacisedFinalApostrophe': apostrophe,
             'GRSyllableSeparatorApostrophe': apostrophe}
 
+    def getReadingCharacters(self):
+        characters = set(string.ascii_lowercase)
+        characters.update([u'.', u'ₒ'])
+        characters.add(self.getOption('GRRhotacisedFinalApostrophe'))
+        return characters
+
     def getTones(self):
         return self.TONES[:]
 
@@ -2364,16 +2447,31 @@ class GROperator(TonalRomanisationOperator):
         @rtype: str
         @return: composed entities
         """
+        if not hasattr(self, '_readingCharacters'):
+            self._readingCharacters = self.getReadingCharacters()
+
         newReadingEntities = []
         precedingEntity = None
 
         for entity in readingEntities:
-            if precedingEntity and self.isReadingEntity(precedingEntity) \
-                and self.isReadingEntity(entity):
+            if precedingEntity and entity:
+                precedingEntityIsReading = self.isReadingEntity(precedingEntity)
+                entityIsReading = self.isReadingEntity(entity)
+                separator = self.getOption('GRSyllableSeparatorApostrophe')
 
-                if entity[0].lower() in ['a', 'e', 'i', 'o', 'u']:
+                if precedingEntityIsReading and entityIsReading \
+                    and entity[0].lower() in ['a', 'e', 'i', 'o', 'u']:
                     newReadingEntities.append(
                         self.getOption('GRSyllableSeparatorApostrophe'))
+                # check if composition won't combine reading and non-reading e.
+                elif ((precedingEntityIsReading and not entityIsReading \
+                        and entity[0] in self._readingCharacters \
+                        and entity != separator) \
+                    or (not precedingEntityIsReading and entityIsReading \
+                        and precedingEntity[-1] in self._readingCharacters \
+                        and precedingEntity != separator)):
+                    raise CompositionError(
+                        "Unable to delimit non-reading entity '%s'" % entity)
 
             newReadingEntities.append(entity)
             precedingEntity = entity
@@ -3272,6 +3370,11 @@ class JyutpingOperator(TonalRomanisationOperator):
 
         return options
 
+    def getReadingCharacters(self):
+        characters = set(string.ascii_lowercase)
+        characters.update(['1', '2', '3', '4', '5', '6'])
+        return characters
+
     def getTones(self):
         tones = range(1, 7)
         if self.getOption('missingToneMark') != 'ignore' \
@@ -3280,6 +3383,27 @@ class JyutpingOperator(TonalRomanisationOperator):
         return tones
 
     def compose(self, readingEntities):
+        if not hasattr(self, '_readingCharacters'):
+            self._readingCharacters = self.getReadingCharacters()
+
+        # check if composition won't combine reading and non-reading entities
+        precedingEntity = None
+        for entity in readingEntities:
+            if precedingEntity and entity:
+                precedingEntityIsReading = self.isReadingEntity(precedingEntity)
+                entityIsReading = self.isReadingEntity(entity)
+
+                # allow tone digits to separate
+                if precedingEntity[-1] not in ['1', '2', '3', '4', '5'] \
+                    and ((precedingEntityIsReading and not entityIsReading \
+                        and entity[0] in self._readingCharacters) \
+                    or (not precedingEntityIsReading and entityIsReading \
+                        and precedingEntity[-1] in self._readingCharacters)):
+                    raise CompositionError(
+                        "Unable to delimit non-reading entity '%s'" % entity)
+
+            precedingEntity = entity
+
         return "".join(readingEntities)
 
     def getTonalEntity(self, plainEntity, tone):
@@ -3672,6 +3796,15 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         return {'toneMarkType': toneMarkType}
 
+    def getReadingCharacters(self):
+        characters = set(string.ascii_lowercase)
+        # add NFC vowels, strip of combining diacritical marks
+        characters.update([c for c in self._getDiacriticVowels() \
+            if len(c) == 1])
+        characters.update([u'\u0304', u'\u0301', u'\u0300'])
+        characters.update(['0', '1', '2', '3', '4', '5', '6'])
+        return characters
+
     def getTones(self):
         tones = self.TONES[:]
         if (self.getOption('missingToneMark') == 'noinfo' \
@@ -3681,6 +3814,27 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         return tones
 
     def compose(self, readingEntities):
+        if not hasattr(self, '_readingCharacters'):
+            self._readingCharacters = self.getReadingCharacters()
+
+        # check if composition won't combine reading and non-reading entities
+        precedingEntity = None
+        for entity in readingEntities:
+            if precedingEntity and entity:
+                precedingEntityIsReading = self.isReadingEntity(precedingEntity)
+                entityIsReading = self.isReadingEntity(entity)
+
+                # allow tone digits to separate
+                if precedingEntity[-1] not in ['1', '2', '3', '4', '5'] \
+                    and ((precedingEntityIsReading and not entityIsReading \
+                        and entity[0] in self._readingCharacters) \
+                    or (not precedingEntityIsReading and entityIsReading \
+                        and precedingEntity[-1] in self._readingCharacters)):
+                    raise CompositionError(
+                        "Unable to delimit non-reading entity '%s'" % entity)
+
+            precedingEntity = entity
+
         return "".join(readingEntities)
 
     def _hasSyllableSubstring(self, string):

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
 """
 Provides the error classes raised by the functions of the cjklib module.
@@ -31,9 +31,15 @@ class AmbiguousDecompositionError(DecompositionError):
     written in a reading is ambiguous.
     """
 
+class CompositionError(Exception):
+    """
+    A CompositionError is raised on a general composition exception (e.g.
+    non-reading entities are rejected).
+    """
+
 class InvalidEntityError(DecompositionError):
     """
-    An InvalidEntityError is raised when a reading entity given (e.g. through
+    An InvalidEntityError is raised when a entity given (e.g. through
     decomposition) is invalid for the current reading.
     """
 

@@ -380,6 +380,8 @@ class CharacterInfo:
                         self.reading, sourceOptions=dictReadOpt)
                 except exception.DecompositionError:
                     reading = '[' + reading + ']'
+                except exception.CompositionError:
+                    reading = '[' + reading + ']'
                 except exception.ConversionError:
                     reading = '[' + reading + ']'
             # TODO work with trad forms and EDICT dicts too
@@ -485,6 +487,8 @@ class CharacterInfo:
         @raise DecompositionError: if the string can not be decomposed into
             basic entities with regards to the source reading or the given
             information is insufficient.
+        @raise CompositionError: if the target reading's entities can not be
+            composed.
         @raise ConversionError: on operations specific to the conversion between
             the two readings (e.g. error on converting entities).
         @raise UnsupportedError: if source or target reading is not supported
@@ -1395,6 +1399,10 @@ def main():
                     targetReading).encode(output_encoding, "replace")
             except exception.DecompositionError, m:
                 print "Error: invalid input string:", \
+                    getExceptionString(m).encode(output_encoding, "replace")
+                sys.exit(1)
+            except exception.CompositionError, m:
+                print "Error: can't compose target entities:", \
                     getExceptionString(m).encode(output_encoding, "replace")
                 sys.exit(1)
             except exception.ConversionError, m:

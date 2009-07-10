@@ -21,6 +21,7 @@ Provides the library's unit tests for the L{reading.operator} classes.
 import re
 import types
 import unittest
+import unicodedata
 
 from cjklib.reading import ReadingFactory, operator
 from cjklib import exception
@@ -159,6 +160,40 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
 
         # test instantiation of default options
         defaultInstance = self.readingOperatorClass(**readingDialect)
+
+    def testReadingCharacters(self):
+        """
+        Test if set returned by C{getReadingCharacters()} is well-formed and
+        includes all characters found in reading entities.
+        """
+        if not hasattr(self.readingOperatorClass, "getReadingCharacters"):
+            return
+
+        # test all given dialects
+        forms = [{}]
+        forms.extend(self.DIALECTS)
+        for dialect in forms:
+            readingOperator = self.f.createReadingOperator(self.READING_NAME,
+                **dialect)
+            readingCharacters = readingOperator.getReadingCharacters()
+
+            # make sure all are characters
+            for char in readingCharacters:
+                self.assert_(len(char) == 1,
+                    "Not len()==1: %s" % repr(char) \
+                        + ' (reading %s, dialect %s)' \
+                            % (self.READING_NAME, dialect))
+
+            entities = readingOperator.getReadingEntities()
+            for entity in entities:
+                charList = set(entity)
+                # include NFD form
+                charList.update(unicodedata.normalize('NFD', unicode(entity)))
+                for char in charList:
+                    self.assert_(char in readingCharacters,
+                        "Char %s not included" % repr(char) \
+                            + ' (reading %s, dialect %s)' \
+                                % (self.READING_NAME, dialect))
 
     def testValidReadingEntitiesAccepted(self):
         """
@@ -463,25 +498,36 @@ class ReadingOperatorReferenceTest(ReadingOperatorTest):
         """Test if the given decomposition references are reached."""
         for dialect, references in self.DECOMPOSITION_REFERENCES:
             for reference, target in references:
-                decomposition = self.f.decompose(reference, self.READING_NAME,
-                    **dialect)
-                self.assertEquals(decomposition, target,
-                    "Decomposition %s of %s not reached: %s" \
-                        % (repr(target), repr(reference), repr(decomposition)) \
-                    + ' (reading %s, dialect %s)' \
-                        % (self.READING_NAME, dialect))
+                args = [reference, self.READING_NAME]
+                if type(target) == types.TypeType \
+                    and issubclass(target, Exception):
+                    self.assertRaises(target, self.f.decompose, *args,
+                        **dialect)
+                else:
+                    decomposition = self.f.decompose(*args, **dialect)
+                    self.assertEquals(decomposition, target,
+                        "Decomposition %s of %s not reached: %s" \
+                            % (repr(target), repr(reference),
+                                repr(decomposition)) \
+                        + ' (reading %s, dialect %s)' \
+                            % (self.READING_NAME, dialect))
 
     def testCompositionReferences(self):
         """Test if the given composition references are reached."""
         for dialect, references in self.COMPOSITION_REFERENCES:
             for reference, target in references:
-                composition = self.f.compose(reference, self.READING_NAME,
-                    **dialect)
-                self.assertEquals(composition, target,
-                    "Composition %s of %s not reached: %s" \
-                        % (repr(target), repr(reference), repr(composition)) \
-                    + ' (reading %s, dialect %s)' \
-                        % (self.READING_NAME, dialect))
+                args = [reference, self.READING_NAME]
+                if type(target) == types.TypeType \
+                    and issubclass(target, Exception):
+                    self.assertRaises(target, self.f.compose, *args, **dialect)
+                else:
+                    composition = self.f.compose(*args, **dialect)
+                    self.assertEquals(composition, target,
+                        "Composition %s of %s not reached: %s" \
+                            % (repr(target), repr(reference),
+                                repr(composition)) \
+                        + ' (reading %s, dialect %s)' \
+                            % (self.READING_NAME, dialect))
 
     def testEntityReferences(self):
         """Test if the given entity references are accepted/rejected."""
@@ -660,7 +706,39 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u'gwóngjaù', [u'gwóngjaù']), # wrong placement of tone
             ])
         ]
-    COMPOSITION_REFERENCES = []
+    COMPOSITION_REFERENCES = [
+        ({}, [
+            ([u'gwóng', u'jàu', u'wá'], u'gwóngjàuwá'),
+            ([u'yuht', u'yúh'], u'yuhtyúh'),
+            ([u'gwóng', u'jaù'], u'gwóngjaù'), # wrong placement of tone
+            ([u'GWÓNG', u'JÀU', u'WÁ'], u'GWÓNGJÀUWÁ'),
+            ([u'sī', u'sí', u'si', u'sìh', u'síh', u'sih', u'sīk', u'sik',
+                u'sihk'], u'sīsísisìhsíhsihsīksiksihk'),
+            ([u'SÌ', u'SÍ', u'SI', u'SÌH', u'SÍH', u'SIH', u'SĪK', u'SIK',
+                u'SIHK'], u'SÌSÍSISÌHSÍHSIHSĪKSIKSIHK'),
+            ]),
+        ({'toneMarkType': 'Numbers'}, [
+            ([u'gwong2', u'jau1', u'wa2'], u'gwong2jau1wa2'),
+            ([u'yut6', u'yu5'], u'yut6yu5'),
+            ([u'GWONG2', u'JAU1', u'WA2'], u'GWONG2JAU1WA2'),
+            ([u'si1', u'si2', u'si3', u'si4', u'si5', u'si6', u'sik1', u'sik3',
+                u'sik6'], u'si1si2si3si4si5si6sik1sik3sik6'),
+            ([u'SI1', u'SI2', u'SI3', u'SI4', u'SI5', u'SI6', u'SIK1', u'SIK3',
+                u'SIK6'], u'SI1SI2SI3SI4SI5SI6SIK1SIK3SIK6'),
+            ]),
+        ({'strictDiacriticPlacement': True}, [
+            ([u'gwóng', u'jàu', u'wá'], u'gwóngjàuwá'),
+            ([u'yuht', u'yúh'], u'yuhtyúh'),
+            ([u'gwóng', u'jaù'], exception.CompositionError),
+                # wrong placement of tone
+            ([u'jau\u0300', u'gwóng'], exception.CompositionError),
+                # wrong placement of tone
+            ]),
+        ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
+            ([u'gwong2', u'jau1', u'wa2'], u'gwong2jau1wa2'),
+            ([u'gwong2', u'jau', u'wa2'], exception.CompositionError),
+            ])
+        ]
 
     READING_ENTITY_REFERENCES = [
         ({}, [
@@ -742,7 +820,15 @@ class JyutpingOperatorReferenceTest(ReadingOperatorReferenceTest,
             ]),
         ]
 
-    COMPOSITION_REFERENCES = []
+    COMPOSITION_REFERENCES = [
+        ({}, [
+            ([u'gwong2', u'zau1', u'waa2'], u'gwong2zau1waa2'),
+            ]),
+        ({'missingToneMark': 'ignore'}, [
+            ([u'gwong2', u'zau1', u'waa2'], u'gwong2zau1waa2'),
+            ([u'gwong2', u'zau', u'waa2'], exception.CompositionError),
+            ]),
+        ]
 
     READING_ENTITY_REFERENCES = [
         ({}, [
@@ -779,7 +865,12 @@ class HangulOperatorReferenceTest(ReadingOperatorReferenceTest,
             ]),
         ]
 
-    COMPOSITION_REFERENCES = []
+    COMPOSITION_REFERENCES = [
+        ({}, [
+            ([u"한", u"글", u"은", u" ", u"한", u"국", u"어", u"의", u" ", u"고",
+                u"유"], u"한글은 한국어의 고유"),
+            ]),
+        ]
 
     READING_ENTITY_REFERENCES = []
 
@@ -894,6 +985,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"TIĀN'ĀNMÉN", [u"TIĀN", "'", u"ĀN", u"MÉN"]),
             ("XIAN", ["XIAN"]),
             (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
+            (u'tiananmen', exception.DecompositionError),
             ]),
         ({'toneMarkType': 'Numbers'}, [
             (u"tiān'ānmén", [u"tiān", "'", u"ānmén"]),
@@ -980,6 +1072,11 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ("XIAN", ["XIAN"]),
             (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
             ]),
+        ({'toneMarkType': 'Numbers', 'yVowel': 'v'}, [
+            (u'nv3hai2', [u'nv3', u'hai2']),
+            (u'nü3hai2', [u'nü3', u'hai2']),
+            (u'nühai', [u'nü', u'hai']),
+            ]),
         ]
 
     COMPOSITION_REFERENCES = [
@@ -1001,6 +1098,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"TIĀN", u"ĀN", u"MÉN"], u"TIĀN'ĀNMÉN"),
             ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1AN1MEN2", ),
             ([u"e", u"r"], u"e'r"),
+            ([u"ti", u"anr"], exception.CompositionError),
             ]),
         ({'toneMarkType': 'Numbers'}, [
             ([u"tiān", u"ān", u"mén"], u"tiānānmén"),
@@ -1057,7 +1155,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u'hóng', u'lùo'], u"hónglùo"), # wrong placement of tone
             ([u"TIĀN", u"ĀN", u"MÉN"], u"TIĀN'ĀNMÉN"),
             ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1AN1MEN2", ),
-            ([u"e", u"r"], u"er"), # TODO
+            ([u"e", u"r"], exception.CompositionError),
             ]),
         ({'toneMarkType': 'Numbers', 'Erhua': 'oneSyllable'}, [
             ([u"tiān", u"ān", u"mén"], u"tiānānmén"),
@@ -1076,7 +1174,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u'hóng', u'lùo'], u"hónglùo"), # wrong placement of tone
             ([u"TIĀN", u"ĀN", u"MÉN"], u"TIĀNĀNMÉN"),
             ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1'AN1MEN2", ),
-            ([u"e", u"r"], u"er"), # TODO
+            ([u"e", u"r"], exception.CompositionError),
             ]),
         ({'strictDiacriticPlacement': True}, [
             ([u"tiān", u"ān", u"mén"], u"tiān'ānmén"),
@@ -1091,11 +1189,17 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"lao3", u"angr2"], u"lao3angr2"),
             ([u"lao3", u"ang2", u"r5"], u"lao3ang2r5"),
             ([u"er2", u"hua4", u"yin1"], u"er2hua4yin1"),
-            ([u'peí', u'nǐ'], u"peínǐ"), # wrong placement of tone
-            ([u'hóng', u'lùo'], u"hónglùo"), # wrong placement of tone
+            ([u'peí', u'nǐ'], exception.CompositionError),
+                # wrong placement of tone
+            ([u'hóng', u'lùo'], exception.CompositionError),
+                # wrong placement of tone
             ([u"TIĀN", u"ĀN", u"MÉN"], u"TIĀN'ĀNMÉN"),
             ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1AN1MEN2", ),
             ([u"e", u"r"], u"e'r"),
+            ]),
+        ({'toneMarkType': 'Numbers', 'yVowel': 'v'}, [
+            ([u'nv3', u'hai2'], u'nv3hai2'),
+            ([u'nü3', u'hai2'], u'nü3hai2'),
             ]),
         ]
 
@@ -1106,6 +1210,9 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"mén", True),
             (u"lào", True),
             (u"xǐ", True),
+            (u"lü", True),
+            (u"ê", True),
+            (u"Ê", True),
             (u"tian1", False),
             (u"an1", False),
             (u"men2", False),
@@ -1132,6 +1239,8 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"mén", False),
             (u"lào", False),
             (u"xǐ", False),
+            (u"lü", True),
+            (u"ê", True),
             (u"tian1", True),
             (u"an1", True),
             (u"men2", True),
@@ -1158,6 +1267,8 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"mén", False),
             (u"lào", False),
             (u"xǐ", False),
+            (u"lü", False),
+            (u"ê", False),
             (u"tian1", True),
             (u"an1", True),
             (u"men2", True),
@@ -1184,6 +1295,8 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"mén", True),
             (u"lào", True),
             (u"xǐ", True),
+            (u"lü", True),
+            (u"ê", True),
             (u"tian1", False),
             (u"an1", False),
             (u"men2", False),
@@ -1210,6 +1323,8 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"mén", True),
             (u"lào", True),
             (u"xǐ", True),
+            (u"lü", True),
+            (u"ê", True),
             (u"tian1", False),
             (u"an1", False),
             (u"men2", False),
@@ -1236,6 +1351,8 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"mén", True),
             (u"lào", True),
             (u"xǐ", True),
+            (u"lü", True),
+            (u"ê", True),
             (u"tian1", False),
             (u"an1", False),
             (u"men2", False),
@@ -1254,6 +1371,35 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"TIĀN", False),
             (u"XIAN", False),
             (u"TIAN1", False),
+            (u"r1", False),
+            ]),
+        ({'toneMarkType': 'Numbers', 'yVowel': 'v'}, [
+            (u"tiān", False),
+            (u"ān", False),
+            (u"mén", False),
+            (u"lào", False),
+            (u"xǐ", False),
+            (u"lü", True),
+            (u"lv", True),
+            (u"ê", True),
+            (u"tian1", True),
+            (u"an1", True),
+            (u"men2", True),
+            (u"lao4", True),
+            (u"xi3", True),
+            (u"xian", True),
+            (u"ti\u0304an", False),
+            (u"tia\u0304n", False),
+            (u"laǒ", False),
+            (u"tīan", False),
+            (u"tīa", False),
+            (u"tiā", False),
+            (u"angr", False),
+            (u"er", True),
+            (u"r", True),
+            (u"TIĀN", False),
+            (u"XIAN", True),
+            (u"TIAN1", True),
             (u"r1", False),
             ]),
         ]
@@ -1382,9 +1528,36 @@ class WadeGilesOperatorReferenceTest(ReadingOperatorReferenceTest,
     unittest.TestCase):
     READING_NAME = 'WadeGiles'
 
-    DECOMPOSITION_REFERENCES = []
+    DECOMPOSITION_REFERENCES = [
+        ({'toneMarkType': 'SuperscriptNumbers', 'WadeGilesApostrophe': u'’'}, [
+            (u"K’ung³-tzu³", [u"K’ung³", u"-", u"tzu³"]),
+            ]),
+        ({'WadeGilesApostrophe': "'"}, [
+            (u"Ssuma Ch'ien", [u"Ssu", u"ma", " ", u"Ch'ien"]),
+            ]),
+        ({'toneMarkType': 'Numbers'}, [
+            (u"Shih3-Chi4", [u"Shih3", "-", u"Chi4"]),
+            ]),
+        ]
 
-    COMPOSITION_REFERENCES = []
+    COMPOSITION_REFERENCES = [
+        ({'toneMarkType': 'SuperscriptNumbers', 'WadeGilesApostrophe': u'’'}, [
+            ([u"K’ung³", u"-", u"tzu³"], u"K’ung³-tzu³"),
+            ([u"K’ung³", u"tzu³"], u"K’ung³-tzu³"),
+            ]),
+        ({'WadeGilesApostrophe': "'"}, [
+            ([u"Ssuma", " ", u"Ch'ien"], u"Ssuma Ch'ien"),
+            ]),
+        ({'toneMarkType': 'Numbers'}, [
+            ([u"Shih3", "-", u"Chi4"], u"Shih3-Chi4"),
+            ([u"Shih3", u"Chi4"], u"Shih3-Chi4"),
+            ]),
+        ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
+            ([u"Shih3", "-", u"Chi"], u"Shih3-Chi"),
+            ([u"Shih3", u"Chi"], u"Shih3Chi"),
+            ([u"Shih", u"Chi4"], exception.CompositionError),
+            ]),
+        ]
 
     READING_ENTITY_REFERENCES = []
 
@@ -1466,6 +1639,7 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (["yeou", " ", "i", "deal"], u"yeou ideal"),
             (["faan", "-", "guoh", "lai"], u"faan-guohlai"),
             (["TIAN", "AN", "MEN"], u"TIAN’ANMEN"),
+            (["yeou", " ", "i", "dea'l"], exception.CompositionError),
             ]),
         ]
 
@@ -1474,6 +1648,7 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"shau", True),
             (u"shao", True),
             (u"shaw", True),
+            (u"dea'l", False),
             ]),
         ]
 

@@ -171,6 +171,8 @@ class ReadingConverter(object):
         @raise DecompositionError: if the string can not be decomposed into
             basic entities with regards to the source reading or the given
             information is insufficient.
+        @raise CompositionError: if the target reading's entities can not be
+            composed.
         @raise ConversionError: on operations specific to the conversion between
             the two readings (e.g. error on converting entities).
         @raise UnsupportedError: if source or target reading is not supported

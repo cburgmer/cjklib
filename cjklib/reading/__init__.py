@@ -270,6 +270,8 @@ class ReadingFactory(object):
             @returns: the input string converted to the C{toReading}
             @raise DecompositionError: if the string can not be decomposed into
                 basic entities with regards to the source reading.
+            @raise CompositionError: if the target reading's entities can not be
+                composed.
             @raise ConversionError: on operations specific to the conversion
                 between the two readings (e.g. error on converting entities).
             @raise UnsupportedError: if source or target reading not supported
@@ -717,6 +719,8 @@ class ReadingFactory(object):
         @raise DecompositionError: if the string can not be decomposed into
             basic entities with regards to the source reading or the given
             information is insufficient.
+        @raise CompositionError: if the target reading's entities can not be
+            composed.
         @raise ConversionError: on operations specific to the conversion between
             the two readings (e.g. error on converting entities).
         @raise UnsupportedError: if source or target reading is not supported
@@ -798,6 +802,10 @@ class ReadingFactory(object):
         Composes the given list of basic entities to a string for the given
         reading.
 
+        Composing entities can raise a L{CompositionError} if a non-reading
+        entity is about to be joined with a reading entity and will result in
+        a string that is impossible to decompose.
+
         @type readingEntities: list of str
         @param readingEntities: list of basic syllables or other content
         @type readingN: str
@@ -805,6 +813,7 @@ class ReadingFactory(object):
         @param options: additional options for handling the input
         @rtype: str
         @return: composed entities
+        @raise CompositionError: if the given entities can not be composed.
         @raise UnsupportedError: if the given reading is not supported.
         """
         readingOp = self._getReadingOperatorInstance(readingN, **options)

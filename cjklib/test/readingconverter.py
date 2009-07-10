@@ -378,7 +378,7 @@ class JyutpingYaleReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_REFERENCES = [
         ({'sourceOptions': {}, 'targetOptions': {}}, [
             (u'gwong2zau1waa2', u'gwóngjāuwá'),
-            (u'gwong2yau1waa2', u'gwóngyau1wá'),
+            (u'gwong2yau1waa2', exception.CompositionError),
             (u'GWONG2ZAU1WAA2', u'GWÓNGJĀUWÁ'),
             ]),
         ]
