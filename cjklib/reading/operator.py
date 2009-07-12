@@ -54,9 +54,8 @@ from sqlalchemy import Table, Column, Integer, String
 from sqlalchemy import select, union
 from sqlalchemy.sql import and_, or_, not_
 
-from cjklib.exception import (AmbiguousConversionError, DecompositionError,
-    AmbiguousDecompositionError, InvalidEntityError, CompositionError,
-    UnsupportedError)
+from cjklib.exception import (DecompositionError, AmbiguousDecompositionError,
+    InvalidEntityError, CompositionError, UnsupportedError)
 from cjklib.dbconnector import DatabaseConnector
 
 class ReadingOperator(object):
@@ -538,7 +537,7 @@ class RomanisationOperator(ReadingOperator):
             otherwise.
         """
         # check capitalisation
-        if self.getOption('case') == 'lower' and entity.lower() != entity:
+        if self.getOption('case') == 'lower' and not entity.islower():
             return False
 
         if not hasattr(self, '_syllableTable'):
@@ -811,7 +810,7 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
             otherwise.
         """
         # check for special capitalisation
-        if self.getOption('case') == 'lower' and entity.lower() != entity:
+        if self.getOption('case') == 'lower' and not entity.islower():
             return False
 
         return TonalFixedEntityOperator.isPlainReadingEntity(self,
@@ -2283,7 +2282,7 @@ class GROperator(TonalRomanisationOperator):
     Provides an operator for the Mandarin X{Gwoyeu Romatzyh} romanisation.
 
     Features:
-        - support of abbreviated forms (zh, j, g),
+        - support of abbreviated forms (zh, j, g, sherm, ...),
         - conversion of abbreviated forms to full forms,
         - placement of apostrophes before 0-initial syllables,
         - support for different apostrophe characters,
@@ -2291,7 +2290,6 @@ class GROperator(TonalRomanisationOperator):
         - guessing of input form (I{reading dialect}).
 
     Limitations:
-        - abbreviated forms for multiple syllables are not supported,
         - syllable repetition markers as reported by some will currently not be
           parsed.
 
@@ -2314,10 +2312,26 @@ class GROperator(TonalRomanisationOperator):
     operations involving tones may return with an L{UnsupportedError} if the
     given syllable isn't found with that tone.
 
+    Abbreviations
+    =============
+    Yuen Ren Chao includes several abbreviated forms in his books (references
+    see below). For example 個/个 which would be fully transcribed as I{.geh} or
+    I{ₒgeh} is abbreviated as I{g}. These forms can be accessed by
+    L{getAbbreviatedForms()} and L{getAbbreviatedFormData()}, and their usage
+    can be contolled by option C{'abbreviations'}. Use the L{GRDialectConverter}
+    to convert these abbreviations into their full forms:
+
+        >>> from cjklib.reading import ReadingFactory
+        >>> f = ReadingFactory()
+        >>> f.convert('Hairtz', 'GR', 'GR', breakUpAbbreviated='on')
+        u'Hair.tzy'
+
     Sources
     =======
     - Yuen Ren Chao: A Grammar of Spoken Chinese. University of California
         Press, Berkeley, 1968, ISBN 0-520-00219-9.
+    - Yuen Ren Chao: Mandarin Primer: an intensive course in spoken Chinese.
+        Harvard University Press, Cambridge, 1948.
 
     @see:
         - GR Junction by Richard Warmington:
@@ -2478,6 +2492,7 @@ class GROperator(TonalRomanisationOperator):
 
                 if precedingEntityIsReading and entityIsReading \
                     and entity[0].lower() in ['a', 'e', 'i', 'o', 'u']:
+                    # "A Grammar of Spoken Chinese, p. xxii"
                     newReadingEntities.append(separator)
                 # check if composition won't combine reading and non-reading e.
                 #   also disallow cases like ['jie', "'", 'l']
@@ -2832,42 +2847,21 @@ class GROperator(TonalRomanisationOperator):
 
         return tonalEntity
 
-    def _getAbbreviatedLookup(self):
-        """
-        Gets the abbreviated form lookup table.
-
-        @rtype: dict
-        @return: lookup table of abbreviated forms
-        """
-        if not hasattr(self, '_abbrConversionLookup'):
-            self._abbrConversionLookup = {}
-
-            fullEntities = self.getFullReadingEntities()
-
-            table = self.db.tables['GRAbbreviation']
-            result = self.db.selectRows(
-                select([table.c.GR, table.c.GRAbbreviation], distinct=True))
-            for originalEntity, abbreviatedEntity in result:
-                # don't convert proper entities
-                if abbreviatedEntity in fullEntities:
-                    continue
-
-                if abbreviatedEntity in self._abbrConversionLookup:
-                    # ambiguous mapping
-                    self._abbrConversionLookup[abbreviatedEntity] = None
-
-                self._abbrConversionLookup[abbreviatedEntity] = originalEntity
-
-        return self._abbrConversionLookup
-
     def getAbbreviatedEntities(self):
         """
-        Gets a list of abbreviated GR spellings.
+        Gets a list of abbreviated GR entities. This returns single entities
+        from L{getAbbreviatedForms()} and only returns those that don't also
+        exist as full forms. This is meant to extend the list of regular
+        entities. Returned entities are in lowercase.
 
         @rtype: list
         @return: list of abbreviated GR forms
         """
-        return self._getAbbreviatedLookup().keys()
+        abbreviatedEntites = set()
+        for entities in self.getAbbreviatedForms():
+            abbreviatedEntites.update(entities)
+        abbreviatedEntites = abbreviatedEntites - self.getFullReadingEntities()
+        return abbreviatedEntites
 
     def isAbbreviatedEntity(self, entity):
         """
@@ -2882,39 +2876,96 @@ class GROperator(TonalRomanisationOperator):
         @return: C{True} if entity is an abbreviated form.
         """
         # check capitalisation
-        if self.getOption('case') == 'lower' and entity.lower() != entity:
+        if self.getOption('case') == 'lower' and not entity.islower():
             return False
 
-        return entity.lower() in self._getAbbreviatedLookup()
+        if not hasattr(self, '_abbreviatedSyllableTable'):
+            # set syllables
+            self._abbreviatedSyllableTable = self.getAbbreviatedEntities()
+        return entity.lower() in self._abbreviatedSyllableTable
 
-    def convertAbbreviatedEntity(self, entity):
+    def getAbbreviatedForms(self):
         """
-        Converts the given abbreviated GR spelling to the original form.
-        Non-abbreviated forms will returned unchanged. Takes care of
-        capitalisation.
+        Gets a list of abbreviated forms used in GR.
 
-        @type entity: str
-        @param entity: reading entity.
-        @rtype: str
-        @return: original entity
-        @raise AmbiguousConversionError: if conversion is ambiguous.
-        @todo Fix: Move this method to the Converter, AmbiguousConversionError
-            not needed for import here then
+        The returned list consists of a tuple of one or more possibly
+        abbreviated reading entites in lowercase. See
+        L{getAbbreviatedFormData()} on how to get more information on these
+        forms.
+
+        @rtype: list
+        @return: a list of abbreviated forms
         """
-        if self.isAbbreviatedEntity(entity):
-            if self._getAbbreviatedLookup()[entity.lower()] == None:
-                raise AmbiguousConversionError("conversion for entity '" \
-                    + entity + "' is ambiguous")
+        return set(self._getAbbreviatedLookup().keys())
 
-            originalEntity = self._getAbbreviatedLookup()[entity.lower()]
-            if entity.isupper():
-                originalEntity = originalEntity.upper()
-            elif entity.istitle():
-                originalEntity = originalEntity.title()
+    def getAbbreviatedFormData(self, entities):
+        """
+        Gets table of abbreviated entities including the traditional Chinese
+        characters, original spelling and specialised information.
 
-            return originalEntity
-        else:
-            return entity
+        Some abbreviated syllables come with additional information:
+            - C{'T'}, the abbreviated form shortens the tonal information,
+            - C{'S'}, the abbreviated form shows a tone sandhi,
+            - C{'I'}, the full spelling is a non-standard pronunciation, or
+                another mapping, that can be ignored,
+            - C{'F'}, the abbreviated entity or entities also exist(s) as a full
+                form (as full forms).
+
+        Example:
+            >>> from cjklib.reading import operator
+            >>> gr = operator.GROperator()
+            >>> gr.getAbbreviatedEntityData(['yi'])
+            [(u'\u4e00', [u'i'], set([u'S', u'T']))]
+
+        @type entities: list of str
+        @param entities: entities abbreviated form for which information is
+            returned
+        @rtype: list
+        @return: list full spellings, Chinese character string and specialised
+            information
+        """
+        entities = tuple([entity.lower() for entity in entities])
+        if entities not in self._getAbbreviatedLookup():
+            raise ValueError('Given entities %s are not an abbreviated form' \
+                % repr(entities))
+
+        # return copy
+        return self._getAbbreviatedLookup()[entities][:]
+
+    def _getAbbreviatedLookup(self):
+        """
+        Gets the abbreviated form lookup table.
+
+        @rtype: dict
+        @return: lookup table of abbreviated forms
+        """
+        if not hasattr(self, '_abbrConversionLookup'):
+            self._abbrConversionLookup = {}
+
+            fullEntities = self.getFullReadingEntities()
+
+            table = self.db.tables['GRAbbreviation']
+            result = self.db.selectRows(
+                select([table.c.TraditionalChinese, table.c.GR,
+                    table.c.GRAbbreviation, table.c.Specialised]))
+            for chars, original, abbreviated, specialised in result:
+                specialisedInformation = set(specialised)
+
+                abbreviatedEntities = tuple(abbreviated.split(' '))
+                for entity in abbreviatedEntities:
+                    if entity not in fullEntities:
+                        break
+                else:
+                    specialisedInformation.add('F') # is full entity/-ies
+
+                originalEntities = original.split(' ')
+                if abbreviatedEntities not in self._abbrConversionLookup:
+                    self._abbrConversionLookup[abbreviatedEntities] = []
+
+                self._abbrConversionLookup[abbreviatedEntities].append(
+                    (chars, originalEntities, specialisedInformation))
+
+        return self._abbrConversionLookup
 
     def getPlainReadingEntities(self):
         """
@@ -2960,7 +3011,8 @@ class GROperator(TonalRomanisationOperator):
 
     def getReadingEntities(self):
         syllableSet = self.getFullReadingEntities()
-        syllableSet.update(self.getAbbreviatedEntities())
+        if self.getOption('abbreviations'):
+            syllableSet.update(self.getAbbreviatedEntities())
 
         return syllableSet
 

@@ -1,6 +1,7 @@
 CREATE TABLE GRAbbreviation (
-  ChineseCharacter VARCHAR(1),  -- Chinese character
-  GR VARCHAR(9),                -- ethymological GR form
-  GRAbbreviation VARCHAR(9),    -- abbreviated GR form
-  UNIQUE(ChineseCharacter, GR, GRAbbreviation)
+  TraditionalChinese VARCHAR(2),    -- Chinese character
+  GR VARCHAR(18),                   -- ethymological GR form
+  GRAbbreviation VARCHAR(18),       -- abbreviated GR form
+  Specialised VARCHAR(3),           -- specialised information (T, S, I)
+  UNIQUE(TraditionalChinese, GR, GRAbbreviation)
 );

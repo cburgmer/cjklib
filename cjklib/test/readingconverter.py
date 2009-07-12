@@ -83,6 +83,15 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
     """
     List of option configurations, simmilar to C{test.readingoperator.DIALECTS}.
     """
+    @classmethod
+    def titlecase(cls, string):
+        return string.title()
+    """Adaptable string.title() method."""
+
+    @classmethod
+    def istitlecase(cls, string):
+        return cls.titlecase(string) == string
+    """Adaptable string.istitle() method."""
 
     def testReadingConverterUnique(self):
         """Test if only one ReadingConverter exists for each reading."""
@@ -214,17 +223,17 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
                         + ' (conversion %s to %s, options %s)' \
                             % (self.fromReading, self.toReading, dialect))
 
-                    toEntity = self.f.convert(entity.title(), self.fromReading,
-                        self.toReading, **dialect)
+                    toEntity = self.f.convert(self.titlecase(entity),
+                        self.fromReading, self.toReading, **dialect)
 
                     # trade-off for one-char entities: upper-case goes for title
                     oneCharEntity = len([c for c \
                         in unicodedata.normalize("NFD", unicode(entity)) \
                         if 'a' <= c <= 'z']) == 1
-                    self.assert_(toEntity.istitle() \
+                    self.assert_(self.istitlecase(toEntity) \
                             or (oneCharEntity and toEntity.isupper()),
                         'Mismatch in title case for conversion %s to %s' \
-                            % (repr(entity.title()), repr(toEntity)) \
+                            % (repr(self.titlecase(entity)), repr(toEntity)) \
                         + ' (conversion %s to %s, options %s)' \
                             % (self.fromReading, self.toReading, dialect))
                 except exception.ConversionError:
@@ -475,22 +484,51 @@ class PinyinWadeGilesConsistencyTest(ReadingConverterConsistencyTest,
     CONVERSION_DIRECTION = ('Pinyin', 'WadeGiles')
 
 
-## TODO
-#class PinyinWadeGilesReferenceTest(ReadingConverterReferenceTest,
-    #unittest.TestCase):
-    #CONVERSION_DIRECTION = ('Pinyin', 'WadeGiles')
+# TODO
+class PinyinWadeGilesReferenceTest(ReadingConverterReferenceTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('Pinyin', 'WadeGiles')
 
-    #CONVERSION_REFERENCES = [
-        #({'sourceOptions': {}, 'targetOptions': {}}, [
-            #]),
-        #]
+    CONVERSION_REFERENCES = [
+        ({'sourceOptions': {}, 'targetOptions': {}}, [
+            (u"tiān'ānmén", u't‘ien1an1-men2'),
+            ]),
+        ]
 
 
 class GRDialectConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('GR', 'GR')
 
-    OPTIONS_LIST = [{'keepGRApostrophes': True}]
+    OPTIONS_LIST = [{'keepGRApostrophes': True}, {'breakUpAbbreviated': 'on'},
+        {'breakUpAbbreviated': 'off'}]
+
+    @classmethod
+    def titlecase(cls, string):
+        # "Shern.me".title() == "Shern.Me", so reimplement
+        matchObj = re.match(ur"([.ₒ]?)(\w)(.*)$", string.lower())
+        tonal, firstChar, rest = matchObj.groups()
+        return tonal + firstChar.upper() + rest
+
+    def testAbbreviationConsistency(self):
+        """
+        Check that no abbreviation overlaps with another one.
+        """
+        # this actually tests the operator, but as the implementation of the
+        #   converter (convertAbbreviatedEntities()) depends on this fact, we'll
+        #   test it here
+        gr = self.f.createReadingOperator('GR')
+        abbreviatedForms = gr.getAbbreviatedForms()
+        for form in abbreviatedForms:
+            if not len(form) > 1:
+                # allow being fully contained in, just no overlaps
+                continue
+            for otherform in abbreviatedForms:
+                if len(otherform) > 1 and otherform != form:
+                    for left in range(1, len(form)):
+                        self.assert_(form[:left] != otherform[-left:])
+                    for right in range(1, len(form)):
+                        self.assert_(form[right:] != otherform[:right])
 
 
 # TODO
@@ -503,6 +541,15 @@ class GRDialectReferenceTest(ReadingConverterReferenceTest,
             'targetOptions': {'GRRhotacisedFinalApostrophe': "'"}}, [
             (u"tian'anmen", u'tian’anmen'),
             (u'jie’l', u"jie'l")
+            ]),
+        ({'breakUpAbbreviated': 'on'}, [
+            (u"g", u'ₒgeh'),
+            (u"j", u'.je'),
+            (u"hairtz", u'hair.tzy'),
+            (u"tz", u'.tzy'),
+            (u"sherm.me", u'shern.me'),
+            (u"bu", u'bu'),
+            (u'buh jy.daw', u"buh jy.daw")
             ]),
         ]
 
@@ -520,23 +567,29 @@ class GRPinyinReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('GR', 'Pinyin')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {}, 'targetOptions': {}}, [
+        ({'GROptionalNeutralToneMapping': 'neutral'}, [
             # Extract from Y.R. Chao's Sayable Chinese quoted from English
-            #   Wikipedia, added concrete tone specifiers to "de", "men",
-            #   "jing", "bu" and applied full form for g (.geh) choosing
-            #   "always" neutral tone, removed hyphen in i-goong, changed the
-            #   Pinyin transcript to not show tone sandhis, fixed punctuation
-            #   marks in Pinyin
-            (u'"Hannshyue" .de mingcheng duey Jonggwo yeou idean buhtzuenjinq .de yihwey. Woo.men tingshuo yeou "Yinnduhshyue", "Aijyishyue", "Hannshyue", erl meiyeou tingshuo yeou "Shilahshyue", "Luomaashyue", genq meiyeou tingshuo yeou "Inggwoshyue", "Meeigwoshyue". "Hannshyue" jey.geh mingcheng wanchyuan beaushyh Ou-Meei shyuejee duey nahshie yii.jing chernluen .de guulao-gwojia .de wenhuah .de ijoong chingkann .de tayduh.', u'"Hànxué" de míngchēng duì Zhōngguó yǒu yīdiǎn bùzūnjìng de yìwèi. Wǒmen tīngshuō yǒu "Yìndùxué", "Āijíxué", "Hànxué", ér méiyǒu tīngshuō yǒu "Xīlàxué", "Luómǎxué", gèng méiyǒu tīngshuō yǒu "Yīngguóxué", "Měiguóxué". "Hànxué" zhèige míngchēng wánquán biǎoshì Ōu-Měi xuézhě duì nàxiē yǐjing chénlún de gǔlǎo-guójiā de wénhuà de yīzhǒng qīngkàn de tàidù.'),
-            #(u'hairtz', u'háizi'), (u'ig', u'yīgè'), (u'sherm', u'shénme'), # TODO implement
-            #(u'sherm.me', u'shénme'), (u'tzeem.me', u'zěnme'),
-            #(u'tzeem.me', u'zěnme'), (u'tzemm', u'zènme'),
-            #(u'tzemm.me', u'zènme'), (u'jemm', u'zhème'),
-            #(u'jemm.me', u'zhème'), (u'nemm', u'neme'), (u'nemm.me', u'neme'),
-            #(u'.ne.me', u'neme'), (u'woom', u'wǒmen'), (u'shie.x', u'xièxie'),
-            #(u'duey .le vx', u'duì le duì le'), (u'j-h-eh', u'zhè'),
-            #(u"liibay’i", u'lǐbàiyī'), (u"san’g ren", u'sānge rén'),
-            #(u"shyr’ell", u"shí'èr")
+            #   Wikipedia (http://en.wikipedia.org/w/index.php?\
+            #title=Gwoyeu_Romatzyh&oldid=301522286
+            #   added concrete tone specifiers to "de", "men", "jing", "bu",
+            #   removed hyphen in i-goong, changed the Pinyin transcript to not
+            #   show tone sandhis for 一, fixed punctuation errors in Pinyin
+            (u'"Hannshyue" .de mingcheng duey Jonggwo yeou idean buhtzuenjinq .de yihwey. Woo.men tingshuo yeou "Yinnduhshyue", "Aijyishyue", "Hannshyue", erl meiyeou tingshuo yeou "Shilahshyue", "Luomaashyue", genq meiyeou tingshuo yeou "Inggwoshyue", "Meeigwoshyue". "Hannshyue" jeyg mingcheng wanchyuan beaushyh Ou-Meei shyuejee duey nahshie yii.jing chernluen .de guulao-gwojia .de wenhuah .de ijoong chingkann .de tayduh.', u'"Hànxué" de míngchēng duì Zhōngguó yǒu yīdiǎn bùzūnjìng de yìwèi. Wǒmen tīngshuō yǒu "Yìndùxué", "Āijíxué", "Hànxué", ér méiyǒu tīngshuō yǒu "Xīlàxué", "Luómǎxué", gèng méiyǒu tīngshuō yǒu "Yīngguóxué", "Měiguóxué". "Hànxué" zhèige míngchēng wánquán biǎoshì Ōu-Měi xuézhě duì nàxiē yǐjing chénlún de gǔlǎo-guójiā de wénhuà de yīzhǒng qīngkàn de tàidù.'),
+            ]),
+        ({'sourceOptions': {}, 'targetOptions': {}}, [
+            (u'buh jy.daw', u'bù zhīdao'), (u'buh jyₒdaw', u'bù zhīdào'),
+            (u'woo de', u'wǒ dē'),
+            (u'hairtz', u'háizi'), (u'ig', u'yīgè'), (u'sherm', u'shénme'),
+            (u'sherm.me', u'shénme'), (u'tzeem.me', u'zěnme'),
+            (u'tzeem.me', u'zěnme'), (u'tzemm', u'zènme'),
+            (u'tzemm.me', u'zènme'), (u'jemm', u'zhènme'),
+            (u'jemm.me', u'zhènme'), (u'nemm', u'néme'), (u'nemm.me', u'néme'),
+            (u'.ne.me', u'neme'),
+            (u"liibay’i", u'lǐbàiyī'), (u"san’g ren", u'sānge rén'),
+            (u"shyr’ell", u"shí'èr"),
+            # TODO implement
+            #(u'shie.x', u'xièxie'), (u'duey .le vx', u'duì le duì le'),
+            #(u'j-h-eh', u'zhè'), (u'woom', u'wǒmen'),
             ]),
         ]
 

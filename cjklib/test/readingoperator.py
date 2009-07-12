@@ -1597,9 +1597,6 @@ class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         Test if all abbreviated reading entities returned by
         C{getAbbreviatedEntities()} are accepted by C{isAbbreviatedEntity()}.
         """
-        if not hasattr(self.readingOperatorClass, "getAbbreviatedEntities"):
-            return
-
         forms = [{}]
         forms.extend(self.DIALECTS)
         for dialect in forms:
@@ -1612,6 +1609,35 @@ class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
                     "Abbreviated entity %s not accepted" % repr(entity) \
                         + ' (reading %s, dialect %s)' \
                             % (self.READING_NAME, dialect))
+
+    def testAbbreviatedEntitiesConsistency(self):
+        """
+        Test if all abbreviated reading entities returned by
+        C{getAbbreviatedEntities()} are accepted by C{isAbbreviatedEntity()}.
+        """
+        forms = [{}]
+        forms.extend(self.DIALECTS)
+        for dialect in forms:
+            grOperator = self.f.createReadingOperator(self.READING_NAME,
+                **dialect)
+            fullEntities = grOperator.getFullReadingEntities()
+            abbrevEntities = grOperator.getAbbreviatedEntities()
+            # test abbreviated entity is not a full form
+            for entity in abbrevEntities:
+                self.assert_(entity not in fullEntities,
+                    "Abbreviated entity %s is a full form" % repr(entity) \
+                        + ' (reading %s, dialect %s)' \
+                            % (self.READING_NAME, dialect))
+
+            # test forms have valid entities
+            for form in grOperator.getAbbreviatedForms():
+                for entity in form:
+                    self.assert_(entity in abbrevEntities \
+                        or entity in fullEntities,
+                        "Form %s has invalid entity %s" \
+                            % (repr(form), repr(entity)) \
+                            + ' (reading %s, dialect %s)' \
+                                % (self.READING_NAME, dialect))
 
 
 #TODO
@@ -1629,6 +1655,20 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"keesh", ["kee", "sh"]),
             (u"yeou ideal", ["yeou", " ", "i", "deal"]),
             (u"TIAN’ANMEN", ["TIAN", u"’", "AN", "MEN"]),
+            (u"sherm.me", ["sherm", ".me"]),
+            (u"ig", ["i", "g"]),
+            ]),
+        ({'abbreviations': False}, [
+            (u"tian’anmen", ["tian", u"’", "an", "men"]),
+            (u"Beeijing", ["Beei", "jing"]),
+            (u"faan-guohlai", ["faan", "-", "guoh", "lai"]),
+            (u'"Haeshianq gen Muh.jianq"', ['"', "Hae", "shianq", " ", "gen",
+                " ", "Muh", ".jianq", '"']),
+            (u"keesh", ["keesh"]),
+            (u"yeou ideal", ["yeou", " ", "i", "deal"]),
+            (u"TIAN’ANMEN", ["TIAN", u"’", "AN", "MEN"]),
+            (u"sherm.me", ["sherm", ".me"]),
+            (u"ig", ["ig"]),
             ]),
         ]
 
@@ -1642,6 +1682,18 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (["TIAN", "AN", "MEN"], u"TIAN’ANMEN"),
             (["yeou", " ", "i", "dea'l"], exception.CompositionError),
             (["jie", u"’", "l"], exception.CompositionError),
+            (["sherm", ".me"], u"sherm.me"),
+            ]),
+        ({'abbreviations': False}, [
+            (["tian", "an", "men"], u"tian’anmen"),
+            (["tian", u"’", "an", "men"], u"tian’anmen"),
+            (["Beei", "jing"], u"Beeijing"),
+            (["yeou", " ", "i", "deal"], u"yeou ideal"),
+            (["faan", "-", "guoh", "lai"], u"faan-guohlai"),
+            (["TIAN", "AN", "MEN"], u"TIAN’ANMEN"),
+            (["yeou", " ", "i", "dea'l"], exception.CompositionError),
+            (["jie", u"’", "l"], exception.CompositionError),
+            (["sherm", ".me"], exception.CompositionError),
             ]),
         ]
 
@@ -1653,6 +1705,26 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"dea’l", False),
             (u"jie’l", True),
             (u"jie'l", False),
+            (u"ₒshyh", True),
+            (u"sh", True),
+            (u"j", True),
+            (u"jemm", True),
+            (u"JEMM", True),
+            (u"tzeem.me", False),
+            ]),
+        ({'abbreviations': False}, [
+            (u"shau", True),
+            (u"shao", True),
+            (u"shaw", True),
+            (u"dea’l", False),
+            (u"jie’l", True),
+            (u"jie'l", False),
+            (u"ₒshyh", True),
+            (u"sh", False),
+            (u"j", False),
+            (u"jemm", False),
+            (u"JEMM", False),
+            (u"tzeem.me", False),
             ]),
         ]
 
@@ -1863,8 +1935,7 @@ u:nr            iuel    yuel    euel    iuell           hiuel   iuel
                 continue
             matchObj = re.match(r"((?:\w|:)+)\s+((?:\w|')+|-)\s+" \
                 + "((?:\w|')+|-)\s+((?:\w|')+|-)\s+((?:\w|')+|-)", line)
-            if not matchObj:
-                print line
+            assert(matchObj is not None)
             pinyinSyllable, gr1, gr2, gr3, gr4 = matchObj.groups()
 
             self.grJunctionSpecialMapping[pinyinSyllable] = {1: gr1, 2: gr2,

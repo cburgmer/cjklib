@@ -1005,6 +1005,17 @@ class GRDialectConverter(ReadingConverter):
         @keyword keepGRApostrophes: if set to C{True} apostrophes separating
             two syllables in Gwoyeu Romatzyh will be kept even if not necessary.
             Apostrophes missing before 0-initials will be added though.
+        @keyword breakUpAbbreviated: if set to C{'on'} I{abbreviated spellings}
+            will be converted to full entities, e.g. I{sherm.me} will be
+            converted to I{shern.me}, if set to C{'auto'} abbreviated forms are
+            converted if the given target reading operator doesn't support
+            those forms, if set to C{'off'} abbreviated forms will always be
+            conserved.
+        @todo Impl: Strict mode for tone abbreviating spellings. Raise
+            AmbiguousConversionError, e.g. raise on I{a} which could be I{.a} or
+            I{a}.
+        @todo Impl: Add option to remove hyphens, "A Grammar of Spoken Chinese,
+            p. xxii", Conversion to Pinyin can use that.
         """
         super(GRDialectConverter, self).__init__(*args, **options)
         # set options
@@ -1012,10 +1023,20 @@ class GRDialectConverter(ReadingConverter):
             self.optionValue['keepGRApostrophes'] \
                 = options['keepGRApostrophes']
 
+        # conversion of abbreviated forms
+        if 'breakUpAbbreviated' in options:
+            if options['breakUpAbbreviated'] not in ['on', 'auto', 'off']:
+                raise ValueError("Invalid option '" \
+                    + str(options['breakUpAbbreviated']) \
+                    + "' for keyword 'breakUpAbbreviated'")
+            self.optionValue['breakUpAbbreviated'] \
+                = options['breakUpAbbreviated']
+
     @classmethod
     def getDefaultOptions(cls):
         options = super(GRDialectConverter, cls).getDefaultOptions()
-        options.update({'keepGRApostrophes': False})
+        options.update({'keepGRApostrophes': False,
+            'breakUpAbbreviated': 'auto'})
 
         return options
 
@@ -1024,6 +1045,14 @@ class GRDialectConverter(ReadingConverter):
         if (fromReading, toReading) not in self.CONVERSION_DIRECTIONS:
             raise UnsupportedError("conversion direction from '" \
                 + fromReading + "' to '" + toReading + "' not supported")
+
+        # abbreviated forms
+        breakUpAbbreviated = self.getOption('breakUpAbbreviated')
+        if breakUpAbbreviated == 'on' \
+            or (breakUpAbbreviated == 'auto' \
+                and not self._getToOperator(toReading).getOption(
+                    'abbreviations')):
+            readingEntities = self.convertAbbreviatedEntities(readingEntities)
 
         if self.getOption('keepGRApostrophes'):
             # convert separator apostrophe
@@ -1056,15 +1085,68 @@ class GRDialectConverter(ReadingConverter):
             readingEntities = [entity.replace(fromApostrophe, toApostrophe) \
                 for entity in readingEntities]
 
-        # abbreviated forms
-        if not self._getToOperator(toReading).getOption('abbreviations'):
-            convertedEntities = []
-            for entity in readingEntities:
-                convertedEntities.append(self._getToOperator(toReading)\
-                    .convertAbbreviatedEntity(entity))
-            readingEntities = convertedEntities
-
         return readingEntities
+
+    def convertAbbreviatedEntities(self, readingEntities):
+        """
+        Converts the abbreviated GR spellings to the full form. Non-abbreviated
+        forms will returned unchanged. Takes care of capitalisation.
+
+        Multi-syllable forms may not be separated by whitespaces or other
+        entities.
+
+        @type readingEntities: list of str
+        @param readingEntities: reading entities
+        @rtype: str
+        @return: original entity
+        @raise AmbiguousConversionError: if conversion is ambiguous.
+        """
+        convertedEntities = []
+        grOperator = self._getFromOperator('GR')
+
+        abbreviatedForms = grOperator.getAbbreviatedForms()
+        maxLen = max([len(form) for form in abbreviatedForms])
+        i = 0
+        while i < len(readingEntities):
+            maxLookahead = min(maxLen, len(readingEntities) - i)
+            # from max len down to 1, check if this is a abbreviated form
+            # testAbbreviationConsistency() from
+            #   test.readingconverter.GRDialectConsistencyTest assures
+            #   that no abbreviations overlap, so we there's max. one solution
+            for entityCount in range(maxLookahead, 0, -1):
+                originalEntities = readingEntities[i:i+entityCount]
+                entities = [entity.lower() for entity in originalEntities]
+
+                if tuple(entities) in abbreviatedForms:
+                    abbrData = grOperator.getAbbreviatedFormData(entities)
+                    # get all forms that are neither already full or ignorable
+                    fullForms = set([tuple(full) for _, full, info in abbrData \
+                        if len(info & set('FI')) == 0])
+
+                    # check for ambiguous mapping
+                    if len(fullForms) > 1:
+                        full = [' '.join(form) for form in fullForms]
+                        raise AmbiguousConversionError(
+                            "conversion for entities '%s' is ambiguous: %s" \
+                                % (' '.join(entities), ', '.join(full)))
+                    elif len(fullForms) == 1:
+                        converted = list(fullForms.pop())
+                        # get proper letter case
+                        if ''.join(originalEntities).isupper():
+                            converted = [entity.upper() for entity in converted]
+                        elif ''.join(originalEntities).istitle():
+                            converted[0] = converted[0].title()
+
+                        convertedEntities.extend(converted)
+                        i += entityCount
+
+                        break
+            else:
+                # nothing found, continue to following entities
+                convertedEntities.append(readingEntities[i])
+                i += 1
+
+        return convertedEntities
 
 
 class GRPinyinConverter(RomanisationConverter):
