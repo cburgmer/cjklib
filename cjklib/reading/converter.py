@@ -669,6 +669,11 @@ class PinyinDialectConverter(ReadingConverter):
             # do nothing
             self.convertErhuaFunc = lambda x: x
 
+        # shortenedLetters lookup
+        self.initialShortendDict = {'zh': u'ẑ', 'ch': u'ĉ', 'sh': u'ŝ'}
+        self.reverseShortendDict = dict([(short, letter) \
+            for letter, short in self.initialShortendDict.items()])
+
     @classmethod
     def getDefaultOptions(cls):
         options = super(PinyinDialectConverter, cls).getDefaultOptions()
@@ -736,6 +741,60 @@ class PinyinDialectConverter(ReadingConverter):
                     # missing tone not supported, raise a conversion error
                     raise AmbiguousConversionError("Target reading does not " \
                         "support missing tone information")
+
+                # convert shortenedLetters
+                if self._getFromOperator('Pinyin').getOption(
+                        'shortenedLetters') \
+                    and not self._getToOperator('Pinyin').getOption(
+                        'shortenedLetters'):
+
+                    plainSyllable = plainSyllable.replace(u'ŋ', 'ng')
+                    # upper- / titlecase
+                    if plainSyllable.istitle():
+                        # only for full forms 'ng', 'ngr'
+                        plainSyllable = plainSyllable.replace(u'Ŋ', 'Ng')
+                    else:
+                        plainSyllable = plainSyllable.replace(u'Ŋ', 'NG')
+                    if plainSyllable[0].lower() in self.reverseShortendDict:
+                        shortend = plainSyllable[0].lower()
+                        full = self.reverseShortendDict[shortend]
+                        plainSyllable = plainSyllable.replace(shortend, full)
+                        # upper- vs. titlecase
+                        if plainSyllable.isupper():
+                            plainSyllable = plainSyllable.replace(
+                                shortend.upper(), full.upper())
+                        elif plainSyllable.istitle():
+                            plainSyllable = plainSyllable.replace(
+                                shortend.upper(), full.title())
+
+                elif not self._getFromOperator('Pinyin').getOption(
+                        'shortenedLetters') \
+                    and self._getToOperator('Pinyin').getOption(
+                        'shortenedLetters'):
+
+                    # final ng
+                    matchObj = re.search('(?i)ng', plainSyllable)
+                    if matchObj:
+                        ngForm = matchObj.group(0)
+                        shortend = u'ŋ'
+                        # letter case
+                        if plainSyllable.isupper() \
+                            or (plainSyllable.istitle() \
+                                and plainSyllable.startswith(ngForm)):
+                            shortend = shortend.upper()
+
+                        plainSyllable = plainSyllable.replace(ngForm, shortend)
+
+                    # initials zh, ch, sh
+                    matchObj = re.match('(?i)[zcs]h', plainSyllable)
+                    if matchObj:
+                        form = matchObj.group(0)
+                        shortend = self.initialShortendDict[form.lower()]
+                        # letter case
+                        if plainSyllable.isupper() or plainSyllable.istitle():
+                            shortend = shortend.upper()
+
+                        plainSyllable = plainSyllable.replace(form, shortend)
 
                 # fix Erhua form if needed
                 if plainSyllable.lower() == 'r' \

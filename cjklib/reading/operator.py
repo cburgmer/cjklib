@@ -1145,6 +1145,7 @@ class PinyinOperator(TonalRomanisationOperator):
         - flexibility with misplaced tone marks on input,
         - correct placement of apostrophes to separate syllables,
         - alternative representation of I{ü}-character,
+        - alternatively shortend letters I{ŋ}, I{ẑ}, I{ĉ}, I{ŝ},
         - guessing of input form (I{reading dialect}),
         - support for Erhua and
         - splitting of syllables into onset and rhyme.
@@ -1233,11 +1234,21 @@ class PinyinOperator(TonalRomanisationOperator):
     disambiguate between both solutions. The general behaviour is controlled
     with option C{'strictDiacriticPlacement'}.
 
+    Shortened letters
+    =================
+    Pinyin allows to shorten two-letter pairs I{ng}, I{zh}, I{ch} and I{sh} to
+    I{ŋ}, I{ẑ}, I{ĉ} and I{ŝ}. This behaviour can be controlled by option
+    C{'shortenedLetters'}.
+
     Source
     ======
     - Yǐn Bīnyōng (尹斌庸), Mary Felley (傅曼丽): Chinese romanization:
         Pronunciation and Orthography (汉语拼音和正词法). Sinolingua, Beijing,
         1990, ISBN 7-80052-148-6, ISBN 0-8351-1930-0.
+    -  Ireneus László Legeza: Guide to transliterated Chinese in the modern
+        Peking dialect. Conversion tables of the currently used international
+        and European systems with comparative tables of initials and finals.
+        E. J. Brill, Leiden, 1968.
 
     @see:
         - Pinyin: U{http://www.pinyin.info/rules/where.html},
@@ -1260,11 +1271,11 @@ class PinyinOperator(TonalRomanisationOperator):
     READING_NAME = 'Pinyin'
 
     TONEMARK_VOWELS = [u'a', u'e', u'i', u'o', u'u', u'ü', u'n', u'm', u'r',
-        u'ê']
+        u'ê', u'ŋ']
     """
     List of characters of the nucleus possibly carrying the tone mark. I{n} is
     included in standalone syllables I{n} and I{ng}. I{r} is used for supporting
-    I{Erhua} in a two syllable form.
+    I{Erhua} in a two syllable form, I{ŋ} is the shortened form of I{ng}.
     """
     TONEMARK_MAP = {u'\u0304': 1, u'\u0301': 2, u'\u030c': 3, u'\u0300': 4}
     """
@@ -1334,6 +1345,9 @@ class PinyinOperator(TonalRomanisationOperator):
             [y] (IPA) in Pinyin and includes an umlaut. Changes forms of
             syllables I{nü, nüe, lü, lüe}. This option is not valid for the
             tone mark type C{'Diacritics'}.
+        @keyword shortenedLetters: if set to C{True} final letter I{ng} will be
+            shortend to I{ŋ}, and initial letters I{zh}, I{ch}, I{sh} will be
+            shortend to I{ẑ}, I{ĉ}, I{ŝ}.
         @keyword PinyinApostrophe: an alternate apostrophe that is taken instead
             of the default one.
         @keyword PinyinApostropheFunction: a function that indicates when a
@@ -1379,6 +1393,10 @@ class PinyinOperator(TonalRomanisationOperator):
 
             self.optionValue['yVowel'] = options['yVowel'].lower()
 
+        # do we shorten ng, zh, ch, sh?
+        if 'shortenedLetters' in options:
+            self.optionValue['shortenedLetters'] = options['shortenedLetters']
+
         # set alternative apostrophe if given
         if 'PinyinApostrophe' in options:
             self.optionValue['PinyinApostrophe'] = options['PinyinApostrophe']
@@ -1401,14 +1419,15 @@ class PinyinOperator(TonalRomanisationOperator):
         self.readingEntityRegex = re.compile(u'(?iu)((?:' \
             + '|'.join([re.escape(v) for v in self._getDiacriticVowels()]) \
             + '|' + re.escape(self.getOption('yVowel')) \
-            + u'|[a-zêü])+[12345]?)')
+            + u'|[a-zêüŋẑĉŝ])+[12345]?)')
 
     @classmethod
     def getDefaultOptions(cls):
         options = super(PinyinOperator, cls).getDefaultOptions()
         options.update({'toneMarkType': 'Diacritics',
             'missingToneMark': 'noinfo', 'strictDiacriticPlacement': False,
-            'yVowel': u'ü', 'PinyinApostrophe': "'", 'Erhua': 'twoSyllables',
+            'yVowel': u'ü', 'shortenedLetters': False, 'PinyinApostrophe': "'",
+            'Erhua': 'twoSyllables',
             'PinyinApostropheFunction': cls.aeoApostropheRule})
 
         return options
@@ -1437,11 +1456,12 @@ class PinyinOperator(TonalRomanisationOperator):
         u"""
         Takes a string written in Pinyin and guesses the reading dialect.
 
-        The basic options C{'toneMarkType'}, C{'yVowel'} and C{'Erhua'} are
-        guessed. Unless C{'includeToneless'} is set to C{True} only the
-        tone mark types C{'Diacritics'} and C{'Numbers'} are considered as the
-        latter one can also represent the state of missing tones. Strings tested
-        for C{'yVowel'} are C{ü}, C{v} and C{u:}. C{'Erhua'} is set to
+        The basic options C{'toneMarkType'}, C{'yVowel'}, C{'Erhua'},
+        C{'PinyinApostrophe'} and C{'shortenedLetters'} are guessed. Unless
+        C{'includeToneless'} is set to C{True} only the tone mark types
+        C{'Diacritics'} and C{'Numbers'} are considered as the latter one can
+        also represent the state of missing tones. Strings tested for
+        C{'yVowel'} are C{ü}, C{v} and C{u:}. C{'Erhua'} is set to
         C{'twoSyllables'} by default and only tested when C{'toneMarkType'} is
         assumed to be set to C{'Numbers'}.
 
@@ -1457,7 +1477,7 @@ class PinyinOperator(TonalRomanisationOperator):
         diacriticVowels = PinyinOperator._getDiacriticVowels()
         # split regex for all dialect forms
         entities = re.findall(u'(?iu)((?:' + '|'.join(diacriticVowels) \
-            + '|'.join(Y_VOWEL_LIST) + u'|[a-uw-zê])+[12345]?)', readingStr)
+            + '|'.join(Y_VOWEL_LIST) + u'|[a-uw-zêŋẑĉŝ])+[12345]?)', readingStr)
 
         # guess one of main dialects: tone mark type
         diacriticEntityCount = 0
@@ -1523,11 +1543,20 @@ class PinyinOperator(TonalRomanisationOperator):
                             # found trailing r
                             Erhua = 'oneSyllable'
 
+        # guess shortenedLetters
+        for char in u'ŋẑĉŝ':
+            if char in readingStr.lower():
+                shortenedLetters = True
+                break
+        else:
+            shortenedLetters = False
+
         return {'toneMarkType': toneMarkType, 'yVowel': yVowel,
-            'PinyinApostrophe': PinyinApostrophe, 'Erhua': Erhua}
+            'PinyinApostrophe': PinyinApostrophe, 'Erhua': Erhua,
+            'shortenedLetters': shortenedLetters}
 
     def getReadingCharacters(self):
-        characters = set(string.ascii_lowercase + u'üê')
+        characters = set(string.ascii_lowercase + u'üêŋẑĉŝ')
         characters.add(self.getOption('yVowel'))
         characters.update([u'\u0308', u'\u0302']) # NFD combining diacritics
         # add NFC vowels, strip of combining diacritical marks
@@ -1651,7 +1680,8 @@ class PinyinOperator(TonalRomanisationOperator):
                     return precedingPlainSyllable.lower() == 'e'
 
                 return plainSyllable[0].lower() in ['a', 'e', 'o'] \
-                    or plainSyllable.lower() in ['n', 'ng', 'nr', 'ngr']
+                    or plainSyllable.lower() in ['n', 'ng', 'nr', 'ngr', u'ŋ',
+                        u'ŋr']
         return False
 
     def isStrictDecomposition(self, readingEntities):
@@ -1744,9 +1774,10 @@ class PinyinOperator(TonalRomanisationOperator):
             # split syllable into onset, nucleus and coda, handle nasal and ê
             #   syllables independently
             if plainEntity.lower() in ['n', 'ng', 'm', 'r', u'ê', 'nr', 'ngr',
-                'mr', u'êr']:
+                'mr', u'êr', u'ŋ', u'ŋr']:
                 onset, nucleus, coda = ('', plainEntity[0], plainEntity[1:])
-            elif plainEntity.lower() in ['hm', 'hng', 'hmr', 'hngr']:
+            elif plainEntity.lower() in ['hm', 'hng', 'hmr', 'hngr', u'hŋ',
+                u'hŋr']:
                 onset, nucleus, coda = (plainEntity[0], plainEntity[1],
                     plainEntity[2:])
             else:
@@ -1846,8 +1877,7 @@ class PinyinOperator(TonalRomanisationOperator):
                 nfcEntity = unicodedata.normalize("NFC", unicode(entity))
                 if nfcEntity != self.getTonalEntity(plainEntity, tone):
                     raise InvalidEntityError("Wrong placement of diacritic " \
-                        + " for '" + entity \
-                        + "' while strict checking enforced")
+                        + "for '%s' while strict checking enforced" % entity)
         # compose Unicode string (used for ê) and return with tone
         return unicodedata.normalize("NFC", plainEntity), tone
 
@@ -1888,6 +1918,20 @@ class PinyinOperator(TonalRomanisationOperator):
                             + "' included more than once, " \
                             + u"probably bad substitute for 'ü'")
                     plainSyllables.add(syllable)
+
+        if self.getOption('shortenedLetters'):
+            initialDict = {'zh': u'ẑ', 'ch': u'ĉ', 'sh': u'ŝ'}
+            shortendSyllables = set()
+            for syllable in plainSyllables:
+                syllable = syllable.replace('ng', u'ŋ')
+                if syllable[:2] in initialDict:
+                    shortendSyllables.add(syllable.replace(syllable[:2],
+                        initialDict[syllable[:2]]))
+                else:
+                    shortendSyllables.add(syllable)
+
+            plainSyllables = shortendSyllables
+
         return plainSyllables
 
     def getReadingEntities(self):
@@ -2899,7 +2943,7 @@ class GROperator(TonalRomanisationOperator):
         return set(self._getAbbreviatedLookup().keys())
 
     def getAbbreviatedFormData(self, entities):
-        """
+        u"""
         Gets table of abbreviated entities including the traditional Chinese
         characters, original spelling and specialised information.
 
@@ -2923,6 +2967,8 @@ class GROperator(TonalRomanisationOperator):
         @rtype: list
         @return: list full spellings, Chinese character string and specialised
             information
+        @todo Lang: I{tz} is currently mapped to I{.tzy}. Character 子 though
+            generally has 3rd tone, which then should be I{tzyy} or I{.tzyy}.
         """
         entities = tuple([entity.lower() for entity in entities])
         if entities not in self._getAbbreviatedLookup():

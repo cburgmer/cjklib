@@ -436,6 +436,21 @@ class PinyinDialectReferenceTest(ReadingConverterReferenceTest,
             ('nv3hai2', u'nǚhái'),
             ('NV3HAI2', u'NǙHÁI'),
             ]),
+        ({'sourceOptions': {'toneMarkType': 'Numbers'},
+            'targetOptions': {'shortenedLetters': True}}, [
+            ('lao3shi1', u'lǎoŝī'),
+            ('Zhi1shi5', u'Ẑīŝi'),
+            ('Bei3jing1', u'Běijīŋ'),
+            (u'nü3hai2', u'nǚhái'),
+            ]),
+        ({'sourceOptions': {'shortenedLetters': True},
+            'targetOptions': {'toneMarkType': 'Numbers'}}, [
+            (u'lǎoŝī', 'lao3shi1'),
+            (u'Ẑīŝi', 'Zhi1shi5'),
+            (u'Běijīŋ', 'Bei3jing1'),
+            (u'nǚhái', u'nü3hai2'),
+            (u'ĉaŋ', u'chang5'),
+            ]),
         ]
 
 

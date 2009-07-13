@@ -59,6 +59,54 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
     Given as list of dictionaries holding the dialect's options.
     """
 
+    @staticmethod
+    def _crossProduct(*singleLists):
+        """
+        Calculates the cross product (aka Cartesian product) of dict objects.
+        For given objects A and B the result will be A, B, and A|B (keys from B
+        overwriting those of A if ambiguous).
+        Incompatible dicts can be given together as a list so that those will
+        not be combined, e.g. [A B] and C will return A, B, C, A|C and B|C.
+
+        Example:
+            >>> ReadingOperatorConsistencyTest._crossProduct(
+                [{}, {'case': 'lower'}, {'case': 'both'}],
+                [{}, {'strictSegmentation': True}])
+            [{'case': lower'}, {'case': both'}, {'strictSegmentation': True}, \
+{'case': lower', 'strictSegmentation': True}, \
+{'case': both', 'strictSegmentation': True}]
+
+        @param singleLists: dict objects to be combined by cross product
+        @rtype: list of dict
+        @return: cross product of given lower
+        """
+        # get repeat index for whole set
+        lastRepeat = 1
+        repeatSet = []
+        for elem in singleLists:
+            repeatSet.append(lastRepeat)
+            lastRepeat = lastRepeat * len(elem)
+        repeatEntry = []
+        # get dimension of Cartesian product and dimensions of parts
+        newListLength = 1
+        for i in range(0, len(singleLists)):
+            elem = singleLists[len(singleLists) - i - 1]
+            repeatEntry.append(newListLength)
+            newListLength = newListLength * len(elem)
+        repeatEntry.reverse()
+        # create product
+        newList = [{} for i in range(0, newListLength)]
+        lastSetLen = 1
+        for i, listElem in enumerate(singleLists):
+            for j in range(0, repeatSet[i]):
+                for k, elem in enumerate(listElem):
+                    for l in range(0, repeatEntry[i]):
+                        newList[j * lastSetLen + k*repeatEntry[i] \
+                            + l].update(elem)
+            lastSetLen = repeatEntry[i]
+        import sys
+        return newList
+
     def testReadingNameUnique(self):
         """Test if only one ReadingOperator exists for each reading."""
         seen = False
@@ -76,8 +124,10 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
             "No reading operator class found" \
                 + ' (reading %s)' % self.READING_NAME)
 
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             # instantiate
             self.readingOperatorClass(**dialect)
@@ -99,8 +149,10 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                 + ' (reading %s)' % self.READING_NAME)
 
         # test all given dialects
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             for option in dialect:
                 self.assert_(option in defaultOptions,
@@ -170,8 +222,10 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
             return
 
         # test all given dialects
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             readingOperator = self.f.createReadingOperator(self.READING_NAME,
                 **dialect)
@@ -203,8 +257,10 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
         if not hasattr(self.readingOperatorClass, "getReadingEntities"):
             return
 
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             entities = self.f.getReadingEntities(self.READING_NAME,
                 **dialect)
@@ -224,8 +280,10 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
         if not hasattr(self.readingOperatorClass, "getPlainReadingEntities"):
             return
 
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             plainEntities = self.f.getPlainReadingEntities(self.READING_NAME,
                 **dialect)
@@ -243,8 +301,10 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
             or not hasattr(self.readingOperatorClass, "testOnsetRhyme"):
             return
 
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             readingOperator = self.f.createReadingOperator(self.READING_NAME,
                 **dialect)
@@ -268,8 +328,10 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
         if not hasattr(self.readingOperatorClass, "getReadingEntities"):
             return
 
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             entities = self.f.getReadingEntities(self.READING_NAME, **dialect)
             for entity in entities:
@@ -300,8 +362,10 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
         if not hasattr(self.readingOperatorClass, "getPlainReadingEntities"):
             return
 
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             entities = self.f.getReadingEntities(self.READING_NAME, **dialect)
             for entity in entities:
@@ -333,8 +397,10 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
         if not hasattr(self.readingOperatorClass, "getPlainReadingEntities"):
             return
 
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             entities = self.f.getReadingEntities(self.READING_NAME, **dialect)
             for entity in entities:
@@ -374,8 +440,10 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
         if not hasattr(self.readingOperatorClass, "getReadingEntities"):
             return
 
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             entities = self.f.getReadingEntities(self.READING_NAME, **dialect)
             for entityA in entities:
@@ -521,13 +589,19 @@ class ReadingOperatorReferenceTest(ReadingOperatorTest):
                     and issubclass(target, Exception):
                     self.assertRaises(target, self.f.compose, *args, **dialect)
                 else:
-                    composition = self.f.compose(*args, **dialect)
-                    self.assertEquals(composition, target,
-                        "Composition %s of %s not reached: %s" \
-                            % (repr(target), repr(reference),
-                                repr(composition)) \
-                        + ' (reading %s, dialect %s)' \
-                            % (self.READING_NAME, dialect))
+                    try:
+                        composition = self.f.compose(*args, **dialect)
+                        self.assertEquals(composition, target,
+                            "Composition %s of %s not reached: %s" \
+                                % (repr(target), repr(reference),
+                                    repr(composition)) \
+                            + ' (reading %s, dialect %s)' \
+                                % (self.READING_NAME, dialect))
+                    except exception.CompositionError, e:
+                        self.fail('CompositionError for %s with target %s: %s' \
+                            % (repr(reference), repr(target), repr(e)) \
+                            + ' (reading %s, dialect %s)' \
+                                % (self.READING_NAME, dialect))
 
     def testEntityReferences(self):
         """Test if the given entity references are accepted/rejected."""
@@ -602,8 +676,10 @@ class CanoneseIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         if not hasattr(self.readingOperatorClass, "isToneValid"):
             return
 
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             ipaOperator = self.f.createReadingOperator(self.READING_NAME,
                 **dialect)
@@ -623,8 +699,10 @@ class CanoneseIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         Test if the tones reported by C{getBaseTone()} and C{getExplicitTone()}
         are valid.
         """
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             ipaOperator = self.f.createReadingOperator(self.READING_NAME,
                 **dialect)
@@ -935,21 +1013,20 @@ class PinyinOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
             and not precedingEntity[-1].isdigit() \
             and followingEntity[0].isalpha()
 
-    DIALECTS = [{'toneMarkType': 'Numbers'},
-        {'toneMarkType': 'Numbers', 'missingToneMark': 'fifth'},
-        {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'},
-        {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore',
-            'strictSegmentation': True},
-        {'toneMarkType': 'Numbers', 'yVowel': 'v'},
-        {'toneMarkType': 'None'},
-        {'PinyinApostrophe': u'’'},
-        {'toneMarkType': 'Numbers',
-            'PinyinApostropheFunction': noToneApostropheRule},
-        {'Erhua': 'oneSyllable'},
-        {'strictDiacriticPlacement': True},
-        {'strictSegmentation': True},
-        {'case': 'lower'},
-        ]
+    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+         [{}, {'toneMarkType': 'Numbers'},
+            {'toneMarkType': 'Numbers', 'missingToneMark': 'fifth'},
+            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'Numbers', 'yVowel': 'v'},
+            {'toneMarkType': 'None'},
+            {'strictDiacriticPlacement': True}],
+        [{}, {'PinyinApostrophe': u'’'}],
+        [{}, {'PinyinApostropheFunction': noToneApostropheRule}],
+        [{}, {'Erhua': 'oneSyllable'}, {'Erhua': 'ignore'}],
+        [{}, {'strictSegmentation': True}],
+        [{}, {'case': 'lower'}],
+        [{}, {'shortenedLetters': True}],
+        )
 
     def cleanDecomposition(self, decomposition, reading, **options):
         if not hasattr(self, '_operators'):
@@ -986,6 +1063,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ("XIAN", ["XIAN"]),
             (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
             (u'tiananmen', exception.DecompositionError),
+            (u'zhīshi', [u'zhī', 'shi']),
             ]),
         ({'toneMarkType': 'Numbers'}, [
             (u"tiān'ānmén", [u"tiān", "'", u"ānmén"]),
@@ -1099,6 +1177,8 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1AN1MEN2", ),
             ([u"e", u"r"], u"e'r"),
             ([u"ti", u"anr"], exception.CompositionError),
+            ([u"chang", u"an"], u"chang'an"),
+            ([u"ĉaŋ", u"an"], exception.CompositionError),
             ]),
         ({'toneMarkType': 'Numbers'}, [
             ([u"tiān", u"ān", u"mén"], u"tiānānmén"),
@@ -1201,6 +1281,27 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u'nv3', u'hai2'], u'nv3hai2'),
             ([u'nü3', u'hai2'], u'nü3hai2'),
             ]),
+        ({'shortenedLetters': True}, [
+            ([u"tiān", u"ān", u"mén"], u"tiān'ānmén"),
+            (["xian"], "xian"),
+            ([u"xī", u"ān"], u"xī'ān"),
+            ([u"tian1", "'", u"an1", u"men2"], u"tian1'an1men2"),
+            ([u"tian1", u"an1", u"men2"], u"tian1an1men2"),
+            ([u"tian", u"an", u"men"], u"tian'anmen"),
+            ([u"xi1", u"an1"], u"xi1an1"),
+            ([u"lao3", u"tou2", u"r5"], u"lao3tou2r5"),
+            ([u"lao3", u"tour2"], u"lao3tour2"),
+            ([u"lao3", u"angr2"], u"lao3angr2"),
+            ([u"lao3", u"ang2", u"r5"], u"lao3ang2r5"),
+            ([u"er2", u"hua4", u"yin1"], u"er2hua4yin1"),
+            ([u'peí', u'nǐ'], u"peínǐ"), # wrong placement of tone
+            ([u"TIĀN", u"ĀN", u"MÉN"], u"TIĀN'ĀNMÉN"),
+            ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1AN1MEN2", ),
+            ([u"e", u"r"], u"e'r"),
+            ([u"ti", u"anr"], exception.CompositionError),
+            ([u"chang", u"an"], exception.CompositionError),
+            ([u"ĉaŋ", u"an"], u"ĉaŋ'an"),
+            ]),
         ]
 
     READING_ENTITY_REFERENCES = [
@@ -1232,6 +1333,10 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"XIAN", True),
             (u"TIAN1", False),
             (u"r1", False),
+            (u"zhī", True),
+            (u"tang", True),
+            (u"ẑī", False),
+            (u"taŋ", False),
             ]),
         ({'toneMarkType': 'Numbers'}, [
             (u"tiān", False),
@@ -1402,6 +1507,40 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"TIAN1", True),
             (u"r1", False),
             ]),
+        ({'shortenedLetters': True}, [
+            (u"tiān", True),
+            (u"ān", True),
+            (u"mén", True),
+            (u"lào", True),
+            (u"xǐ", True),
+            (u"lü", True),
+            (u"ê", True),
+            (u"Ê", True),
+            (u"tian1", False),
+            (u"an1", False),
+            (u"men2", False),
+            (u"lao4", False),
+            (u"xi3", False),
+            (u"xian", True),
+            (u"ti\u0304an", True),
+            (u"tia\u0304n", True),
+            (u"laǒ", True),
+            (u"tīan", True),
+            (u"tīa", False),
+            (u"tiā", False),
+            (u"angr", False),
+            (u"er", True),
+            (u"r", True),
+            (u"TIĀN", True),
+            (u"XIAN", True),
+            (u"TIAN1", False),
+            (u"r1", False),
+            (u"zhī", False),
+            (u"tang", False),
+            (u"ẑī", True),
+            (u"taŋ", True),
+            (u"ŜAŊ", True),
+            ]),
         ]
 
     STRICT_DECOMPOSITION_REFERENCES = [
@@ -1480,6 +1619,9 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
         (u"e5'r5", {'toneMarkType': 'Numbers', 'PinyinApostrophe': "'",
             'Erhua': 'twoSyllables'}),
         (u"yi xia r ", {'toneMarkType': 'Numbers', 'Erhua': 'twoSyllables'}),
+        (u"ẑīdao", {'toneMarkType': 'Diacritics', 'shortenedLetters': True}),
+        (u"mian4taŋ1", {'toneMarkType': 'Numbers', 'shortenedLetters': True}),
+        (u"ŜÀŊHǍI", {'toneMarkType': 'Diacritics', 'shortenedLetters': True}),
         ]
 
     def testStrictDecompositionReferences(self):
@@ -1597,8 +1739,10 @@ class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         Test if all abbreviated reading entities returned by
         C{getAbbreviatedEntities()} are accepted by C{isAbbreviatedEntity()}.
         """
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             grOperator = self.f.createReadingOperator(self.READING_NAME,
                 **dialect)
@@ -1615,8 +1759,10 @@ class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         Test if all abbreviated reading entities returned by
         C{getAbbreviatedEntities()} are accepted by C{isAbbreviatedEntity()}.
         """
-        forms = [{}]
+        forms = []
         forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             grOperator = self.f.createReadingOperator(self.READING_NAME,
                 **dialect)
