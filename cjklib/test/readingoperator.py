@@ -639,15 +639,18 @@ class CanoneseIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'CantoneseIPA'
 
-    DIALECTS = [{'toneMarkType': 'Numbers'},
-        {'toneMarkType': 'ChaoDigits'},
-        # {'toneMarkType': 'Diacritics'}, # TODO NotImplementedError
-        {'toneMarkType': 'None'},
-        {'toneMarkType': 'Numbers', '1stToneName': 'HighFalling'},
-        {'missingToneMark': 'ignore'},
-        {'stopTones': 'general'},
-        {'stopTones': 'explicit'},
-        ]
+    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+        [{}, {'toneMarkType': 'Numbers'}, {'toneMarkType': 'ChaoDigits'},
+            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'Numbers', '1stToneName': 'HighFalling'},
+            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore',
+                '1stToneName': 'HighFalling'},
+            {'toneMarkType': 'ChaoDigits', 'missingToneMark': 'ignore'},
+            #{'toneMarkType': 'Diacritics'}, # TODO NotImplementedError
+            #{'toneMarkType': 'Diacritics', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'None'}],
+        [{}, {'stopTones': 'general'}, {'stopTones': 'explicit'}],
+        )
 
     def cleanDecomposition(self, decomposition, reading, **options):
         return [entity for entity in decomposition if entity != '.']
@@ -722,6 +725,7 @@ class CanoneseIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
                     except exception.InvalidEntityError:
                         pass
 
+
 # TODO
 #class CantoneseIPAOperatorReferenceTest(ReadingOperatorReferenceTest,
     #unittest.TestCase):
@@ -738,16 +742,16 @@ class CanoneseYaleOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'CantoneseYale'
 
-    DIALECTS = [{'toneMarkType': 'Numbers'},
-        {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'},
-        {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore',
-            'strictSegmentation': True},
-        {'toneMarkType': 'Numbers', 'YaleFirstTone': '1stToneFalling'},
-        {'toneMarkType': 'None'},
-        {'strictDiacriticPlacement': True},
-        {'strictSegmentation': True},
-        {'case': 'lower'},
-        ]
+    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+        [{}, {'strictDiacriticPlacement': True}, {'toneMarkType': 'Numbers'},
+            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'Numbers', 'YaleFirstTone': '1stToneFalling'},
+            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore',
+                'YaleFirstTone': '1stToneFalling'},
+            {'toneMarkType': 'None'}],
+        [{}, {'strictSegmentation': True}],
+        [{}, {'case': 'lower'}],
+        )
 
 
 # TODO
@@ -879,12 +883,11 @@ class JyutpingOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'Jyutping'
 
-    DIALECTS = [{'toneMarkType': 'None'},
-        {'missingToneMark': 'ignore'},
-        {'missingToneMark': 'ignore', 'strictSegmentation': True},
-        {'strictSegmentation': True},
-        {'case': 'lower'},
-        ]
+    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+        [{}, {'missingToneMark': 'ignore'}, {'toneMarkType': 'None'}],
+        [{}, {'strictSegmentation': True}],
+        [{}, {'case': 'lower'}],
+        )
 
 
 # TODO
@@ -1642,15 +1645,14 @@ class WadeGilesOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'WadeGiles'
 
-    DIALECTS = [{'toneMarkType': 'SuperscriptNumbers'},
-        {'toneMarkType': 'None'},
-        {'missingToneMark': 'fifth'},
-        {'missingToneMark': 'ignore'},
-        {'missingToneMark': 'ignore', 'strictSegmentation': True},
-        {'strictSegmentation': True},
-        {'WadeGilesApostrophe': u"'"},
-        {'case': 'lower'},
-        ]
+    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+        [{}, {'toneMarkType': 'SuperscriptNumbers'},
+            {'toneMarkType': 'None'}],
+        [{}, {'missingToneMark': 'fifth'}, {'missingToneMark': 'ignore'}],
+        [{}, {'strictSegmentation': True}],
+        [{}, {'WadeGilesApostrophe': u"'"}],
+        [{}, {'case': 'lower'}],
+        )
 
     def cleanDecomposition(self, decomposition, reading, **options):
         if not hasattr(self, '_operators'):
@@ -1715,12 +1717,13 @@ class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'GR'
 
-    DIALECTS = [{'abbreviations': False},
-        {'GRRhotacisedFinalApostrophe': "'"},
-        {'GRSyllableSeparatorApostrophe': "'"},
-        {'strictSegmentation': True},
-        {'case': 'lower'},
-        ]
+    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+        [{}, {'strictSegmentation': True}],
+        [{}, {'abbreviations': False}],
+        [{}, {'GRRhotacisedFinalApostrophe': "'"}],
+        [{}, {'GRSyllableSeparatorApostrophe': "'"}],
+        [{}, {'case': 'lower'}],
+        )
 
     def cleanDecomposition(self, decomposition, reading, **options):
         if not hasattr(self, '_operators'):
@@ -2193,9 +2196,9 @@ class MandarinBrailleOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'MandarinBraille'
 
-    DIALECTS = [{'toneMarkType': 'None'},
-        {'missingToneMark': 'fifth'},
-        ]
+    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+        [{}, {'toneMarkType': 'None'}, {'missingToneMark': 'fifth'}],
+        )
 
 
 # TODO
@@ -2214,12 +2217,14 @@ class MandarinIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'MandarinIPA'
 
-    DIALECTS = [{'toneMarkType': 'Numbers'},
-        {'toneMarkType': 'ChaoDigits'},
-        # {'toneMarkType': 'Diacritics'}, # TODO NotImplementedError
-        {'toneMarkType': 'None'},
-        {'missingToneMark': 'ignore'},
-        ]
+    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+        [{}, {'toneMarkType': 'Numbers'}, {'toneMarkType': 'ChaoDigits'},
+            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'ChaoDigits', 'missingToneMark': 'ignore'},
+            #{'toneMarkType': 'Diacritics'}, # TODO NotImplementedError
+            #{'toneMarkType': 'Diacritics', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'None'}],
+        )
 
     def cleanDecomposition(self, decomposition, reading, **options):
         return [entity for entity in decomposition if entity != '.']
