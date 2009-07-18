@@ -2570,7 +2570,7 @@ class GROperator(TonalRomanisationOperator):
 
                 if precedingEntityIsReading and entityIsReading \
                     and (entity[0].lower() in ['a', 'e', 'i', 'o', 'u'] \
-                        or entity == 'g'):
+                        or (entity == 'g' and precedingEntity.endswith('n'))):
                     # "A Grammar of Spoken Chinese, p. xxii, p. 511"
                     newReadingEntities.append(separator)
                 # check if composition won't combine reading and non-reading e.

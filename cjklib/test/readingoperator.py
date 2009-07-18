@@ -1866,6 +1866,7 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (["jie", u"’", "l"], exception.CompositionError),
             (["sherm", ".me"], u"sherm.me"),
             (["san", "g"], u"san’g"),
+            (["i", "g"], u"ig"),
             ]),
         ({'abbreviations': False}, [
             (["tian", "an", "men"], u"tian’anmen"),
