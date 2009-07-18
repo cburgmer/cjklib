@@ -58,7 +58,7 @@ import operator
 import cjklib.reading
 
 class ReadingConverter(object):
-    """
+    u"""
     Defines an abstract converter between two or more I{character reading}s.
 
     The basic method is L{convert()} which converts one input string from one
@@ -69,6 +69,61 @@ class ReadingConverter(object):
 
     The class itself can't be used directly, it has to be subclassed and its
     methods need to be extended.
+
+    What gets converted
+    ===================
+    The conversion process uses the L{ReadingOperator} for the source reading to
+    decompose the given string into the single entities. The decomposition
+    contains reading entities and entities that don't represent any
+    pronunciation. While the goal is to convert included reading entities to the
+    target reading, some convertes might decide to also convert non-reading
+    entities. This can be for example delimiters like apostrophes that differ
+    between romanisations or punctuation marks that have a defined
+    representation in the target system, e.g. Braille.
+
+    Errors
+    ------
+    By default conversion won't stop on entities that closely resemble other
+    reading entities but itself are not valid. Those will turn up unchanged in
+    the result and can cause a L{CompositionError} when the target operator
+    decideds that it is impossible to link a converted entity with a
+    non-converted one as it would make it impossible to later determine the
+    entity boundaries. Most of those errors will probably result from bad input
+    that fails on conversion. This can be solved by telling the source operator
+    to be strict on decomposition (where supported) so that the error will
+    be reported beforehand. The followig example tries to convert I{xiǎo tōu}
+    ("thief"), misspelled as I{*xiǎo tō}:
+
+        >>> from cjklib.reading import ReadingFactory
+        >>> f = ReadingFactory()
+        >>> print f.convert(u'xiao3to1', 'Pinyin', 'GR',
+        ...     sourceOptions={'toneMarkType': 'Numbers'})
+        Traceback (most recent call last):
+        File "<stdin>", line 1, in <module>
+        ...
+        cjklib.exception.CompositionError: Unable to delimit non-reading entity\
+ 'to1'
+        >>> print f.convert(u'xiao3to1', 'Pinyin', 'GR',
+        ...     sourceOptions={'toneMarkType': 'Numbers',
+        ...         'strictSegmentation': True})
+        Traceback (most recent call last):
+        File "<stdin>", line 1, in <module>
+        ...
+        cjklib.exception.DecompositionError: Segmentation of 'to1' not possible\
+ or invalid syllable
+
+    Not being strict results in a lazy conversion, which might fail in some
+    cases as shown above. C{u'xiao3 to1'} (with a space in between) though will
+    work for the lazy way (C{'to1'} not being converted), while the strict
+    version will still report the wrong I{*to1}.
+
+    Other errors that can arise:
+        - L{AmbiguousDecompositionError}, if the source string can not be
+            decomposed unambigiuously,
+        - L{ConversionError}, e.g. if the target system doesn't support a
+            feature given in the source string, and
+        - L{AmbiguousConversionError}, if a given entity can be mapped to more
+            than one entity in the target reading.
     """
     CONVERSION_DIRECTIONS = []
     """
@@ -1209,7 +1264,7 @@ class GRDialectConverter(ReadingConverter):
 
 
 class GRPinyinConverter(RomanisationConverter):
-    """
+    u"""
     Provides a converter between the Chinese romanisation I{Gwoyeu Romatzyh} and
     I{Hanyu Pinyin}.
 
@@ -1230,22 +1285,25 @@ class GRPinyinConverter(RomanisationConverter):
     ===========
     Conversion cannot in general be done in a one-to-one manner.
     I{Gwoyeu Romatzyh} (GR) gives the etymological tone for a syllable in
-    neutral tone while Pinyin doesn't. In contrast to tones in GR carrying more
-    information I{r-coloured} syllables (I{Erlhuah}) are rendered the way they
-    are pronounced that loosing the original syllable. Converting those forms to
-    Pinyin in a general manner is not possible while yielding the original
-    string in Chinese characters might help do disambiguate. Another issue
-    tone-wise is that Pinyin allows to specify the changed tone when dealing
-    with tone sandhis instead of the etymological one while GR doesn't. Only
-    working with the Chinese character string might help to restore the original
-    tone.
+    neutral tone while Pinyin doesn't. Thus converting neutral tone syllables
+    from Pinyin to GR will fail as the etymological tone is unknown to the
+    operator.
 
-    Conversion from Pinyin is crippled as the neutral tone in this form cannot
-    be transfered to GR as described above. More information is needed to
-    resolve this. For the other direction the neutral tone can be mapped but the
-    etymological tone information is lost. For the optional neutral tone either
-    a mapping is done to the neutral tone in Pinyin or to the original
-    (etymological).
+    While tones in GR carry more information, I{r-coloured} syllables
+    (I{Erlhuah}) are rendered the way they are pronounced thus loosing
+    information about the underlying syllable. Converting those forms to Pinyin
+    is not always possible as for example I{jieel} will raise an
+    L{AmbiguousConversionError} as it stems from I{jǐ}, I{jiě} and I{jǐn}.
+    Having the original string in Chinese characters might help to disambiguate.
+
+    Neutral tone
+    ------------
+    As described above, converting the neutral tone from Pinyin to GR fails.
+    Converting to Pinyin will lose knowledge about the etymological tone, and in
+    the case of I{optional neutral tones} it has to be decided whether the
+    neutral tone version or the etymological tone is chosen, as Pinyin can only
+    display one. This can be controlled using option
+    C{'GROptionalNeutralToneMapping'}.
     """
     CONVERSION_DIRECTIONS = [('GR', 'Pinyin'), ('Pinyin', 'GR')]
     # GR deals with Erlhuah in one syllable, force on Pinyin. Convert GR
@@ -1306,15 +1364,25 @@ class GRPinyinConverter(RomanisationConverter):
         return options
 
     def convertBasicEntity(self, entity, fromReading, toReading):
-        # we can't convert Erlhuah in GR
-        if fromReading == "GR" and entity.endswith('l') \
-            and entity not in ['el', 'erl', 'eel', 'ell']:
-            raise AmbiguousConversionError("conversion for entity '" + entity \
-                + "' is ambiguous")
+        erlhuahForm = False
 
-        # split syllable into plain part and tonal information
-        plainSyllable, tone = self.readingFact.splitEntityTone(entity,
-            fromReading, **self.DEFAULT_READING_OPTIONS[fromReading])
+        # catch Erlhuah in GR
+        if fromReading == "GR" \
+            and self._getGROperator().isRhotacisedReadingEntity(entity):
+            baseEntities = self._getGROperator().getBaseEntitiesForRhotacised(
+                entity)
+            if len(baseEntities) > 1:
+                raise AmbiguousConversionError(
+                    "conversion for entity '%s' is ambiguous (Erlhuah)" \
+                        % entity)
+            assert(len(baseEntities) == 1)
+            plainSyllable, tone = baseEntities.pop()
+
+            erlhuahForm = True
+        else:
+            # split syllable into plain part and tonal information
+            plainSyllable, tone = self.readingFact.splitEntityTone(entity,
+                fromReading, **self.DEFAULT_READING_OPTIONS[fromReading])
 
         # lookup in database
         if fromReading == "GR":
@@ -1328,8 +1396,6 @@ class GRPinyinConverter(RomanisationConverter):
             if plainSyllable != 'er' and plainSyllable.endswith('r'):
                 erlhuahForm = True
                 plainSyllable = plainSyllable[:-1]
-            else:
-                erlhuahForm = False
 
             table = self.db.tables['PinyinGRMapping']
             transSyllable = self.db.selectScalar(select([table.c.GR],
@@ -1356,6 +1422,9 @@ class GRPinyinConverter(RomanisationConverter):
                     #   Erlhuah form given for the given tone
                     raise ConversionError(e)
             else:
+                if toReading == 'Pinyin' and erlhuahForm:
+                    transSyllable += 'r'
+
                 return self.readingFact.getTonalEntity(transSyllable, transTone,
                     toReading, **self.DEFAULT_READING_OPTIONS[toReading])
         except InvalidEntityError, e:

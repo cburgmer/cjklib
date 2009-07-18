@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 # This file is part of cjklib.
 #
 # cjklib is free software: you can redistribute it and/or modify
@@ -138,12 +138,12 @@ FINAL_RULES = {('Jyutping', 'CantoneseYale'): {'aa': ('a', ''),
     ('Pinyin', 'GR'): {u'a': 'a', u'o': 'o', u'e': 'e', u'ai': 'ai',
         u'ei': 'ei', u'ao': 'au', u'ou': 'ou', u'an': 'an', u'en': 'en',
         u'ang': 'ang', u'eng': 'eng', u'ong': 'ong', u'er': 'el', u'i': 'i',
-        u'ia': 'ia', u'io': 'io', u'ie': 'ie', u'iai': 'iai', u'iao': 'iau',
-        u'iou': 'iou', u'ian': 'ian', u'in': 'in', u'iang': 'iang',
-        u'ing': 'ing', u'iong': 'iong', u'u': 'u', u'ua': 'ua', u'uo': 'uo',
-        u'uai': 'uai', u'uei': 'uei', u'uan': 'uan', u'uen': 'uen',
-        u'uang': 'uang', u'ü': 'iu', u'üe': 'iue', u'üan': 'iuan',
-        u'ün': 'iun', u'ɿ': 'y', u'ʅ': 'y', u'ueng': 'ueng'},
+        u'ia': 'ia', u'ie': 'ie', u'iai': 'iai', u'iao': 'iau', u'iou': 'iou',
+        u'ian': 'ian', u'in': 'in', u'iang': 'iang', u'ing': 'ing',
+        u'iong': 'iong', u'u': 'u', u'ua': 'ua', u'uo': 'uo', u'uai': 'uai',
+        u'uei': 'uei', u'uan': 'uan', u'uen': 'uen', u'uang': 'uang',
+        u'ü': 'iu', u'üe': 'iue', u'üan': 'iuan', u'ün': 'iun', u'ɿ': 'y',
+        u'ʅ': 'y', u'ueng': 'ueng'},
     }
 """
 Mapping of syllable finals.

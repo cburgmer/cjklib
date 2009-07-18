@@ -520,6 +520,8 @@ class GRDialectConsistencyTest(ReadingConverterConsistencyTest,
 
     @classmethod
     def titlecase(cls, string):
+        # see bug http://bugs.python.org/issue6412 and
+        #   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
         # "Shern.me".title() == "Shern.Me", so reimplement
         matchObj = re.match(ur"([.ₒ]?)(\w)(.*)$", string.lower())
         tonal, firstChar, rest = matchObj.groups()
@@ -592,6 +594,8 @@ class GRPinyinReferenceTest(ReadingConverterReferenceTest,
             (u'"Hannshyue" .de mingcheng duey Jonggwo yeou idean buhtzuenjinq .de yihwey. Woo.men tingshuo yeou "Yinnduhshyue", "Aijyishyue", "Hannshyue", erl meiyeou tingshuo yeou "Shilahshyue", "Luomaashyue", genq meiyeou tingshuo yeou "Inggwoshyue", "Meeigwoshyue". "Hannshyue" jeyg mingcheng wanchyuan beaushyh Ou-Meei shyuejee duey nahshie yii.jing chernluen .de guulao-gwojia .de wenhuah .de ijoong chingkann .de tayduh.', u'"Hànxué" de míngchēng duì Zhōngguó yǒu yīdiǎn bùzūnjìng de yìwèi. Wǒmen tīngshuō yǒu "Yìndùxué", "Āijíxué", "Hànxué", ér méiyǒu tīngshuō yǒu "Xīlàxué", "Luómǎxué", gèng méiyǒu tīngshuō yǒu "Yīngguóxué", "Měiguóxué". "Hànxué" zhèige míngchēng wánquán biǎoshì Ōu-Měi xuézhě duì nàxiē yǐjing chénlún de gǔlǎo-guójiā de wénhuà de yīzhǒng qīngkàn de tàidù.'),
             ]),
         ({'sourceOptions': {}, 'targetOptions': {}}, [
+            (u'sheau jie’l', u'xiǎo jiēr'),
+            (u'jieel', exception.AmbiguousConversionError),
             (u'buh jy.daw', u'bù zhīdao'), (u'buh jyₒdaw', u'bù zhīdào'),
             (u'woo de', u'wǒ dē'),
             (u'hairtz', u'háizi'), (u'ig', u'yīgè'), (u'sherm', u'shénme'),

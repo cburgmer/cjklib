@@ -1788,6 +1788,39 @@ class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
                             + ' (reading %s, dialect %s)' \
                                 % (self.READING_NAME, dialect))
 
+    def testRhotacisedEntitesBackConversion(self):
+        """
+        Test if complement methods C{getBaseEntitiesForRhotacised()} and
+        C{getRhotacisedTonalEntity()} are consistent.
+        """
+        forms = []
+        forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
+        for dialect in forms:
+            grOperator = self.f.createReadingOperator(self.READING_NAME,
+                **dialect)
+            plainEntities = grOperator.getPlainReadingEntities()
+
+            rhotacisedDict = {}
+            for plainEntity in plainEntities:
+                for tone in grOperator.getTones():
+                    try:
+                        rhotacisedForm = grOperator.getRhotacisedTonalEntity(
+                            plainEntity, tone)
+                        if rhotacisedForm not in rhotacisedDict:
+                            rhotacisedDict[rhotacisedForm] = set()
+                        rhotacisedDict[rhotacisedForm].add(
+                            (plainEntity, tone))
+                    except exception.UnsupportedError:
+                        pass
+
+            # now check that back conversion gives us all the possible entities
+            for rhotacisedForm in rhotacisedDict:
+                entityPairs = grOperator.getBaseEntitiesForRhotacised(
+                    rhotacisedForm)
+                self.assertEquals(entityPairs, rhotacisedDict[rhotacisedForm])
+
 
 #TODO
 class GROperatorReferenceTest(ReadingOperatorReferenceTest,
@@ -1832,6 +1865,7 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (["yeou", " ", "i", "dea'l"], exception.CompositionError),
             (["jie", u"’", "l"], exception.CompositionError),
             (["sherm", ".me"], u"sherm.me"),
+            (["san", "g"], u"san’g"),
             ]),
         ({'abbreviations': False}, [
             (["tian", "an", "men"], u"tian’anmen"),
@@ -1904,14 +1938,15 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
                         % (self.READING_NAME, dialect))
 
     # The following mappings are taken from the Pinyin-to-GR Conversion Tables
-    # written/compiled by Richard Warmington,
-    # http://home.iprimus.com.au/richwarm/gr/pygrconv.txt
-    # and have been extended by rhoticised finals
+    #   written/compiled by Richard Warmington from 12 December 1998,
+    #   http://home.iprimus.com.au/richwarm/gr/pygrconv.txt
+    # Entry for 'ri' has been corrected for tones 1, 2, 'yo' removed as no
+    #   source given and rhoticised finals have been added.
     SPECIAL_MAPPING = """
 zhi             jy      jyr     jyy     jyh
 chi             chy     chyr    chyy    chyh
 shi             shy     shyr    shyy    shyh
-ri              ry      ryr     ryy     ryh
+ri              rhy     ry      ryy     ryh
 zi              tzy     tzyr    tzyy    tzyh
 ci              tsy     tsyr    tsyy    tsyh
 si              sy      syr     syy     syh
@@ -1922,7 +1957,6 @@ xu              shiu    shyu    sheu    shiuh
 
 yi              i       yi      yii     yih
 ya              ia      ya      yea     yah
-yo              io      -       -       -
 ye              ie      ye      yee     yeh
 yai             iai     yai     -       -
 yao             iau     yau     yeau    yaw
@@ -1995,7 +2029,6 @@ ong             ong     orng    oong    onq             hong    ong
 
 i               i       yi      ii      ih              hi      i
 ia              ia      ya      ea      iah             hia     ia
-io              io      -       -       -               hio     -
 ie              ie      ye      iee     ieh             hie     ie
 iai             iai     yai     -       -               hiai    iai
 iao             iau     yau     eau     iaw             hiau    iau
@@ -2068,6 +2101,12 @@ u:nr            iuel    yuel    euel    iuell           hiuel   iuel
 
     INITIAL_REGEX = re.compile('^(tz|ts|ch|sh|[bpmfdtnlsjrgkh])?')
 
+    INITIAL_MAPPING = {'b': 'b', 'p': 'p', 'f': 'f', 'd': 'd', 't': 't',
+        'g': 'g', 'k': 'k', 'h': 'h', 'j': 'j', 'q': 'ch', 'x': 'sh', 'zh': 'j',
+        'ch': 'ch', 'sh': 'sh', 'z': 'tz', 'c': 'ts', 's': 's', 'm': 'm',
+        'n': 'n', 'l': 'l', 'r': 'r'}
+    """Mapping of Pinyin intials to GR ones."""
+
     def setUp(self):
         super(GROperatorReferenceTest, self).setUp()
 
@@ -2076,6 +2115,8 @@ u:nr            iuel    yuel    euel    iuell           hiuel   iuel
             targetOptions={'GRRhotacisedFinalApostrophe': "'"})
         self.pinyinOperator = self.f.createReadingOperator('Pinyin',
             Erhua='oneSyllable')
+        self.grOperator = self.f.createReadingOperator('GR',
+            GRRhotacisedFinalApostrophe="'")
 
         # read in plain text mappings
         self.grJunctionSpecialMapping = {}
@@ -2108,46 +2149,51 @@ u:nr            iuel    yuel    euel    iuell           hiuel   iuel
                 4: gr4}
             self.grJunctionFinalMNLRMapping[pinyinFinal] = {1: gr1_m, 2: gr2_m}
 
-    def testGRJunctionGeneralFinalTable(self):
-        """
-        Test if the conversion matches the general final table given by GR
-        Junction.
-        """
-        # create general final mapping
-        entities = self.pinyinOperator.getPlainReadingEntities()
-        for pinyinPlainSyllable in entities:
+    def testGRJunctionTable(self):
+        """Test if all GR syllables have a reference given."""
+        grEntities = set(self.grOperator.getFullReadingEntities())
+        # no neutral tone syllables
+        for entity in grEntities.copy():
+            if entity[0] in ['.', u'\u2092']:
+                grEntities.remove(entity)
+
+        # remove syllables with entry '-' in GR Junction table
+        grEntities = grEntities - set([u'yeai', u'yay', u'weng'])
+
+        pinyinEntities = self.pinyinOperator.getPlainReadingEntities()
+        for pinyinPlainSyllable in pinyinEntities:
             pinyinInitial, pinyinFinal \
                 = self.pinyinOperator.getOnsetRhyme(pinyinPlainSyllable)
-            if pinyinInitial not in ['m', 'n', 'l', 'r', 'z', 'c', 's', 'zh',
-                'ch', 'sh', ''] and pinyinFinal not in ['m', 'ng', 'mr', 'ngr']:
+
+            if pinyinPlainSyllable in ['zhi', 'chi', 'shi', 'zi', 'ci',
+                'si', 'ri', 'ju', 'qu', 'xu', 'er'] \
+                or (pinyinPlainSyllable[0] in ['y', 'w']) \
+                and pinyinPlainSyllable in self.grJunctionSpecialMapping:
+
                 for tone in [1, 2, 3, 4]:
-                    target = self.grJunctionFinalMapping[pinyinFinal][tone]
+                    target = self.grJunctionSpecialMapping[pinyinPlainSyllable]\
+                        [tone]
                     if target == '-':
                         continue
 
                     pinyinSyllable = self.pinyinOperator.getTonalEntity(
                         pinyinPlainSyllable, tone)
+
                     syllable = self.converter.convert(pinyinSyllable)
 
-                    tonalFinal = self.INITIAL_REGEX.sub('', syllable)
-
-                    self.assertEquals(tonalFinal, target,
+                    self.assertEquals(syllable, target,
                         "Wrong conversion to GR %s for Pinyin syllable %s: %s" \
                             % (repr(target), repr(pinyinSyllable),
                                 repr(syllable)))
 
-    def testGRJunctionMNLRFinalTable(self):
-        """
-        Test if the conversion matches the m,n,l,r final table given by GR
-        Junction.
-        """
-        # m, n, l, r mapping for 1st and 2nd tone
-        entities = self.pinyinOperator.getPlainReadingEntities()
-        for pinyinPlainSyllable in entities:
-            pinyinInitial, pinyinFinal \
-                = self.pinyinOperator.getOnsetRhyme(pinyinPlainSyllable)
-            if pinyinInitial in ['m', 'n', 'l', 'r'] \
-                and pinyinFinal[0] != u'ʅ':
+                    # mark as seen
+                    grEntities.discard(target)
+
+            elif pinyinInitial in ['m', 'n', 'l', 'r'] \
+                and pinyinFinal[0] != u'ʅ' \
+                and pinyinFinal in self.grJunctionFinalMNLRMapping \
+                and pinyinFinal in self.grJunctionFinalMapping:
+
                 for tone in [1, 2]:
                     target = self.grJunctionFinalMNLRMapping[pinyinFinal][tone]
                     if target == '-':
@@ -2164,32 +2210,64 @@ u:nr            iuel    yuel    euel    iuell           hiuel   iuel
                             % (repr(target), repr(pinyinSyllable),
                                 repr(syllable)))
 
-    def testGRJunctionSpecialTable(self):
-        """
-        Test if the conversion matches the special syllable table given by GR
-        Junction.
-        """
-        entities = self.pinyinOperator.getPlainReadingEntities()
-        for pinyinPlainSyllable in entities:
-            if pinyinPlainSyllable in ['zhi', 'chi', 'shi', 'zi', 'ci',
-                'si', 'ju', 'qu', 'xu', 'er'] \
-                or (pinyinPlainSyllable[0] in ['y', 'w'] \
-                    and pinyinPlainSyllable not in ['yor']): # TODO yor, ri
-                for tone in [1, 2, 3, 4]:
-                    target = self.grJunctionSpecialMapping[pinyinPlainSyllable]\
-                        [tone]
+                    # mark as seen
+                    fullTarget = pinyinInitial + target
+                    grEntities.discard(fullTarget)
+
+                for tone in [3, 4]:
+                    target = self.grJunctionFinalMapping[pinyinFinal][tone]
                     if target == '-':
                         continue
 
                     pinyinSyllable = self.pinyinOperator.getTonalEntity(
                         pinyinPlainSyllable, tone)
-
                     syllable = self.converter.convert(pinyinSyllable)
 
-                    self.assertEquals(syllable, target,
+                    tonalFinal = self.INITIAL_REGEX.sub('', syllable)
+
+                    self.assertEquals(tonalFinal, target,
                         "Wrong conversion to GR %s for Pinyin syllable %s: %s" \
                             % (repr(target), repr(pinyinSyllable),
                                 repr(syllable)))
+
+                    # mark as seen
+                    if pinyinInitial:
+                        initialTarget = self.INITIAL_MAPPING[pinyinInitial]
+                    else:
+                        initialTarget = ''
+                    grEntities.discard(initialTarget + target)
+
+            #elif pinyinInitial not in ['z', 'c', 's', 'zh', 'ch', 'sh', ''] \
+                #and pinyinFinal not in ['m', 'ng', 'mr', 'ngr', u'ʅ', u'ʅr']:
+            elif pinyinFinal not in ['m', 'n', 'ng', 'mr', 'nr', 'ngr', u'ʅ',
+                u'ʅr', u'ɿr', u'ê', u'êr'] \
+                and pinyinFinal in self.grJunctionFinalMapping:
+
+                for tone in [1, 2, 3, 4]:
+                    target = self.grJunctionFinalMapping[pinyinFinal][tone]
+                    if target == '-':
+                        continue
+
+                    pinyinSyllable = self.pinyinOperator.getTonalEntity(
+                        pinyinPlainSyllable, tone)
+                    syllable = self.converter.convert(pinyinSyllable)
+
+                    tonalFinal = self.INITIAL_REGEX.sub('', syllable)
+
+                    self.assertEquals(tonalFinal, target,
+                        "Wrong conversion to GR %s for Pinyin syllable %s: %s" \
+                            % (repr(target), repr(pinyinSyllable),
+                                repr(syllable)))
+
+                    # mark as seen
+                    if pinyinInitial:
+                        initialTarget = self.INITIAL_MAPPING[pinyinInitial]
+                    else:
+                        initialTarget = ''
+                    grEntities.discard(initialTarget + target)
+
+        self.assert_(len(grEntities) == 0,
+            'Not all GR entities have test cases: %s' % repr(grEntities))
 
 
 class MandarinBrailleOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,

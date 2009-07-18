@@ -640,6 +640,24 @@ class TonalFixedEntityOperator(ReadingOperator):
 
     The class itself can't be used directly, it has to be subclassed and its
     methods need to be extended.
+
+    Tones
+    =====
+    Operators are free to handle X{tone}s according to their needs. No data type
+    constraint is given so that some will handle tones as integers, while others
+    will handle strings. Even the count of tones between different operators for
+    the same language may vary as one system might be more specific about tonal
+    features.
+
+    Plain entities
+    ==============
+    While some operators have a fixed set of accepted entities, the more
+    specific subgroup for tonal languages has a set of basic entities, such
+    entity here being called X{plain entity}, which can be annotated with tonal
+    information to yield a regular reading entity. Some I{plain entities} might
+    themselves be normal reading entities, while others might be not. No
+    requirements are made that the set of plain entity in cross product with
+    the set of tones will fully span the set of reading entities.
     """
     def __init__(self, **options):
         """
@@ -1218,7 +1236,8 @@ class PinyinOperator(TonalRomanisationOperator):
     stressing the monosyllabic nature and being part of a syllable of the
     foregoing character. This can be configured at instantiation time. By
     default the two-syllable form is chosen, which is more general as both
-    examples are allowed: C{banr} and C{ban r}.
+    examples are allowed: C{banr} and C{ban r} (i.e. one without delimiter, one
+    with; both though being two entities in this representation).
 
     Placement of tones
     ==================
@@ -1234,8 +1253,8 @@ class PinyinOperator(TonalRomanisationOperator):
     disambiguate between both solutions. The general behaviour is controlled
     with option C{'strictDiacriticPlacement'}.
 
-    Shortened letters
-    =================
+    X{Shortened letters}
+    ====================
     Pinyin allows to shorten two-letter pairs I{ng}, I{zh}, I{ch} and I{sh} to
     I{ŋ}, I{ẑ}, I{ĉ} and I{ŝ}. This behaviour can be controlled by option
     C{'shortenedLetters'}.
@@ -2337,6 +2356,15 @@ class GROperator(TonalRomanisationOperator):
         - syllable repetition markers as reported by some will currently not be
           parsed.
 
+    Tones
+    =====
+    Tones are transcribed rigorously as syllables in the neutral tone
+    additionally carry the original (etymological) tone information. Y.R. Chao
+    also annotates the X{optional neutral tone} (e.g. I{buh jyₒdaw}) which can
+    be pronounced with either the neutral tone or the etymological one. Compared
+    to other reading operators for Mandarin, special care has to be taken to
+    cope with these special requirements.
+
     R-colouring
     ===========
     Gwoyeu Romatzyh renders X{rhotacised} syllables (X{Erlhuah}) by trying to
@@ -2347,14 +2375,15 @@ class GROperator(TonalRomanisationOperator):
     in the first and the second tone but not in the third and the forth tone
     conversion between different tones (including the base form) cannot be made
     in a general manner: 小鸡儿 I{sheau-jiel} is different to 小街儿
-    I{sheau-jie’l} but 几儿 I{jieel} equals 姐儿 I{jieel} (see Chao).
+    I{sheau-jie’l} but 几儿 I{jieel} (from jǐ) equals 姐儿 I{jieel} (from jiě),
+    see Chao.
 
     Thus this ReadingOperator lacks the general handling of syllable renderings
-    and many methods narrow the range of syllables allowed. Unlike the original
-    forms without r-colouring for Erlhuah forms the combination of a plain
-    syllable with a specific tone is limited to the data given in the source, so
-    operations involving tones may return with an L{UnsupportedError} if the
-    given syllable isn't found with that tone.
+    and many methods narrow the range of syllables allowed. While original forms
+    can carry any tone (even though Mandarin doesn't make use of some
+    combinations), r-coloured forms for Erlhuah will currently be limited to
+    those given in the source by Y.R. Chao. Those not mentioned there will raise
+    an L{UnsupportedError}.
 
     Abbreviations
     =============
@@ -2385,6 +2414,7 @@ class GROperator(TonalRomanisationOperator):
 
     @todo Impl: Initial, medial, head, ending (ending1, ending2=l?)
     @todo Lang: Which character to use for optional neutral tone: C{'ₒ'} ?
+    @todo Lang: Y.R. Chao uses particle and interjection ㄝ è
     @todo Impl: Implement Erhua forms as stated in W. Simon: A Beginner's
         Chinese-English Dictionary.
     @todo Impl: Implement repetition markers as stated in W. Simon: A Beginner's
@@ -2407,7 +2437,9 @@ class GROperator(TonalRomanisationOperator):
 
     SYLLABLE_STRUCTURE = re.compile(r"^((?:tz|ts|ch|sh|[bpmfdtnlsjrgkh])?)" \
         + "([aeiouy]+)((?:ngl|ng|n|l)?)$")
-    """Regular expression describing the syllable structure in GR (C,V,C)."""
+    """
+    Regular expression describing the plain syllable structure in GR (C,V,C).
+    """
 
     DB_RHOTACISED_FINAL_MAPPING = {1: 'GRFinal_T1', 2: 'GRFinal_T2',
         3: 'GRFinal_T3', 4: 'GRFinal_T4'}
@@ -2489,6 +2521,8 @@ class GROperator(TonalRomanisationOperator):
             C{'GRSyllableSeparatorApostrophe'} can be set independantly as
             the former one should only be found before an C{l} and the latter
             mostly before vowels.
+        @todo Impl: Guess optional neutral tone marker ｡ (U+FF61), ￮ (U+FFEE),
+            ₀ (U+2080), ₒ (U+2092), ˳ (U+02F3)
         """
         APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
         readingStr = unicodedata.normalize("NFC", unicode(string))
@@ -2535,8 +2569,9 @@ class GROperator(TonalRomanisationOperator):
                 separator = self.getOption('GRSyllableSeparatorApostrophe')
 
                 if precedingEntityIsReading and entityIsReading \
-                    and entity[0].lower() in ['a', 'e', 'i', 'o', 'u']:
-                    # "A Grammar of Spoken Chinese, p. xxii"
+                    and (entity[0].lower() in ['a', 'e', 'i', 'o', 'u'] \
+                        or entity == 'g'):
+                    # "A Grammar of Spoken Chinese, p. xxii, p. 511"
                     newReadingEntities.append(separator)
                 # check if composition won't combine reading and non-reading e.
                 #   also disallow cases like ['jie', "'", 'l']
@@ -2686,8 +2721,8 @@ class GROperator(TonalRomanisationOperator):
             raise InvalidEntityError("Invalid tone information given for '" \
                 + plainEntity + "': '" + unicode(tone) + "'")
 
-        if plainEntity.endswith('l') and plainEntity != 'el' \
-            and self.isPlainReadingEntity(plainEntity[:-1]):
+        # catch basic Erlhuah forms (don't raise for tonal 'el' even if invalid)
+        if self.isRhotacisedReadingEntity(plainEntity):
             raise UnsupportedError("Not supported for '" + plainEntity + "'")
 
         # split syllable into CVC parts
@@ -2811,6 +2846,20 @@ class GROperator(TonalRomanisationOperator):
 
         return self._syllableToneLookup[entity]
 
+    def isRhotacisedReadingEntity(self, entity):
+        """
+        Checks if the given entity is a r-coloured entity (Erlhuah form).
+
+        @type entity: str
+        @param entity: reading entity
+        @rtype: bool
+        @return: C{True} if the given entity is a r-coloured entity, C{False}
+            otherwise.
+        """
+        return entity.endswith('l') \
+            and entity not in ['el', 'erl', 'eel', 'ell'] \
+            and self.isReadingEntity(entity)
+
     def getRhotacisedTonalEntity(self, plainEntity, tone):
         """
         Gets the r-coloured entity (Erlhuah form) with tone mark for the given
@@ -2848,8 +2897,8 @@ class GROperator(TonalRomanisationOperator):
             raise InvalidEntityError("Invalid tone information given for '" \
                 + plainEntity + "': '" + unicode(tone) + "'")
 
-        if plainEntity.endswith('l') \
-            and self.isPlainReadingEntity(plainEntity[:-1]):
+        # no Erlhuah for e and er
+        if plainEntity in ['e', 'el']:
             raise UnsupportedError("Not supported for '" + plainEntity + "'")
 
         # split syllable into CVC parts
@@ -2890,6 +2939,100 @@ class GROperator(TonalRomanisationOperator):
             tonalEntity = u'ₒ' + tonalEntity
 
         return tonalEntity
+
+    def getBaseEntitiesForRhotacised(self, tonalEntity):
+        """
+        Gets a list of base entities as plain entity/tone pair for a given
+        r-coloured entity (Erlhuah form).
+
+        This is the counterpart of L{getRhotacisedTonalEntity()} and as
+        different syllables can have a similar rhotacised form, the back
+        transformation is not injective.
+
+        @type tonalEntity: str
+        @param tonalEntity: r-coloured entity
+        @rtype: set of tuple
+        @return: list of plain entities with tone
+        @raise InvalidEntityError: if the entity is invalid.
+        """
+        if not hasattr(self, '_rhotacisedColumnToneLookup'):
+            self._rhotacisedColumnToneLookup = {}
+
+            columnList = self.DB_RHOTACISED_FINAL_MAPPING_ZEROINITIAL.items()
+            columnList.extend(self.DB_RHOTACISED_FINAL_MAPPING.items())
+            for tone, columnName in columnList:
+                if columnName in self._rhotacisedColumnToneLookup:
+                    assert(self._rhotacisedColumnToneLookup[columnName] == tone)
+                self._rhotacisedColumnToneLookup[columnName] = tone
+
+        if tonalEntity.startswith('.'):
+            baseTone = '5th'
+            baseTonalEntity = tonalEntity[1:]
+        elif tonalEntity.startswith(u'ₒ'):
+            baseTone = 'Optional5th'
+            baseTonalEntity = tonalEntity[1:]
+        else:
+            baseTone = ''
+            baseTonalEntity = tonalEntity
+
+        # transform to DB apostrophe
+        baseTonalEntity = baseTonalEntity.replace(
+            self.getOption('GRRhotacisedFinalApostrophe'),
+            self.DB_RHOTACISED_FINAL_APOSTROPHE)
+
+        # match initials and rest, grab tonal 'h' for mnlr
+        matchObj = re.match(r'((?:[mnlr])|h|(?:[^wyaeiou]*))(h?)(.*)$',
+            baseTonalEntity)
+        initial, h, baseTonalFinal = matchObj.groups()
+
+        TONE_MAPPING = {1: '1st', 2: '2nd', 3: '3rd', 4: '4th'}
+
+        entityList = set()
+
+        # lookup table data
+        table = self.db.tables['GRRhotacisedFinals']
+
+        finalTypes = [column.name for column in table.c \
+            if column.name != 'GRFinal']
+
+        columns = [table.c.GRFinal]
+        finalTypeColumns = [table.c[final] for final in finalTypes]
+        columns.extend(finalTypeColumns)
+
+        results = self.db.selectRows(select(columns,
+            or_(*[column == baseTonalFinal for column in finalTypeColumns])))
+        if not results:
+            raise InvalidEntityError(
+                "Invalid rhotacised entity given for '%s'" % tonalEntity)
+
+        for row in results:
+            nonRhotacisedFinal = row[0]
+            # match tone
+            for idx, col in enumerate(row[1:]):
+                if col == baseTonalFinal:
+                    column = finalTypes[idx]
+                    toneIndex = self._rhotacisedColumnToneLookup[column]
+                    break
+            else:
+                assert(False)
+
+            # special case
+            if initial in ['m', 'n', 'l', 'r'] and toneIndex == 1 and not h:
+                toneIndex = 2
+
+            if baseTone == '5th':
+                tone = '5thToneEtymological' + TONE_MAPPING[toneIndex]
+            elif baseTone == 'Optional5th':
+                tone = TONE_MAPPING[toneIndex] + 'ToneOptional5th'
+            else:
+                tone = TONE_MAPPING[toneIndex] + 'Tone'
+
+            plainEntity = initial + nonRhotacisedFinal
+            # check if form exists
+            if self.isPlainReadingEntity(plainEntity):
+                entityList.add((plainEntity, tone))
+
+        return entityList
 
     def getAbbreviatedEntities(self):
         """

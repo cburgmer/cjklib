@@ -938,7 +938,7 @@ class ReadingFactory(object):
         return readingOp.getReadingEntities()
 
     #}
-    #{ TonalRomanisationOperator methods
+    #{ TonalFixedEntityOperator methods
 
     def getTones(self, readingN, **options):
         """
