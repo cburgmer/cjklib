@@ -75,6 +75,10 @@ class ReadingConverterTest():
 
         return readingConverterClasses
 
+    def tearDown(self):
+        # get rid of the possibly > 1000 instances
+        self.f.clearCache()
+
 
 class ReadingConverterConsistencyTest(ReadingConverterTest):
     """Base class for consistency testing of L{ReadingConverter}s."""
@@ -306,7 +310,7 @@ class ReadingConverterReferenceTest(ReadingConverterTest):
                     string = self.f.convert(*args, **options)
 
                     self.assertEquals(string, target,
-                        "Conversion for %s to %s failed: %s " \
+                        "Conversion for %s to %s failed: %s" \
                             % (repr(reference), repr(target), repr(string)) \
                         + ' (conversion %s to %s, options %s)' \
                             % (self.fromReading, self.toReading, options))

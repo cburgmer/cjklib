@@ -50,6 +50,10 @@ class ReadingOperatorTest():
         # add name of reading
         return clearName + ' (for %s)' % self.READING_NAME
 
+    def tearDown(self):
+        # get rid of the possibly > 1000 instances
+        self.f.clearCache()
+
 
 class ReadingOperatorConsistencyTest(ReadingOperatorTest):
     """Base class for consistency testing of L{ReadingOperator}s."""
@@ -572,13 +576,20 @@ class ReadingOperatorReferenceTest(ReadingOperatorTest):
                     self.assertRaises(target, self.f.decompose, *args,
                         **dialect)
                 else:
-                    decomposition = self.f.decompose(*args, **dialect)
-                    self.assertEquals(decomposition, target,
-                        "Decomposition %s of %s not reached: %s" \
-                            % (repr(target), repr(reference),
-                                repr(decomposition)) \
-                        + ' (reading %s, dialect %s)' \
-                            % (self.READING_NAME, dialect))
+                    try:
+                        decomposition = self.f.decompose(*args, **dialect)
+                        self.assertEquals(decomposition, target,
+                            "Decomposition %s of %s not reached: %s" \
+                                % (repr(target), repr(reference),
+                                    repr(decomposition)) \
+                            + ' (reading %s, dialect %s)' \
+                                % (self.READING_NAME, dialect))
+                    except exception.DecompositionError, e:
+                        self.fail(
+                            'DecompositionError for %s with target %s: %s' \
+                                % (repr(reference), repr(target), repr(e)) \
+                            + ' (reading %s, dialect %s)' \
+                                % (self.READING_NAME, dialect))
 
     def testCompositionReferences(self):
         """Test if the given composition references are reached."""

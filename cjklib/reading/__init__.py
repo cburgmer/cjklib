@@ -339,9 +339,8 @@ class ReadingFactory(object):
         # create object instance cache if needed, shared with all factories
         #   using the same database connection
         if self.db not in self.sharedState:
-            self.sharedState[self.db] = {}
-            self.sharedState[self.db]['readingOperatorInstances'] = {}
-            self.sharedState[self.db]['readingConverterInstances'] = {}
+            # clear also generates the structure
+            self.clearCache()
         # publish default reading operators and converters
             for readingOperator in self.getReadingOperatorClasses():
                 self.publishReadingOperator(readingOperator)
@@ -349,6 +348,12 @@ class ReadingFactory(object):
                 self.publishReadingConverter(readingConverter)
 
     #{ Meta
+
+    def clearCache(self):
+        """Clears cached classes for the current database."""
+        self.sharedState[self.db] = {}
+        self.sharedState[self.db]['readingOperatorInstances'] = {}
+        self.sharedState[self.db]['readingConverterInstances'] = {}
 
     def publishReadingOperator(self, readingOperator):
         """
