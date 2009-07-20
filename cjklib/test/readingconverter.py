@@ -87,6 +87,13 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
     """
     List of option configurations, simmilar to C{test.readingoperator.DIALECTS}.
     """
+
+    FROM_DIALECTS = []
+    """List of dialects of the source reading."""
+
+    TO_DIALECTS = []
+    """List of dialects of the target reading."""
+
     @classmethod
     def titlecase(cls, string):
         return string.title()
@@ -114,8 +121,10 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
             "No reading converter class found" \
                 + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
 
-        forms = [{}]
+        forms = []
         forms.extend(self.OPTIONS_LIST)
+        if {} not in forms:
+            forms.append({})
         for dialect in forms:
             # instantiate
             self.readingConverterClass(**dialect)
@@ -137,8 +146,10 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
                 + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
 
         # test all given options
-        forms = [{}]
+        forms = []
         forms.extend(self.OPTIONS_LIST)
+        if {} not in forms:
+            forms.append({})
         for options in forms:
             for option in options:
                 self.assert_(option in defaultOptions,
@@ -175,6 +186,11 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
         """
         Check if letter case is transferred during conversion.
         """
+        def isOneCharEntity(entity):
+            return len([c for c \
+                in unicodedata.normalize("NFD", unicode(entity)) \
+                if 'a' <= c <= 'z']) == 1
+
         fromReadingClass = self.f.getReadingOperatorClass(self.fromReading)
         if not issubclass(fromReadingClass, operator.RomanisationOperator) \
             or 'case' not in fromReadingClass.getDefaultOptions():
@@ -187,61 +203,132 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
 
         import unicodedata
 
+        forms = []
+        forms.extend(self.OPTIONS_LIST)
+        if {} not in forms:
+            forms.append({})
         # TODO extend once unit test includes reading dialects
         entities = self.f.getReadingEntities(self.fromReading)
-        for dialect in self.OPTIONS_LIST:
+        for options in forms:
             for entity in entities:
                 try:
                     toEntity = self.f.convert(entity, self.fromReading,
-                        self.toReading, **dialect)
+                        self.toReading, **options)
                     self.assert_(toEntity.islower(),
                         'Mismatch in letter case for conversion %s to %s' \
                             % (repr(entity), repr(toEntity)) \
                         + ' (conversion %s to %s, options %s)' \
-                            % (self.fromReading, self.toReading, dialect))
+                            % (self.fromReading, self.toReading, options))
 
-                    if 'sourceOptions' in dialect \
-                        and 'case' in dialect['sourceOptions'] \
-                        and dialect['sourceOptions']['case'] == 'lower':
+                    if 'sourceOptions' in options \
+                        and 'case' in options['sourceOptions'] \
+                        and options['sourceOptions']['case'] == 'lower':
                         # the following conversions only hold for upper case
                         continue
 
                     toEntity = self.f.convert(entity.upper(), self.fromReading,
-                        self.toReading, **dialect)
+                        self.toReading, **options)
                     self.assert_(toEntity.isupper(),
                         'Mismatch in letter case for conversion %s to %s' \
                             % (repr(entity.upper()), repr(toEntity)) \
                         + ' (conversion %s to %s, options %s)' \
-                            % (self.fromReading, self.toReading, dialect))
+                            % (self.fromReading, self.toReading, options))
 
-                    ownDialect = dialect.copy()
-                    if 'targetOptions' not in ownDialect:
-                        ownDialect['targetOptions'] = {}
-                    ownDialect['targetOptions']['case'] = 'lower' # TODO
+                    ownOptions = options.copy()
+                    if 'targetOptions' not in ownOptions:
+                        ownOptions['targetOptions'] = {}
+                    ownOptions['targetOptions']['case'] = 'lower' # TODO
                     toEntity = self.f.convert(entity.upper(), self.fromReading,
-                        self.toReading, **ownDialect)
+                        self.toReading, **ownOptions)
 
                     self.assert_(toEntity.islower(),
                         'Mismatch in conversion to lower case from %s to %s' \
                             % (repr(entity.upper()), repr(toEntity)) \
                         + ' (conversion %s to %s, options %s)' \
-                            % (self.fromReading, self.toReading, dialect))
+                            % (self.fromReading, self.toReading, options))
 
-                    toEntity = self.f.convert(self.titlecase(entity),
-                        self.fromReading, self.toReading, **dialect)
+                    toEntities = self.f.convert(self.titlecase(entity),
+                        self.fromReading, self.toReading, **options)
 
                     # trade-off for one-char entities: upper-case goes for title
-                    oneCharEntity = len([c for c \
-                        in unicodedata.normalize("NFD", unicode(entity)) \
-                        if 'a' <= c <= 'z']) == 1
-                    self.assert_(self.istitlecase(toEntity) \
-                            or (oneCharEntity and toEntity.isupper()),
+                    self.assert_(self.istitlecase(toEntities) \
+                            or (toEntities.isupper() \
+                                and (isOneCharEntity(toEntities) \
+                                    or isOneCharEntity(entity))),
                         'Mismatch in title case for conversion %s to %s' \
-                            % (repr(self.titlecase(entity)), repr(toEntity)) \
+                            % (repr(self.titlecase(entity)), repr(toEntities)) \
                         + ' (conversion %s to %s, options %s)' \
-                            % (self.fromReading, self.toReading, dialect))
+                            % (self.fromReading, self.toReading, options))
                 except exception.ConversionError:
                     pass
+
+    def testConversionValid(self):
+        """
+        Check if converted entities are valid in the target reading.
+        """
+        fromReadingClass = self.f.getReadingOperatorClass(self.fromReading)
+        if not hasattr(fromReadingClass, 'getReadingEntities'):
+            return
+
+        forms = []
+        forms.extend(self.OPTIONS_LIST)
+        if {} not in forms:
+            forms.append({})
+
+        sourceDialects = []
+        sourceDialects.extend(self.FROM_DIALECTS)
+        if {} not in sourceDialects:
+            sourceDialects.append({})
+        targetDialects = []
+        targetDialects.extend(self.TO_DIALECTS)
+        if {} not in targetDialects:
+            targetDialects.append({})
+
+        for options in self.OPTIONS_LIST:
+            for sourceDialect in sourceDialects:
+                entities = self.f.getReadingEntities(self.fromReading,
+                    **sourceDialect)
+                for targetDialect in targetDialects:
+                    myOptions = options.copy()
+                    myOptions['sourceOptions'] = sourceDialect
+                    myOptions['targetOptions'] = targetDialect
+                    for entity in entities:
+                        try:
+                            toEntities = self.f.convert(entity,
+                                self.fromReading, self.toReading, **myOptions)
+                        except exception.ConversionError:
+                            continue
+
+                        try:
+                            decomposition = self.f.decompose(toEntities,
+                                self.toReading, **targetDialect)
+                        except exception.DecompositionError:
+                            self.fail("Error decomposing conversion result" \
+                                " from %s: %s" \
+                                    % (repr(entity), repr(toEntities)) \
+                                + ' (conversion %s (%s) to %s (%s)' \
+                                    % (self.fromReading, repr(sourceDialect),
+                                        self.toReading, repr(targetDialect)) \
+                                + ', options %s)' % options)
+
+                        if hasattr(self, 'cleanDecomposition'):
+                            cleanDecomposition = self.cleanDecomposition(
+                                decomposition, self.toReading, **targetDialect)
+                        else:
+                            cleanDecomposition = decomposition
+
+                        for toEntity in cleanDecomposition:
+                            self.assert_(
+                                self.f.isReadingEntity(toEntity, self.toReading,
+                                    **targetDialect),
+                                "Conversion from %s to %s" \
+                                    % (repr(entity), repr(toEntities)) \
+                                + " includes an in valid entity: %s" \
+                                    % repr(toEntity) \
+                                + ' (conversion %s (%s) to %s (%s)' \
+                                    % (self.fromReading, repr(sourceDialect),
+                                        self.toReading, repr(targetDialect)) \
+                                + ', options %s)' % options)
 
 
 class ReadingConverterTestCaseCheck(unittest.TestCase):
@@ -320,6 +407,10 @@ class CantoneseYaleDialectConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('CantoneseYale', 'CantoneseYale')
 
+    @classmethod
+    def titlecase(cls, string):
+        return converter.CantoneseYaleDialectConverter._titlecase(string)
+
 
 # TODO
 class CantoneseYaleDialectReferenceTest(ReadingConverterReferenceTest,
@@ -382,6 +473,10 @@ class JyutpingYaleConsistencyTest(ReadingConverterConsistencyTest,
 
     OPTIONS_LIST = [{'YaleFirstTone': '1stToneFalling'}]
 
+    @classmethod
+    def titlecase(cls, string):
+        return converter.CantoneseYaleDialectConverter._titlecase(string)
+
 
 # TODO
 class JyutpingYaleReferenceTest(ReadingConverterReferenceTest,
@@ -400,6 +495,10 @@ class JyutpingYaleReferenceTest(ReadingConverterReferenceTest,
 class YaleJyutpingConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('CantoneseYale', 'Jyutping')
+
+    @classmethod
+    def titlecase(cls, string):
+        return converter.CantoneseYaleDialectConverter._titlecase(string)
 
 
 # TODO
@@ -462,6 +561,10 @@ class WadeGilesDialectConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('WadeGiles', 'WadeGiles')
 
+    @classmethod
+    def titlecase(cls, string):
+        return converter.WadeGilesDialectConverter._titlecase(string)
+
 
 ## TODO
 #class WadeGilesDialectReferenceTest(ReadingConverterReferenceTest,
@@ -477,6 +580,10 @@ class WadeGilesDialectConsistencyTest(ReadingConverterConsistencyTest,
 class WadeGilesPinyinConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('WadeGiles', 'Pinyin')
+
+    @classmethod
+    def titlecase(cls, string):
+        return converter.WadeGilesDialectConverter._titlecase(string)
 
 
 # TODO
@@ -501,6 +608,10 @@ class WadeGilesPinyinReferenceTest(ReadingConverterReferenceTest,
 class PinyinWadeGilesConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('Pinyin', 'WadeGiles')
+
+    @classmethod
+    def titlecase(cls, string):
+        return converter.WadeGilesDialectConverter._titlecase(string)
 
 
 # TODO
@@ -527,9 +638,7 @@ class GRDialectConsistencyTest(ReadingConverterConsistencyTest,
         # see bug http://bugs.python.org/issue6412 and
         #   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
         # "Shern.me".title() == "Shern.Me", so reimplement
-        matchObj = re.match(ur"([.ₒ]?)(\w)(.*)$", string.lower())
-        tonal, firstChar, rest = matchObj.groups()
-        return tonal + firstChar.upper() + rest
+        return converter.GRDialectConverter._titlecase(string)
 
     def testAbbreviationConsistency(self):
         """
@@ -580,6 +689,29 @@ class GRPinyinConsistencyTest(ReadingConverterConsistencyTest,
     CONVERSION_DIRECTION = ('GR', 'Pinyin')
 
     OPTIONS_LIST = [{'GROptionalNeutralToneMapping': 'neutral'}]
+
+    @classmethod
+    def titlecase(cls, string):
+        # see bug http://bugs.python.org/issue6412 and
+        #   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
+        # "Shern.me".title() == "Shern.Me", so reimplement
+        return converter.GRDialectConverter._titlecase(string)
+
+    def cleanDecomposition(self, decomposition, reading, **options):
+        cls = self.f.getReadingOperatorClass(reading)
+        if not hasattr(cls, 'removeApostrophes'):
+            return decomposition
+
+        if not hasattr(self, '_operators'):
+            self._operators = []
+        for operatorReading, operatorOptions, op in self._operators:
+            if reading == operatorReading and options == operatorOptions:
+                break
+        else:
+            op = self.f.createReadingOperator(reading, **options)
+            self._operators.append((reading, options, op))
+
+        return op.removeApostrophes(decomposition)
 
 
 # TODO
@@ -807,6 +939,9 @@ class GRIPAConsistencyTest(ReadingConverterConsistencyTest, unittest.TestCase):
         {'coarticulationFunction': \
             converter.PinyinIPAConverter.finalECoarticulation}]
 
+    def cleanDecomposition(self, decomposition, reading, **options):
+        return [entity for entity in decomposition if entity != '.']
+
 
 ## TODO
 #class GRIPAGilesReferenceTest(ReadingConverterReferenceTest,
@@ -821,6 +956,26 @@ class GRIPAConsistencyTest(ReadingConverterConsistencyTest, unittest.TestCase):
 
 class GRWadeGilesConsistencyTest(ReadingConverterConsistencyTest, unittest.TestCase):
     CONVERSION_DIRECTION = ('GR', 'WadeGiles')
+
+    @classmethod
+    def titlecase(cls, string):
+        return converter.GRDialectConverter._titlecase(string)
+
+    def cleanDecomposition(self, decomposition, reading, **options):
+        cls = self.f.getReadingOperatorClass(reading)
+        if not hasattr(cls, 'removeHyphens'):
+            return decomposition
+
+        if not hasattr(self, '_operators'):
+            self._operators = []
+        for operatorReading, operatorOptions, op in self._operators:
+            if reading == operatorReading and options == operatorOptions:
+                break
+        else:
+            op = self.f.createReadingOperator(reading, **options)
+            self._operators.append((reading, options, op))
+
+        return op.removeHyphens(decomposition)
 
 
 ## TODO
@@ -837,6 +992,10 @@ class GRWadeGilesConsistencyTest(ReadingConverterConsistencyTest, unittest.TestC
 class WadeGilesGRConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('WadeGiles', 'GR')
+
+    @classmethod
+    def titlecase(cls, string):
+        return converter.GRDialectConverter._titlecase(string)
 
 
 ## TODO

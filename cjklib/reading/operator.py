@@ -1422,6 +1422,10 @@ class PinyinOperator(TonalRomanisationOperator):
 
         # set apostrophe function if given
         if 'PinyinApostropheFunction' in options:
+            if not hasattr(options['PinyinApostropheFunction'], '__call__'):
+                raise ValueError("Non-callable object '%s'" \
+                        % options['PinyinApostropheFunction'] \
+                    + " for keyword 'PinyinApostropheFunction'")
             self.optionValue['PinyinApostropheFunction'] \
                 = options['PinyinApostropheFunction']
 
@@ -4034,7 +4038,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         """
         # split into entities using a simple regex for all dialect forms
         entities = cls.syllableRegex.findall(
-            unicodedata.normalize("NFD", unicode(string)))
+            unicodedata.normalize("NFD", unicode(string.lower())))
 
         # guess tone mark type
         diacriticEntityCount = 0

@@ -887,7 +887,13 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             ]),
         ]
 
-    GUESS_DIALECT_REFERENCES = []
+    GUESS_DIALECT_REFERENCES = [
+        (u"Mh", {'toneMarkType': 'Diacritics'}),
+        (u"YUHT", {'toneMarkType': 'Diacritics'}),
+        (u"yuht", {'toneMarkType': 'Diacritics'}),
+        (u"wā", {'toneMarkType': 'Diacritics'}),
+        (u"gwong2", {'toneMarkType': 'Numbers'}),
+    ]
 
 
 class JyutpingOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
