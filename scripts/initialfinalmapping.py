@@ -91,8 +91,18 @@ INITIAL_RULES = {('Jyutping', 'CantoneseYale'): {'': '', 'b': 'b', 'p': 'p',
         't': 't', 'n': 'n', 'l': 'l', 'g': 'g', 'k': 'k', 'h': 'h', 'j': 'j',
         'r': 'r', 's': 's', 'zh': 'j', 'q': 'ch', 'x': 'sh', 'z': 'tz',
         'c': 'ts', 'ch': 'ch', 'sh': 'sh'},
+    ('Pinyin', 'WadeGiles'): {'': '', 'b': 'p', 'p': u'p’', 'm': 'm', 'f': 'f',
+        'd': 't', 't': u't’', 'n': 'n', 'l': 'l', 'g': 'k', 'k': u'k’',
+        'h': 'h', 'j': 'ch', 'q': u'ch’', 'x': 'hs', 'zh': 'ch', 'ch': u'ch’',
+        'sh': 'sh', 'r': 'j', 'z': {u'-ŭ': 'ts', u'ŭ': 'tz'},
+        'c': {u'-ŭ': u'ts’', u'ŭ': u'tz’'},
+        's': {u'-ŭ': 's', u'ŭ': 'ss'}},
     }
-"""Mapping of syllable initials"""
+"""
+Mapping of syllable initials.
+For ambiguous pronunciations a non-injective mapping can be achieved by giving a
+dictionary of possibilities, the key giving the name of the feature.
+"""
 
 # TABLE 1
 FINAL_RULES = {('Jyutping', 'CantoneseYale'): {'aa': ('a', ''),
@@ -144,11 +154,24 @@ FINAL_RULES = {('Jyutping', 'CantoneseYale'): {'aa': ('a', ''),
         u'uei': 'uei', u'uan': 'uan', u'uen': 'uen', u'uang': 'uang',
         u'ü': 'iu', u'üe': 'iue', u'üan': 'iuan', u'ün': 'iun', u'ɿ': 'y',
         u'ʅ': 'y', u'ueng': 'ueng'},
+    ('Pinyin', 'WadeGiles'): {'a': 'a', 'ai': 'ai', 'an': 'an', 'ang': 'ang',
+        'ao': 'ao', 'e': {'all_1': u'ê', u'k/k’/h': 'o'},
+        u'ê': {'all_1': u'ê', 'all_2': 'o'}, 'ei': 'ei',
+        'en': u'ên', 'eng': u'êng', 'er': u'êrh', u'ʅ': 'ih', u'ɿ': u'ŭ',
+        'i': 'i', 'ia': 'ia', 'ian': 'ien', 'iang': 'iang', 'iao': 'iao',
+        'ie': 'ieh', 'in': 'in', 'ing': 'ing', 'iong': 'iung', 'iou': 'iu',
+        'o': 'o', 'ong': 'ung', 'ou': 'ou', 'u': 'u', 'ua': 'ua', 'uai': 'uai',
+        'uan': 'uan', 'uang': 'uang', 'uei': {u'-k/k’/': 'ui', u'k/k’/': 'uei'},
+        'uen': 'un', 'uo': {u'k/k’/h/sh/': 'uo', u'-k/k’/h/sh/': 'o'},
+        u'ü': u'ü', u'üan': u'üan', u'üe': u'üeh', u'ün': u'ün'},
     }
 """
 Mapping of syllable finals.
 For ambiguous pronunciations a non-injective mapping can be achieved by giving a
 dictionary of possibilities, the key giving the name of the feature.
+
+These finals included here don't necessarily represent the actual rendering, as
+they might depend on the initial they combine with.
 """
 
 # TABLE 1
@@ -174,7 +197,10 @@ EXTRA_SYLLABLES = {('Jyutping', 'CantoneseYale'): {'om': None, 'pet': None,
         'ceot': (u'tʃʰ', u'ɵt̚'), 'zeon': (u'tʃ', u'ɵn'),
         'ceon': (u'tʃʰ', u'ɵn')},
     ('Pinyin', 'GR'): {u'm': None, u'n': None, u'ng': None, u'hm': None,
-        u'hng': None, u'ê': None},
+        u'hng': None, u'ê': None, 'yo': None},
+    ('Pinyin', 'WadeGiles'): {u'wen': ('', u'uên'), 'weng': ('', u'uêng'),
+        u'm': None, u'n': None, u'ng': None, u'hm': None, u'hng': None,
+        'yai': None, 'yo': None},
     }
 """
 Mapping for syllables with either no initial/final rules or with non standard
@@ -195,29 +221,96 @@ def getYaleSyllable(initial, final):
     else:
         return initial + nucleus + coda
 
-def makeYaleInitialNucleusCodaEntry(jyutpingSyllable, initial, final, f=None):
+def makeYaleInitialNucleusCodaEntry(jyutpingSyllable, initial, final,
+    initialFeature=None, finalFeature=None):
     yaleSyllable = getYaleSyllable(initial, final)
     nucleus, coda = final
 
-    entrySet.add("'" + yaleSyllable + "','" + initial + "','" + nucleus \
-        + "','" + coda + "'")
+    return "'" + yaleSyllable + "','" + initial + "','" + nucleus \
+        + "','" + coda + "'"
 
-def makeJyutpingYaleEntry(jyutpingSyllable, initial, final, f=None):
+def makeJyutpingYaleEntry(jyutpingSyllable, initial, final,
+    initialFeature=None, finalFeature=None):
     yaleSyllable = getYaleSyllable(initial, final)
 
-    entrySet.add("'" + jyutpingSyllable + "','" + yaleSyllable + "'")
+    return "'" + jyutpingSyllable + "','" + yaleSyllable + "'"
 
-def makeTargetInitialFinalEntry(sourceSyllable, initial, final, f=None):
-    entrySet.add("'" + initial + final + "','" + initial + "','" + final + "'")
+def getWadeGilesSyllable(initial, final):
+    # syllable rule
+    if not initial and final in ['in', 'ing']:
+        return 'y' + final
+    elif not initial and final.startswith('i') and final != 'i':
+        return 'y' + final[1:]
+    elif not initial and final == 'u':
+        return 'w' + final
+    elif not initial and final.startswith('u'):
+        return 'w' + final[1:]
+    elif not initial and final == u'ü':
+        return 'y' + final
+    elif not initial and final.startswith(u'ü'):
+        return 'y' + final
+    else:
+        return initial + final
 
-def makeSourceTargetEntry(sourceSyllable, initial, final, feature=None):
+def checkFeature(syllablePart, feature):
+    """
+    Checks if the given initial or final fits to the given feature.
+
+    E.g. if a final entry is given as {u'-k/k’/': 'ui', u'k/k’/': 'uei'},
+    then the first feature is u'-k/k’/' which represents all finals except 'k',
+    'k’' and '', so that e.g. checkFeature('d', u'-k/k’/') will return true and
+    generate form 'dui'.
+    """
+    if feature:
+        negative = False
+        if feature.startswith('-'):
+            feature = feature[1:]
+            negative = True
+        if feature.startswith('all_'):
+            # all carry this
+            return True
+        mappings = feature.split('/')
+        return (syllablePart in mappings and not negative) \
+            or (syllablePart not in mappings and negative)
+    return True
+
+def makePinyinWadeGilesEntry(pinyinSyllable, initial, final,
+    initialFeature=None, finalFeature=None):
+    if checkFeature(final, initialFeature) \
+        and checkFeature(initial, finalFeature):
+        # only generate entry if initial/final fits to features
+        wadeGilesSyllable = getWadeGilesSyllable(initial, final)
+
+        return "'" + pinyinSyllable + "','" + wadeGilesSyllable + "'"
+
+def makeWadeGilesInitialFinalEntry(pinyinSyllable, initial, final,
+    initialFeature=None, finalFeature=None):
+    if checkFeature(final, initialFeature) \
+        and checkFeature(initial, finalFeature):
+        # only generate entry if initial/final fits to features
+        wadeGilesSyllable = getWadeGilesSyllable(initial, final)
+
+        return "'" + wadeGilesSyllable + "','" + initial + "','" + final + "'"
+
+def makeTargetInitialFinalEntry(sourceSyllable, initial, final,
+    initialFeature=None, finalFeature=None):
+    return "'" + initial + final + "','" + initial + "','" + final + "'"
+
+def makeSourceTargetEntry(sourceSyllable, initial, final, initialFeature=None,
+    finalFeature=None):
     targetSyllable = initial + final
 
-    if feature != None:
-        entrySet.add("'" + sourceSyllable + "','" + targetSyllable + "','" \
-            + feature + "'")
+    features = []
+    if initialFeature:
+        features.append(initialFeature)
+    if finalFeature:
+        features.append(finalFeature)
+
+    if features:
+        return "'" + sourceSyllable + "','" + targetSyllable + "','" \
+            + ','.join(features) + "'"
     else:
-        entrySet.add("'" + sourceSyllable + "','" + targetSyllable + "',")
+        return "'" + sourceSyllable + "','" + targetSyllable + "',"
 
 modi = {'YaleInitialFinal':('Jyutping', 'CantoneseYale',
         makeYaleInitialNucleusCodaEntry, {'toneMarkType': 'None'}),
@@ -233,6 +326,11 @@ modi = {'YaleInitialFinal':('Jyutping', 'CantoneseYale',
     'JyutpingIPAMapping': ('Jyutping', 'CantoneseIPA', makeSourceTargetEntry,
         {'toneMarkType': 'None'}),
     'PinyinGRMapping': ('Pinyin', 'GR', makeSourceTargetEntry,
+        {'Erhua': 'ignore', 'toneMarkType': 'None'}),
+    'PinyinWadeGilesMapping': ('Pinyin', 'WadeGiles', makePinyinWadeGilesEntry,
+        {'Erhua': 'ignore', 'toneMarkType': 'None'}),
+    'WadeGilesInitialFinal': ('Pinyin', 'WadeGiles',
+        makeWadeGilesInitialFinalEntry,
         {'Erhua': 'ignore', 'toneMarkType': 'None'}),
     }
 
@@ -270,15 +368,34 @@ def main():
         if not syllable in extraSyllables:
             # check if we have rules
             if initialRules[initial] != None and finialRules[final] != None:
-                if type(finialRules[final]) == type({}):
-                    # we have an ambiguous mapping
-                    for feature in finialRules[final].keys():
-                        targetFinal = finialRules[final][feature]
-                        entryFunc(syllable, initialRules[initial], targetFinal,
-                            feature)
+                # check for ambiguous mappings
+                if type(initialRules[initial]) == type({}):
+                    initialFeatures = initialRules[initial].keys()
                 else:
-                    entryFunc(syllable, initialRules[initial],
-                        finialRules[final])
+                    initialFeatures = [None]
+                if type(finialRules[final]) == type({}):
+                    finalFeatures = finialRules[final].keys()
+                else:
+                    finalFeatures = [None]
+
+                # go through all mappings
+                for initialFeature in initialFeatures:
+                    for finalFeature in finalFeatures:
+                        if initialFeature:
+                            targetInitial \
+                                = initialRules[initial][initialFeature]
+                        else:
+                            targetInitial = initialRules[initial]
+
+                        if finalFeature:
+                            targetFinal = finialRules[final][finalFeature]
+                        else:
+                            targetFinal = finialRules[final]
+
+                        entry = entryFunc(syllable, targetInitial, targetFinal,
+                            initialFeature, finalFeature)
+                        if entry != None:
+                            entrySet.add(entry)
             else:
                 print >> sys.stderr, ("missing rule(s) for syllable '" \
                     + syllable + "' with initial/final '" + initial + "'/'" \
@@ -287,20 +404,41 @@ def main():
     # print extra syllables
     for syllable in extraSyllables:
         if extraSyllables[syllable]:
-            if type(extraSyllables[syllable]) == type([]):
-                for feature in extraSyllables[syllable].keys():
-                    targetInitial, targetFinal \
-                        = extraSyllables[syllable][feature]
-                    entryFunc(syllable, targetInitial, targetFinal, feature)
+            initialRule, finalRule = extraSyllables[syllable]
+            # check for ambiguous mappings
+            if type(initialRule) == type({}):
+                initialFeatures = initialRule.keys()
             else:
-                targetInitial, targetFinal = extraSyllables[syllable]
-                entryFunc(syllable, targetInitial, targetFinal)
+                initialFeatures = [None]
+            if type(finalRule) == type({}):
+                finalFeatures = finalRule.keys()
+            else:
+                finalFeatures = [None]
+
+            # go through all mappings
+            for initialFeature in initialFeatures:
+                for finalFeature in finalFeatures:
+                    if initialFeature:
+                        targetInitial = initialRule[initialFeature]
+                    else:
+                        targetInitial = initialRule
+
+                    if finalFeature:
+                        targetFinal = finalRule[finalFeature]
+                    else:
+                        targetFinal = finalRule
+
+                    entry = entryFunc(syllable, targetInitial, targetFinal,
+                        initialFeature, finalFeature)
+                    if entry != None:
+                        entrySet.add(entry)
 
     notIncludedSyllables = [syllable for syllable in extraSyllables \
         if not extraSyllables[syllable]]
     if notIncludedSyllables:
         print >> sys.stderr, ("Syllables not included in table: '" \
-            + "', '".join(notIncludedSyllables) + "'").encode(output_encoding)
+            + "', '".join(sorted(notIncludedSyllables)) + "'")\
+            .encode(output_encoding)
 
     entryList = list(entrySet)
     entryList.sort()

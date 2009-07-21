@@ -566,15 +566,46 @@ class WadeGilesDialectConsistencyTest(ReadingConverterConsistencyTest,
         return converter.WadeGilesDialectConverter._titlecase(string)
 
 
-## TODO
-#class WadeGilesDialectReferenceTest(ReadingConverterReferenceTest,
-    #unittest.TestCase):
-    #CONVERSION_DIRECTION = ('WadeGiles', 'WadeGiles')
+class WadeGilesDialectReferenceTest(ReadingConverterReferenceTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('WadeGiles', 'WadeGiles')
 
-    #CONVERSION_REFERENCES = [
-        #({'sourceOptions': {}, 'targetOptions': {}}, [
-            #]),
-        #]
+    CONVERSION_REFERENCES = [
+        ({'sourceOptions': {'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
+            (u"Ssŭ1ma3 Ch’ien1", u'Ssŭ¹-ma³ Ch’ien¹'),
+            ]),
+        ({'sourceOptions': {'toneMarkType': 'Numbers',
+            'WadeGilesApostrophe': "'"}, 'targetOptions': {}}, [
+            (u"Ssŭ1ma3 Ch'ien1", u'Ssŭ¹-ma³ Ch’ien¹'),
+            ]),
+        ({'sourceOptions': {'zeroFinal': u'ǔ'}, 'targetOptions': {}}, [
+            (u"K’ung³-tzǔ³", u'K’ung³-tzŭ³'),
+            ]),
+        ({'sourceOptions': {'zeroFinal': u'u'}, 'targetOptions': {}}, [
+            (u"K’ung³-tzu³", u'K’ung³-tzŭ³'),
+            ]),
+        ({'sourceOptions': {'diacriticE': u'e'}, 'targetOptions': {}}, [
+            (u'he¹', u'hê¹'),
+            ]),
+        ({'sourceOptions': {}, 'targetOptions': {'case': 'lower'}}, [
+            (u'Kuo³-Yü²', u'kuo³-yü²'),
+            ]),
+        ({'sourceOptions': {'umlautU': u'u'}, 'targetOptions': {}}, [
+            (u'hsu¹', u'hsü¹'),
+            (u'yu²', exception.AmbiguousConversionError),
+            (u'hsü¹', u'hsü¹'), # invalid entity
+            (u'hsü⁴-ch’u', exception.ConversionError),
+            ]),
+        ({'sourceOptions': {'neutralToneMark': u'five'},
+            'targetOptions': {}}, [
+            (u'chih¹-tao⁵', u'chih¹-tao'),
+            (u'chih¹-tao', exception.ConversionError),
+            ]),
+        ({'sourceOptions': {'neutralToneMark': u'zero',
+            'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
+            (u'chih1-tao0', u'chih¹-tao'),
+            ]),
+        ]
 
 
 class WadeGilesPinyinConsistencyTest(ReadingConverterConsistencyTest,
@@ -592,17 +623,461 @@ class WadeGilesPinyinReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('WadeGiles', 'Pinyin')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {}, 'targetOptions': {}}, [
-            (u'kuo', exception.AmbiguousConversionError),
+        ({'sourceOptions': {'toneMarkType': 'Numbers'},
+            'targetOptions': {}}, [
+            (u'kuo', 'guo'),
             (u'kuo³-yü²', u'kuo³-yü²'),
             (u'kuo3-yü2', u'guǒyú'),
+            (u"ssŭ1ma3 ch’ien1", u'sīmǎ qiān'),
+            (u"Ssŭ1ma3 Ch’ien1", u'Sīmǎ Qiān'),
             ]),
-        ({'sourceOptions': {'toneMarkType': 'SuperscriptNumbers'},
-            'targetOptions': {}}, [
+        ({'sourceOptions': {}, 'targetOptions': {}}, [
             (u'kuo³-yü²', u'guǒyú'),
             (u'KUO³-YÜ²', u'GUǑYÚ'),
+            (u'ho', u'he'),
+            (u'hê', u'he'),
             ]),
         ]
+
+    LOC_CONVERSION_TABLE = u"""
+   a    a
+   ai    ai
+   an    an
+   ang    ang
+   ao    ao
+   cha    zha
+   ch`a    cha
+   chai    zhai
+   ch`ai    chai
+   chan    zhan
+   ch`an    chan
+   chang    zhang
+   ch`ang    chang
+   chao    zhao
+   ch`ao    chao
+   che    zhe
+   ch`e    che
+   chen    zhen
+   ch`en    chen
+   cheng    zheng
+   ch`eng    cheng
+   chi    ji
+   ch`i    qi
+   chia    jia
+   ch`ia    qia
+   chiang    jiang
+   ch`iang    qiang
+   chiao    jiao
+   ch`iao    qiao
+   chieh    jie
+   ch`ieh    qie
+   chien    jian
+   ch`ien    qian
+   chih    zhi
+   ch`ih    chi
+   chin    jin
+   ch`in    qin
+   ching    jing
+   ch`ing    qing
+   chiu    jiu
+   ch`iu    qiu
+   chiung    jiong
+   ch`iung    qiong
+   cho    zhuo
+   ch`o    chuo
+   chou    zhou
+   ch`ou    chou
+   chu    zhu
+   ch`u    chu
+   chü    ju
+   ch`ü    qu
+   chua    zhua
+   chuai    zhuai
+   ch`uai    chuai
+   chuan    zhuan
+   ch`uan    chuan
+   chüan    juan
+   ch`üan    quan
+   chuang    zhuang
+   ch`uang    chuang
+   chüeh    jue
+   ch`üeh    que
+   chui    zhui
+   ch`ui    chui
+   chun    zhun
+   ch`un    chun
+   chün    jun
+   ch`ün    qun
+   chung    zhong
+   ch`ung    chong
+   en    en
+   erh    er
+   fa    fa
+   fan    fan
+   fang    fang
+   fei    fei
+   fen    fen
+   feng    feng
+   fo    fo
+   fou    fou
+   fu    fu
+   ha    ha
+   hai    hai
+   han    han
+   hang    hang
+   hao    hao
+   hei    hei
+   hen    hen
+   heng    heng
+   ho    he
+   hou    hou
+   hsi    xi
+   hsia    xia
+   hsiang    xiang
+   hsiao    xiao
+   hsieh    xie
+   hsien    xian
+   hsin    xin
+   hsing    xing
+   hsiu    xiu
+   hsiung    xiong
+   hsü    xu
+   hsüan    xuan
+   hsüeh    xue
+   hsün    xun
+   hu    hu
+   hua    hua
+   huai    huai
+   huan    huan
+   huang    huang
+   hui    hui
+   hun    hun
+   hung    hong
+   huo    huo
+   i    yi
+   jan    ran
+   jang    rang
+   jao    rao
+   je    re
+   jen    ren
+   jeng    reng
+   jih    ri
+   jo    ruo
+   jou    rou
+   ju    ru
+   juan    ruan
+   jui    rui
+   jun    run
+   jung    rong
+   ka    ga
+   k`a    ka
+   kai    gai
+   k`ai    kai
+   kan    gan
+   k`an    kan
+   kang    gang
+   k`ang    kang
+   kao    gao
+   k`ao    kao
+   ken    gen
+   k`en    ken
+   keng    geng
+   k`eng    keng
+   ko    ge
+   k`o    ke
+   kou    gou
+   k`ou    kou
+   ku    gu
+   k`u    ku
+   kua    gua
+   k`ua    kua
+   kuai    guai
+   k`uai    kuai
+   kuan    guan
+   k`uan    kuan
+   kuang    guang
+   k`uang    kuang
+   kuei    gui
+   k`uei    kui
+   kun    gun
+   k`un    kun
+   kung    gong
+   k`ung    kong
+   kuo    guo
+   k`uo    kuo
+   la    la
+   lai    lai
+   lan    lan
+   lang    lang
+   lao    lao
+   le    le
+   lei    lei
+   leng    leng
+   li    li
+   liang    liang
+   liao    liao
+   lieh    lie
+   lien    lian
+   lin    lin
+   ling    ling
+   liu    liu
+   lo    luo
+   lou    lou
+   lu    lu
+   lü    lü
+   luan    luan
+   lüeh    lüe
+   lun    lun
+   lung    long
+   ma    ma
+   mai    mai
+   man    man
+   mang    mang
+   mao    mao
+   mei    mei
+   men    men
+   meng    meng
+   mi    mi
+   miao    miao
+   mieh    mie
+   mien    mian
+   min    min
+   ming    ming
+   miu    miu
+   mo    mo
+   mou    mou
+   mu    mu
+   na    na
+   nai    nai
+   nan    nan
+   nang    nang
+   nao    nao
+   nei    nei
+   nen    nen
+   neng    neng
+   ni    ni
+   niang    niang
+   niao    niao
+   nieh    nie
+   nien    nian
+   nin    nin
+   ning    ning
+   niu    niu
+   no    nuo
+   nou    nou
+   nu    nu
+   nü    nü
+   nuan    nuan
+   nüeh    nüe
+   nung    nong
+   o    ê
+   ou    ou
+   pa    ba
+   p`a    pa
+   pai    bai
+   p`ai    pai
+   pan    ban
+   p`an    pan
+   pang    bang
+   p`ang    pang
+   pao    bao
+   p`ao    pao
+   pei    bei
+   p`ei    pei
+   pen    ben
+   p`en    pen
+   peng    beng
+   p`eng    peng
+   pi    bi
+   p`i    pi
+   piao    biao
+   p`iao    piao
+   pieh    bie
+   p`ieh    pie
+   pien    bian
+   p`ien    pian
+   pin    bin
+   p`in    pin
+   ping    bing
+   p`ing    ping
+   po    bo
+   p`o    po
+   p`ou    pou
+   pu    bu
+   p`u    pu
+   sa    sa
+   sai    sai
+   san    san
+   sang    sang
+   sao    sao
+   se    se
+   sen    sen
+   seng    seng
+   sha    sha
+   shai    shai
+   shan    shan
+   shang    shang
+   shao    shao
+   she    she
+   shen    shen
+   sheng    sheng
+   shih    shi
+   shou    shou
+   shu    shu
+   shua    shua
+   shuai    shuai
+   shuan    shuan
+   shuang    shuang
+   shui    shui
+   shun    shun
+   shuo    shuo
+   so    suo
+   sou    sou
+   ssu    si
+   su    su
+   suan    suan
+   sui    sui
+   sun    sun
+   sung    song
+   ta    da
+   t`a    ta
+   tai    dai
+   t`ai    tai
+   tan    dan
+   t`an    tan
+   tang    dang
+   t`ang    tang
+   tao    dao
+   t`ao    tao
+   te    de
+   t`e    te
+   teng    deng
+   t`eng    teng
+   ti    di
+   t`i    ti
+   tiao    diao
+   t`iao    tiao
+   tieh    die
+   t`ieh    tie
+   tien    dian
+   t`ien    tian
+   ting    ding
+   t`ing    ting
+   tiu    diu
+   to    duo
+   t`o    tuo
+   tou    dou
+   t`ou    tou
+   tu    du
+   t`u    tu
+   tuan    duan
+   t`uan    tuan
+   tui    dui
+   t`ui    tui
+   tun    dun
+   t`un    tun
+   tung    dong
+   t`ung    tong
+   tsa    za
+   ts`a    ca
+   tsai    zai
+   ts`ai    cai
+   tsan    zan
+   ts`an    can
+   tsang    zang
+   ts`ang    cang
+   tsao    zao
+   ts`ao    cao
+   tse    ze
+   ts`e    ce
+   tsei    zei
+   tsen    zen
+   ts`en    cen
+   tseng    zeng
+   ts`eng    ceng
+   tso    zuo
+   ts`o    cuo
+   tsou    zou
+   ts`ou    cou
+   tsu    zu
+   ts`u    cu
+   tsuan    zuan
+   ts`uan    cuan
+   tsui    zui
+   ts`ui    cui
+   tsun    zun
+   ts`un    cun
+   tsung    zong
+   ts`ung    cong
+   tzu    zi
+   tz`u    ci
+   wa    wa
+   wai    wai
+   wan    wan
+   wang    wang
+   wei    wei
+   wen    wen
+   weng    weng
+   wo    wo
+   wu    wu
+   ya    ya
+   yai    yai
+   yang    yang
+   yao    yao
+   yeh    ye
+   yen    yan
+   yin    yin
+   ying    ying
+   yo    yo
+   yu    you
+   yü    yu
+   yüan    yuan
+   yüeh    yue
+   yün    yun
+   yung    yong
+"""
+    u"""
+    Conversion table from the  Library of Congress Pinyin Conversion Project -
+    New Chinese Romanization Guidelines:
+    U{http://www.loc.gov/catdir/pinyin/romcover.html}, 28.05.1999
+    This list contains syllables taken from Dìmíng Hànzì Yìyīnbiǎo (名漢字譯音表,
+    1971) and ALA-LC romanization tables (1997) for the Wade-Giles parts and
+    furthermore Xiàndài Hànyǔ Cídiǎn (现代汉语词典, 1983) for the Pinyin parts.
+
+    Corrected entry: lüeh -> lue to lüe, nüeh -> nue to nüe, o -> e to ê,
+    Removed entry: lüan -> luan (missing source)
+    """
+
+    def setUp(self):
+        super(WadeGilesPinyinReferenceTest, self).setUp()
+
+        # set up LOC table
+        wgOptions = {'WadeGilesApostrophe': u'`', 'toneMarkType': "None",
+            'diacriticE': 'e', 'zeroFinal': 'u'}
+        pinyinOptions = {'Erhua': 'ignore', 'toneMarkType': 'None'}
+        self.converter = self.f.createReadingConverter('WadeGiles',
+            'Pinyin', sourceOptions=wgOptions, targetOptions=pinyinOptions)
+        self.wgOperator = self.f.createReadingOperator('WadeGiles', **wgOptions)
+
+        # read in plain text mappings
+        self.syllableMapping = {}
+        for line in self.LOC_CONVERSION_TABLE.split("\n"):
+            if line.strip() == "":
+                continue
+            matchObj = re.match(r"(?u)\s*((?:\w|`)+)\s+((?:\w)+)", line)
+            wgSyllable, pinyinSyllable = matchObj.groups()
+            self.syllableMapping[wgSyllable] = pinyinSyllable
+
+    def testLOCTableReferences(self):
+        """Test if all LoC references are reached."""
+        for wgSyllable, target in self.syllableMapping.items():
+            try:
+                syllable = self.converter.convert(wgSyllable)
+                self.assertEquals(syllable, target,
+                    "Wrong conversion to Pinyin %s for Wade-Giles %s: %s" \
+                        % (repr(target), repr(wgSyllable), repr(syllable)))
+            except exception.ConversionError:
+                pass
 
 
 class PinyinWadeGilesConsistencyTest(ReadingConverterConsistencyTest,
@@ -621,7 +1096,8 @@ class PinyinWadeGilesReferenceTest(ReadingConverterReferenceTest,
 
     CONVERSION_REFERENCES = [
         ({'sourceOptions': {}, 'targetOptions': {}}, [
-            (u"tiān'ānmén", u't‘ien1an1-men2'),
+            (u"tiān'ānmén", u't’ien1an1-men2'),
+            (u'he', exception.AmbiguousConversionError),
             ]),
         ]
 
@@ -866,12 +1342,12 @@ class WadeGilesIPAReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('WadeGiles', 'MandarinIPA')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {}, 'targetOptions': {}}, [
+        ({'sourceOptions': {'toneMarkType': 'Numbers'},
+            'targetOptions': {}}, [
             (u'kuo3-yü2', u'kuo˨˩.y˧˥'),
             (u'LAO3-SHIH1', u'lau˨˩.ʂʅ˥˥'),
             ]),
-        ({'sourceOptions': {'toneMarkType': 'SuperscriptNumbers'},
-            'targetOptions': {}}, [
+        ({'sourceOptions': {}, 'targetOptions': {}}, [
             (u'LAO3-SHIH1', 'LAO3-SHIH1'),
             (u'LAO³-SHIH¹', u'lau˨˩.ʂʅ˥˥'),
             ]),

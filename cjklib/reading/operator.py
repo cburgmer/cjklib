@@ -1264,7 +1264,7 @@ class PinyinOperator(TonalRomanisationOperator):
     - Yǐn Bīnyōng (尹斌庸), Mary Felley (傅曼丽): Chinese romanization:
         Pronunciation and Orthography (汉语拼音和正词法). Sinolingua, Beijing,
         1990, ISBN 7-80052-148-6, ISBN 0-8351-1930-0.
-    -  Ireneus László Legeza: Guide to transliterated Chinese in the modern
+    - Ireneus László Legeza: Guide to transliterated Chinese in the modern
         Peking dialect. Conversion tables of the currently used international
         and European systems with comparative tables of initials and finals.
         E. J. Brill, Leiden, 1968.
@@ -1286,6 +1286,7 @@ class PinyinOperator(TonalRomanisationOperator):
         [Shāngwù Yìnshūguǎn], Beijing, 2005, ISBN 7-100-04385-9.)
     @todo Fix:  Currently changing the C{ü} to something else will still include
         the original syllable in the set. Rethink.
+    @todo Impl: Consider handline C{*nue} and C{*lue}.
     """
     READING_NAME = 'Pinyin'
 
@@ -1581,7 +1582,9 @@ class PinyinOperator(TonalRomanisationOperator):
     def getReadingCharacters(self):
         characters = set(string.ascii_lowercase + u'üêŋẑĉŝ')
         characters.add(self.getOption('yVowel'))
-        characters.update([u'\u0308', u'\u0302']) # NFD combining diacritics
+        # NFD combining diacritics
+        for char in list(u'üêŋẑĉŝ') + [self.getOption('yVowel')]:
+            characters.update(unicodedata.normalize('NFD', unicode(char)))
         # add NFC vowels, strip of combining diacritical marks
         characters.update([c for c in self._getDiacriticVowels() \
             if len(c) == 1])
@@ -1915,6 +1918,8 @@ class PinyinOperator(TonalRomanisationOperator):
 
         @rtype: set of str
         @return: set of supported syllables
+        @todo Fix: don't raise an ValueError here (delayed), raise an Exception
+            directly in the constructor. See also WadeGilesOperator.
         """
         # set used syllables
         plainSyllables = set(self.db.selectScalars(
@@ -1997,8 +2002,8 @@ class PinyinOperator(TonalRomanisationOperator):
         I{wei} and I{dui} both ending in a final that can be described by
         I{uei}) and reduction of vowels (same example: I{dui} which is
         pronounced with vowels I{uei}). This method will use three forms not
-        found as substrings in Pinyin (I{uei}, {uen} and I{iou}) and substitutes
-        (pseudo) initials I{w} and I{y} with its vowel equivalents.
+        found as substrings in Pinyin (I{uei}, I{uen} and I{iou}) and
+        substitutes (pseudo) initials I{w} and I{y} with its vowel equivalents.
 
         Furthermore final I{i} will be distinguished in three forms given by
         the following three examples: I{yi}, I{zhi} and I{zi} to express
@@ -2013,6 +2018,7 @@ class PinyinOperator(TonalRomanisationOperator):
         @raise InvalidEntityError: if the entity is invalid.
         @raise UnsupportedError: for entity I{r} when Erhua is handled as
             separate entity.
+        @todo Fix: doesn't work for all dialects
         """
         erhuaForm = False
         if self.getOption('Erhua') == 'oneSyllable' \
@@ -2044,23 +2050,101 @@ class WadeGilesOperator(TonalRomanisationOperator):
     Provides an operator for the Mandarin X{Wade-Giles} romanisation.
 
     Features:
-        - tones marked by either standard numbers or subscripts,
-        - configurable apostrophe for marking aspiration and
-        - placement of hyphens between syllables.
+        - tones marked by either superscript or plain digits,
+        - flexibility with derived writing, e.g. I{szu} instead of I{ssu},
+        - alternative representation of characters I{ŭ} and I{ê},
+        - handling of omissions of umlaut I{ü} with resulting ambiguity,
+        - alternative marking of neutral tone (qingsheng) with either no mark
+            or digits zero or five,
+        - configurable apostrophe for marking aspiration,
+        - placement of hyphens between syllables and
+        - guessing of input form (I{reading dialect}).
 
-    @todo Lang: Get a good source for the syllables used. See also
-        L{PinyinWadeGilesConverter}.
-    @todo Lang: Respect mangled Wade-Giles writings. Possible steps: a)
-        Warn/Error on syllables which are ambiguous when asume apostrophe are
-        omitted. b) 'hsu' is no valid syllable but can be viewed as 'hsü'.
-        Compare to different 'implementations' of the Wade-Giles romanisation.
+    Alterations
+    ===========
+    While the Wade-Giles romanisation system itself is a modification by H. A.
+    Giles, some further alterations exist, requiring an adaptable solution to
+    parse transliterated text.
+
+    Diacritics
+    ----------
+    While non-retroflex zero final syllables I{tzŭ}, I{tz’ŭ} and I{ssŭ} carry a
+    breve on top of the I{u} in the standard realization of Wade-Giles, it is
+    often left out while creating no ambiguity. In the same fashion finals
+    I{-ê}, I{-ên} and I{-êng}, also syllable I{êrh}, carry a circumflex over the
+    I{e} which often is not written, and no ambiguity arises as no equivalent
+    forms with a plain I{e} exist. These forms can be handled by setting options
+    C{'zeroFinal'} to C{'u'} and C{'diacriticE'} to C{'e'}.
+
+    Different to that, leaving out the umlaut on the I{u} for finals I{-ü},
+    I{-üan}, I{-üeh} and I{-ün} does create forms where back-conversion for some
+    cases is not possible as an equivalent vowel I{u} form exists. Unambiguous
+    forms consist of initial I{hs-} and I{y-} (exception I{yu}) and/or finals
+    I{-üeh} and I{-üo}, the latter being dialect forms not in use today. So
+    while for example I{hsu} can be unambiguously converted back to its correct
+    form I{hsü}, it is not clear if I{ch’uan} is the wanted form or if it stems
+    from I{ch’üan}, its diacritics being mangled. This reporting is done by
+    L{checkPlainEntity()}. The omission of the umlaut can be controlled by
+    setting C{'umlautU'} to C{'u'}.
+
+    Others
+    ------
+    For the non-retroflex zero final forms I{tzŭ}, I{tz’ŭ} and I{ssŭ} the latter
+    is sometimes changed to I{szŭ}. The operator can be configured by setting
+    the Boolean option C{'useInitialSz'}.
+
+    The neutral tone by default is not marked. As sometimes the digits zero or
+    five are used, they can be set by option C{'neutralToneMark'}.
+
+    The apostrophe marking aspiration can be set by C{'WadeGilesApostrophe'}.
+
+    Tones are by default marked with superscript characters. This can be
+    controlled by option C{'toneMarkType'}.
+
+    Recovering omitted apostrophes for aspiration is not possible as for all
+    cases there exists ambiguity. No means are provided to warn for possible
+    missing apostrophes. In case of uncertainty check for initials I{p-}, I{t-},
+    I{k-}, I{ch-}, I{ts} and I{tz}.
+
+    Examples
+    --------
+    The L{WadeGilesDialectConverter} allows conversion between said forms.
+
+    Restore diacritics:
+        >>> from cjklib.reading import ReadingFactory
+        >>> f = ReadingFactory()
+        >>> f.convert(u"K’ung³-tzu³", 'WadeGiles', 'WadeGiles',
+        ...     sourceOptions={'zeroFinal': 'u'})
+        u'K\u2019ung\xb3-tz\u016d\xb3'
+        >>> f.convert(u"k’ai¹-men²-chien⁴-shan¹", 'WadeGiles', 'WadeGiles',
+        ...     sourceOptions={'diacriticE': 'e'})
+        u'k\u2019ai\xb9-m\xean\xb2-chien\u2074-shan\xb9'
+        >>> f.convert(u"hsueh²", 'WadeGiles', 'WadeGiles',
+        ...     sourceOptions={'umlautU': 'u'})
+        u'hs\xfceh\xb2'
+
+    But:
+        >>> f.convert(u"hsu⁴-ch’u³", 'WadeGiles', 'WadeGiles',
+        ...     sourceOptions={'umlautU': 'u'})
+        Traceback (most recent call last):
+        ...
+        cjklib.exception.AmbiguousConversionError: conversion for entity \
+'ch’u³' is ambiguous: ch’u³, ch’ü³
+
+    Guess non-standard form:
+        >>> from cjklib.reading import operator
+        >>> operator.WadeGilesOperator.guessReadingDialect(
+        ...     u"k'ai1-men2-chien4-shan1")
+        {'zeroFinal': u'\u016d', 'diacriticE': u'e', 'umlautU': u'\xfc', \
+'toneMarkType': 'Numbers', 'useInitialSz': False, 'neutralToneMark': 'none', \
+'WadeGilesApostrophe': "'"}
     """
     READING_NAME = 'WadeGiles'
 
-    DB_ASPIRATION_APOSTROPHE = u"‘"
-    """Default apostrophe used by Wade-Giles syllable data in database."""
+    DB_ASPIRATION_APOSTROPHE = u'’'
+    """Apostrophe used by Wade-Giles syllable data in database."""
 
-    TO_SUPERSCRIPT = {1: u'¹', 2: u'²', 3: u'³', 4: u'⁴', 5: u'⁵'}
+    TO_SUPERSCRIPT = {1: u'¹', 2: u'²', 3: u'³', 4: u'⁴', 5: u'⁵', 0: u'⁰'}
     """Mapping of tone numbers to superscript numbers."""
     FROM_SUPERSCRIPT = dict([(value, key) \
         for key, value in TO_SUPERSCRIPT.iteritems()])
@@ -2068,8 +2152,59 @@ class WadeGilesOperator(TonalRomanisationOperator):
     del value
     del key
 
+    APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
+    """List of apostrophes used in guessing routine."""
+
+    ZERO_FINAL_LIST = [u'ŭ', u'ǔ', u'u']
+    """
+    List of characters for zero final used in guessing routine.
+    Except 'u' no other values are allowed that intersect with WG vowels as they
+    can cause ambiguous forms.
+    """
+
+    DIACRICTIC_E_LIST = [u'ê', u'ě', u'e']
+    """
+    List of characters for diacritic e used in guessing routine.
+    Except 'e' no other values are allowed that intersect with WG vowels as they
+    can cause ambiguous forms.
+    """
+
+    UMLAUT_U_LIST = [u'ü', u'u']
+    """
+    List of characters used for u-umlaut in guessing routine.
+    Except 'u' no other values are allowed that intersect with WG vowels. Vowel
+    'u' will generate ambiguous forms, so that the guessing routine has to take
+    care of only chosing this on forms that have no "natural" 'u' counterpart.
+    For all other vowels this is not guaranteed, so they are not allowed as
+    values.
+    """
+
+    ALLOWED_VOWEL_SUBST = {'diacriticE': 'e', 'zeroFinal': 'u', 'umlautU': 'u'}
+    """
+    Regular Wade-Giles-vowels that the given options can be substituted with.
+    Other regular vowels are not allowed for substitution as of ambiguity.
+    """
+
+    syllableRegex = re.compile(ur'(?iu)(' \
+        + u'(?:(?:ch|hs|sh|ts|tz|ss|sz|[pmftnlkhjyw])' \
+        + u'(?:' + '|'.join([re.escape(a) for a in APOSTROPHE_LIST]) + ')?)?'
+        + u'(?:' + '|'.join([re.escape(a) for a \
+            in (ZERO_FINAL_LIST + DIACRICTIC_E_LIST + UMLAUT_U_LIST)]) \
+        + u'|[aeiou])+' \
+        + u'(?:ng|n|rh|h)?[012345⁰¹²³⁴⁵]?)')
+    """
+    Regex to split a string into several syllables in a crude way.
+    It consists of:
+        - Initial consonants,
+        - apostrophe for aspiration,
+        - vowels,
+        - final consonants n/ng and rh (for êrh), h (for -ih, -üeh),
+        - tone numbers.
+    """
+    del a
+
     def __init__(self, **options):
-        """
+        u"""
         Creates an instance of the WadeGilesOperator.
 
         @param options: extra options
@@ -2089,23 +2224,58 @@ class WadeGilesOperator(TonalRomanisationOperator):
             appended superscript numbers from 1 to 5 will be used to mark tones,
             if set to C{'None'} no tone marks will be used and no tonal
             information will be supplied at all.
-        @keyword missingToneMark: if set to C{'fifth'} no tone mark is set to
-            indicate the fifth tone (I{qingsheng}, e.g. C{'tsan2-men'} stands
-            for C{'tsan2-men5'}), if set to C{'noinfo'}, no tone information
+        @keyword neutralToneMark: if set to C{'none'} no tone mark is set to
+            indicate the fifth tone (I{qingsheng}, e.g. C{'chih¹tao'}, if set
+            to C{'zero'} the number zero is used, e.g. C{'chih¹tao⁰'} and if set
+            to C{'five'} the number five is used, e.g. C{'chih¹-tao⁵'}.
+        @keyword missingToneMark: if set to C{'noinfo'}, no tone information
             will be deduced when no tone mark is found (takes on value C{None}),
             if set to C{'ignore'} this entity will not be valid and for
             segmentation the behaviour defined by C{'strictSegmentation'} will
             take affect. This options only has effect for tone mark type
-            C{'Numbers'} and C{'SuperscriptNumbers'}.
+            C{'Numbers'} and C{'SuperscriptNumbers'}. This option is only valid
+            if C{'neutralToneMark'} is set to something other than C{'None'}.
+        @keyword diacriticE: character used instead of I{ê}. C{'e'} is a
+            possible alternative, no ambiguities arise.
+        @keyword zeroFinal: character used instead of I{ŭ}. C{'u'} is a
+            possible alternative, no ambiguities arise.
+        @keyword umlautU: character used instead of I{ü}. C{'u'} is a
+            allowed, but ambiguities are possible.
+        @keyword useInitialSz: if set to C{True} syllable form I{szŭ} is used
+            instead of the standard I{ssŭ}.
+        @todo Impl: Raise value error on invalid values for diacriticE,
+            zeroFinal, umlautU
         """
         super(WadeGilesOperator, self).__init__(**options)
+        # check which character to use for ê
+        if 'diacriticE' in options:
+            self.optionValue['diacriticE'] = options['diacriticE']
+
+        # check which character to use for ê
+        if 'zeroFinal' in options:
+            self.optionValue['zeroFinal'] = options['zeroFinal']
+
+        # check which character to use for ü, if we use u we allow forms like
+        #   'hsu', 'hsun' but generate ambiguous cases like 'chuan', 'chun'
+        if 'umlautU' in options:
+            self.optionValue['umlautU'] = options['umlautU']
+
+        # check if we use szŭ instead of ssŭ
+        if 'useInitialSz' in options:
+            self.optionValue['useInitialSz'] = options['useInitialSz']
+
         # set alternate apostrophe if given
         if 'WadeGilesApostrophe' in options:
             self.optionValue['WadeGilesApostrophe'] \
                  = options['WadeGilesApostrophe']
-        self.readingEntityRegex = re.compile(u"((?:" \
-            + re.escape(self.getOption('WadeGilesApostrophe')) \
-            + u"|[A-ZÜa-zü])+[12345¹²³⁴⁵]?)")
+
+        # check wich tone mark to use for neutral tone
+        if 'neutralToneMark' in options:
+            if options['neutralToneMark'] not in ['none', 'zero', 'five']:
+                raise ValueError("Invalid option '" \
+                    + str(options['neutralToneMark']) \
+                    + "' for keyword 'neutralToneMark'")
+            self.optionValue['neutralToneMark'] = options['neutralToneMark']
 
         # check which tone marks to use
         if 'toneMarkType' in options:
@@ -2118,18 +2288,27 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
         # check behaviour on missing tone info
         if 'missingToneMark' in options:
-            if options['missingToneMark'] not in ['fifth', 'noinfo', 'ignore']:
+            if options['missingToneMark'] not in ['noinfo', 'ignore']:
                 raise ValueError("Invalid option '" \
                     + str(options['missingToneMark']) \
                     + "' for keyword 'missingToneMark'")
             self.optionValue['missingToneMark'] = options['missingToneMark']
 
+        self.readingEntityRegex = re.compile(u"(?iu)((?:" \
+            + re.escape(self.getOption('WadeGilesApostrophe')) \
+            + "|" + re.escape(self.getOption('diacriticE')) \
+            + "|" + re.escape(self.getOption('zeroFinal')) \
+            + "|" + re.escape(self.getOption('umlautU')) \
+            + u"|[a-züêŭ])+[012345⁰¹²³⁴⁵]?)")
+
     @classmethod
     def getDefaultOptions(cls):
         options = super(WadeGilesOperator, cls).getDefaultOptions()
         options.update({
-            'WadeGilesApostrophe': WadeGilesOperator.DB_ASPIRATION_APOSTROPHE,
-            'toneMarkType': 'Numbers', 'missingToneMark': u'noinfo'})
+            'diacriticE': u'ê', 'zeroFinal': u'ŭ', 'umlautU': u'ü',
+            'useInitialSz': False, 'WadeGilesApostrophe': u'’',
+            'neutralToneMark': 'none', 'toneMarkType': 'SuperscriptNumbers',
+            'missingToneMark': u'noinfo'})
 
         return options
 
@@ -2138,28 +2317,102 @@ class WadeGilesOperator(TonalRomanisationOperator):
         u"""
         Takes a string written in Wade-Giles and guesses the reading dialect.
 
-        Options C{'toneMarkType'} and C{'WadeGilesApostrophe'} are tested.
+        The following options are tested:
+            - C{'toneMarkType'}
+            - C{'WadeGilesApostrophe'}
+            - C{'neutralToneMark'}
+            - C{'diacriticE'}
+            - C{'zeroFinal'}
+            - C{'umlautU'}
+            - C{'useInitialSz'}
 
         @type string: str
         @param string: Wade-Giles string
         @rtype: dict
         @return: dictionary of basic keyword settings
         """
-        APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
-
         # split regex for all dialect forms
-        entities = re.findall(u"((?:" + '|'.join(APOSTROPHE_LIST) \
-            + u"|[A-ZÜa-zü])+[12345¹²³⁴⁵]?)", string)
+        string = string.lower()
+        entities = cls.syllableRegex.findall(
+            unicodedata.normalize('NFC', unicode(string)))
 
-        # guess one of main dialects: tone mark type
+        # guess vowels and initial sz-, prefer defaults
+        useInitialSz = False
+        zeroFinal = None
+        diacriticE = None
+        umlautU = None
+
+        if u'ŭ' in string:
+            zeroFinal = u'ŭ'
+        if u'ê' in string:
+            diacriticE = u'ê'
+        if u'ü' in string:
+            umlautU = u'ü'
+
+        for entity in entities:
+            # initial sz-
+            if entity.startswith('sz'):
+                useInitialSz = True
+            # ŭ
+            if not zeroFinal:
+                matchObj = re.match('(?iu)(?:tz|ss|sz)' \
+                    + u'(?:' + '|'.join([re.escape(a) for a \
+                        in cls.APOSTROPHE_LIST]) + ')?' \
+                    + u'(' + '|'.join([re.escape(a) for a \
+                        in cls.ZERO_FINAL_LIST]) + ')',
+                    entity)
+                if matchObj:
+                    zeroFinal = matchObj.group(1)
+
+            # ê
+            if not diacriticE:
+                matchObj = re.match(ur'(?iu)' \
+                    + u'(?:(?:ch|hs|sh|ts|[pmftnlkhjyw])' \
+                    + u'(?:' + '|'.join([re.escape(a) for a \
+                        in cls.APOSTROPHE_LIST]) + ')?)?'
+                    + u'(' + '|'.join([re.escape(a) for a \
+                        in cls.DIACRICTIC_E_LIST]) + ')' \
+                    + u'(?:ng|n|rh)?', entity)
+                if matchObj:
+                    diacriticE = matchObj.group(1)
+
+            # ü
+            if not umlautU:
+                matchObj = re.match(ur'(?iu)(?:ch|hs|[nly])' \
+                    + u'(?:' + '|'.join([re.escape(a) for a \
+                        in cls.APOSTROPHE_LIST]) + ')?'
+                    + u'(' + '|'.join([re.escape(a) for a \
+                        in cls.UMLAUT_U_LIST]) + '|)[ae]?' \
+                    + u'(?:n|h)?', entity)
+                if matchObj:
+                    # check for special case 'u'
+                    if matchObj.group(1) == 'u':
+                        s = matchObj.group(0)
+                        # only let syllables overwrite default 'ü' if they
+                        #   are not valid u-vowel forms, like *hsu (hsü)
+                        if s.startswith('hs') \
+                            or (s.startswith('y') and not s.startswith('yu')) \
+                            or s.endswith(u'ueh') or s.endswith(u'uo'):
+                            umlautU = matchObj.group(1)
+                    else:
+                        umlautU = matchObj.group(1)
+
+        if not zeroFinal:
+            zeroFinal = u'ŭ'
+        if not diacriticE:
+            diacriticE = u'ê'
+        if not umlautU:
+            umlautU = u'ü'
+
+        # guess tone mark type
         superscriptEntityCount = 0
         digitEntityCount = 0
         for entity in entities:
             # take entity (which can be several connected syllables) and check
-            if entity[-1] in '12345':
-                digitEntityCount = digitEntityCount + 1
-            elif entity[-1] in u'¹²³⁴⁵':
-                superscriptEntityCount = superscriptEntityCount + 1
+            if entity[-1] in '012345':
+                digitEntityCount += 1
+            elif entity[-1] in u'⁰¹²³⁴⁵':
+                superscriptEntityCount += 1
 
         # compare statistics
         if digitEntityCount > superscriptEntityCount:
@@ -2167,29 +2420,60 @@ class WadeGilesOperator(TonalRomanisationOperator):
         else:
             toneMarkType = 'SuperscriptNumbers'
 
+        if digitEntityCount > 0 or superscriptEntityCount > 0:
+            # guess neutral tone mark
+            zeroToneMarkCount = 0
+            fiveToneMarkCount = 0
+            for entity in entities:
+                if entity[-1] in u'⁰0':
+                    zeroToneMarkCount += 1
+                elif entity[-1] in u'⁵5':
+                    fiveToneMarkCount += 1
+
+            if zeroToneMarkCount > fiveToneMarkCount:
+                neutralToneMark = 'zero'
+            elif zeroToneMarkCount <= fiveToneMarkCount \
+                and fiveToneMarkCount != 0:
+                neutralToneMark = 'five'
+            else:
+                neutralToneMark = 'none'
+        else:
+            # no tones at all specified, so map tones to None and for that, we
+            #   need to set the neutral tone mark to something diff than none.
+            neutralToneMark = 'zero'
+
         # guess apostrophe
-        for apostrophe in APOSTROPHE_LIST:
+        for apostrophe in cls.APOSTROPHE_LIST:
             if apostrophe in string:
                 WadeGilesApostrophe = apostrophe
                 break
         else:
-            WadeGilesApostrophe = "'"
+            WadeGilesApostrophe = u'’'
 
-        return {'toneMarkType': toneMarkType,
-            'WadeGilesApostrophe': WadeGilesApostrophe}
+        return {'WadeGilesApostrophe': WadeGilesApostrophe,
+            'toneMarkType': toneMarkType, 'neutralToneMark': neutralToneMark,
+            'diacriticE': diacriticE, 'zeroFinal': zeroFinal,
+            'umlautU': umlautU, 'useInitialSz': useInitialSz}
 
     def getReadingCharacters(self):
-        characters = set(string.ascii_lowercase + u'ü')
-        characters.add(u'\u0308') # NFD combining diacritics
-        characters.update(['1', '2', '3', '4', '5', u'¹', u'²', u'³', u'⁴',
-            u'⁵'])
+        characters = set(string.ascii_lowercase + u'üêŭ')
+        userSpecified = [self.getOption('diacriticE'),
+            self.getOption('zeroFinal'), self.getOption('umlautU')]
+        characters.update(userSpecified)
+        # NFD combining diacritics
+        for char in list(u'üêŭ') + userSpecified:
+            characters.update(unicodedata.normalize('NFD', unicode(char)))
+
+        characters.update(['0', '1', '2', '3', '4', '5', u'⁰', u'¹', u'²', u'³',
+            u'⁴', u'⁵'])
         characters.add(self.getOption('WadeGilesApostrophe'))
         return characters
 
     def getTones(self):
         tones = range(1, 6)
         if self.getOption('toneMarkType') == 'None' \
-            or self.getOption('missingToneMark') == 'noinfo':
+            or (self.getOption('neutralToneMark') != 'none' \
+                and self.getOption('missingToneMark') == 'noinfo'):
             tones.append(None)
         return tones
 
@@ -2273,20 +2557,29 @@ class WadeGilesOperator(TonalRomanisationOperator):
         if tone != None:
             tone = int(tone)
         if tone not in self.getTones():
-            raise InvalidEntityError("Invalid tone information given for '" \
-                + plainEntity + "': '" + str(tone) + "'")
+            raise InvalidEntityError(
+                "Invalid tone information given for '%s': '%s'" \
+                    % (plainEntity, str(tone)))
 
         if self.getOption('toneMarkType') == 'None':
             return plainEntity
 
         if tone == None or (tone == 5 \
-            and self.getOption('missingToneMark') == 'fifth'):
+            and self.getOption('neutralToneMark') == 'none'):
             return plainEntity
         else:
-            if self.getOption('toneMarkType') == 'Numbers':
-                return plainEntity + str(tone)
+            if tone == 5 and self.getOption('neutralToneMark') == 'zero':
+                if self.getOption('toneMarkType') == 'Numbers':
+                    toneMark = '0'
+                else:
+                    toneMark = self.TO_SUPERSCRIPT[0]
+            elif self.getOption('toneMarkType') == 'Numbers':
+                toneMark = str(tone)
             elif self.getOption('toneMarkType') == 'SuperscriptNumbers':
-                return plainEntity + self.TO_SUPERSCRIPT[tone]
+                toneMark = self.TO_SUPERSCRIPT[tone]
+
+            return plainEntity + toneMark
+
         assert False
 
     def splitEntityTone(self, entity):
@@ -2297,25 +2590,36 @@ class WadeGilesOperator(TonalRomanisationOperator):
         else:
             tone = None
             if self.getOption('toneMarkType') == 'Numbers':
-                matchObj = re.search(u"[12345]$", entity)
+                matchObj = re.search(u"[012345]$", entity)
                 if matchObj:
                     tone = int(matchObj.group(0))
             elif self.getOption('toneMarkType') == 'SuperscriptNumbers':
-                matchObj = re.search(u"[¹²³⁴⁵]$", entity)
+                matchObj = re.search(u"[⁰¹²³⁴⁵]$", entity)
                 if matchObj:
                     tone = self.FROM_SUPERSCRIPT[matchObj.group(0)]
+
+            # only allow 0 and 5 for the correct setting
+            if self.getOption('neutralToneMark') == 'none' and tone in [0, 5] \
+                or self.getOption('neutralToneMark') == 'zero' and tone == 5 \
+                or self.getOption('neutralToneMark') == 'five' and tone == 0:
+                raise InvalidEntityError(
+                    "Invalid tone information given for '%s'" % entity)
+
+            # fix tone 0
+            if tone == 0:
+                tone = 5
 
             if tone:
                 plainEntity = entity[0:len(entity)-1]
             else:
-                if self.getOption('missingToneMark') == 'fifth':
+                if self.getOption('neutralToneMark') == 'none':
                     plainEntity = entity
                     tone = 5
-                elif self.getOption('missingToneMark') == 'ignore':
-                    raise InvalidEntityError("No tone information given for '" \
-                        + entity + "'")
-                else:
+                elif self.getOption('missingToneMark') == 'noinfo':
                     plainEntity = entity
+                else:
+                    raise InvalidEntityError(
+                        "No tone information given for '%s'" % entity)
 
         return plainEntity, tone
 
@@ -2333,15 +2637,135 @@ class WadeGilesOperator(TonalRomanisationOperator):
             select([self.db.tables['WadeGilesSyllables'].c.WadeGiles])))
         # use selected apostrophe
         if self.getOption('WadeGilesApostrophe') \
-            == self.DB_ASPIRATION_APOSTROPHE:
-            return plainSyllables
-        else:
+            != self.DB_ASPIRATION_APOSTROPHE:
             translatedSyllables = set()
             for syllable in plainSyllables:
                 syllable = syllable.replace(self.DB_ASPIRATION_APOSTROPHE,
                     self.getOption('WadeGilesApostrophe'))
                 translatedSyllables.add(syllable)
-            return translatedSyllables
+
+            plainSyllables = translatedSyllables
+
+        if self.getOption('diacriticE') != u'ê':
+            translatedSyllables = set()
+            for syllable in plainSyllables:
+                syllable = syllable.replace(u'ê', self.getOption('diacriticE'))
+                translatedSyllables.add(syllable)
+
+            plainSyllables = translatedSyllables
+
+        if self.getOption('zeroFinal') != u'ŭ':
+            translatedSyllables = set()
+            for syllable in plainSyllables:
+                syllable = syllable.replace(u'ŭ', self.getOption('zeroFinal'))
+                translatedSyllables.add(syllable)
+
+            plainSyllables = translatedSyllables
+
+        if self.getOption('useInitialSz'):
+            translatedSyllables = set()
+            for syllable in plainSyllables:
+                if syllable.startswith('ss'):
+                    syllable = 'sz' + syllable[2:]
+                translatedSyllables.add(syllable)
+
+            plainSyllables = translatedSyllables
+
+        if self.getOption('umlautU'):
+            translatedSyllables = set()
+            for syllable in plainSyllables:
+                syllable = syllable.replace(u'ü', self.getOption('umlautU'))
+                translatedSyllables.add(syllable)
+
+            plainSyllables = translatedSyllables
+
+        return plainSyllables
+
+    def checkPlainEntity(self, plainEntity, option):
+        """
+        Checks if the given plain entity with is a form with lost diacritics or
+        an ambiguous case.
+
+        Examples:
+        While form I{*erh} can be clearly traced to I{êrh}, form I{kuei} has
+        no equivalent part with diacritcs. The former is a case of a C{'lost'}
+        vowel, the second of a C{'strict'} form. Syllable I{ch’u} though is an
+        C{'ambiguous'} case as both I{ch’u} and I{ch’ü} are valid.
+
+        @type plainEntity: str
+        @param plainEntity: entity without tonal information
+        @type option: str
+        @param option: one option out of C{'diacriticE'}, C{'zeroFinal'}
+            or C{'umlautU'}
+        @rtype: str
+        @return: C{'strict'} if the given form is a strict Wade-Giles form with
+            vowel u, C{'lost'} if the given form is a mangled vowel ü form,
+            C{'ambiguous'} if two forms exist with vowels u and ü each.
+        @raise ValueError: if plain entity doesn't include the ambiguous vowel
+            in question
+        """
+        plainEntity = unicodedata.normalize("NFC", unicode(plainEntity))
+        if option not in self.ALLOWED_VOWEL_SUBST:
+            raise ValueError("Invalid option '%s'" % option)
+
+        vowel = self.ALLOWED_VOWEL_SUBST[option]
+        originalVowel = self.getDefaultOptions()[option]
+
+        if not plainEntity or not vowel in plainEntity.lower() \
+            or not (self.isPlainReadingEntity(plainEntity.lower()) \
+                or self.isPlainReadingEntity(
+                    plainEntity.lower().replace(vowel, originalVowel))):
+            raise ValueError(
+                u"Not a plain reading entity or no vowel '%s': '%s'" \
+                    % (vowel, plainEntity))
+
+        plainEntity = plainEntity.lower()
+        # convert orthogonal options
+        plainForm = plainEntity.replace(self.getOption('WadeGilesApostrophe'),
+            self.DB_ASPIRATION_APOSTROPHE)
+        if plainForm.startswith('sz'):
+            plainForm = 'ss' + plainForm[2:]
+
+        table = self.db.tables['WadeGilesSyllables']
+        result = self.db.selectScalars(select([table.c.WadeGiles],
+                table.c.WadeGiles.in_([plainForm,
+                    plainForm.replace(vowel, originalVowel)])))
+        assert(len(result) > 0 and len(result) <= 2)
+        if len(result) == 2:
+            return 'ambiguous'
+        if vowel in result[0]:
+            return 'strict'
+        else:
+            return 'lost'
+
+    def getOnsetRhyme(self, plainSyllable):
+        """
+        Splits the given plain syllable into onset (initial) and rhyme (final).
+
+        Semivowels I{w-} and I{y-} will be treated specially and an empty
+        initial will be returned, while the final will be extended with vowel
+        I{i} or I{u}.
+
+        Returned strings will be lowercase.
+
+        @type plainSyllable: str
+        @param plainSyllable: syllable without tone marks
+        @rtype: tuple of str
+        @return: tuple of entity onset and rhyme
+        @raise InvalidEntityError: if the entity is invalid.
+        @todo Fix: doesn't work for all dialects
+        @todo Impl: Create table
+        """
+        raise NotImplementedError
+        table = self.db.tables['WadeGilesInitialFinal']
+        entry = self.db.selectRow(
+            select([table.c.WadeGilesInitial, table.c.WadeGilesFinal],
+                table.c.WadeGiles == plainSyllable.lower()))
+        if not entry:
+            raise InvalidEntityError("'" + plainSyllable \
+                + "' not a valid plain Wade-Giles syllable'")
+
+        return (entry[0], entry[1])
 
 
 class GROperator(TonalRomanisationOperator):

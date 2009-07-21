@@ -893,7 +893,7 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
         (u"yuht", {'toneMarkType': 'Diacritics'}),
         (u"wā", {'toneMarkType': 'Diacritics'}),
         (u"gwong2", {'toneMarkType': 'Numbers'}),
-    ]
+        ]
 
 
 class JyutpingOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
@@ -1663,11 +1663,15 @@ class WadeGilesOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     READING_NAME = 'WadeGiles'
 
     DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
-        [{}, {'toneMarkType': 'SuperscriptNumbers'},
-            {'toneMarkType': 'None'}],
-        [{}, {'missingToneMark': 'fifth'}, {'missingToneMark': 'ignore'}],
-        [{}, {'strictSegmentation': True}],
+        [{}, {'diacriticE': 'e'}],
+        [{}, {'zeroFinal': 'u'}],
+        [{}, {'umlautU': 'u'}],
+        [{}, {'useInitialSz': True}],
+        [{}, {'neutralToneMark': 'zero'}, {'neutralToneMark': 'five'}],
         [{}, {'WadeGilesApostrophe': u"'"}],
+        [{}, {'toneMarkType': 'Numbers'}, {'toneMarkType': 'None'}],
+        [{}, {'missingToneMark': 'ignore'}],
+        [{}, {'strictSegmentation': True}],
         [{}, {'case': 'lower'}],
         )
 
@@ -1684,50 +1688,222 @@ class WadeGilesOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         return op.removeHyphens(decomposition)
 
 
-# TODO
 class WadeGilesOperatorReferenceTest(ReadingOperatorReferenceTest,
     unittest.TestCase):
     READING_NAME = 'WadeGiles'
 
     DECOMPOSITION_REFERENCES = [
-        ({'toneMarkType': 'SuperscriptNumbers', 'WadeGilesApostrophe': u'’'}, [
-            (u"K’ung³-tzu³", [u"K’ung³", u"-", u"tzu³"]),
+        ({}, [
+            (u"K’ung³-tzŭ³", [u"K’ung³", u"-", u"tzŭ³"]),
+            (u"Ssŭma Ch’ien", [u"Ssŭ", "ma", " ", u"Ch’ien"]),
             ]),
-        ({'WadeGilesApostrophe': "'"}, [
+        ({'WadeGilesApostrophe': "'", 'zeroFinal': 'u'}, [
             (u"Ssuma Ch'ien", [u"Ssu", u"ma", " ", u"Ch'ien"]),
             ]),
-        ({'toneMarkType': 'Numbers'}, [
+        ({'WadeGilesApostrophe': "'"}, [
+            (u"Ssuma Ch'ien", [u"Ssuma", " ", u"Ch'ien"]),
+            (u"Ssŭma Ch'ien", [u"Ssŭ", u"ma", " ", u"Ch'ien"]),
+            ]),
+        ({'WadeGilesApostrophe': "'", 'zeroFinal': 'u'}, [
+            (u"Ssuma Ch'ien", [u"Ssu", "ma", " ", u"Ch'ien"]),
+            (u"Ssŭma Ch'ien", [u"Ssŭma", " ", u"Ch'ien"]),
+            ]),
+        ({'toneMarkType': 'Numbers', 'umlautU': 'u'}, [
             (u"Shih3-Chi4", [u"Shih3", "-", u"Chi4"]),
+            ("chueh1", ["chueh1"])
+            ]),
+        ({'WadeGilesApostrophe': "'", 'strictSegmentation': True}, [
+            (u"Ssuma Ch'ien", exception.DecompositionError),
+            (u"Ssŭma Ch'ien", [u"Ssŭ", "ma", " ", u"Ch'ien"]),
             ]),
         ]
 
     COMPOSITION_REFERENCES = [
-        ({'toneMarkType': 'SuperscriptNumbers', 'WadeGilesApostrophe': u'’'}, [
-            ([u"K’ung³", u"-", u"tzu³"], u"K’ung³-tzu³"),
-            ([u"K’ung³", u"tzu³"], u"K’ung³-tzu³"),
+        ({}, [
+            ([u"K’ung³", u"-", u"tzŭ³"], u"K’ung³-tzŭ³"),
+            ([u"K’ung³", u"tzŭ³"], u"K’ung³-tzŭ³"),
+            ]),
+        ({'WadeGilesApostrophe': "'", 'zeroFinal': 'u'}, [
+            ([u"Ssu", "ma", " ", u"Ch'ien"], u"Ssu-ma Ch'ien"),
             ]),
         ({'WadeGilesApostrophe': "'"}, [
-            ([u"Ssuma", " ", u"Ch'ien"], u"Ssuma Ch'ien"),
+            ([u"Ssu", "ma", " ", u"Ch'ien"], exception.CompositionError),
+            ([u"Ssŭ", "ma", " ", u"Ch'ien"], u"Ssŭ-ma Ch'ien"),
             ]),
-        ({}, [
+        ({'toneMarkType': 'Numbers'}, [
             ([u"Shih3", "-", u"Chi4"], u"Shih3-Chi4"),
             ([u"Shih3", u"Chi4"], u"Shih3-Chi4"),
-            (['t', u'‘', 'ung1'], exception.CompositionError),
+            (['t', u'’', 'ung1'], exception.CompositionError),
             ]),
-        ({'missingToneMark': 'ignore'}, [
+        ({'toneMarkType': 'Numbers', 'neutralToneMark': 'zero',
+            'missingToneMark': 'ignore'}, [
             ([u"Shih3", "-", u"Chi"], u"Shih3-Chi"),
             ([u"Shih3", u"Chi"], u"Shih3Chi"),
             ([u"Shih", u"Chi4"], exception.CompositionError),
             ]),
         ]
 
-    READING_ENTITY_REFERENCES = []
+    READING_ENTITY_REFERENCES = [
+        ({}, [
+            (u"shih", True),
+            (u"jou⁴", True),
+            (u"nü³", True),
+            (u"Ssŭ", True),
+            (u"ch’êng", True),
+            (u"Ch’ien", True),
+            (u"ch'ien", False),
+            (u"ssu", False),
+            (u"szu", False),
+            (u"ch’eng", False),
+            (u"shih⁰", False),
+            (u"shih⁵", False),
+            (u"shih1", False),
+            ]),
+        ({'diacriticE': 'e'}, [
+            (u"shih", True),
+            (u"jou⁴", True),
+            (u"nü³", True),
+            (u"Ssŭ", True),
+            (u"ch’êng", False),
+            (u"Ch’ien", True),
+            (u"ch'ien", False),
+            (u"ssu", False),
+            (u"szu", False),
+            (u"ch’eng", True),
+            (u"shih⁰", False),
+            (u"shih⁵", False),
+            (u"shih1", False),
+            ]),
+        ({'zeroFinal': 'u'}, [
+            (u"shih", True),
+            (u"jou⁴", True),
+            (u"nü³", True),
+            (u"Ssŭ", False),
+            (u"ch’êng", True),
+            (u"Ch’ien", True),
+            (u"ch'ien", False),
+            (u"ssu", True),
+            (u"szu", False),
+            (u"ch’eng", False),
+            (u"shih⁰", False),
+            (u"shih⁵", False),
+            (u"shih1", False),
+            ]),
+        ({'neutralToneMark': 'zero'}, [
+            (u"shih", True),
+            (u"jou⁴", True),
+            (u"nü³", True),
+            (u"Ssŭ", True),
+            (u"ch’êng", True),
+            (u"Ch’ien", True),
+            (u"ch'ien", False),
+            (u"ssu", False),
+            (u"szu", False),
+            (u"ch’eng", False),
+            (u"shih⁰", True),
+            (u"shih⁵", False),
+            (u"shih1", False),
+            ]),
+        ({'neutralToneMark': 'five'}, [
+            (u"shih", True),
+            (u"jou⁴", True),
+            (u"nü³", True),
+            (u"Ssŭ", True),
+            (u"ch’êng", True),
+            (u"Ch’ien", True),
+            (u"ch'ien", False),
+            (u"ssu", False),
+            (u"szu", False),
+            (u"ch’eng", False),
+            (u"shih⁰", False),
+            (u"shih⁵", True),
+            (u"shih1", False),
+            ]),
+        ({'useInitialSz': True}, [
+            (u"shih", True),
+            (u"jou⁴", True),
+            (u"nü³", True),
+            (u"Ssŭ", False),
+            (u"ch’êng", True),
+            (u"Ch’ien", True),
+            (u"ch'ien", False),
+            (u"ssu", False),
+            (u"szu", False),
+            (u"szŭ", True),
+            (u"ch’eng", False),
+            (u"shih⁰", False),
+            (u"shih⁵", False),
+            (u"shih1", False),
+            ]),
+        ({'umlautU': 'u'}, [
+            (u"shih", True),
+            (u"jou⁴", True),
+            (u"nü³", False),
+            (u"Ssŭ", True),
+            (u"ch’êng", True),
+            (u"Ch’ien", True),
+            (u"ch'ien", False),
+            (u"ssu", False),
+            (u"szu", False),
+            (u"ch’eng", False),
+            (u"shih⁰", False),
+            (u"shih⁵", False),
+            (u"shih1", False),
+            ]),
+        ({'toneMarkType': 'Numbers'}, [
+            (u"shih", True),
+            (u"jou⁴", False),
+            (u"nü³", False),
+            (u"Ssŭ", True),
+            (u"ch’êng", True),
+            (u"Ch’ien", True),
+            (u"ch'ien", False),
+            (u"ssu", False),
+            (u"szu", False),
+            (u"ch’eng", False),
+            (u"shih⁰", False),
+            (u"shih⁵", False),
+            (u"shih1", True),
+            ]),
+        ({'WadeGilesApostrophe': "'"}, [
+            (u"shih", True),
+            (u"jou⁴", True),
+            (u"nü³", True),
+            (u"Ssŭ", True),
+            (u"ch’êng", False),
+            (u"Ch’ien", False),
+            (u"ch'ien", True),
+            (u"ssu", False),
+            (u"szu", False),
+            (u"ch’eng", False),
+            (u"shih⁰", False),
+            (u"shih⁵", False),
+            (u"shih1", False),
+            ]),
+        ]
 
     GUESS_DIALECT_REFERENCES = [
         (u"K’ung³-tzǔ³", {'toneMarkType': 'SuperscriptNumbers',
-            'WadeGilesApostrophe': u'’'}),
-        (u"Ssŭma Ch'ien", {'WadeGilesApostrophe': "'"}),
+            'WadeGilesApostrophe': u'’', 'zeroFinal': u'ǔ'}),
+        (u"K’ung³-tzŭ³", {'toneMarkType': 'SuperscriptNumbers',
+            'WadeGilesApostrophe': u'’', 'zeroFinal': u'ŭ'}),
+        (u"Ssŭma Ch'ien", {'WadeGilesApostrophe': "'", 'zeroFinal': u'ŭ'}),
+        (u"Szuma Ch'ien", {'WadeGilesApostrophe': "'", 'zeroFinal': 'u',
+            'useInitialSz': True}),
+        (u"Szu1ma3 Ch'ien1", {'WadeGilesApostrophe': "'", 'zeroFinal': 'u',
+            'useInitialSz': True, 'toneMarkType': 'Numbers'}),
         (u"Shih3-Chi4", {'toneMarkType': 'Numbers'}),
+        (u"chih¹-tao⁵", {'neutralToneMark': 'five'}),
+        (u"chih¹-tao", {'neutralToneMark': 'none'}),
+        (u"p’êng3yu0", {'neutralToneMark': 'zero', 'diacriticE': u'ê',
+            'WadeGilesApostrophe': u'’', 'toneMarkType': 'Numbers'}),
+        (u"p’eng³yu", {'neutralToneMark': 'none', 'diacriticE': u'e',
+            'WadeGilesApostrophe': u'’', 'toneMarkType': 'SuperscriptNumbers'}),
+        (u"hsu¹", {'umlautU': 'u', 'toneMarkType': 'SuperscriptNumbers'}),
+        (u"nueh1", {'umlautU': 'u', 'toneMarkType': 'Numbers'}),
+        (u"yu³", {'umlautU': u'ü', 'toneMarkType': 'SuperscriptNumbers'}),
+        (u"Cheng Ho", {'diacriticE': 'e', 'neutralToneMark': 'zero'}),
+            # either zero or five to enable tone "None" for all syllables
         ]
 
 class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,

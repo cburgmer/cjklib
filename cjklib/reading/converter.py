@@ -234,6 +234,8 @@ class ReadingConverter(object):
             the two readings (e.g. error on converting entities).
         @raise UnsupportedError: if source or target reading is not supported
             for conversion.
+        @todo Impl: Make parameters fromReading, toReading optional if only
+            one conversion direction is given. Same for L{convertEntities()}.
         """
         # decompose string
         fromReadingEntities = self._getFromOperator(fromReading).decompose(
@@ -982,9 +984,26 @@ class WadeGilesDialectConverter(EntityWiseReadingConverter):
     Provides a converter for different representations of the Mandarin Chinese
     romanisation I{Wade-Giles}.
 
-    The converter has very limited possibilities for conversion at this time,
-    much more different forms of Wade-Giles are possible and should be
-    implemented.
+    Examples
+    ========
+    Convert to superscript numbers (default):
+        >>> from cjklib.reading import ReadingFactory
+        >>> f = ReadingFactory()
+        >>> f.convert(u'Ssŭ1ma3 Ch’ien1', 'WadeGiles', 'WadeGiles',
+        ...     sourceOptions={'toneMarkType': 'Numbers'})
+        u'Ss\u016d\xb9-ma\xb3 Ch\u2019ien\xb9'
+
+    Convert form without diacritic to standard form:
+        >>> f.convert(u'ch’eng', 'WadeGiles', 'WadeGiles',
+        ...     sourceOptions={'diacriticE': 'e'})
+        u'ch\u2019\xeang'
+
+    Convert forms with lost umlaut:
+        >>> f.convert(u'hsu³-hun¹', 'WadeGiles', 'WadeGiles',
+        ...     sourceOptions={'umlautU': 'u'})
+        u'hs\xfc\xb3-hun\xb9'
+
+    See L{WadeGilesOperator} for more examples.
     """
     CONVERSION_DIRECTIONS = [('WadeGiles', 'WadeGiles')]
 
@@ -1007,20 +1026,55 @@ class WadeGilesDialectConverter(EntityWiseReadingConverter):
     def convertBasicEntity(self, entity, fromReading, toReading):
         # split syllable into plain part and tonal information
         plainSyllable, tone \
-            = self._getFromOperator(fromReading).splitEntityTone(entity)
+            = self._getFromOperator(fromReading).splitEntityTone(entity.lower())
 
-        # convert apostrophe
-        if (self._getFromOperator(fromReading)\
-            .getOption('WadeGilesApostrophe') \
-            != self._getToOperator(toReading).getOption('WadeGilesApostrophe')):
-            plainSyllable = plainSyllable.replace(
-                self._getFromOperator(fromReading)\
-                    .getOption('WadeGilesApostrophe'),
-                self._getToOperator(toReading).getOption('WadeGilesApostrophe'))
+        # forms with possibly lost diacritics
+        for option in ['diacriticE', 'zeroFinal', 'umlautU']:
+            fromSubstr = self._getFromOperator(fromReading).getOption(option)
+            toSubstr = self._getToOperator(toReading).getOption(option)
+            if fromSubstr != toSubstr:
+                operator = self._getFromOperator(fromReading)
+                if fromSubstr == operator.ALLOWED_VOWEL_SUBST[option] \
+                    and fromSubstr in plainSyllable:
 
-        # capitalisation
-        if self._getToOperator(toReading).getOption('case') == 'lower':
-            plainSyllable = plainSyllable.lower()
+                    # check state of syllable
+                    res = operator.checkPlainEntity(plainSyllable, option)
+                    if res == 'ambiguous':
+                        lostForm = entity.replace(fromSubstr, toSubstr)\
+                            .replace(fromSubstr.upper(), toSubstr.upper())
+                        raise AmbiguousConversionError(
+                            "conversion for entity '%s' is ambiguous: %s, %s" \
+                                % (entity, entity, lostForm))
+                    elif res == 'lost':
+                        # this form lost its diacritics
+                        plainSyllable = plainSyllable.replace(fromSubstr,
+                            toSubstr)
+                else:
+                    plainSyllable = plainSyllable.replace(fromSubstr, toSubstr)
+
+        # other special forms
+        for option in ['WadeGilesApostrophe']:
+            fromSubstr = self._getFromOperator(fromReading).getOption(option)
+            toSubstr = self._getToOperator(toReading).getOption(option)
+            if fromSubstr != toSubstr:
+                plainSyllable = plainSyllable.replace(fromSubstr, toSubstr)
+
+        # useInitialSz
+        if plainSyllable.startswith('sz') or plainSyllable.startswith('ss'):
+            if self._getToOperator(toReading).getOption('useInitialSz'):
+                initial = 'sz'
+            else:
+                initial = 'ss'
+            plainSyllable = initial + plainSyllable[2:]
+
+        # fix letter case
+        if self._getToOperator(toReading).getOption('case') != 'lower':
+            if entity.isupper():
+                plainSyllable = plainSyllable.upper()
+            elif self._istitlecase(entity):
+                plainSyllable = self._titlecase(plainSyllable)
+            #elif entity.istitle(): # TODO
+                #plainSyllable = plainSyllable.title()
 
         # get syllable with tone mark
         try:
@@ -1037,13 +1091,6 @@ class PinyinWadeGilesConverter(RomanisationConverter):
     Provides a converter between the Chinese romanisation I{Hanyu Pinyin} and
     I{Wade-Giles}.
 
-    Currently only a non standard subset of Wade-Giles is implemented. As many
-    different interpretations exist providing a complete coverage seems hardly
-    achievable. An important step is support for the revised system by Giles as
-    found in his I{Chinese-English Dictionary} (as of 1912). A further target is
-    to at least implement means to support concrete shapes found in the usage of
-    big bodies e.g. libraries.
-
     Upper- or lowercase will be transfered between syllables, no special
     formatting according to anyhow defined standards will be guaranteed.
     Upper-/lowercase will be identified according to three classes: either the
@@ -1059,13 +1106,6 @@ class PinyinWadeGilesConverter(RomanisationConverter):
     implementation furthermore doesn't support explicit depiction of I{Erhua} in
     the Wade-Giles romanisation system thus failing when r-colourised syllables
     are found.
-
-    @todo Lang: Increase support for different I{reading dialects} of the
-        Wade-Giles romanisation system. Includes support in
-        L{WadeGilesOperator}. Get proper sources on the syllables and
-        mappings. Use well-known instances.
-    @warning: This module isn't backed-up by any sources yet and doesn't
-        guarantee a syllable mapping free of errors.
     """
     CONVERSION_DIRECTIONS = [('Pinyin', 'WadeGiles'), ('WadeGiles', 'Pinyin')]
     # use the tone mark type 'Numbers' from Pinyin to support missing tonal
@@ -1101,6 +1141,8 @@ class PinyinWadeGilesConverter(RomanisationConverter):
         return toEntitySequence
 
     def convertEntities(self, readingEntities, fromReading, toReading):
+        # TODO create a nice way to let the converters handle non-reading
+        #   entities gracefully
         # for conversion from Wade-Giles remove the hyphens that will not be
         #   transfered to Pinyin
         if fromReading == 'WadeGiles':
@@ -1121,12 +1163,21 @@ class PinyinWadeGilesConverter(RomanisationConverter):
             transSyllable = self.db.selectScalar(
                 select([table.c.Pinyin], table.c.WadeGiles == plainSyllable))
         elif fromReading == "Pinyin":
-            # mapping from WG to Pinyin is ambiguous, use index for distinct
+            # mapping from WG to Pinyin has old, dialect forms, use index
             table = self.db.tables['WadeGilesPinyinMapping']
-            transSyllable = self.db.selectScalar(
+            transSyllables = self.db.selectScalars(
                 select([table.c.WadeGiles],
                     and_(table.c.Pinyin == plainSyllable,
                         table.c.PinyinIdx == 0)))
+            if len(transSyllables) > 1:
+                raise AmbiguousConversionError(
+                    "conversion for entity '%s' is ambiguous: %s" \
+                        % (entity, ', '.join(transSyllables)))
+            elif transSyllables:
+                transSyllable = transSyllables[0]
+            else:
+                transSyllable = None
+
         if not transSyllable:
             raise ConversionError("conversion for entity '" + plainSyllable \
                 + "' not supported")
