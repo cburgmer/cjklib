@@ -110,10 +110,11 @@ BUILD_GROUPS = {
     'fullVietnamese': ['KangxiRadicalData', 'ShapeLookupData', 'IICoreSet'], # TODO IICoreSet as long as no better source exists
     # additional data for cjknife
     'fullDictionaries': ['fullCEDICT', 'fullCEDICTGR', 'fullHanDeDict',
-        'fullEDICT'],
+        'fullCFDICT', 'fullEDICT'],
     'fullCEDICT': ['CEDICT', 'CEDICT_Words'],
     'fullCEDICTGR': ['CEDICTGR', 'CEDICTGR_Words'],
     'fullHanDeDict': ['HanDeDict', 'HanDeDict_Words'],
+    'fullCFDICT': ['CFDICT', 'CFDICT_Words'],
     'fullEDICT': ['EDICT', 'EDICT_Words'],
 }
 """
