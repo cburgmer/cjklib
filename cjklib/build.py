@@ -1485,6 +1485,16 @@ class WadeGilesSyllablesBuilder(CSVFileLoader):
     TABLE_DECLARATION_FILE_MAPPING = 'wadegilessyllables.sql'
 
 
+class WadeGilesInitialFinalBuilder(CSVFileLoader):
+    """
+    Builds a mapping from Wade-Giles syllables to their initial/final parts.
+    """
+    PROVIDES = 'WadeGilesInitialFinal'
+
+    TABLE_CSV_FILE_MAPPING = 'wadegilesinitialfinal.csv'
+    TABLE_DECLARATION_FILE_MAPPING = 'wadegilesinitialfinal.sql'
+
+
 class GRSyllablesBuilder(CSVFileLoader):
     """
     Builds a list of Gwoyeu Romatzyh syllables.

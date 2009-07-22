@@ -2747,6 +2747,8 @@ class WadeGilesOperator(TonalRomanisationOperator):
         initial will be returned, while the final will be extended with vowel
         I{i} or I{u}.
 
+        Old forms are not supported and will raise an L{UnsupportedError}.
+
         Returned strings will be lowercase.
 
         @type plainSyllable: str
@@ -2754,17 +2756,18 @@ class WadeGilesOperator(TonalRomanisationOperator):
         @rtype: tuple of str
         @return: tuple of entity onset and rhyme
         @raise InvalidEntityError: if the entity is invalid.
+        @raise UnsupportedError: if the given entity is not supported
         @todo Fix: doesn't work for all dialects
-        @todo Impl: Create table
         """
-        raise NotImplementedError
+        if not self.isPlainReadingEntity(plainSyllable):
+            raise InvalidEntityError(
+                "'%s' not a valid plain Wade-Giles syllable'" % plainSyllable)
         table = self.db.tables['WadeGilesInitialFinal']
         entry = self.db.selectRow(
             select([table.c.WadeGilesInitial, table.c.WadeGilesFinal],
                 table.c.WadeGiles == plainSyllable.lower()))
         if not entry:
-            raise InvalidEntityError("'" + plainSyllable \
-                + "' not a valid plain Wade-Giles syllable'")
+            raise UnsupportedError("Not supported for '%s'" % plainEntity)
 
         return (entry[0], entry[1])
 

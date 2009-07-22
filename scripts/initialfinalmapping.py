@@ -199,6 +199,7 @@ EXTRA_SYLLABLES = {('Jyutping', 'CantoneseYale'): {'om': None, 'pet': None,
     ('Pinyin', 'GR'): {u'm': None, u'n': None, u'ng': None, u'hm': None,
         u'hng': None, u'ê': None, 'yo': None},
     ('Pinyin', 'WadeGiles'): {u'wen': ('', u'uên'), 'weng': ('', u'uêng'),
+        'yi': ({'exceptSemiVowel': '', 'all_1': ''}, u'i'),
         u'm': None, u'n': None, u'ng': None, u'hm': None, u'hng': None,
         'yai': None, 'yo': None},
     }
@@ -237,7 +238,7 @@ def makeJyutpingYaleEntry(jyutpingSyllable, initial, final,
 
 def getWadeGilesSyllable(initial, final):
     # syllable rule
-    if not initial and final in ['in', 'ing']:
+    if not initial and final in ['i', 'in', 'ing']:
         return 'y' + final
     elif not initial and final.startswith('i') and final != 'i':
         return 'y' + final[1:]
@@ -276,7 +277,11 @@ def checkFeature(syllablePart, feature):
 
 def makePinyinWadeGilesEntry(pinyinSyllable, initial, final,
     initialFeature=None, finalFeature=None):
-    if checkFeature(final, initialFeature) \
+    if initialFeature == 'exceptSemiVowel' and not initial:
+        wadeGilesSyllable = final
+
+        return "'" + pinyinSyllable + "','" + wadeGilesSyllable + "'"
+    elif checkFeature(final, initialFeature) \
         and checkFeature(initial, finalFeature):
         # only generate entry if initial/final fits to features
         wadeGilesSyllable = getWadeGilesSyllable(initial, final)
@@ -285,7 +290,11 @@ def makePinyinWadeGilesEntry(pinyinSyllable, initial, final,
 
 def makeWadeGilesInitialFinalEntry(pinyinSyllable, initial, final,
     initialFeature=None, finalFeature=None):
-    if checkFeature(final, initialFeature) \
+    if initialFeature == 'exceptSemiVowel' and not initial:
+        wadeGilesSyllable = final
+
+        return "'" + wadeGilesSyllable + "','" + initial + "','" + final + "'"
+    elif checkFeature(final, initialFeature) \
         and checkFeature(initial, finalFeature):
         # only generate entry if initial/final fits to features
         wadeGilesSyllable = getWadeGilesSyllable(initial, final)
