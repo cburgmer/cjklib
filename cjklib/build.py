@@ -1360,12 +1360,15 @@ class CSVFileLoader(TableBuilder):
     def byte_string_dialect(dialect):
         class ByteStringDialect(csv.Dialect):
             def __init__(self, dialect):
-                self.delimiter = str(dialect.delimiter)
-                if dialect.escapechar:
-                    self.escapechar = str(dialect.escapechar)
-                self.lineterminator = str(dialect.lineterminator)
-                self.quotechar = str(dialect.quotechar)
-                self.quoting = dialect.quoting
+                for attr in ["delimiter", "quotechar", "escapechar", "lineterminator"]:
+                    old = getattr(dialect, attr)
+                    if old is not None:
+                        setattr(self, attr, str(old))
+                
+                for attr in ["doublequote", "skipinitialspace", "quoting"]:
+                    setattr(self, attr, getattr(dialect, attr))
+                
+                csv.Dialect.__init__(self)
 
         return ByteStringDialect(dialect)
 
