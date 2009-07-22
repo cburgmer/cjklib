@@ -120,6 +120,7 @@ class ReadingOperator(object):
         Returns the value of the reading operator's option.
 
         @return: the value of the given reading operator's option.
+        @todo Fix: Remove this method and follow Python style with attributes
         """
         return self.optionValue[option]
 
@@ -1284,8 +1285,6 @@ class PinyinOperator(TonalRomanisationOperator):
         Connecticut, 1985, ISBN 0-88710-141-0.), and '·ma' (u'\\xb7ma', check!:
         现代汉语词典（第5版）[Xiàndài Hànyǔ Cídiǎn 5. Edition]. 商务印书馆
         [Shāngwù Yìnshūguǎn], Beijing, 2005, ISBN 7-100-04385-9.)
-    @todo Fix:  Currently changing the C{ü} to something else will still include
-        the original syllable in the set. Rethink.
     @todo Impl: Consider handline C{*nue} and C{*lue}.
     """
     READING_NAME = 'Pinyin'
@@ -1934,18 +1933,20 @@ class PinyinOperator(TonalRomanisationOperator):
                 if syllable not in ['e', 'er']:
                     plainSyllables.add(syllable + 'r')
 
-        # add alternative forms for replacement of ü
+        # change forms for alternative ü
         if self.getOption('yVowel') != u'ü':
-            for syllable in plainSyllables.copy():
-                if syllable.find(u'ü') != -1:
-                    syllable = syllable.replace(u'ü', self.getOption('yVowel'))
-                    if syllable in plainSyllables:
-                        # check if through conversion we collide with an already
-                        #   existing syllable
-                        raise ValueError("syllable '" + syllable \
-                            + "' included more than once, " \
-                            + u"probably bad substitute for 'ü'")
-                    plainSyllables.add(syllable)
+            translatedSyllables = set()
+            for syllable in plainSyllables:
+                syllable = syllable.replace(u'ü', self.getOption('yVowel'))
+                if syllable in translatedSyllables:
+                    # check if through conversion we collide with an already
+                    #   existing syllable
+                    raise ValueError("syllable '" + syllable \
+                        + "' included more than once, " \
+                        + u"probably bad substitute for 'ü'")
+                translatedSyllables.add(syllable)
+
+            plainSyllables = translatedSyllables
 
         if self.getOption('shortenedLetters'):
             initialDict = {'zh': u'ẑ', 'ch': u'ĉ', 'sh': u'ŝ'}

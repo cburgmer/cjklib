@@ -210,6 +210,7 @@ class ReadingConverter(object):
         Returns the value of the reading converter's option.
 
         @return: the value of the given reading converter's option.
+        @todo Fix: Remove this method and follow Python style with attributes
         """
         return self.optionValue[option]
 
@@ -692,17 +693,6 @@ class PinyinDialectConverter(ReadingConverter):
                     + "' for keyword 'breakUpErhua'")
             self.optionValue['breakUpErhua'] = options['breakUpErhua']
 
-        # get yVowel setting
-        if self._getFromOperator('Pinyin').getOption('yVowel') != u'ü':
-            self.fromYVowel \
-                = self._getFromOperator('Pinyin').getOption('yVowel')
-        else:
-            self.fromYVowel = u'ü'
-        if self._getToOperator('Pinyin').getOption('yVowel') != u'ü':
-            self.toYVowel = self._getToOperator('Pinyin').getOption('yVowel')
-        else:
-            self.toYVowel = u'ü'
-
         # get Erhua settings, 'twoSyllables' is default
         if self.getOption('breakUpErhua') == 'on' \
             or (self.getOption('breakUpErhua') == 'auto' \
@@ -867,10 +857,11 @@ class PinyinDialectConverter(ReadingConverter):
                         plainSyllable = 'er'
 
                 # check for special vowel for ü on input
-                if self.fromYVowel != self.toYVowel:
-                    plainSyllable = plainSyllable.replace(self.fromYVowel,
-                        self.toYVowel).replace(self.fromYVowel.upper(),
-                        self.toYVowel.upper())
+                fromYVowel = self._getFromOperator('Pinyin').getOption('yVowel')
+                toYVowel = self._getToOperator('Pinyin').getOption('yVowel')
+                if fromYVowel != toYVowel:
+                    plainSyllable = plainSyllable.replace(fromYVowel, toYVowel)\
+                        .replace(fromYVowel.upper(), toYVowel.upper())
 
                 # capitalisation
                 if self._getToOperator(toReading).getOption('case') == 'lower':
@@ -884,8 +875,8 @@ class PinyinDialectConverter(ReadingConverter):
                     # handle this as a conversion error as the converted
                     #   syllable is not accepted by the operator
                     raise ConversionError(*e.args)
-            elif entry == self._getToOperator(fromReading)\
-                .getOption('PinyinApostrophe'):
+            elif entry == self._getToOperator(fromReading).getOption(
+                'PinyinApostrophe'):
                 toReadingEntities.append(self._getToOperator(toReading)\
                     .getOption('PinyinApostrophe'))
             else:
