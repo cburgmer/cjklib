@@ -1107,7 +1107,7 @@ class GB2312SetBuilder(UnihanCharacterSetBuilder):
 
 class BIG5SetBuilder(UnihanCharacterSetBuilder):
     """
-    Builds a simple list of all characters in the Chinese standard X{GB2312-80}.
+    Builds a simple list of all characters in the Chinese standard X{BIG5}.
     """
     PROVIDES = 'BIG5Set'
     COLUMN_SOURCE = 'kBigFive'
@@ -3301,15 +3301,15 @@ class DatabaseBuilder:
     It contains all L{TableBuilder} classes and a dependency graph to handle
     build requests.
     """
-    def __init__(self, databaseSettings={}, dbConnectInst=None, dataPath=[],
+    def __init__(self, databaseUrl=None, dbConnectInst=None, dataPath=[],
         quiet=False, rebuildDepending=True, rebuildExisting=True, noFail=False,
         prefer=[], additionalBuilders=[]):
         """
         Constructs the DatabaseBuilder.
 
-        @type databaseSettings: dict
-        @param databaseSettings: dictionary holding the database options for the
-            dbconnector module.
+        @type databaseUrl: str
+        @param databaseUrl: database connection setting in the format
+            C{driver://user:pass@host/database}.
         @type dbConnectInst: instance
         @param dbConnectInst: instance of a L{DatabaseConnector}
         @type dataPath: list of str
@@ -3332,6 +3332,7 @@ class DatabaseBuilder:
         @param additionalBuilders: list of externally provided TableBuilders
         """
         if not dataPath:
+            # look for data underneath the build module
             buildModule = __import__("cjklib.build")
             self.dataPath = [os.path.join(buildModule.__path__[0], 'data')]
         else:
@@ -3348,8 +3349,7 @@ class DatabaseBuilder:
         if dbConnectInst:
             self.db = dbConnectInst
         else:
-            self.db = dbconnector.DatabaseConnector.getDBConnector(
-                databaseSettings)
+            self.db = dbconnector.DatabaseConnector.getDBConnector(databaseUrl)
 
         # get TableBuilder classes
         tableBuilderClasses = DatabaseBuilder.getTableBuilderClasses(

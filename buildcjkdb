@@ -145,8 +145,7 @@ additionally supplied data of a type the build process understands.
 Example: buildcjkdb -b allAvail
 
 The database is stored according to the setting of the cjklib and can be changed
-by setting the cjklib.conf. Additionally all SQL commands can be printed to
-stdout specifying --dump.
+by setting the cjklib.conf.
 
 General commands:
   -b, --build=BUILD_GROUPS   adds a build group or a specific table to the build
@@ -155,8 +154,6 @@ General commands:
                                they already exist
   -l, --list-groups          list all available build groups and exists
   --dataPath=PATH            path to data files
-  --dump                     dumps all SQL statements to stdout; no support for
-                             builders that depend on a database being present
   -V, --version              prints the version information and exits
   -h, --help                 prints this help and exits"""
 
@@ -206,7 +203,7 @@ def main():
     # parse command line parameters
     try:
         opts, args = getopt.getopt(sys.argv[1:], "b:rlqVh", ["help", "version",
-            "dataPath=", "build=", "rebuild", "list-groups", "quiet", "dump"])
+            "dataPath=", "build=", "rebuild", "list-groups", "quiet"])
     except getopt.GetoptError:
         # print help information and exit
         usage()
@@ -216,7 +213,6 @@ def main():
     dataPathList = []
     rebuild = False
     quiet = False
-    dump = False
 
     # start to check parameters
     if len(opts) == 0:
@@ -242,9 +238,6 @@ def main():
         # set quiet mode to true
         elif o in ("-q", "--quiet"):
             quiet = True
-        # set dump mode to true
-        elif o in ("--dump"):
-            dump = True
         # list build groups
         elif o in ("-l", "--list-groups"):
             printFormattedLine("Generic groups:\n" \
@@ -317,12 +310,8 @@ def main():
             prefer.append('SlimUnihanBMPBuilder')
 
         # create builder instance
-        databaseSettings = {}
-        if dump:
-            databaseSettings = {'dump': True}
-        dbBuilder = build.DatabaseBuilder(databaseSettings=databaseSettings,
-            dataPath=dataPath, quiet=quiet, rebuildExisting=rebuild,
-            noFail=noFail, prefer=prefer)
+        dbBuilder = build.DatabaseBuilder(dataPath=dataPath, quiet=quiet,
+            rebuildExisting=rebuild, noFail=noFail, prefer=prefer)
 
         try:
             dbBuilder.build(groups)
