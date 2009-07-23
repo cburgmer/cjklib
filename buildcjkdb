@@ -213,8 +213,7 @@ def main():
 
     buildGroupList = []
     dataPathList = []
-    rebuild = False
-    quiet = False
+    options = {'quiet': False, 'rebuildExisting': False}
 
     # start to check parameters
     if len(opts) == 0:
@@ -236,10 +235,10 @@ def main():
                 in a.split(',')])
         # set rebuild mode to true
         elif o in ("-r", "--rebuild"):
-            rebuild = True
+            options['rebuildExisting'] = True
         # set quiet mode to true
         elif o in ("-q", "--quiet"):
-            quiet = True
+            options['quiet'] = True
         # list build groups
         elif o in ("-l", "--list-groups"):
             printFormattedLine("Generic groups:\n" \
@@ -272,18 +271,18 @@ def main():
         buildModulePath = os.path.dirname(os.path.abspath(buildModule.__file__))
         dataPathList.append(os.path.join(buildModulePath, 'data'))
 
-    dataPath = []
+    options['dataPath'] = []
     for pathEntry in dataPathList:
-        dataPath.extend(pathEntry.split(':'))
+        options['dataPath'].extend(pathEntry.split(':'))
 
     if buildGroupList:
         # by default fail if a table couldn't be built
-        noFail = False
+        options['noFail'] = False
         if 'all' in buildGroupList or 'allAvail' in buildGroupList:
             if 'allAvail' in buildGroupList:
                 if len(buildGroupList) == 1:
                     # don't fail on non available
-                    noFail = True
+                    options['noFail'] = True
                 else:
                     # allAvail not compatible with others, as allAvail means not
                     # failing if build fails, but others will need failing when
@@ -303,25 +302,21 @@ def main():
                 groups.append(group)
 
         # choose preferred builders
-        prefer = ['CharacterVariantBMPBuilder', 'CombinedStrokeCountBuilder',
-            'CombinedCharacterResidualStrokeCountBuilder',
-            'HanDeDictFulltextSearchBuilder']
-        if 'Unihan' in groups:
-            prefer.append('UnihanBMPBuilder')
-        else:
-            prefer.append('SlimUnihanBMPBuilder')
+        options['prefer'] = ['CombinedStrokeCountBuilder',
+            'CombinedCharacterResidualStrokeCountBuilder']
+
+        options['slimUnihanTable'] = 'Unihan' not in groups
 
         # create builder instance
-        dbBuilder = build.DatabaseBuilder(dataPath=dataPath, quiet=quiet,
-            rebuildExisting=rebuild, noFail=noFail, prefer=prefer)
+        dbBuilder = build.DatabaseBuilder(**options)
 
         try:
             dbBuilder.build(groups)
 
             print "finished"
         except exception.UnsupportedError:
-            printFormattedLine("error building local tables, some names " \
-                + "do not exist")
+            printFormattedLine(
+                "error building local tables, some names do not exist")
             raise
         except KeyboardInterrupt:
             print >>sys.stderr, "Keyboard interrupt."

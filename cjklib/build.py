@@ -44,14 +44,10 @@ package.
 
         >>> from cjklib import build
         >>> dbBuilder = build.DatabaseBuilder(dataPath=['./cjklib/data/'])
-        Removing conflicting builder(s) 'CharacterVariantBMPBuilder' in favour
-        of 'CharacterVariantBuilder'
-        Removing conflicting builder(s) 'SlimUnihanBuilder', 'UnihanBuilder',
-        'UnihanBMPBuilder' in favour of 'SlimUnihanBMPBuilder'
-        Removing conflicting builder(s) 'StrokeCountBuilder' in favour of
-        'CombinedStrokeCountBuilder'
-        Removing conflicting builder(s) 'CharacterResidualStrokeCountBuilder' in
-        favour of 'CombinedCharacterResidualStrokeCountBuilder'
+        Removing conflicting builder(s) 'StrokeCountBuilder' in favour of \
+'CombinedStrokeCountBuilder'
+        Removing conflicting builder(s) 'CharacterResidualStrokeCountBuilder' \
+in favour of 'CombinedCharacterResidualStrokeCountBuilder'
 
     - Build the table of Jyutping syllables from a csv file:
 
@@ -62,7 +58,6 @@ package.
         Reading table 'JyutpingSyllables' from file
         './cjklib/data/jyutpingsyllables.csv'
 
-@todo Impl: Add way to directly specify file paths, not only possible locations
 @todo Impl: Implement UnihanBuilder52 for Unicode 5.2.0 which ships with several
     text files included in one .zip
 @todo Impl: Include new source kHanyuPinyin for Pinyin. Think about extending
@@ -82,6 +77,7 @@ from sqlalchemy import Table, Column, Integer, String, Text, Index
 from sqlalchemy import select, union
 from sqlalchemy.sql import text, func
 from sqlalchemy.sql import and_, or_, not_
+from sqlalchemy.exc import OperationalError
 import sqlalchemy
 
 from cjklib import dbconnector
@@ -100,21 +96,33 @@ class TableBuilder(object):
     DEPENDS = []
     """Contains the names of the tables needed for the build process."""
 
-    def __init__(self, dataPath=None, dbConnectInst=None, quiet=False):
+    def __init__(self, **options):
         """
         Constructs the TableBuilder.
 
-        @type dataPath: list of str
-        @param dataPath: optional list of paths to the data file(s)
-        @type dbConnectInst: instance
-        @param dbConnectInst: instance of a L{DatabaseConnector}. If not given
-            all sql code will be printed to stdout.
-        @type quiet: bool
-        @param quiet: if true no status information will be printed to stderr
+        @param options: extra options
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword dataPath: optional list of paths to the data file(s)
+        @keyword quiet: if C{True} no status information will be printed to
+            stderr
         """
-        self.dataPath = dataPath
-        self.quiet = quiet
-        self.db = dbConnectInst
+        self.db = options.get('dbConnectInst')
+        for option, defaultValue in self.getDefaultOptions().items():
+            setattr(self, option, options.get(option, defaultValue))
+
+    @classmethod
+    def getDefaultOptions(cls):
+        """
+        Returns the table builder's default options.
+
+        The base class' implementation returns an empty dictionary. The keyword
+        'dbConnectInst' is not regarded a configuration option of the operator
+        and is thus not included in the dict returned.
+
+        @rtype: dict
+        @return: the reading operator's default options.
+        """
+        return {'dataPath': [], 'quiet': False}
 
     def build(self):
         """
@@ -162,9 +170,10 @@ class TableBuilder(object):
                     return filePath
         if fileType == None:
             fileType = "file"
-        raise IOError("No " + fileType + " found for '" + self.PROVIDES \
-            + "' under path(s)'" + "', '".join(self.dataPath) \
-            + "' for file names '" + "', '".join(fileNames) + "'")
+        raise IOError(
+            "No %s found for '%s' under path(s) '%s' for file names '%s'" \
+                % (fileType, self.PROVIDES, "', '".join(self.dataPath),
+                    "', '".join(fileNames)))
 
     def buildTableObject(self, tableName, columns, columnTypeMap={},
         primaryKeys=[]):
@@ -313,7 +322,7 @@ class UnihanGenerator:
     keySet = None
     """Set of keys of the Unihan table."""
 
-    def __init__(self, fileName, useKeys=None, quiet=False):
+    def __init__(self, fileName, useKeys=None, wideBuild=False, quiet=False):
         """
         Constructs the UnihanGenerator.
 
@@ -322,11 +331,15 @@ class UnihanGenerator:
         @type useKeys: list
         @param useKeys: if given only these keys will be read from the table,
             otherwise all keys will be returned
+        @type wideBuild: bool
+        @param wideBuild: if C{True} characters outside the I{BMP} will be
+            included.
         @type quiet: bool
         @param quiet: if true no status information will be printed to stderr
         """
         self.ENTRY_REGEX = re.compile(ur"U\+([0-9A-F]+)\s+(\w+)\s+(.+)\s*$")
         self.fileName = fileName
+        self.wideBuild = wideBuild
         self.quiet = quiet
         if useKeys != None:
             self.limitKeys = True
@@ -376,14 +389,13 @@ class UnihanGenerator:
             entryIndex = unicodeHexIndex
             entry[key] = value
         # generate last entry
-        if entry:
-            try:
-                # yield old one
-                char = unichr(int(entryIndex, 16))
-                yield(char, entry)
-            except ValueError:
-                # catch for Unicode characters outside BMP for narrow builds
-                pass
+        # skip characters outside the BMP, i.e. for Chinese characters
+        #   >= 0x20000 unless wideBuild is specified
+        codePoint = int(entryIndex, 16)
+        if entry and (self.wideBuild or codePoint < int('20000', 16)):
+            # yield old one
+            char = unichr(codePoint)
+            yield(char, entry)
         handle.close()
 
     def getHandle(self):
@@ -432,7 +444,16 @@ class UnihanGenerator:
 
 
 class UnihanBuilder(EntryGeneratorBuilder):
-    """Builds the Unihan database from the Unihan file provided by Unicode."""
+    """
+    Builds the Unihan database from the Unihan file provided by Unicode. By
+    default only chooses characters from the X{Basic Multilingual Plane}
+    (X{BMP}) with code values between U+0000 and U+FFFF.
+
+    Windows versions of Python by default are I{narrow build}s and don't support
+    characters outside the 16 bit range. MySQL < 6 doesn't support true UTF-8,
+    and uses a Version with max 3 bytes:
+    U{http://dev.mysql.com/doc/refman/6.0/en/charset-unicode.html}.
+    """
     class EntryGenerator:
         """Generates the entries of the Unihan table."""
 
@@ -469,11 +490,40 @@ class UnihanBuilder(EntryGeneratorBuilder):
         'kTraditionalVariant': Text(), 'kVietnamese': Text(),
         'kZVariant': Text(), 'kGB0': String(4), 'kBigFive': String(4),
         'kXHC1983': Text()}
-    unihanGenerator = None
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(UnihanBuilder, self).__init__(dataPath, dbConnectInst, quiet)
+    INCLUDE_KEYS = ['kCompatibilityVariant', 'kCantonese', 'kFrequency',
+        'kHangul', 'kHanyuPinlu', 'kJapaneseKun', 'kJapaneseOn', 'kMandarin',
+        'kRSJapanese', 'kRSKanWa', 'kRSKangXi', 'kRSKorean', 'kSemanticVariant',
+        'kSimplifiedVariant', 'kSpecializedSemanticVariant', 'kTotalStrokes',
+        'kTraditionalVariant', 'kVietnamese', 'kXHC1983', 'kZVariant',
+        'kIICore', 'kGB0', 'kBigFive']
+    """Keys included in a slim version if explicitly specified."""
+
+    def __init__(self, **options):
+        """
+        Constructs the UnihanBuilder.
+
+        @param options: extra options
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword dataPath: optional list of paths to the data file(s)
+        @keyword quiet: if C{True} no status information will be printed to
+            stderr
+        @keyword wideBuild: if C{True} characters outside the I{BMP} will be
+            included.
+        @keyword slimUnihanTable: if C{True} a limited set of columns specified
+            by L{INCLUDE_KEYS} will be supported.
+        """
+        super(UnihanBuilder, self).__init__(**options)
+
         self.PRIMARY_KEYS = [self.CHARACTER_COLUMN]
+        self.unihanGenerator = None
+
+    @classmethod
+    def getDefaultOptions(cls):
+        options = super(UnihanBuilder, cls).getDefaultOptions()
+        options.update({'wideBuild': False, 'slimTable': True})
+
+        return options
 
     def getUnihanGenerator(self):
         """
@@ -485,7 +535,13 @@ class UnihanBuilder(EntryGeneratorBuilder):
         if not self.unihanGenerator:
             path = self.findFile(['Unihan.txt', 'Unihan.zip'],
                 "Unihan database file")
-            self.unihanGenerator = UnihanGenerator(path, quiet=self.quiet)
+            if self.slimTable:
+                columns = self.INCLUDE_KEYS
+            else:
+                columns = None
+
+            self.unihanGenerator = UnihanGenerator(path, useKeys=columns,
+                wideBuild=self.wideBuild, quiet=self.quiet)
             if not self.quiet:
                 warn("reading file '" + path + "'")
         return self.unihanGenerator
@@ -500,84 +556,6 @@ class UnihanBuilder(EntryGeneratorBuilder):
         self.COLUMNS.extend(generator.keys())
 
         EntryGeneratorBuilder.build(self)
-
-
-class UnihanBMPBuilder(UnihanBuilder):
-    """
-    Builds the Unihan database from the Unihan file provided by Unicode for
-    characters from the Basic Multilingual Plane (BMP) with code values between
-    U+0000 and U+FFFF.
-
-    MySQL < 6 doesn't support true UTF-8, and uses a Version with max 3 bytes:
-    U{http://dev.mysql.com/doc/refman/6.0/en/charset-unicode.html}
-    """
-    class BMPEntryGenerator:
-
-        def __init__(self, unihanGenerator):
-            """
-            Initialises the EntryGenerator.
-
-            @type unihanGenerator: instance
-            @param unihanGenerator: a L{UnihanGenerator} instance
-            """
-            gen = unihanGenerator.generator()
-            self.entryGen = UnihanBuilder.EntryGenerator(unihanGenerator)\
-                .generator()
-
-        def generator(self):
-            for entryDict in self.entryGen:
-                # skip characters outside the BMP, i.e. for Chinese characters
-                # >= 0x20000
-                char = entryDict[UnihanBuilder.CHARACTER_COLUMN]
-                if ord(char) < int('20000', 16):
-                    yield entryDict
-
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(UnihanBMPBuilder, self).__init__(dataPath, dbConnectInst, quiet)
-        self.PRIMARY_KEYS = [self.CHARACTER_COLUMN]
-
-    def getGenerator(self):
-        return UnihanBMPBuilder.BMPEntryGenerator(self.getUnihanGenerator())\
-            .generator()
-
-
-class SlimUnihanBuilder(UnihanBuilder):
-    """
-    Builds a slim version of the Unihan database.
-
-    Keys imported into the database are specified in L{INCLUDE_KEYS}.
-    """
-    INCLUDE_KEYS = ['kCompatibilityVariant', 'kCantonese', 'kFrequency',
-        'kHangul', 'kHanyuPinlu', 'kJapaneseKun', 'kJapaneseOn', 'kMandarin',
-        'kRSJapanese', 'kRSKanWa', 'kRSKangXi', 'kRSKorean', 'kSemanticVariant',
-        'kSimplifiedVariant', 'kSpecializedSemanticVariant', 'kTotalStrokes',
-        'kTraditionalVariant', 'kVietnamese', 'kXHC1983', 'kZVariant',
-        'kIICore', 'kGB0', 'kBigFive']
-    """Keys for that data is read into the Unihan table in database."""
-
-    def getUnihanGenerator(self):
-        if not self.unihanGenerator:
-            path = self.findFile(['Unihan.txt', 'Unihan.zip'],
-                "Unihan database file")
-            self.unihanGenerator = UnihanGenerator(path, self.INCLUDE_KEYS)
-            if not self.quiet:
-                warn("reading file '" + path + "'")
-        return self.unihanGenerator
-
-
-class SlimUnihanBMPBuilder(SlimUnihanBuilder, UnihanBMPBuilder):
-    """
-    Builds a slim version of the Unihan database from the Unihan file provided
-    by Unicode for characters from the Basic Multilingual Plane (BMP) with code
-    values between U+0000 and U+FFFF.
-
-    MySQL < 6 doesn't support true UTF-8, and uses a Version with max 3 bytes:
-    U{http://dev.mysql.com/doc/refman/6.0/en/charset-unicode.html}
-
-    Keys imported into the database are specified in L{INCLUDE_KEYS}.
-    """
-    # all work is done in SlimUnihanBuilder and UnihanBMPBuilder
-    pass
 
 
 class Kanjidic2Builder(EntryGeneratorBuilder):
@@ -721,8 +699,8 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
     'character' element and a set of attribute value pairs.
     """
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(Kanjidic2Builder, self).__init__(dataPath, dbConnectInst, quiet)
+    def __init__(self, **options):
+        super(Kanjidic2Builder, self).__init__(**options)
         tags = [tag for tag, _ in self.KANJIDIC_TAG_MAPPING.values()]
         self.COLUMNS = tags
         self.PRIMARY_KEYS = [self.CHARACTER_COLUMN]
@@ -769,9 +747,8 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
     database and the 'quiet' flag. Needs to be overwritten in subclass.
     """
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(UnihanDerivedBuilder, self).__init__(dataPath, dbConnectInst,
-            quiet)
+    def __init__(self, **options):
+        super(UnihanDerivedBuilder, self).__init__(**options)
         # create name mappings
         self.COLUMNS = ['ChineseCharacter', self.COLUMN_TARGET]
         self.PRIMARY_KEYS = self.COLUMNS
@@ -898,7 +875,14 @@ class CharacterKoreanRadicalBuilder(CharacterRadicalBuilder):
 
 class CharacterVariantBuilder(EntryGeneratorBuilder):
     """
-    Builds a character variant mapping table from the Unihan database.
+    Builds a character variant mapping table from the Unihan database. By
+    default only chooses characters from the X{Basic Multilingual Plane}
+    (X{BMP}) with code values between U+0000 and U+FFFF.
+
+    Windows versions of Python by default are I{narrow build}s and don't support
+    characters outside the 16 bit range. MySQL < 6 doesn't support true UTF-8,
+    and uses a Version with max 3 bytes:
+    U{http://dev.mysql.com/doc/refman/6.0/en/charset-unicode.html}.
     """
     class VariantGenerator:
         """Generates the character to variant mapping from the Unihan table."""
@@ -922,7 +906,8 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
         pattern.
         """
 
-        def __init__(self, variantEntries, typeList, quiet=False):
+        def __init__(self, variantEntries, typeList, wideBuild=False,
+            quiet=False):
             """
             Initialises the VariantGenerator.
 
@@ -931,11 +916,15 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
                 database
             @type typeList: list of str
             @param typeList: variant types in the order given in tableEntries
+            @type wideBuild: bool
+            @param wideBuild: if C{True} characters outside the I{BMP} will be
+                included.
             @type quiet: bool
             @param quiet: if true no status information will be printed
             """
             self.variantEntries = variantEntries
             self.typeList = typeList
+            self.wideBuild = wideBuild
             self.quiet = quiet
 
         def generator(self):
@@ -951,13 +940,11 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
                             # get all hex indices
                             variantIndices = findR.findall(variantInfo)
                             for unicodeHexIndex in variantIndices:
-                                try:
-                                    variant = unichr(int(unicodeHexIndex, 16))
+                                codePoint = int(unicodeHexIndex, 16)
+                                if self.wideBuild \
+                                    or codePoint < int('20000', 16):
+                                    variant = unichr(codePoint)
                                     yield(character, variant, variantType)
-                                except ValueError:
-                                    # catch for Unicode characters outside BMP
-                                    #   for narrow builds
-                                    pass
                         elif not self.quiet:
                             # didn't match the regex
                             warn('unable to read variant information of ' \
@@ -978,12 +965,29 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
     COLUMN_TYPES = {'ChineseCharacter': String(1), 'Variant': String(1),
         'Type': String(1)}
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(CharacterVariantBuilder, self).__init__(dataPath, dbConnectInst,
-            quiet)
-        # create name mappings
+    def __init__(self, **options):
+        """
+        Constructs the CharacterVariantBuilder.
+
+        @param options: extra options
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword dataPath: optional list of paths to the data file(s)
+        @keyword quiet: if C{True} no status information will be printed to
+            stderr
+        @keyword wideBuild: if C{True} characters outside the I{BMP} will be
+            included.
+        """
+        super(CharacterVariantBuilder, self).__init__(**options)
+
         self.COLUMNS = ['ChineseCharacter', 'Variant', 'Type']
         self.PRIMARY_KEYS = self.COLUMNS
+
+    @classmethod
+    def getDefaultOptions(cls):
+        options = super(CharacterVariantBuilder, cls).getDefaultOptions()
+        options.update({'wideBuild': False})
+
+        return options
 
     def getGenerator(self):
         # create generator
@@ -996,64 +1000,14 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
         tableEntries = self.db.selectRows(
             select([table.c[column] for column in selectKeys]))
         return CharacterVariantBuilder.VariantGenerator(tableEntries,
-            variantTypes, self.quiet).generator()
+            variantTypes, wideBuild=self.wideBuild, quiet=self.quiet)\
+                .generator()
 
     def build(self):
         if not self.quiet:
             warn("Reading table content from Unihan columns '" \
-                + ', '.join(self.COLUMN_SOURCE_ABBREV.keys()) + "'")
+                + "', '".join(self.COLUMN_SOURCE_ABBREV.keys()) + "'")
         super(CharacterVariantBuilder, self).build()
-
-
-class CharacterVariantBMPBuilder(CharacterVariantBuilder):
-    """
-    Builds a character variant mapping table from the Unihan database for
-    characters from the Basic Multilingual Plane (BMP) with code values between
-    U+0000 and U+FFFF.
-
-    MySQL < 6 doesn't support true UTF-8, and uses a Version with max 3 bytes:
-    U{http://dev.mysql.com/doc/refman/6.0/en/charset-unicode.html}
-    """
-    class BMPVariantGenerator:
-
-        def __init__(self, variantEntries, typeList, quiet=False):
-            """
-            Initialises the BMPVariantGenerator.
-
-            @type variantEntries: list of tuple
-            @param variantEntries: character variant entries from the Unihan
-                database
-            @type typeList: list of str
-            @param typeList: variant types in the order given in tableEntries
-            @type quiet: bool
-            @param quiet: if true no status information will be printed
-            """
-            self.variantGen = CharacterVariantBuilder.VariantGenerator( \
-                variantEntries, typeList, quiet).generator()
-
-        def generator(self):
-            for character, variant, variantType in self.variantGen:
-                # skip characters outside the BMP, i.e. for Chinese characters
-                # >= 0x20000
-                if ord(variant) < int('20000', 16):
-                    yield(character, variant, variantType)
-
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(CharacterVariantBMPBuilder, self).__init__(dataPath,
-            dbConnectInst, quiet)
-
-    def getGenerator(self):
-        # create generator
-        keys = self.COLUMN_SOURCE_ABBREV.keys()
-        variantTypes = [self.COLUMN_SOURCE_ABBREV[key] for key in keys]
-        selectKeys = ['ChineseCharacter']
-        selectKeys.extend(keys)
-
-        table = self.db.tables['Unihan']
-        tableEntries = self.db.selectRows(
-            select([table.c[column] for column in selectKeys]))
-        return CharacterVariantBMPBuilder.BMPVariantGenerator(tableEntries,
-            variantTypes, self.quiet).generator()
 
 
 class UnihanCharacterSetBuilder(EntryGeneratorBuilder):
@@ -1063,9 +1017,8 @@ class UnihanCharacterSetBuilder(EntryGeneratorBuilder):
     """
     DEPENDS=['Unihan']
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(UnihanCharacterSetBuilder, self).__init__(dataPath, dbConnectInst,
-            quiet)
+    def __init__(self, **options):
+        super(UnihanCharacterSetBuilder, self).__init__(**options)
         # create name mappings
         self.COLUMNS = ['ChineseCharacter']
         self.PRIMARY_KEYS = self.COLUMNS
@@ -1296,9 +1249,8 @@ class CharacterPinyinBuilder(EntryGeneratorBuilder):
     DEPENDS=['CharacterUnihanPinyin', 'CharacterXHPCPinyin',
         'CharacterXHCPinyin']
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(CharacterPinyinBuilder, self).__init__(dataPath, dbConnectInst,
-            quiet)
+    def __init__(self, **options):
+        super(CharacterPinyinBuilder, self).__init__(**options)
         # create name mappings
         self.COLUMNS = ['ChineseCharacter', 'Reading']
         self.PRIMARY_KEYS = self.COLUMNS
@@ -1339,9 +1291,6 @@ class CSVFileLoader(TableBuilder):
         lineterminator = '\n'
         quotechar = "'"
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(CSVFileLoader, self).__init__(dataPath, dbConnectInst, quiet)
-
     # TODO unicode_csv_reader(), utf_8_encoder(), byte_string_dialect() used
     #  to work around missing Unicode support in csv module
     @staticmethod
@@ -1366,10 +1315,10 @@ class CSVFileLoader(TableBuilder):
                     old = getattr(dialect, attr)
                     if old is not None:
                         setattr(self, attr, str(old))
-                
+
                 for attr in ["doublequote", "skipinitialspace", "quoting"]:
                     setattr(self, attr, getattr(dialect, attr))
-                
+
                 csv.Dialect.__init__(self)
 
         return ByteStringDialect(dialect)
@@ -1754,9 +1703,6 @@ class ZVariantBuilder(EntryGeneratorBuilder):
     INDEX_KEYS = [['ChineseCharacter']]
     COLUMN_TYPES = {'ChineseCharacter': String(1), 'ZVariant': Integer()}
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(ZVariantBuilder, self).__init__(dataPath, dbConnectInst, quiet)
-
     def getGenerator(self):
         decompositionTable = self.db.tables['CharacterDecomposition']
         strokeOrderTable = self.db.tables['StrokeOrder']
@@ -1831,9 +1777,6 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
     PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant']
     COLUMN_TYPES = {'ChineseCharacter': String(1), 'StrokeCount': Integer(),
         'ZVariant': Integer()}
-
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(StrokeCountBuilder, self).__init__(dataPath, dbConnectInst, quiet)
 
     def getGenerator(self):
         decompositionTable = self.db.tables['CharacterDecomposition']
@@ -2125,10 +2068,6 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
     INDEX_KEYS = [['Component']]
     COLUMN_TYPES = {'ChineseCharacter': String(1), 'ZVariant': Integer(),
         'Component': String(1), 'ComponentZVariant': Integer()}
-
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(CharacterComponentLookupBuilder, self).__init__(dataPath,
-            dbConnectInst, quiet)
 
     def getGenerator(self):
         decompositionTable = self.db.tables['CharacterDecomposition']
@@ -2446,10 +2385,6 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
         'RadicalZVariant': Integer(), 'MainCharacterLayout': String(1),
         'RadicalRelativePosition': Integer(), 'ResidualStrokeCount': Integer()}
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(CharacterRadicalStrokeCountBuilder, self).__init__(dataPath,
-            dbConnectInst, quiet)
-
     def getGenerator(self):
         # get all characters we have component information for
         decompositionTable = self.db.tables['CharacterDecomposition']
@@ -2552,10 +2487,6 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
     INDEX_KEYS = [['RadicalIndex']]
     COLUMN_TYPES = {'ChineseCharacter': String(1), 'RadicalIndex': Integer(),
         'ZVariant': Integer(), 'ResidualStrokeCount': Integer()}
-
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(CharacterResidualStrokeCountBuilder, self).__init__(dataPath,
-            dbConnectInst, quiet)
 
     def getGenerator(self):
         residualSCTable = self.db.tables['CharacterRadicalResidualStrokeCount']
@@ -2733,13 +2664,42 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
     FILTER = None
     """Filter to apply to the read entry before writing to table."""
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(EDICTFormatBuilder, self).__init__(dataPath, dbConnectInst, quiet)
+    def __init__(self, **options):
+        """
+        Constructs the EDICTFormatBuilder.
+
+        @param options: extra options
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword dataPath: optional list of paths to the data file(s)
+        @keyword quiet: if C{True} no status information will be printed to
+            stderr
+        @keyword enableFTS3: if C{True} SQLite full text search (FTS3) will be
+            supported, if the extension exists.
+        @keyword filePath: file path including file name, overrides dataPath
+        @keyword fileType: type of file (.zip, .tar.bz2, .tar.gz, .gz, .txt),
+            overwrites file type guessing
+        """
+        super(EDICTFormatBuilder, self).__init__(**options)
+
+        if self.fileType and self.fileType not in ('.zip', '.tar.bz2',
+            '.tar.gz', '.gz', '.txt'):
+            raise ValueError('Unknown file type "%s"' % self.fileType)
+
+    @classmethod
+    def getDefaultOptions(cls):
+        options = super(EDICTFormatBuilder, cls).getDefaultOptions()
+        options.update({'enableFTS3': True, 'filePath': None,
+            'fileType': None})
+
+        return options
 
     def getGenerator(self):
         # get file handle
         import os.path as path
-        filePath = self.findFile(self.FILE_NAMES)
+        if  self.filePath:
+            filePath =  self.filePath
+        else:
+            filePath = self.findFile(self.FILE_NAMES)
         handle = self.getFileHandle(filePath)
         if not self.quiet:
             warn("Reading table from file '" + filePath + "'")
@@ -2781,24 +2741,28 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
         fileName = os.path.basename(filePath)
 
-        if zipfile.is_zipfile(filePath):
+        if self.fileType == '.zip' \
+            or not self.fileType and zipfile.is_zipfile(filePath):
             import StringIO
             z = zipfile.ZipFile(filePath, 'r')
             archiveContent = self.getArchiveContentName(filePath)
             return StringIO.StringIO(z.read(archiveContent)\
                 .decode(self.ENCODING))
-        elif tarfile.is_tarfile(filePath):
+        elif self.fileType in ('.tar.bz2', '.tar.gz') \
+            or not self.fileType and tarfile.is_tarfile(filePath):
             import StringIO
             mode = ''
-            if filePath.endswith('bz2'):
+            ending = self.fileType or filePath
+            if ending.endswith('bz2'):
                 mode = ':bz2'
-            elif filePath.endswith('gz'):
+            elif ending.endswith('gz'):
                 mode = ':gz'
             z = tarfile.open(filePath, 'r' + mode)
             archiveContent = self.getArchiveContentName(filePath)
             file = z.extractfile(archiveContent)
             return StringIO.StringIO(file.read().decode(self.ENCODING))
-        elif filePath.endswith('.gz'):
+        elif self.fileType == '.gz' \
+            or not self.fileType and filePath.endswith('.gz'):
             import gzip
             import StringIO
             z = gzip.GzipFile(filePath, 'r')
@@ -2946,10 +2910,17 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         # get generator, might raise an Exception if source not found
         generator = self.getGenerator()
 
-        hasFTS3 = self.db.engine.name == 'sqlite' and self.testFTS3()
+        hasFTS3 = self.enableFTS3 and self.db.engine.name == 'sqlite' \
+            and self.testFTS3()
         if not hasFTS3:
             if not self.quiet:
-                warn("No SQLite FTS3 support found, fulltext search not supported.")
+                if not self.enableFTS3:
+                    reason = 'deactivated by user.'
+                elif self.db.engine.name != 'sqlite':
+                    reason = 'not supported by database engine.'
+                else:
+                    reason = 'extension not found.'
+                warn("SQLite FTS3 fulltext search disabled: %s" % reason)
             # get create statement
             table = self.buildTableObject(self.PROVIDES, self.COLUMNS,
                 self.COLUMN_TYPES, self.PRIMARY_KEYS)
@@ -3071,9 +3042,6 @@ class WordIndexBuilder(EntryGeneratorBuilder):
     HEADWORD_SOURCE = 'Headword'
     """Source of headword"""
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
-        super(WordIndexBuilder, self).__init__(dataPath, dbConnectInst, quiet)
-
     def getGenerator(self):
         table = self.db.tables[self.TABLE_SOURCE]
         entries = self.db.selectRows(
@@ -3117,11 +3085,10 @@ class CEDICTFormatBuilder(EDICTFormatBuilder):
         'HeadwordSimplified': String(255), 'Reading': String(255),
         'Translation': Text()}
 
-    def __init__(self, dataPath, dbConnectInst, quiet=False):
+    def __init__(self, **options):
         self.ENTRY_REGEX = \
             re.compile(r'\s*(\S+)(?:\s+(\S+))?\s*\[([^\]]*)\]\s*(/.*/)\s*$')
-        super(CEDICTFormatBuilder, self).__init__(dataPath, dbConnectInst,
-            quiet)
+        super(CEDICTFormatBuilder, self).__init__(**options)
 
 
 class CEDICTBuilder(CEDICTFormatBuilder):
@@ -3356,68 +3323,67 @@ class DatabaseBuilder:
     It contains all L{TableBuilder} classes and a dependency graph to handle
     build requests.
     """
-    def __init__(self, databaseUrl=None, dbConnectInst=None, dataPath=[],
-        quiet=False, rebuildDepending=True, rebuildExisting=True, noFail=False,
-        prefer=[], additionalBuilders=[]):
+    def __init__(self, **options):
         """
         Constructs the DatabaseBuilder.
 
-        @type databaseUrl: str
-        @param databaseUrl: database connection setting in the format
+        To modify the behaviour of L{TableBuilder}s global or local options can
+        be specified, see L{getBuilderOptions()}.
+
+        @keyword databaseUrl: database connection setting in the format
             C{driver://user:pass@host/database}.
-        @type dbConnectInst: instance
-        @param dbConnectInst: instance of a L{DatabaseConnector}
-        @type dataPath: list of str
-        @param dataPath: optional list of paths to the data file(s)
-        @type quiet: bool
-        @param quiet: if true no status information will be printed to stderr
-        @type rebuildDepending: bool
-        @param rebuildDepending: if true existing tables that depend on updated
-            tables will be dropped and built from scratch
-        @type rebuildExisting: bool
-        @param rebuildExisting: if true existing tables will be dropped and
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword dataPath: optional list of paths to the data file(s)
+        @keyword quiet: if C{True} no status information will be printed to
+            stderr
+        @keyword rebuildDepending: if true existing tables that depend on
+            updated tables will be dropped and built from scratch
+        @keyword rebuildExisting: if true existing tables will be dropped and
             built from scratch
-        @type noFail: bool
-        @param noFail: if true build process won't terminate even if one table
+        @keyword noFail: if true build process won't terminate even if one table
             fails to build
-        @type prefer: list
-        @param prefer: list of L{TableBuilder} names to prefer in conflicting
+        @keyword prefer: list of L{TableBuilder} names to prefer in conflicting
             cases
-        @type additionalBuilders: list of classobj
-        @param additionalBuilders: list of externally provided TableBuilders
+        @keyword additionalBuilders: list of externally provided TableBuilders
         """
-        if not dataPath:
+        if 'dataPath' not in options:
             # look for data underneath the build module
             buildModule = __import__("cjklib.build")
             self.dataPath = [os.path.join(buildModule.__path__[0], 'data')]
         else:
-            if type(dataPath) == type([]):
-                self.dataPath = dataPath
+            if type(options['dataPath']) == type([]):
+                self.dataPath = options['dataPath']
             else:
                 # wrap as list
-                self.dataPath = [dataPath]
-        self.quiet = quiet
-        self.rebuildDepending = rebuildDepending
-        self.rebuildExisting = rebuildExisting
-        self.noFail = noFail
+                self.dataPath = [options['dataPath']]
+
+        self.quiet = options.get('quiet', False)
+        self.rebuildDepending = options.pop('rebuildDepending', True)
+        self.rebuildExisting = options.pop('rebuildExisting', True)
+        self.noFail = options.pop('noFail', False)
         # get connector to database
-        if dbConnectInst:
-            self.db = dbConnectInst
+        databaseUrl = options.pop('databaseUrl', None)
+        if 'dbConnectInst' in options:
+            self.db = options.pop('dbConnectInst')
         else:
             self.db = dbconnector.DatabaseConnector.getDBConnector(databaseUrl)
 
         # get TableBuilder classes
         tableBuilderClasses = DatabaseBuilder.getTableBuilderClasses(
-            set(prefer), quiet=self.quiet,
-            additionalBuilders=additionalBuilders)
+            set(options.pop('prefer', [])), quiet=self.quiet,
+            additionalBuilders=options.pop('additionalBuilders', []))
 
         # build lookup
         self.tableBuilderLookup = {}
         for tableBuilder in tableBuilderClasses.values():
             if self.tableBuilderLookup.has_key(tableBuilder.PROVIDES):
-                raise Exception("Table '" + tableBuilder.PROVIDES \
-                    + "' provided by several builders")
+                raise Exception("Table '%s' provided by several builders" \
+                    % tableBuilder.PROVIDES)
             self.tableBuilderLookup[tableBuilder.PROVIDES] = tableBuilder
+
+        # options for TableBuilders
+        options['dataPath'] = self.dataPath
+        self.options = options
 
     def setDataPath(self, dataPath):
         """
@@ -3431,6 +3397,54 @@ class DatabaseBuilder:
         else:
             # wrap as list
             self.dataPath = [dataPath]
+
+    def addBuilderOptions(self, options):
+        """
+        Adds options to the set of table builder options.
+
+        @type options: dict
+        @param options: option dict
+        """
+        print options
+        self.options.update(options)
+
+    def getBuilderOptions(self, builderClass):
+        """
+        Gets a dictionary of options for the given builder that were specified
+        to the DatabaseBuilder.
+
+        Options included are I{global} options understood by the builder (e.g.
+        C{'dataPath'}) or I{local} options given in the formats
+        C{'--BuilderClassName-option'} or C{'--TableName-option'}. For example
+        C{'--Unihan-wideBuild'} sets the option C{'wideBuild'} for all builders
+        providing the C{Unihan} table.
+
+        @type builderClass: classobj
+        @param builderClass: L{TableBuilder} class
+        @rtype: dict
+        @return: dictionary of options for the given table builder.
+        """
+        understoodOptions = builderClass.getDefaultOptions()
+
+        # set all globals first
+        builderOptions = dict([(o, v) for o, v in self.options.items() \
+            if not o.startswith('--')])
+
+        # no set (and maybe overwrite with) locals
+        for option, value in self.options.items():
+            if option.startswith('--'):
+                # local options
+                className, optionName = option[2:].split('-', 1)
+
+                if className == builderClass.__name__ \
+                    or className == builderClass.PROVIDES:
+                    if optionName in understoodOptions:
+                        builderOptions[optionName] = value
+                    elif className and not self.quiet:
+                        warn('Unknown option "%s" for builder "%s", ignoring' \
+                            % (optionName, className))
+
+        return builderOptions
 
     def build(self, tables):
         """
@@ -3487,25 +3501,25 @@ class DatabaseBuilder:
             # dependencies and note it down for deletion
             transaction = self.db.connection.begin()
             try:
-                instance = builder(self.dataPath, self.db, self.quiet)
+                # get specific options given to the DatabaseBuilder
+                options = self.getBuilderOptions(builder)
+                options['dbConnectInst'] = self.db
+                instance = builder(**options)
                 # mark tables as deletable if its only provided because of
                 #   dependencies and the table doesn't exists yet
                 if builder.PROVIDES in buildDependentTables \
                     and not self.db.engine.has_table(builder.PROVIDES):
                     self.instancesUnrequestedTable.add(instance)
 
-                if self.db:
-                    if self.db.engine.has_table(builder.PROVIDES):
-                        if not self.quiet:
-                            warn("Removing previously built table '" \
-                                + builder.PROVIDES + "'")
-                        instance.remove()
-                else:
+                if self.db.engine.has_table(builder.PROVIDES):
+                    if not self.quiet:
+                        warn("Removing previously built table '%s'" \
+                            % builder.PROVIDES)
                     instance.remove()
 
                 if not self.quiet:
-                    warn("Building table '" + builder.PROVIDES \
-                        + "' with builder '" + builder.__name__ + "'...")
+                    warn("Building table '%s' with builder '%s'..." \
+                        % (builder.PROVIDES, builder.__name__))
 
                 instance.build()
                 transaction.commit()
@@ -3514,8 +3528,8 @@ class DatabaseBuilder:
                 # data not available, can't build table
                 if self.noFail:
                     if not self.quiet:
-                        warn("Building table '" + builder.PROVIDES \
-                            + "' failed: '" + str(e) + "', skipping")
+                        warn("Building table '%s' failed: '%s', skipping" \
+                            % (builder.PROVIDES, str(e)))
                     dependingTables = [builder.PROVIDES]
                     remainingBuilderClasses = []
                     for clss in builderClasses:
@@ -3525,8 +3539,8 @@ class DatabaseBuilder:
                         else:
                             remainingBuilderClasses.append(clss)
                     if not self.quiet and len(dependingTables) > 1:
-                        warn("Ignoring depending table(s) '" \
-                            + "', '".join(dependingTables[1:]) + "'")
+                        warn("Ignoring depending table(s) '%s'" \
+                            % "', '".join(dependingTables[1:]))
                     builderClasses = remainingBuilderClasses
                 else:
                     raise
@@ -3551,7 +3565,10 @@ class DatabaseBuilder:
                     warn("Removing table '" + instance.PROVIDES \
                         + "' as it was only created to solve build " \
                         + "dependencies")
-                instance.remove()
+                try:
+                    instance.remove()
+                except OperationalError:
+                    pass
 
     def remove(self, tables):
         """
@@ -3572,13 +3589,10 @@ class DatabaseBuilder:
 
         for builder in tableBuilderClasses:
             instance = builder(self.dataPath, self.db, self.quiet)
-            if self.db:
-                if self.db.engine.has_table(builder.PROVIDES):
-                    if not self.quiet:
-                        warn("Removing previously built table '" \
-                            + builder.PROVIDES + "'")
-                    instance.remove()
-            else:
+            if self.db.engine.has_table(builder.PROVIDES):
+                if not self.quiet:
+                    warn("Removing previously built table '" \
+                        + builder.PROVIDES + "'")
                 instance.remove()
 
     def needsRebuild(self, tableName):
@@ -3619,7 +3633,7 @@ class DatabaseBuilder:
             if table in tableNames:
                 # don't add dependant tables if they are given explicitly
                 return
-            if self.db and self.db.engine.has_table(table):
+            if self.db.engine.has_table(table):
                 skippedTables.add(table)
                 return
 
