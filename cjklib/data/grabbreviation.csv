@@ -48,19 +48,19 @@
 #     * tzemm(.me) (p. 123)
 #     * nemm(.me), also .ne.me (那麼) (p. 123, 138)
 #     * jemm.me (simmilar to tzemm.me) (這麼) (p. 137)
+#     * -m (-.men as in 我們 and 你們 etc. turns to -m before labials) (p. 123)
 # TODO:
 #   * Yuen Ren Chao: A Grammar of Spoken Chinese. University of California
 #     Press, Berkeley, 1968, ISBN 0-520-00219-9.
 #     * V bu V for V .bu ₒV ( pp. xxxi)
 #   * Yuen Ren Chao: Mandarin Primer: an intensive course in spoken Chinese.
 #     Harvard University Press, Cambridge, 1948.
-#     * -.men as in 我們 and 你們 etc. turns to -m before labials (p. 123)
 #     * .èh (p. 22, 124), .oh (p. 22, 130), è (p. 153) interjections
 #     * j-h-eh (jeh), tz-h-uoh (tzuoh) meng, (p. 162) marking laughter
 #     * ss (p. 190)
 #
 # Field "Specialised" carries flags indicating:
-#   * T, tonal abbreviation
+#   * T, tonal abbreviation, while itself being a valid syllable
 #   * S, tone sandhi variation
 #   * I, non-standard pronunciation or other ignorable mapping
 #
@@ -77,7 +77,8 @@
 嗎,.ma,ma,T
 麼,.me,me,T
 嚜,.me,me,T
-们,.men,men,T
+們,.men,men,T
+們,.men,m,
 呐,.ne,ne,T
 是,ₒshyh,sh,
 子,.tzy,tz,

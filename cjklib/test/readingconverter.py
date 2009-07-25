@@ -1215,7 +1215,7 @@ class GRPinyinReferenceTest(ReadingConverterReferenceTest,
             (u'tzeem.me', u'zěnme'), (u'tzemm', u'zènme'),
             (u'tzemm.me', u'zènme'), (u'jemm', u'zhènme'),
             (u'jemm.me', u'zhènme'), (u'nemm', u'néme'), (u'nemm.me', u'néme'),
-            (u'.ne.me', u'neme'),
+            (u'.ne.me', u'neme'), (u'woom', u'wǒmen'),
             (u"liibay’i", u'lǐbàiyī'), (u"san’g ren", u'sānge rén'),
             (u"shyr’ell", u"shí'èr"),
             # TODO implement

@@ -2846,11 +2846,12 @@ class GROperator(TonalRomanisationOperator):
 
     @todo Impl: Initial, medial, head, ending (ending1, ending2=l?)
     @todo Lang: Which character to use for optional neutral tone: C{'ₒ'} ?
-    @todo Lang: Y.R. Chao uses particle and interjection ㄝ è
+    @todo Lang: Y.R. Chao uses particle and interjection ㄝ è. For more see
+        'Mandarin Primer', Vocabulary and Index, pp. 301.
     @todo Impl: Implement Erhua forms as stated in W. Simon: A Beginner's
         Chinese-English Dictionary.
     @todo Impl: Implement repetition markers as stated in W. Simon: A Beginner's
-        Chinese-English Dictionary.
+        Chinese-English Dictionary, I{x} for preceding, I{vx} for two preceding.
     @todo Impl: Implement a GRIPAConverter once IPA values are obtained for
         the PinyinIPAConverter. GRIPAConverter can work around missing Erhua
         conversion to Pinyin.
@@ -3544,6 +3545,8 @@ class GROperator(TonalRomanisationOperator):
             information
         @todo Lang: I{tz} is currently mapped to I{.tzy}. Character 子 though
             generally has 3rd tone, which then should be I{tzyy} or I{.tzyy}.
+            See 'A Grammar of Spoken Chinese', p. 36 ("-.tzy (which we
+            abbreviate as -tz)") and p. 55 ("suffix -tz (<tzyy)")
         """
         entities = tuple([entity.lower() for entity in entities])
         if entities not in self._getAbbreviatedLookup():
