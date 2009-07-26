@@ -18,45 +18,8 @@
 """
 Provides the building methods for the cjklib package.
 
-Each table that needs to be created has to be implemented by a L{TableBuilder}.
-The L{DatabaseBuilder} is the central instance for managing the build process.
-As the creation of a table can depend on other tables the DatabaseBuilder keeps
-track of dependencies to process a build in the correct order.
-
-Building is tested on the following storage methods:
-    - SQLite
-    - MySQL
-
 Some L{TableBuilder} implementations aren't used by the CJK library but are
 provided here for additional usage.
-
-For MS Windows default versions provided seem to be a "X{narrow build}" and not
-support characters outside the BMP (see e.g.
-U{http://wordaligned.org/articles/narrow-python}). Currently no Unicode
-characters outside the BMP will thus be supported on Windows platforms.
-
-Examples
-========
-The following examples should give a quick view into how to use this
-package.
-    - Create the DatabaseBuilder object with default settings (read from
-        cjklib.conf or using 'cjklib.db' in same directory as default):
-
-        >>> from cjklib import build
-        >>> dbBuilder = build.DatabaseBuilder(dataPath=['./cjklib/data/'])
-        Removing conflicting builder(s) 'StrokeCountBuilder' in favour of \
-'CombinedStrokeCountBuilder'
-        Removing conflicting builder(s) 'CharacterResidualStrokeCountBuilder' \
-in favour of 'CombinedCharacterResidualStrokeCountBuilder'
-
-    - Build the table of Jyutping syllables from a csv file:
-
-        >>> dbBuilder.build(['JyutpingSyllables'])
-        building table 'JyutpingSyllables' with builder
-        'JyutpingSyllablesBuilder'...
-        Reading table definition from file './cjklib/data/jyutpingsyllables.sql'
-        Reading table 'JyutpingSyllables' from file
-        './cjklib/data/jyutpingsyllables.csv'
 
 @todo Impl: Implement UnihanBuilder52 for Unicode 5.2.0 which ships with several
     text files included in one .zip
@@ -66,8 +29,6 @@ in favour of 'CombinedCharacterResidualStrokeCountBuilder'
 """
 
 import types
-import locale
-import sys
 import re
 import os.path
 import xml.sax
@@ -77,12 +38,11 @@ from sqlalchemy import Table, Column, Integer, String, Text, Index
 from sqlalchemy import select, union
 from sqlalchemy.sql import text, func
 from sqlalchemy.sql import and_, or_, not_
-from sqlalchemy.exc import OperationalError
-import sqlalchemy
+from sqlalchemy.exc import IntegrityError, OperationalError
 
-from cjklib import dbconnector
 from cjklib import characterlookup
 from cjklib import exception
+from cjklib.build import warn
 
 #{ TableBuilder and generic classes
 
@@ -123,6 +83,28 @@ class TableBuilder(object):
         @return: the reading operator's default options.
         """
         return {'dataPath': [], 'quiet': False}
+
+    @classmethod
+    def getOptionMetaData(cls, option):
+        """
+        Gets metadata on a given option.
+
+        Keys can come from the subset of:
+            - type: string, int, bool, ...
+            - action: action as used by I{optparse}, extended by
+                C{appendResetDefault}
+            - choices: allowed values
+            - description: short description of option
+
+        @rtype: dict
+        @return: dictionary of metadata
+        """
+        optionsMetaData = {'dataPath': {'type': 'pathstring',
+                'action': 'extendResetDefault',
+                'description': "path to data files"},
+            'quiet': {'type': 'bool',
+                'description': "don't print anything on stdout"}}
+        return optionsMetaData[option]
 
     def build(self):
         """
@@ -279,7 +261,7 @@ class EntryGeneratorBuilder(TableBuilder):
         #try:
             #entries = self.getEntryDict(self.getGenerator())
             #self.db.execute(table.insert(), entries)
-        #except sqlalchemy.exceptions.IntegrityError, e:
+        #except IntegrityError, e:
             #warn(unicode(e))
             ##warn(unicode(insertStatement))
             #raise
@@ -287,7 +269,7 @@ class EntryGeneratorBuilder(TableBuilder):
         for newEntry in generator:
             try:
                 table.insert(newEntry).execute()
-            except sqlalchemy.exceptions.IntegrityError, e:
+            except IntegrityError, e:
                 if not(self.quiet):
                     warn(unicode(e))
                 raise
@@ -524,6 +506,18 @@ class UnihanBuilder(EntryGeneratorBuilder):
         options.update({'wideBuild': False, 'slimTable': True})
 
         return options
+
+    @classmethod
+    def getOptionMetaData(cls, option):
+        optionsMetaData = {'wideBuild': {'type': 'bool',
+                'description': "include characters outside the Unicode BMP"},
+            'slimUnihanTable': {'type': 'bool',
+                'description': "limit keys of Unihan table"}}
+
+        if option in optionsMetaData:
+            return optionsMetaData[option]
+        else:
+            return super(UnihanBuilder, cls).getOptionMetaData(option)
 
     def getUnihanGenerator(self):
         """
@@ -989,6 +983,16 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
 
         return options
 
+    @classmethod
+    def getOptionMetaData(cls, option):
+        optionsMetaData = {'wideBuild': {'type': 'bool',
+                'description': "include characters outside the Unicode BMP"}}
+
+        if option in optionsMetaData:
+            return optionsMetaData[option]
+        else:
+            return super(CharacterVariantBuilder, cls).getOptionMetaData(option)
+
     def getGenerator(self):
         # create generator
         keys = self.COLUMN_SOURCE_ABBREV.keys()
@@ -1393,7 +1397,7 @@ class CSVFileLoader(TableBuilder):
 
         try:
             self.db.execute(table.insert(), entries)
-        except sqlalchemy.exceptions.IntegrityError, e:
+        except IntegrityError, e:
             if not self.quiet:
                 warn(unicode(e))
                 #warn(unicode(insertStatement))
@@ -2677,7 +2681,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             supported, if the extension exists.
         @keyword filePath: file path including file name, overrides dataPath
         @keyword fileType: type of file (.zip, .tar.bz2, .tar.gz, .gz, .txt),
-            overwrites file type guessing
+            overrides file type guessing
         """
         super(EDICTFormatBuilder, self).__init__(**options)
 
@@ -2692,6 +2696,21 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             'fileType': None})
 
         return options
+
+    @classmethod
+    def getOptionMetaData(cls, option):
+        optionsMetaData = {'enableFTS3': {'type': 'bool',
+                'description': "enable SQLite full text search (FTS3)"},
+            'filePath': {'type': 'string', 'description': \
+                "file path including file name, overrides searching"},
+            'fileType': {'type': 'choice',
+                'choices': ('.zip', '.tar.bz2', '.tar.gz', '.gz', '.txt'),
+                'description': "file extension, overrides file type guessing"}}
+
+        if option in optionsMetaData:
+            return optionsMetaData[option]
+        else:
+            return super(EDICTFormatBuilder, cls).getOptionMetaData(option)
 
     def getGenerator(self):
         # get file handle
@@ -2873,7 +2892,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
                 # table with non-FTS3 data
                 simpleTable.insert(simpleData).execute()
                 fts3Table.insert(fts3Data).execute()
-            except sqlalchemy.exceptions.IntegrityError:
+            except IntegrityError:
                 if not self.quiet:
                     warn(unicode(e))
                     #warn(unicode(insertStatement))
@@ -2895,10 +2914,10 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             self.db.execute(createStatement)
             try:
                 dummyTable.drop()
-            except sqlalchemy.exceptions.OperationalError:
+            except OperationalError:
                 pass
             return True
-        except sqlalchemy.exceptions.OperationalError:
+        except OperationalError:
             return False
 
     def build(self):
@@ -2935,14 +2954,14 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             #try:
                 #entries = self.getEntryDict(generator)
                 #self.db.execute(table.insert(), entries)
-            #except sqlalchemy.exceptions.IntegrityError, e:
+            #except IntegrityError, e:
                 #warn(unicode(e))
                 ##warn(unicode(insertStatement))
                 #raise
             for newEntry in generator:
                 try:
                     table.insert(newEntry).execute()
-                except sqlalchemy.exceptions.IntegrityError:
+                except IntegrityError:
                     if not self.quiet:
                         warn(unicode(e))
                         #warn(unicode(insertStatement))
@@ -3311,589 +3330,3 @@ class CFDICTWordIndexBuilder(WordIndexBuilder):
     DEPENDS = ['CFDICT']
     TABLE_SOURCE = 'CFDICT'
     HEADWORD_SOURCE = 'HeadwordTraditional'
-
-#}
-#{ DatabaseBuilder
-
-class DatabaseBuilder:
-    """
-    DatabaseBuilder provides the main class for building up a database for the
-    cjklib package.
-
-    It contains all L{TableBuilder} classes and a dependency graph to handle
-    build requests.
-    """
-    def __init__(self, **options):
-        """
-        Constructs the DatabaseBuilder.
-
-        To modify the behaviour of L{TableBuilder}s global or local options can
-        be specified, see L{getBuilderOptions()}.
-
-        @keyword databaseUrl: database connection setting in the format
-            C{driver://user:pass@host/database}.
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword dataPath: optional list of paths to the data file(s)
-        @keyword quiet: if C{True} no status information will be printed to
-            stderr
-        @keyword rebuildDepending: if true existing tables that depend on
-            updated tables will be dropped and built from scratch
-        @keyword rebuildExisting: if true existing tables will be dropped and
-            built from scratch
-        @keyword noFail: if true build process won't terminate even if one table
-            fails to build
-        @keyword prefer: list of L{TableBuilder} names to prefer in conflicting
-            cases
-        @keyword additionalBuilders: list of externally provided TableBuilders
-        """
-        if 'dataPath' not in options:
-            # look for data underneath the build module
-            buildModule = __import__("cjklib.build")
-            self.dataPath = [os.path.join(buildModule.__path__[0], 'data')]
-        else:
-            if type(options['dataPath']) == type([]):
-                self.dataPath = options['dataPath']
-            else:
-                # wrap as list
-                self.dataPath = [options['dataPath']]
-
-        self.quiet = options.get('quiet', False)
-        self.rebuildDepending = options.pop('rebuildDepending', True)
-        self.rebuildExisting = options.pop('rebuildExisting', True)
-        self.noFail = options.pop('noFail', False)
-        # get connector to database
-        databaseUrl = options.pop('databaseUrl', None)
-        if 'dbConnectInst' in options:
-            self.db = options.pop('dbConnectInst')
-        else:
-            self.db = dbconnector.DatabaseConnector.getDBConnector(databaseUrl)
-
-        # get TableBuilder classes
-        tableBuilderClasses = DatabaseBuilder.getTableBuilderClasses(
-            set(options.pop('prefer', [])), quiet=self.quiet,
-            additionalBuilders=options.pop('additionalBuilders', []))
-
-        # build lookup
-        self.tableBuilderLookup = {}
-        for tableBuilder in tableBuilderClasses.values():
-            if self.tableBuilderLookup.has_key(tableBuilder.PROVIDES):
-                raise Exception("Table '%s' provided by several builders" \
-                    % tableBuilder.PROVIDES)
-            self.tableBuilderLookup[tableBuilder.PROVIDES] = tableBuilder
-
-        # options for TableBuilders
-        options['dataPath'] = self.dataPath
-        self.options = options
-
-    def setDataPath(self, dataPath):
-        """
-        Changes the data path.
-
-        @type dataPath: list of str
-        @param dataPath: list of paths to the data file(s)
-        """
-        if type(dataPath) == type([]):
-            self.dataPath = dataPath
-        else:
-            # wrap as list
-            self.dataPath = [dataPath]
-
-    def addBuilderOptions(self, options):
-        """
-        Adds options to the set of table builder options.
-
-        @type options: dict
-        @param options: option dict
-        """
-        print options
-        self.options.update(options)
-
-    def getBuilderOptions(self, builderClass):
-        """
-        Gets a dictionary of options for the given builder that were specified
-        to the DatabaseBuilder.
-
-        Options included are I{global} options understood by the builder (e.g.
-        C{'dataPath'}) or I{local} options given in the formats
-        C{'--BuilderClassName-option'} or C{'--TableName-option'}. For example
-        C{'--Unihan-wideBuild'} sets the option C{'wideBuild'} for all builders
-        providing the C{Unihan} table.
-
-        @type builderClass: classobj
-        @param builderClass: L{TableBuilder} class
-        @rtype: dict
-        @return: dictionary of options for the given table builder.
-        """
-        understoodOptions = builderClass.getDefaultOptions()
-
-        # set all globals first
-        builderOptions = dict([(o, v) for o, v in self.options.items() \
-            if not o.startswith('--')])
-
-        # no set (and maybe overwrite with) locals
-        for option, value in self.options.items():
-            if option.startswith('--'):
-                # local options
-                className, optionName = option[2:].split('-', 1)
-
-                if className == builderClass.__name__ \
-                    or className == builderClass.PROVIDES:
-                    if optionName in understoodOptions:
-                        builderOptions[optionName] = value
-                    elif className and not self.quiet:
-                        warn('Unknown option "%s" for builder "%s", ignoring' \
-                            % (optionName, className))
-
-        return builderOptions
-
-    def build(self, tables):
-        """
-        Builds the given tables.
-
-        @type tables: list
-        @param tables: list of tables to build
-        """
-        if type(tables) != type([]):
-            tables = [tables]
-
-        if not self.quiet:
-            warn("Building database '%s'" % self.db.databaseUrl)
-
-        # remove tables that don't need to be rebuilt
-        filteredTables = []
-        for table in tables:
-            if table not in self.tableBuilderLookup:
-                raise exception.UnsupportedError("Table '%s' not provided" \
-                    % table)
-
-            if self.needsRebuild(table):
-                filteredTables.append(table)
-            else:
-                if not self.quiet:
-                    warn("Skipping table '%s' because it already exists" \
-                        % table)
-        tables = filteredTables
-
-        # get depending tables that need to be updated when dependencies change
-        dependingTables = []
-        if self.rebuildDepending:
-            dependingTables = self.getRebuiltDependingTables(tables)
-            if dependingTables:
-                if not self.quiet:
-                    warn("Tables rebuilt because of dependencies updated: '" \
-                        +"', '".join(dependingTables) + "'")
-                tables.extend(dependingTables)
-
-        # get table list according to dependencies
-        buildDependentTables = self.getBuildDependentTables(tables)
-        buildTables = set(tables) | buildDependentTables
-        # get build order and remove tables we don't need to build
-        builderClasses = self.getClassesInBuildOrder(buildTables)
-
-        # build tables
-        if not self.quiet and self.rebuildExisting:
-            warn("Rebuilding tables and overwriting old ones...")
-        builderClasses.reverse()
-        self.instancesUnrequestedTable = set()
-        while builderClasses:
-            builder = builderClasses.pop()
-            # check first if the table will only be created for resolving
-            # dependencies and note it down for deletion
-            transaction = self.db.connection.begin()
-            try:
-                # get specific options given to the DatabaseBuilder
-                options = self.getBuilderOptions(builder)
-                options['dbConnectInst'] = self.db
-                instance = builder(**options)
-                # mark tables as deletable if its only provided because of
-                #   dependencies and the table doesn't exists yet
-                if builder.PROVIDES in buildDependentTables \
-                    and not self.db.engine.has_table(builder.PROVIDES):
-                    self.instancesUnrequestedTable.add(instance)
-
-                if self.db.engine.has_table(builder.PROVIDES):
-                    if not self.quiet:
-                        warn("Removing previously built table '%s'" \
-                            % builder.PROVIDES)
-                    instance.remove()
-
-                if not self.quiet:
-                    warn("Building table '%s' with builder '%s'..." \
-                        % (builder.PROVIDES, builder.__name__))
-
-                instance.build()
-                transaction.commit()
-            except IOError, e:
-                transaction.rollback()
-                # data not available, can't build table
-                if self.noFail:
-                    if not self.quiet:
-                        warn("Building table '%s' failed: '%s', skipping" \
-                            % (builder.PROVIDES, str(e)))
-                    dependingTables = [builder.PROVIDES]
-                    remainingBuilderClasses = []
-                    for clss in builderClasses:
-                        if set(clss.DEPENDS) & set(dependingTables):
-                            # this class depends on one being removed
-                            dependingTables.append(clss.PROVIDES)
-                        else:
-                            remainingBuilderClasses.append(clss)
-                    if not self.quiet and len(dependingTables) > 1:
-                        warn("Ignoring depending table(s) '%s'" \
-                            % "', '".join(dependingTables[1:]))
-                    builderClasses = remainingBuilderClasses
-                else:
-                    raise
-            except Exception, e:
-                transaction.rollback()
-                raise
-
-        self.clearTemporary()
-
-    def clearTemporary(self):
-        """
-        Removes all tables only built temporarily as to satisfy build
-        dependencies. This method is called before L{build()} terminates. If the
-        build process is interruptes (e.g. by the user pressing Ctrl+C), this
-        method should be called as to make sure that these temporary tables are
-        removed and not included in later builds.
-        """
-        # remove tables that where only created as build dependencies
-        if 'instancesUnrequestedTable' in self.__dict__:
-            for instance in self.instancesUnrequestedTable:
-                if not self.quiet:
-                    warn("Removing table '" + instance.PROVIDES \
-                        + "' as it was only created to solve build " \
-                        + "dependencies")
-                try:
-                    instance.remove()
-                except OperationalError:
-                    pass
-
-    def remove(self, tables):
-        """
-        Removes the given tables.
-
-        @type tables: list
-        @param tables: list of tables to remove
-        """
-        if type(tables) != type([]):
-            tables = [tables]
-
-        tableBuilderClasses = []
-        for table in set(tables):
-            if not self.tableBuilderLookup.has_key(table):
-                raise exception.UnsupportedError("table '" + table \
-                    + "' not provided")
-            tableBuilderClasses.append(self.tableBuilderLookup[table])
-
-        for builder in tableBuilderClasses:
-            instance = builder(self.dataPath, self.db, self.quiet)
-            if self.db.engine.has_table(builder.PROVIDES):
-                if not self.quiet:
-                    warn("Removing previously built table '" \
-                        + builder.PROVIDES + "'")
-                instance.remove()
-
-    def needsRebuild(self, tableName):
-        """
-        Returns true if either rebuild is turned on by default or we build into
-        database and the table doesn't exist yet.
-
-        @type tableName: classobj
-        @param tableName: L{TableBuilder} class
-        @rtype: bool
-        @return: True, if table needs to be rebuilt
-        """
-        if self.rebuildExisting:
-            return True
-        else:
-            return not self.db.engine.has_table(tableName)
-
-    def getBuildDependentTables(self, tableNames):
-        """
-        Gets the name of the tables that needs to be built to resolve
-        dependencies.
-
-        @type tableNames: list of str
-        @param tableNames: list of tables to build
-        @rtype: list of str
-        @return: names of tables needed to resolve dependencies
-        """
-        def solveDependencyRecursive(table):
-            """
-            Gets all tables on which the given table depends and that need to be
-            rebuilt. Also will mark tables skipped which won't be rebuilt.
-
-            Uses parent's variables to store data.
-
-            @type table: str
-            @param table: table name for which to solve dependencies
-            """
-            if table in tableNames:
-                # don't add dependant tables if they are given explicitly
-                return
-            if self.db.engine.has_table(table):
-                skippedTables.add(table)
-                return
-
-            dependedTablesNames.add(table)
-
-            # add dependent tables if needed (recursively)
-            if not self.tableBuilderLookup.has_key(table):
-                # either we have no builder or the builder was removed in
-                # favour of another builder that shares at least one table
-                # with the removed one
-                raise exception.UnsupportedError("table '" + table \
-                    + "' not provided, might be related to conflicting " \
-                    + "builders")
-            builderClass = self.tableBuilderLookup[table]
-            for dependantTable in builderClass.DEPENDS:
-                solveDependencyRecursive(dependantTable)
-
-        tableNames = set(tableNames)
-        dependedTablesNames = set()
-        skippedTables = set()
-
-        for table in tableNames:
-            builderClass = self.tableBuilderLookup[table]
-            for depededTable in builderClass.DEPENDS:
-                solveDependencyRecursive(depededTable)
-
-        if not self.quiet and skippedTables:
-            warn("Newly built tables depend on table(s) '" \
-                + "', '".join(skippedTables) \
-                + "' but skipping because they already exist")
-        return dependedTablesNames
-
-    def getDependingTables(self, tableNames):
-        """
-        Gets the name of the tables that depend on the given tables to be built
-        and are not included in the given set.
-
-        Dependencies depend on the choice of table builders and thus may vary.
-
-        @type tableNames: list of str
-        @param tableNames: list of tables
-        @rtype: list of str
-        @return: names of tables that depend on given tables
-        """
-        dependencyTables = set(tableNames)
-        dependingTablesNames = set()
-        residualTables = self.getCurrentSupportedTables() - dependencyTables
-
-        while dependencyTables:
-            dependencyTable = dependencyTables.pop()
-            for table in residualTables:
-                builderClass = self.tableBuilderLookup[table]
-                if  dependencyTable in builderClass.DEPENDS:
-                    # found a table that depends on the given table
-                    dependingTablesNames.add(table)
-                    # queue for check of depending tables
-                    dependencyTables.add(table)
-                    # no need for further testing on the newly found table
-            residualTables = residualTables - dependencyTables
-
-        return dependingTablesNames
-
-    def getRebuiltDependingTables(self, tableNames):
-        """
-        Gets the name of the tables that depend on the given tables to be built
-        and already exist, thus need to be rebuilt.
-
-        @type tableNames: list of str
-        @param tableNames: list of tables
-        @rtype: list of str
-        @return: names of tables that need to be rebuilt because of dependencies
-        """
-        dependingTables = self.getDependingTables(tableNames)
-
-        needRebuild = set()
-        for tableName in dependingTables:
-            if self.db.engine.has_table(tableName):
-                needRebuild.add(tableName)
-        return needRebuild
-
-    def getClassesInBuildOrder(self, tableNames):
-        """
-        Gets the build order for the given table names.
-
-        @type tableNames: list of str
-        @param tableNames: list of names of tables to build
-        @rtype: list of classobj
-        @return: L{TableBuilder}s in build order
-        """
-        # get dependencies and save order
-        tableBuilderClasses = []
-        for table in set(tableNames):
-            if not self.tableBuilderLookup.has_key(table):
-                # either we have no builder or the builder was removed in favour
-                # of another builder that shares at least one table with the
-                # removed one
-                raise exception.UnsupportedError("table '" + table \
-                    + "' not provided, might be related to conflicting " \
-                    + "builders")
-            tableBuilderClasses.append(self.tableBuilderLookup[table])
-        return self.getBuildDependencyOrder(tableBuilderClasses)
-
-    @staticmethod
-    def getBuildDependencyOrder(tableBuilderClasses):
-        """
-        Create order in which the tables have to be created.
-
-        @type tableBuilderClasses: list of classobj
-        @param tableBuilderClasses: list of L{TableBuilder} classes
-        @rtype: list of classobj
-        @return: the given classes ordered in build dependency order
-        """
-        dependencyOrder = []
-        providedTables = [bc.PROVIDES for bc in tableBuilderClasses]
-        includedTableNames = set()
-        while tableBuilderClasses:
-            for builderClass in tableBuilderClasses:
-                if set(builderClass.DEPENDS).intersection(providedTables) \
-                    <= includedTableNames:
-                    # found a terminal class or one whose dependencies are
-                    #   already covered (at least no dependency on one of the
-                    #   tables in the list)
-                    break
-            else:
-                # one dependency can not be fulfilled, might be that no
-                #   TableBuilder is  implemented, that it was removed due to
-                #   conflicting other builder, or that a cycle in DEPEND graph
-                #   exists
-                raise Exception("Unfulfillable depend request, " \
-                    + "might be related to conflicting builders or cycle. " \
-                    + "Builders included: '" \
-                    + "', '".join([clss.__name__ for clss in dependencyOrder]) \
-                    + "'. Builders with open depends: '" \
-                    + "', '".join([builder.PROVIDES \
-                        for builder in tableBuilderClasses]) + "'")
-            dependencyOrder.append(builderClass)
-            includedTableNames.add(builderClass.PROVIDES)
-            tableBuilderClasses.remove(builderClass)
-        return dependencyOrder
-
-    @staticmethod
-    def getTableBuilderClasses(preferClassSet=set(), resolveConflicts=True,
-        quiet=True, additionalBuilders=[]):
-        """
-        Gets all classes in module that implement L{TableBuilder}.
-
-        @type preferClassSet: set of str
-        @param preferClassSet: set of L{TableBuilder} names to prefer in
-            conflicting cases, resolveConflicting must be True to take effect
-            (default)
-        @type resolveConflicts: bool
-        @param resolveConflicts: if true conflicting builders will be removed
-            so that only one builder is left per Table.
-        @type quiet: bool
-        @param quiet: if true no status information will be printed to stderr
-        @type additionalBuilders: list of classobj
-        @param additionalBuilders: list of externally provided TableBuilders
-        @rtype: dict
-        @return: dictionary of all classes inheriting form L{TableBuilder} that
-            provide a table (i.d. non abstract implementations), with its name
-            as key
-        """
-        tableBuilderClasses = {}
-        buildModule = __import__("cjklib.build")
-        # get all classes that inherit from TableBuilder
-        tableBuilderClasses = dict([(clss.__name__, clss) \
-            for clss in buildModule.build.__dict__.values() \
-            if type(clss) == types.TypeType \
-            and issubclass(clss, buildModule.build.TableBuilder) \
-            and clss.PROVIDES])
-        # add additionally provided
-        tableBuilderClasses.update(dict([(clss.__name__, clss) \
-            for clss in additionalBuilders]))
-
-        # check for conflicting builders and keep only one per conflicting group
-        # group builders first
-        tableToBuilderMapping = {}
-        for clssName, clss in tableBuilderClasses.iteritems():
-            if clss.PROVIDES not in tableToBuilderMapping:
-                tableToBuilderMapping[clss.PROVIDES] = set()
-
-            tableToBuilderMapping[clss.PROVIDES].add(clssName)
-
-        if resolveConflicts:
-            # now check conflicting and choose preferred if given
-            for tableName, builderClssSet in tableToBuilderMapping.items():
-                preferredBuilders = builderClssSet & preferClassSet
-                if preferredBuilders:
-                    if len(preferredBuilders) > 1:
-                        # the user specified more than one preferred table that
-                        # both provided at least one same table
-                        raise Exception("More than one TableBuilder " \
-                            + "preferred for conflicting table.")
-                    preferred = preferredBuilders.pop()
-                    builderClssSet.remove(preferred)
-                else:
-                    preferred = builderClssSet.pop()
-                if not quiet and builderClssSet:
-                    warn("Removing conflicting builder(s) '" \
-                        + "', '".join(builderClssSet) + "' in favour of '" \
-                        + preferred + "'")
-                # remove other conflicting
-                for clssName in builderClssSet:
-                    del tableBuilderClasses[clssName]
-        return tableBuilderClasses
-
-    @staticmethod
-    def getSupportedTables():
-        """
-        Gets names of supported tables.
-
-        @rtype: list of str
-        @return: names of tables
-        """
-        classDict = DatabaseBuilder.getTableBuilderClasses(
-            resolveConflicts=False)
-        return set([clss.PROVIDES for clss in classDict.values()])
-
-    def getCurrentSupportedTables(self):
-        """
-        Gets names of tables supported by this instance of the database builder.
-
-        This list can have more entries then L{getSupportedTables()} as
-        additional external builders can be supplied on instantiation.
-
-        @rtype: list of str
-        @return: names of tables
-        """
-        return set(self.tableBuilderLookup.keys())
-
-    def isOptimizable(self):
-        """
-        Checks if the current database supports optimization.
-
-        @rtype: boolean
-        @return: True if optimizable, False otherwise
-        """
-        return self.db.engine.name in ['sqlite']
-
-    def optimize(self):
-        """
-        Optimizes the current database.
-
-        @raise Exception: if database does not support optimization
-        @raise OperationalError: if optimization failed
-        """
-        if self.db.engine.name == 'sqlite':
-            self.db.execute('VACUUM')
-        else:
-            raise Exception('Database does not seem to support optimization')
-
-#}
-#{ Global methods
-
-def warn(message):
-    """
-    Prints the given message to stderr with the system's default encoding.
-
-    @type message: str
-    @param message: message to print
-    """
-    print >> sys.stderr, message.encode(locale.getpreferredencoding(),
-        'replace')
