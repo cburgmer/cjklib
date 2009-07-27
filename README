@@ -34,7 +34,7 @@ build steps will take some minutes, depending on the tables created.
 
 The build process is started by running:
 
-# buildcjkdb.py -b GROUP
+# buildcjkdb.py build GROUP
 
 with GROUP being the name of a group of tables to be installed.
 
@@ -42,14 +42,14 @@ To use the full set of functions download the Unihan file
 ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
 and run
 
-# buildcjkdb -b cjklibData
+# buildcjkdb build cjklibData
 
 from the directory containing the Unihan table and the pre-packaged data (the
 source package's directory should suffice) to build all tables needed by the
 cjklib package. Alternatively use e.g. 'fullMandarin' for data needed by the
 library's functions for the Mandarin Chinese language.
 
-A list of groups can be printed with 'buildcjkdb -l'. See 'buildcjkdb -h'
+A list of groups can be printed with 'buildcjkdb list'. See 'buildcjkdb -h'
 for all parameters of the build script.
 
 Usage
@@ -59,11 +59,11 @@ there is a small command line tool cjknife that offers some of the library's
 functions. See "cjknife --help" for an overview.
 
 This tool also offers simple access to dictionaries which have to be built
-before use (e.g. buildcjkdb -b fullCEDICT). Currently supported are CEDICT,
-HanDeDict.
+before use. Currently supported are EDICT, CEDICT, HanDeDict, CFDICT,
+CEDICTGR.
 
 To create the needed tables and indices for the CEDICT dictionary run
-# buildcjkdb -b fullCEDICT
+# buildcjkdb build fullCEDICT --dataPath=PathToCedictFile
 
 SQLite
 -----
