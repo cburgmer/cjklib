@@ -265,10 +265,8 @@ There is NO WARRANTY, to the extent permitted by law.""" \
 
         optionSet = set(['rebuildExisting', 'rebuildDepending', 'quiet',
             'databaseUrl', 'prefer'])
-        globalBuilderGroup = OptionGroup(parser,
-            "Global builder commands")
-        localBuilderGroup = OptionGroup(parser,
-            "Local builder commands")
+        globalBuilderGroup = OptionGroup(parser, "Global builder commands")
+        localBuilderGroup = OptionGroup(parser, "Local builder commands")
         for builder in build.DatabaseBuilder.getTableBuilderClasses():
             if not builder.PROVIDES:
                 continue
@@ -423,10 +421,11 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             if not args[1:]:
                 parser.error("no build groups specified")
 
+            options = self.getDefaultOptions()
             # convert the Values object to a dict, not too nice, but oh well
-            options = dict([(option, getattr(opts, option)) for option \
+            options.update(dict([(option, getattr(opts, option)) for option \
                 in dir(opts) if not hasattr(Values(), option) \
-                    and getattr(opts, option) != None])
+                    and getattr(opts, option) != None]))
 
             return self.runBuild(args[1:], options)
         else:

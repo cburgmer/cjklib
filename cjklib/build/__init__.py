@@ -556,13 +556,13 @@ class DatabaseBuilder:
                 optionMetaData[option] = (metaData, builder)
 
     @staticmethod
-    def getTableBuilderClasses(preferClassSet=set(), resolveConflicts=True,
+    def getTableBuilderClasses(preferClassNameSet=set(), resolveConflicts=True,
         quiet=True, additionalBuilders=[]):
         """
         Gets all classes in module that implement L{TableBuilder}.
 
-        @type preferClassSet: set of str
-        @param preferClassSet: set of L{TableBuilder} names to prefer in
+        @type preferClassNameSet: set of str
+        @param preferClassNameSet: set of L{TableBuilder} names to prefer in
             conflicting cases, resolveConflicting must be True to take effect
             (default)
         @type resolveConflicts: bool
@@ -596,6 +596,9 @@ class DatabaseBuilder:
                 tableToBuilderMapping[clss.PROVIDES] = set()
 
             tableToBuilderMapping[clss.PROVIDES].add(clss)
+
+        preferClassSet = set([clss for clss in tableBuilderClasses \
+            if clss.__name__ in preferClassNameSet])
 
         if resolveConflicts:
             # now check conflicting and choose preferred if given

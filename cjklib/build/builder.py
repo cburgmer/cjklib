@@ -2729,12 +2729,14 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         return EDICTFormatBuilder.TableGenerator(handle, self.quiet,
             self.ENTRY_REGEX, self.COLUMNS, self.FILTER).generator()
 
-    def getArchiveContentName(self, filePath):
+    def getArchiveContentName(self, nameList, filePath):
         """
-        Function extracting the name of contained file from the zipped archive
-        using the file name.
+        Function extracting the name of contained file from the zipped/tared
+        archive using the file name.
         Reimplement and adapt to own needs.
 
+        @type nameList: list of str
+        @param nameList: list of archive contents
         @type filePath: str
         @param filePath: path of file
         @rtype: str
@@ -2764,7 +2766,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             or not self.fileType and zipfile.is_zipfile(filePath):
             import StringIO
             z = zipfile.ZipFile(filePath, 'r')
-            archiveContent = self.getArchiveContentName(filePath)
+            archiveContent = self.getArchiveContentName(z.namelist(), filePath)
             return StringIO.StringIO(z.read(archiveContent)\
                 .decode(self.ENCODING))
         elif self.fileType in ('.tar.bz2', '.tar.gz') \
@@ -2777,7 +2779,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             elif ending.endswith('gz'):
                 mode = ':gz'
             z = tarfile.open(filePath, 'r' + mode)
-            archiveContent = self.getArchiveContentName(filePath)
+            archiveContent = self.getArchiveContentName(z.getnames(), filePath)
             file = z.extractfile(archiveContent)
             return StringIO.StringIO(file.read().decode(self.ENCODING))
         elif self.fileType == '.gz' \
@@ -3138,7 +3140,7 @@ class CEDICTBuilder(CEDICTFormatBuilder):
     ENCODING = 'utf-8'
     FILTER = filterUmlaut
 
-    def getArchiveContentName(self, filePath):
+    def getArchiveContentName(self, nameList, filePath):
         return 'cedict_ts.u8'
 
 
@@ -3160,7 +3162,7 @@ class CEDICTGRBuilder(EDICTFormatBuilder):
     FILE_NAMES = ['cedictgr.zip', 'cedictgr.b5']
     ENCODING = 'big5hkscs'
 
-    def getArchiveContentName(self, filePath):
+    def getArchiveContentName(self, nameList, filePath):
         return 'cedictgr.b5'
 
 
@@ -3181,8 +3183,8 @@ class TimestampedCEDICTFormatBuilder(CEDICTFormatBuilder):
     EXTRACT_TIMESTAMP = None
     """Regular expression to extract the timestamp from the file name."""
 
-    ARCHIVE_CONTENT_TEMPLATE = None
-    """Path template to timestamped file inside archive."""
+    ARCHIVE_CONTENT_PATTERN = None
+    """Regular expression specifying file in archive."""
 
     def extractTimeStamp(self, filePath):
         fileName = os.path.basename(filePath)
@@ -3202,9 +3204,10 @@ class TimestampedCEDICTFormatBuilder(CEDICTFormatBuilder):
         else:
             return filePaths[0]
 
-    def getArchiveContentName(self, filePath):
-        timeStamp = self.extractTimeStamp(filePath)
-        return self.ARCHIVE_CONTENT_TEMPLATE % timeStamp
+    def getArchiveContentName(self, nameList, filePath):
+        for name in nameList:
+            if re.match(self.ARCHIVE_CONTENT_PATTERN, name):
+                return name
 
     def findFile(self, fileGlobs, fileType=None):
         """
@@ -3297,7 +3300,7 @@ class HanDeDictBuilder(TimestampedCEDICTFormatBuilder):
     FILTER = filterSpacing
 
     EXTRACT_TIMESTAMP = r'handedict-(\d{8})\.'
-    ARCHIVE_CONTENT_TEMPLATE = 'handedict-%s/handedict.u8'
+    ARCHIVE_CONTENT_PATTERN = r'handedict-(\d{8})/handedict.u8'
 
 
 class HanDeDictWordIndexBuilder(WordIndexBuilder):
@@ -3319,7 +3322,7 @@ class CFDICTBuilder(TimestampedCEDICTFormatBuilder):
     ENCODING = 'utf-8'
 
     EXTRACT_TIMESTAMP = r'cfdict-(\d{8})\.'
-    ARCHIVE_CONTENT_TEMPLATE = 'cfdict-%s/cfdict.u8'
+    ARCHIVE_CONTENT_PATTERN = r'cfdict-(\d{8})/cfdict.u8'
 
 
 class CFDICTWordIndexBuilder(WordIndexBuilder):
