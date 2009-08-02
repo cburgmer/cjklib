@@ -2680,12 +2680,13 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         @keyword enableFTS3: if C{True} SQLite full text search (FTS3) will be
             supported, if the extension exists.
         @keyword filePath: file path including file name, overrides dataPath
-        @keyword fileType: type of file (.zip, .tar.bz2, .tar.gz, .gz, .txt),
+        @keyword fileType: type of file (.zip, .tar, .tar.bz2, .tar.gz, .gz,
+            .txt),
             overrides file type guessing
         """
         super(EDICTFormatBuilder, self).__init__(**options)
 
-        if self.fileType and self.fileType not in ('.zip', '.tar.bz2',
+        if self.fileType and self.fileType not in ('.zip', '.tar', '.tar.bz2',
             '.tar.gz', '.gz', '.txt'):
             raise ValueError('Unknown file type "%s"' % self.fileType)
 
@@ -2704,7 +2705,8 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             'filePath': {'type': 'string', 'description': \
                 "file path including file name, overrides searching"},
             'fileType': {'type': 'choice',
-                'choices': ('.zip', '.tar.bz2', '.tar.gz', '.gz', '.txt'),
+                'choices': ('.zip', '.tar', '.tar.bz2', '.tar.gz', '.gz',
+                    '.txt'),
                 'description': "file extension, overrides file type guessing"}}
 
         if option in optionsMetaData:
@@ -2769,7 +2771,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             archiveContent = self.getArchiveContentName(z.namelist(), filePath)
             return StringIO.StringIO(z.read(archiveContent)\
                 .decode(self.ENCODING))
-        elif self.fileType in ('.tar.bz2', '.tar.gz') \
+        elif self.fileType in ('.tar', '.tar.bz2', '.tar.gz') \
             or not self.fileType and tarfile.is_tarfile(filePath):
             import StringIO
             mode = ''

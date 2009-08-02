@@ -165,7 +165,7 @@ import operator
 import converter
 
 class ReadingFactory(object):
-    """
+    u"""
     Provides an abstract factory for creating L{ReadingOperator}s and
     L{ReadingConverter}s and a façade to directly access the methods offered by
     these classes.

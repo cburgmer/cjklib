@@ -1705,8 +1705,8 @@ class PinyinOperator(TonalRomanisationOperator):
                     return precedingPlainSyllable.lower() == 'e'
 
                 return plainSyllable[0].lower() in ['a', 'e', 'o'] \
-                    or plainSyllable.lower() in ['n', 'ng', 'nr', 'ngr', u'ŋ',
-                        u'ŋr']
+                    or plainSyllable.lower() in ['n', 'ng', 'nr', 'ngr', u'ê',
+                        u'ŋ', u'ŋr']
         return False
 
     def isStrictDecomposition(self, readingEntities):
@@ -2139,6 +2139,10 @@ class WadeGilesOperator(TonalRomanisationOperator):
         {'zeroFinal': u'\u016d', 'diacriticE': u'e', 'umlautU': u'\xfc', \
 'toneMarkType': 'Numbers', 'useInitialSz': False, 'neutralToneMark': 'none', \
 'WadeGilesApostrophe': "'"}
+
+    @todo Lang: Asterisk (*) marking the entering tone (入聲): e.g. I{chio²*}
+        and I{chüeh²*} for 覺 used by Giles (A Chinese-English Dictionary,
+        second edition, 1912).
     """
     READING_NAME = 'WadeGiles'
 
@@ -2683,7 +2687,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
         return plainSyllables
 
     def checkPlainEntity(self, plainEntity, option):
-        """
+        u"""
         Checks if the given plain entity with is a form with lost diacritics or
         an ambiguous case.
 

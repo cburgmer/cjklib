@@ -154,7 +154,6 @@ class DatabaseBuilder:
         @type options: dict
         @param options: option dict
         """
-        print options
         self.options.update(options)
 
     def getBuilderOptions(self, builderClass):

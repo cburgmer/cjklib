@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+u"""
 Han character library. Cjklib provides language routines related to Han
 characters (characters based on Chinese characters named Hanzi, Kanji, Hanja and
 chu Han respectively) used in writing of the Chinese, the Japanese, infrequently
