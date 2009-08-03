@@ -411,7 +411,7 @@ class CharacterLookup:
         """
         domains = ['Unicode']
         for table in self.db.tables:
-            if table.endswith('Set') \
+            if table.endswith('Set') and self.db.engine.has_table(table) \
                 and 'ChineseCharacter' in self.db.tables[table].columns:
                 domains.append(table[:-3])
 
@@ -609,7 +609,7 @@ class CharacterLookup:
     #{ Character variant lookup
 
     def getCharacterVariants(self, char, variantType):
-        """
+        u"""
         Gets the variant forms of the given type for the character.
 
         The type can be one out of:
@@ -1465,7 +1465,7 @@ class CharacterLookup:
                 "Character has no radical form information")
 
     def getCharacterRadicalResidualStrokeCountDict(self):
-        """
+        u"""
         Gets the full table of radical forms (either a I{Unicode radical form}
         or a I{Unicode radical variant}) found as a component in the character
         and the stroke count of the residual character components from the
@@ -1576,7 +1576,7 @@ class CharacterLookup:
                 "Character has no residual stroke count information")
 
     def getCharacterResidualStrokeCountDict(self):
-        """
+        u"""
         Gets the table of stroke counts of the residual character components
         from the database for all characters in the chosen I{character domain}.
 
