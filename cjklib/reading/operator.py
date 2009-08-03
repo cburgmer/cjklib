@@ -1161,7 +1161,8 @@ class PinyinOperator(TonalRomanisationOperator):
 
     Features:
         - tones marked by either diacritics or numbers,
-        - flexibility with misplaced tone marks on input,
+        - flexible handling of misplaced tone marks on input,
+        - flexible handling of wrong diacritics (e.g. breve instead of caron),
         - correct placement of apostrophes to separate syllables,
         - alternative representation of I{ü}-character,
         - alternatively shortend letters I{ŋ}, I{ẑ}, I{ĉ}, I{ŝ},
@@ -1282,10 +1283,11 @@ class PinyinOperator(TonalRomanisationOperator):
     @todo Impl: Special marker for neutral tone: 'mȧ' (u'm\\u0227', reported by
         Ching-song Gene Hsiao: A Manual of Transcription Systems For Chinese,
         中文拼音手册. Far Eastern Publications, Yale University, New Haven,
-        Connecticut, 1985, ISBN 0-88710-141-0.), and '·ma' (u'\\xb7ma', check!:
-        现代汉语词典（第5版）[Xiàndài Hànyǔ Cídiǎn 5. Edition]. 商务印书馆
-        [Shāngwù Yìnshūguǎn], Beijing, 2005, ISBN 7-100-04385-9.)
-    @todo Impl: Consider handline C{*nue} and C{*lue}.
+        Connecticut, 1985, ISBN 0-88710-141-0. Seems like left over from Pinjin,
+        1956), and '·ma' (u'\\xb7ma', check!: 现代汉语词典（第5版）[Xiàndài Hànyǔ
+        Cídiǎn 5. Edition]. 商务印书馆 [Shāngwù Yìnshūguǎn], Beijing, 2005,
+        ISBN 7-100-04385-9.)
+    @todo Impl: Consider handling C{*nue} and C{*lue}.
     """
     READING_NAME = 'Pinyin'
 
@@ -1296,21 +1298,6 @@ class PinyinOperator(TonalRomanisationOperator):
     included in standalone syllables I{n} and I{ng}. I{r} is used for supporting
     I{Erhua} in a two syllable form, I{ŋ} is the shortened form of I{ng}.
     """
-    TONEMARK_MAP = {u'\u0304': 1, u'\u0301': 2, u'\u030c': 3, u'\u0300': 4}
-    """
-    Mapping of I{Combining Diacritical Marks} to their Pinyin tone index.
-
-    @see:
-        - The Unicode Consortium: The Unicode Standard, Version 5.0.0,
-            Chapter 7, European Alphabetic Scripts, 7.9 Combining Marks,
-            defined by: The Unicode Standard, Version 5.0 (Boston, MA,
-            Addison-Wesley, 2007. ISBN 0-321-48091-0),
-            U{http://www.unicode.org/versions/Unicode5.0.0/}
-        - Unicode: X{Combining Diacritical Marks}, Range: 0300-036F:
-            U{http://www.unicode.org/charts/PDF/U0300.pdf}
-        - Unicode: FAQ - Characters and Combining Marks:
-            U{http://unicode.org/faq/char_combmark.html}
-    """
 
     PINYIN_SOUND_REGEX \
         = re.compile(u'(?iu)^([^aeiuoü]*)([aeiuoü]*)([^aeiuoü]*)$')
@@ -1318,13 +1305,6 @@ class PinyinOperator(TonalRomanisationOperator):
     Regular Expression matching onset, nucleus and coda. Syllables 'n', 'ng',
     'r' (for Erhua) and 'ê' have to be handled separately.
     """
-    toneMarkRegex = re.compile(u'[' + re.escape(''.join(TONEMARK_MAP.keys())) \
-        + ']')
-    """Regular Expression matching the Pinyin tone marks."""
-    tonemarkMapReverse = dict([(TONEMARK_MAP[mark], mark) \
-        for mark in TONEMARK_MAP.keys()])
-    del mark
-    """Reverse lookup of tone marks for tones provided by TONEMARK_MAP."""
 
     def __init__(self, **options):
         u"""
@@ -1358,7 +1338,12 @@ class PinyinOperator(TonalRomanisationOperator):
             follow the diacritic placement rule of Pinyin strictly (see
             L{_placeNucleusToneMark()}). Wrong placement will result in
             L{splitEntityTone()} raising an L{InvalidEntityError}. Defaults to
-            C{False}.
+            C{False}. In either way, diacritics must be placed on one of the
+            vowels (nasal semi-vowels being an exception).
+        @keyword PinyinDiacritics: a 4-tuple of diacritic marks for tones one
+            to for. If a circumflex (U+0302) is contained as diacritic mark,
+            special vowel I{ê} will not be supported and the given string will
+            be interpreted as tonal version of vowel I{e}.
         @keyword yVowel: a character (or string) that is taken as alternative
             for I{ü} which depicts (among others) the close front rounded vowel
             [y] (IPA) in Pinyin and includes an umlaut. Changes forms of
@@ -1402,6 +1387,38 @@ class PinyinOperator(TonalRomanisationOperator):
         if 'strictDiacriticPlacement' in options:
             self.optionValue['strictDiacriticPlacement'] \
                 = options['strictDiacriticPlacement']
+
+        # which diacritics to use?
+        if 'PinyinDiacritics' in options:
+            diacritics = tuple(options['PinyinDiacritics'])
+            if len(diacritics) != 4:
+                raise ValueError(
+                    "Invalid value %s for keyword 'PinyinDiacritics'" \
+                        % repr(diacritics))
+            elif len(set(diacritics)) != 4:
+                raise ValueError(
+                    "Non-injective value %s for keyword 'PinyinDiacritics'" \
+                        % repr(diacritics))
+            self.optionValue['PinyinDiacritics'] = diacritics
+
+        # Lookup of tone marks for tones
+        diacritics = self.getOption('PinyinDiacritics')
+        self.tonemarkMap = dict([(diacritic, idx + 1) for idx, diacritic \
+            in enumerate(diacritics)])
+        self.tonemarkMapReverse = dict([(idx + 1, diacritic) \
+            for idx, diacritic in enumerate(diacritics)])
+
+        # Regular Expression matching the Pinyin tone marks.
+        tonemarkVowels = set(self.TONEMARK_VOWELS)
+        if u'\u0302' in self.getOption('PinyinDiacritics'):
+            # if circumflex is included, disable vowel ê
+            tonemarkVowels.remove(u'ê')
+        tonemarkVowelsNFD = sorted([unicodedata.normalize("NFD", vowel) \
+            for vowel in tonemarkVowels], reverse=True)
+        diacriticsSorted = sorted(diacritics, reverse=True)
+        self.toneMarkRegex = re.compile(u'(?iu)((?:%s)+)(%s)' \
+            % ('|'.join([re.escape(vowel) for vowel in tonemarkVowelsNFD]),
+                '|'.join([re.escape(d) for d in diacriticsSorted])))
 
         # set alternative ü vowel if given
         if 'yVowel' in options:
@@ -1449,18 +1466,18 @@ class PinyinOperator(TonalRomanisationOperator):
         options = super(PinyinOperator, cls).getDefaultOptions()
         options.update({'toneMarkType': 'Diacritics',
             'missingToneMark': 'noinfo', 'strictDiacriticPlacement': False,
+            'PinyinDiacritics': (u'\u0304', u'\u0301', u'\u030c', u'\u0300'),
             'yVowel': u'ü', 'shortenedLetters': False, 'PinyinApostrophe': "'",
             'Erhua': 'twoSyllables',
             'PinyinApostropheFunction': cls.aeoApostropheRule})
 
         return options
 
-    @staticmethod
-    def _getDiacriticVowels():
+    def _getDiacriticVowels(self):
         u"""
         Gets a list of Pinyin vowels with diacritical marks for tones.
 
-        The alternative for vowel ü does not need diacritical forms as the
+        The alternative for vowel I{ü} does not need diacritical forms as the
         standard form doesn't allow changing the vowel.
 
         @rtype: list of str
@@ -1470,7 +1487,7 @@ class PinyinOperator(TonalRomanisationOperator):
         #   tone mark type 'Diacritics' by convention
         vowelList = []
         for vowel in PinyinOperator.TONEMARK_VOWELS:
-            for mark in PinyinOperator.TONEMARK_MAP.keys():
+            for mark in self.getOption('PinyinDiacritics'):
                 vowelList.append(unicodedata.normalize("NFC", vowel + mark))
         return vowelList
 
@@ -1479,9 +1496,9 @@ class PinyinOperator(TonalRomanisationOperator):
         u"""
         Takes a string written in Pinyin and guesses the reading dialect.
 
-        The basic options C{'toneMarkType'}, C{'yVowel'}, C{'Erhua'},
-        C{'PinyinApostrophe'} and C{'shortenedLetters'} are guessed. Unless
-        C{'includeToneless'} is set to C{True} only the tone mark types
+        The basic options C{'toneMarkType'}, C{'PinyinDiacritics'}, C{'yVowel'},
+        C{'Erhua'}, C{'PinyinApostrophe'} and C{'shortenedLetters'} are guessed.
+        Unless C{'includeToneless'} is set to C{True} only the tone mark types
         C{'Diacritics'} and C{'Numbers'} are considered as the latter one can
         also represent the state of missing tones. Strings tested for
         C{'yVowel'} are C{ü}, C{v} and C{u:}. C{'Erhua'} is set to
@@ -1493,11 +1510,23 @@ class PinyinOperator(TonalRomanisationOperator):
         @rtype: dict
         @return: dictionary of basic keyword settings
         """
-        Y_VOWEL_LIST = [u'ü', 'v', 'u:']
+        Y_VOWEL_LIST = [u'ü', 'v', 'u:', 'uu']
+        # list of possible tonal diacritics, only diacritics with canonical
+        #   combining class 230 supported (unicodedata.combining() == 230,
+        #   see Unicode 3.11, or http://unicode.org/Public/UNIDATA/UCD.html#
+        #     Canonical_Combining_Class_Values),
+        #   due to implementation of how ü and ê, ẑ, ĉ, ŝ are handled
+        DIACRITICS_LIST = {1: [u'\u0304'], 2: [u'\u0301'],
+            3: [u'\u030c', u'\u0306', u'\u0302'], 4: [u'\u0300']}
         APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
         readingStr = unicodedata.normalize("NFC", unicode(string))
 
-        diacriticVowels = PinyinOperator._getDiacriticVowels()
+        diacriticVowels = []
+        for vowel in PinyinOperator.TONEMARK_VOWELS:
+            for tone in DIACRITICS_LIST:
+                for mark in DIACRITICS_LIST[tone]:
+                    diacriticVowels.append(
+                        unicodedata.normalize("NFC", vowel + mark))
         # split regex for all dialect forms
         entities = re.findall(u'(?iu)((?:' + '|'.join(diacriticVowels) \
             + '|'.join(Y_VOWEL_LIST) + u'|[a-uw-zêŋẑĉŝ])+[12345]?)', readingStr)
@@ -1511,7 +1540,8 @@ class PinyinOperator(TonalRomanisationOperator):
                 numberEntityCount = numberEntityCount + 1
             else:
                 for vowel in diacriticVowels:
-                    if vowel in entity.lower():
+                    # don't count ê which is a possible form of bad diacritics
+                    if vowel in entity.lower() and vowel != u'ê':
                         diacriticEntityCount = diacriticEntityCount + 1
                         break
         # compare statistics
@@ -1528,6 +1558,21 @@ class PinyinOperator(TonalRomanisationOperator):
                 # even if equal prefer numbers, as in case of missing tone marks
                 #   we rather asume tone 'None' which is possible here
                 toneMarkType = 'Numbers'
+
+        # guess diacritic marks
+        diacritics = list(cls.getDefaultOptions()['PinyinDiacritics'])
+        if toneMarkType == 'Diacritics':
+            readingStrNFD = unicodedata.normalize("NFD", readingStr)
+            # remove non-tonal diacritics
+            readingStrNFDClear = re.sub(ur'(?iu)([ezcs]\u0302|u\u0308)', '',
+                readingStrNFD)
+
+            for tone in DIACRITICS_LIST:
+                if diacritics[tone-1] not in readingStrNFDClear:
+                    for mark in DIACRITICS_LIST[tone]:
+                        if mark in readingStrNFDClear:
+                            diacritics[tone-1] = mark
+                            break
 
         # guess ü vowel
         if toneMarkType == 'Diacritics':
@@ -1574,21 +1619,25 @@ class PinyinOperator(TonalRomanisationOperator):
         else:
             shortenedLetters = False
 
-        return {'toneMarkType': toneMarkType, 'yVowel': yVowel,
+        return {'toneMarkType': toneMarkType,
+            'PinyinDiacritics': tuple(diacritics), 'yVowel': yVowel,
             'PinyinApostrophe': PinyinApostrophe, 'Erhua': Erhua,
             'shortenedLetters': shortenedLetters}
 
     def getReadingCharacters(self):
         characters = set(string.ascii_lowercase + u'üêŋẑĉŝ')
-        characters.add(self.getOption('yVowel'))
+        characters.update(list(self.getOption('yVowel')))
         # NFD combining diacritics
-        for char in list(u'üêŋẑĉŝ') + [self.getOption('yVowel')]:
+        for char in list(u'üêŋẑĉŝ') + list(self.getOption('yVowel')):
             characters.update(unicodedata.normalize('NFD', unicode(char)))
         # add NFC vowels, strip of combining diacritical marks
-        characters.update([c for c in self._getDiacriticVowels() \
-            if len(c) == 1])
+        for char in self._getDiacriticVowels():
+            characters.update(list(char))
+        # tones
         characters.update(['1', '2', '3', '4', '5'])
-        characters.update(self.TONEMARK_MAP.keys())
+        for diacritic in self.getOption('PinyinDiacritics'):
+            # make sure that combinations of two and more diacritics work
+            characters.update(list(diacritic))
         return characters
 
     def getTones(self):
@@ -1745,17 +1794,11 @@ class PinyinOperator(TonalRomanisationOperator):
     def _hasSyllableSubstring(self, string):
         # reimplement to allow for misplaced tone marks
         def stripDiacritic(string):
-            """Strip one tonal diacritic mark of string."""
+            """Strip one tonal diacritic mark off string."""
             string = unicodedata.normalize("NFD", unicode(string))
-            for toneMark in self.TONEMARK_MAP:
-                index = string.find(toneMark)
-                if index >= 0:
-                    # only remove one occurence so that multi-entity strings are
-                    #   not merged to one, e.g. xīān
-                    string = string.replace(toneMark, '', 1)
-                    break
+            string = self.toneMarkRegex.sub(r'\1', string, 1)
 
-            return unicodedata.normalize("NFC", string)
+            return unicodedata.normalize("NFC", unicode(string))
 
         if not hasattr(self, '_substringSet'):
             # build index as called for the first time
@@ -1820,8 +1863,18 @@ class PinyinOperator(TonalRomanisationOperator):
         Places a tone mark on the given syllable nucleus according to the rules
         of the Pinyin standard.
 
-        @see: Pinyin.info - Where do the tone marks go?,
-            U{http://www.pinyin.info/rules/where.html}.
+        @see:
+            - Pinyin.info - Where do the tone marks go?,
+                U{http://www.pinyin.info/rules/where.html}.
+            - The Unicode Consortium: The Unicode Standard, Version 5.0.0,
+                Chapter 7, European Alphabetic Scripts, 7.9 Combining Marks,
+                defined by: The Unicode Standard, Version 5.0 (Boston, MA,
+                Addison-Wesley, 2007. ISBN 0-321-48091-0),
+                U{http://www.unicode.org/versions/Unicode5.0.0/}
+            - Unicode: X{Combining Diacritical Marks}, Range: 0300-036F:
+                U{http://www.unicode.org/charts/PDF/U0300.pdf}
+            - Unicode: FAQ - Characters and Combining Marks:
+                U{http://unicode.org/faq/char_combmark.html}
 
         @type nucleus: str
         @param nucleus: syllable nucleus
@@ -1889,10 +1942,10 @@ class PinyinOperator(TonalRomanisationOperator):
             # find character with tone marker
             matchObj = self.toneMarkRegex.search(entity)
             if matchObj:
-                diacriticalMark = matchObj.group(0)
-                tone = self.TONEMARK_MAP[diacriticalMark]
-                # strip off diacritical mark
-                plainEntity = entity.replace(diacriticalMark, '')
+                diacriticalMark = matchObj.group(2)
+                tone = self.tonemarkMap[diacriticalMark]
+                # strip off diacritical mark, don't overwrite shortendLetters
+                plainEntity = self.toneMarkRegex.sub(r'\1', entity, 1)
             else:
                 # fifth tone doesn't have any marker
                 plainEntity = entity
@@ -1923,6 +1976,9 @@ class PinyinOperator(TonalRomanisationOperator):
         # set used syllables
         plainSyllables = set(self.db.selectScalars(
             select([self.db.tables['PinyinSyllables'].c.Pinyin])))
+        if u'\u0302' in self.getOption('PinyinDiacritics'):
+            # if circumflex is included, disable vowel ê
+            plainSyllables.remove(u'ê')
         # support for Erhua if needed
         if self.getOption('Erhua') == 'twoSyllables':
             # single 'r' for patterns like 'tóur'
@@ -4558,7 +4614,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
     def _hasSyllableSubstring(self, string):
         # reimplement to allow for misplaced tone marks
         def stripDiacritic(string):
-            """Strip one tonal diacritic mark of string."""
+            """Strip one tonal diacritic mark off string."""
             string = unicodedata.normalize("NFD", unicode(string))
             for toneMark, _ in self.TONE_MARK_MAPPING['Diacritics'].values():
                 index = string.find(toneMark)

@@ -554,6 +554,11 @@ class PinyinDialectReferenceTest(ReadingConverterReferenceTest,
             (u'nǚhái', u'nü3hai2'),
             (u'ĉaŋ', u'chang5'),
             ]),
+        ({'sourceOptions': {'PinyinDiacritics': (u'\u0304', u'\u0301',
+                u'\u0306', u'\u0300')},
+            'targetOptions': {}}, [
+            (u'Wŏ peí nĭ qù Xīān.', u"Wǒ péi nǐ qù Xī'ān."),
+            ]),
         ]
 
 

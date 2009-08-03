@@ -652,6 +652,14 @@ class PinyinDialectConverter(ReadingConverter):
 
             >>> f.convert(u"Wǒ peí nǐ qù Xīān.", 'Pinyin', 'Pinyin')
             u"W\u01d2 p\xe9i n\u01d0 q\xf9 X\u012b'\u0101n."
+
+        - Fix more errors in Pinyin input (note diacritics):
+
+            >>> string = u"Wŏ peí nĭ qù Xīān."
+            >>> dialect = operator.PinyinOperator.guessReadingDialect(string)
+            >>> f.convert(string, 'Pinyin', 'Pinyin', sourceOptions=dialect)
+            u"W\u01d2 p\xe9i n\u01d0 q\xf9 X\u012b'\u0101n."
+
     """
     CONVERSION_DIRECTIONS = [('Pinyin', 'Pinyin')]
 
