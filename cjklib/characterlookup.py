@@ -24,7 +24,7 @@ Provides the central Chinese character based functions.
 
 # import math
 from sqlalchemy import select, union
-from sqlalchemy.sql import and_, or_, not_
+from sqlalchemy.sql import and_, or_
 
 from cjklib import reading
 from cjklib import exception
@@ -342,7 +342,7 @@ class CharacterLookup:
         else:
             raise ValueError("Unknown character domain '%s'" % characterDomain)
 
-        self.readingFactory = None
+        self._readingFactory = None
 
         # test for existing tables that can be used to speed up look up
         self.hasComponentLookup = self.db.engine.has_table('ComponentLookup')
@@ -356,9 +356,9 @@ class CharacterLookup:
         @return: a L{ReadingFactory} instance.
         """
         # get reading factory
-        if not self.readingFactory:
-            self.readingFactory = reading.ReadingFactory(dbConnectInst=self.db)
-        return self.readingFactory
+        if not self._readingFactory:
+            self._readingFactory = reading.ReadingFactory(dbConnectInst=self.db)
+        return self._readingFactory
 
     #{ Character domains
 
@@ -1282,7 +1282,7 @@ class CharacterLookup:
                                 subSequence = [0, 1]
                             # Get stroke order for both components
                             subStrokeOrder = []
-                            for i in range(0,2):
+                            for _ in range(0, 2):
                                 so, index = getFromEntry(subTree, index+1)
                                 subStrokeOrder.append(so)
                             # Append in proper order
@@ -1290,7 +1290,7 @@ class CharacterLookup:
                                 strokeOrder.append(subStrokeOrder[seq])
                     elif self.isTrinaryIDSOperator(character):
                         # Get stroke order for three components
-                        for i in range(0,3):
+                        for _ in range(0, 3):
                             so, index = getFromEntry(subTree, index+1)
                             strokeOrder.append(so)
                 else:
@@ -1317,7 +1317,7 @@ class CharacterLookup:
             strokeOrder = ''
             for decomposition in decompositionTreeList:
                 try:
-                    so, i = getFromEntry(decomposition)
+                    so, _ = getFromEntry(decomposition)
                     if len(so) >= len(strokeOrder):
                         strokeOrder = so
                 except exception.NoInformationError:
@@ -1887,7 +1887,8 @@ class CharacterLookup:
         except ValueError:
             return False
 
-    def isRadicalChar(self, char):
+    @staticmethod
+    def isRadicalChar(char):
         """
         Checks if the given character is a I{Unicode radical form} or
         I{Unicode radical variant}.

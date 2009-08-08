@@ -504,6 +504,9 @@ class DatabaseBuilder:
                     # found a terminal class or one whose dependencies are
                     #   already covered (at least no dependency on one of the
                     #   tables in the list)
+                    dependencyOrder.append(builderClass)
+                    includedTableNames.add(builderClass.PROVIDES)
+                    tableBuilderClasses.remove(builderClass)
                     break
             else:
                 # one dependency can not be fulfilled, might be that no
@@ -517,9 +520,6 @@ class DatabaseBuilder:
                     + "'. Builders with open depends: '" \
                     + "', '".join([builder.PROVIDES \
                         for builder in tableBuilderClasses]) + "'")
-            dependencyOrder.append(builderClass)
-            includedTableNames.add(builderClass.PROVIDES)
-            tableBuilderClasses.remove(builderClass)
         return dependencyOrder
 
     @staticmethod
@@ -537,7 +537,7 @@ class DatabaseBuilder:
                         raise ValueError("Option '%s' defined in %s and %s" \
                                 % (option, builder, thatBuilder) \
                             + " but different default values: %s and %s" \
-                                % (repr(defaultValue), repr(value)))
+                                % (repr(defaultValue), repr(thatValue)))
                 optionDefaultValues[option] = (defaultValue, builder)
 
                 # check meta data
@@ -556,7 +556,7 @@ class DatabaseBuilder:
 
     @staticmethod
     def getTableBuilderClasses(preferClassNameSet=set(), resolveConflicts=True,
-        quiet=True, additionalBuilders=[]):
+        quiet=True, additionalBuilders=None):
         """
         Gets all classes in module that implement L{TableBuilder}.
 
@@ -577,6 +577,7 @@ class DatabaseBuilder:
             as key
         @raise ValueError: if two different options with the same name collide.
         """
+        additionalBuilders = additionalBuilders or []
         buildModule = __import__("cjklib.build.builder")
         # get all classes that inherit from TableBuilder
         tableBuilderClasses = set([clss \
@@ -601,7 +602,7 @@ class DatabaseBuilder:
 
         if resolveConflicts:
             # now check conflicting and choose preferred if given
-            for tableName, builderClssSet in tableToBuilderMapping.items():
+            for builderClssSet in tableToBuilderMapping.values():
                 preferredBuilders = builderClssSet & preferClassSet
                 if preferredBuilders:
                     if len(preferredBuilders) > 1:

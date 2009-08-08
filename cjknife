@@ -31,14 +31,12 @@ The script's output depends on the following:
 
 import sys
 import getopt
-import operator
 import locale
-import os
 import re
 
 from sqlalchemy import Table
 from sqlalchemy import select, union
-from sqlalchemy.sql import and_, or_, not_
+from sqlalchemy.sql import and_, or_
 
 import cjklib
 from cjklib.dbconnector import DatabaseConnector
@@ -61,7 +59,6 @@ def getConfigSettings():
     """
     configSettings = {}
     import ConfigParser
-    import os
     import os.path
     config = ConfigParser.ConfigParser()
     config.read([os.path.join('/', 'etc', 'cjklib.conf'),
@@ -123,16 +120,23 @@ class CharacterInfo:
         'T': 'Traditional variants'}
     """List of character variants and their names."""
 
-    def __init__(self, locale=None, characterDomain='Unicode', readingN=None,
-        dictionary=None):
+    def __init__(self, charLocale=None, characterDomain='Unicode',
+        readingN=None, dictionary=None):
         """
         Initialises the CharacterInfo object.
 
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV)
+        @type charLocale: str
+        @param charLocale: I{character locale} (one out of TCJKV)
+        @type characterDomain: str
+        @param characterDomain: I{character domain} (see
+            L{characterlookup.CharacterLookup.getAvailableCharacterDomains()})
+        @type readingN: str
+        @param readingN: name of reading
+        @type dictionary: str
+        @param dictionary: name of dictionary
         """
-        if locale:
-            self.locale = locale
+        if charLocale:
+            self.locale = charLocale
         elif dictionary and dictionary in self.DICTIONARY_INFO:
             self.locale = self.DICTIONARY_INFO[dictionary]['defaultLocale']
         else:
@@ -340,7 +344,6 @@ class CharacterInfo:
 
         dictReading = self.DICTIONARY_INFO[self.dictionary]['reading']
         dictReadOpt = self.DICTIONARY_INFO[self.dictionary]['options']
-        classObj = self.readingFactory.getReadingOperatorClass(dictReading)
         # for readings with appended tone marks use placeholder if no tone
         #   specified
         if dictReading in ['Pinyin', 'WadeGiles', 'Jyutping', 'CantoneseYale']:
@@ -376,19 +379,21 @@ class CharacterInfo:
         conversionSupported = self.readingFactory.isReadingConversionSupported(
             dictReading, self.reading)
 
-        for simp, reading, translation in result:
+        for simp, readingStr, translation in result:
             if conversionSupported:
                 try:
-                    reading = self.readingFactory.convert(reading, dictReading,
-                        self.reading, sourceOptions=dictReadOpt)
+                    readingConv = self.readingFactory.convert(readingStr,
+                        dictReading, self.reading, sourceOptions=dictReadOpt)
                 except exception.DecompositionError:
-                    reading = '[' + reading + ']'
+                    readingConv = '[' + reading + ']'
                 except exception.CompositionError:
-                    reading = '[' + reading + ']'
+                    readingConv = '[' + reading + ']'
                 except exception.ConversionError:
-                    reading = '[' + reading + ']'
+                    readingConv = '[' + reading + ']'
+            else:
+                readingConv = readingStr
             # TODO work with trad forms and EDICT dicts too
-            response.append((simp, reading, translation))
+            response.append((simp, readingConv, translation))
         return response
 
     def getEquivalentCharTable(self, componentList,
@@ -870,7 +875,6 @@ class CharacterInfo:
                     = self.characterLookup.getCharacterKangxiRadicalIndex(char)
             except exception.NoInformationError:
                 infoDict['radical index'] = None
-                pass
 
         # regardless of type (radical/radical equivalent/other character) show
         #   radical forms
@@ -933,10 +937,8 @@ class CharacterInfo:
         try:
             infoDict['glyphs'] = {}
 
-            perVariantInfo = []
             for zVariant in self.characterLookup.getCharacterZVariants(char):
                 infoDict['glyphs'][zVariant] = {}
-                variantInfo = ""
                 # character decomposition
                 decomposition = self.characterLookup.getDecompositionTreeList(
                     char, zVariant=zVariant)
@@ -1013,7 +1015,7 @@ def getDecompositionForEntry(decomposition):
         # IDS element
         stringList[0] = decomposition[0]
     else:
-        char, zVariant, decompList = decomposition[0]
+        char, _, decompList = decomposition[0]
         stringList[0] = char
         maxLineLen = 0
         for line in getDecompositionForList(decompList):
@@ -1103,24 +1105,24 @@ GNU Lesser General Public License for more details.
 You should have received a copy of the GNU Lesser General Public License
 along with cjklib.  If not, see <http://www.gnu.org/licenses/>."""
 
+# Alternative reading names lookup
+ALTERNATIVE_READING_NAMES = {'Hangul': ['hg'], 'Pinyin': ['py'],
+    'WadeGiles': ['wade-giles', 'wg'], 'Jyutping': ['lshk', 'jp'],
+    'CantoneseYale': ['cy']}
+
 def main():
     """
     Main method
     @todo Fix: Check if user specified character domain is valid, don't show
         stack trace.
     """
-    # Alternative reading names lookup
-    ALTERNATIVE_READING_NAMES = {'Hangul': ['hg'], 'Pinyin': ['py'],
-        'WadeGiles': ['wade-giles', 'wg'], 'Jyutping': ['lshk', 'jp'],
-        'CantoneseYale': ['cy']}
-
     default_encoding = locale.getpreferredencoding()
     output_encoding = sys.stdout.encoding or locale.getpreferredencoding() \
         or 'ascii'
 
     # parse command line parameters
     try:
-        opts, args = getopt.getopt(sys.argv[1:],
+        opts, _ = getopt.getopt(sys.argv[1:],
             "i:a:r:f:q:k:p:o:m:s:t:l:d:c:b:e:x:w:LVh", ["help", "version",
             "locale=", "domain=", "source-reading=", "target-reading=",
             "information=", "by-reading=", "get-reading=", "convert-form=",
@@ -1340,7 +1342,7 @@ def main():
             # conversion between simplified/traditional forms
             if command in ("-q", "-f", "--convert-form"):
                 simplified = getPrintableList(charInfo.getSimplified(parameter))
-                traditional= getPrintableList(charInfo.getTraditional(
+                traditional = getPrintableList(charInfo.getTraditional(
                     parameter))
                 if not parameter in (simplified, traditional):
                     print "Warning: input string has mixed simplified and " \
@@ -1408,15 +1410,15 @@ def main():
                 print "Error: can't compose target entities:", \
                     getExceptionString(m).encode(output_encoding, "replace")
                 sys.exit(1)
+            except exception.AmbiguousConversionError:
+                print "Error: input reading is ambiguous, can't convert"
+                sys.exit(1)
             except exception.ConversionError, m:
                 print "Error: can't convert input string:", \
                     getExceptionString(m).encode(output_encoding, "replace")
                 sys.exit(1)
             except exception.UnsupportedError:
                 print "Error: conversion for given readings not supported"
-                sys.exit(1)
-            except exception.AmbiguousConversionError:
-                print "Error: input reading is ambiguous, can't convert"
                 sys.exit(1)
 
         # dictionary search
@@ -1430,7 +1432,7 @@ def main():
                 for c, r, t in results:
                     print (c + ", " + r + ", " + t)\
                         .encode(output_encoding, "replace")
-            except exception.UnsupportedError, e:
+            except exception.UnsupportedError:
                 print "Error: conversion for given readings not supported"
                 sys.exit(1)
 
@@ -1444,7 +1446,7 @@ def main():
                 for c, r, t in results:
                     print (c + ", " + r + ", " + t)\
                         .encode(output_encoding, "replace")
-            except exception.UnsupportedError, e:
+            except exception.UnsupportedError:
                 print "Error: conversion for given readings not supported"
                 sys.exit(1)
 
@@ -1495,7 +1497,7 @@ def main():
             sys.exit(1)
 
     except KeyboardInterrupt:
-        print >>sys.stderr, "Keyboard interrupt."
+        print >> sys.stderr, "Keyboard interrupt."
 
 if __name__ == "__main__":
     main()

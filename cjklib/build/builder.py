@@ -37,12 +37,15 @@ import csv
 from sqlalchemy import Table, Column, Integer, String, Text, Index
 from sqlalchemy import select, union
 from sqlalchemy.sql import text, func
-from sqlalchemy.sql import and_, or_, not_
+from sqlalchemy.sql import or_
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from cjklib import characterlookup
 from cjklib import exception
 from cjklib.build import warn
+
+# pylint: disable-msg=E1101
+#  member variables are set by setattr()
 
 #{ TableBuilder and generic classes
 
@@ -157,8 +160,8 @@ class TableBuilder(object):
                 % (fileType, self.PROVIDES, "', '".join(self.dataPath),
                     "', '".join(fileNames)))
 
-    def buildTableObject(self, tableName, columns, columnTypeMap={},
-        primaryKeys=[]):
+    def buildTableObject(self, tableName, columns, columnTypeMap=None,
+        primaryKeys=None):
         """
         Returns a SQLAlchemy Table object.
 
@@ -171,16 +174,19 @@ class TableBuilder(object):
         @type primaryKeys: list of str
         @param primaryKeys: list of primary key columns
         """
+        columnTypeMap = columnTypeMap or {}
+        primaryKeys = primaryKeys or []
+
         table = Table(tableName, self.db.metadata)
         for column in columns:
             if column in columnTypeMap:
-                type_ = columnTypeMap[column]
+                colType = columnTypeMap[column]
             else:
-                type_ = Text()
+                colType = Text()
                 if not self.quiet:
                     warn("column %s has no type, assuming default 'Text()'" \
                         % column)
-            table.append_column(Column(column, type_,
+            table.append_column(Column(column, colType,
                 primary_key=(column in primaryKeys)))
 
         return table
@@ -304,6 +310,8 @@ class UnihanGenerator:
     keySet = None
     """Set of keys of the Unihan table."""
 
+    ENTRY_REGEX = re.compile(ur"U\+([0-9A-F]+)\s+(\w+)\s+(.+)\s*$")
+
     def __init__(self, fileName, useKeys=None, wideBuild=False, quiet=False):
         """
         Constructs the UnihanGenerator.
@@ -319,7 +327,6 @@ class UnihanGenerator:
         @type quiet: bool
         @param quiet: if true no status information will be printed to stderr
         """
-        self.ENTRY_REGEX = re.compile(ur"U\+([0-9A-F]+)\s+(\w+)\s+(.+)\s*$")
         self.fileName = fileName
         self.wideBuild = wideBuild
         self.quiet = quiet
@@ -419,7 +426,7 @@ class UnihanGenerator:
                 if not resultObj:
                     continue
 
-                unicodeHexIndex, key, value = resultObj.group(1, 2, 3)
+                _, key, _ = resultObj.group(1, 2, 3)
                 self.keySet.add(key)
             handle.close()
         return list(self.keySet)
@@ -473,6 +480,8 @@ class UnihanBuilder(EntryGeneratorBuilder):
         'kZVariant': Text(), 'kGB0': String(4), 'kBigFive': String(4),
         'kXHC1983': Text()}
 
+    PRIMARY_KEYS = [CHARACTER_COLUMN]
+    
     INCLUDE_KEYS = ['kCompatibilityVariant', 'kCantonese', 'kFrequency',
         'kHangul', 'kHanyuPinlu', 'kJapaneseKun', 'kJapaneseOn', 'kMandarin',
         'kRSJapanese', 'kRSKanWa', 'kRSKangXi', 'kRSKorean', 'kSemanticVariant',
@@ -497,7 +506,6 @@ class UnihanBuilder(EntryGeneratorBuilder):
         """
         super(UnihanBuilder, self).__init__(**options)
 
-        self.PRIMARY_KEYS = [self.CHARACTER_COLUMN]
         self.unihanGenerator = None
 
     @classmethod
@@ -560,6 +568,7 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
     class XMLHandler(xml.sax.ContentHandler):
         """Extracts a list of given tags."""
         def __init__(self, entryList, tagDict):
+            xml.sax.ContentHandler.__init__(self)
             self.entryList = entryList
             self.tagDict = tagDict
 
@@ -578,9 +587,9 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
 
             if name == 'character':
                 entryDict = {}
-                for tag, func in self.tagDict.values():
+                for tag, function in self.tagDict.values():
                     if tag in self.currentEntry:
-                        entryDict[tag] = func(self.currentEntry[tag])
+                        entryDict[tag] = function(self.currentEntry[tag])
                 self.entryList.append(entryDict)
 
         def characters(self, content):
@@ -665,26 +674,22 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
         #   file though
         (('reading_meaning', 'rmgroup', 'reading'),
             frozenset([('r_type', 'ja_on')])): ('CharacterJapaneseOn',
-                lambda x: ','.join(x)),
+                ','.join),
         (('reading_meaning', 'rmgroup', 'reading'),
             frozenset([('r_type', 'ja_kun')])): ('CharacterJapaneseKun',
-                lambda x: ','.join(x)),
+                ','.join),
         #(('reading_meaning', 'rmgroup', 'reading'),
             #frozenset([('r_type', 'pinyin')])): ('Pinyin',
                 #lambda x: ','.join(x)),
-        (('misc', 'rad_name'), frozenset()): ('RadicalName',
-                lambda x: ','.join(x)),
-        (('reading_meaning', 'rmgroup', 'meaning'), frozenset()): ('Meaning_en',
-                lambda x: '/'.join(x)),
+        (('misc', 'rad_name'), frozenset()): ('RadicalName', ','.join),
+        (('reading_meaning', 'rmgroup', 'meaning'), frozenset()): \
+            ('Meaning_en', '/'.join),
         (('reading_meaning', 'rmgroup', 'meaning'),
-            frozenset([('m_lang', 'fr')])): ('Meaning_fr',
-                lambda x: '/'.join(x)),
+            frozenset([('m_lang', 'fr')])): ('Meaning_fr', '/'.join),
         (('reading_meaning', 'rmgroup', 'meaning'),
-            frozenset([('m_lang', 'es')])): ('Meaning_es',
-                lambda x: '/'.join(x)),
+            frozenset([('m_lang', 'es')])): ('Meaning_es', '/'.join),
         (('reading_meaning', 'rmgroup', 'meaning'),
-            frozenset([('m_lang', 'pt')])): ('Meaning_pt',
-                lambda x: '/'.join(x)),
+            frozenset([('m_lang', 'pt')])): ('Meaning_pt', '/'.join),
         }
     """
     Dictionary of tag keys mapping to a table column including a function
@@ -719,7 +724,7 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
     Provides an abstract class for building a table with a relation between a
     Chinese character and another column using the Unihan database.
     """
-    DEPENDS=['Unihan']
+    DEPENDS = ['Unihan']
     COLUMN_SOURCE = None
     """
     Unihan table column providing content for the table. Needs to be overwritten
@@ -756,6 +761,7 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
         tableEntries = self.db.selectRows(
             select([table.c.ChineseCharacter, table.c[self.COLUMN_SOURCE]],
                 table.c[self.COLUMN_SOURCE] != None))
+
         return self.GENERATOR_CLASS(tableEntries, self.quiet).generator()
 
     def build(self):
@@ -803,6 +809,8 @@ class CharacterRadicalBuilder(UnihanDerivedBuilder):
     """
     class RadicalExtractor:
         """Generates the radical to character mapping from the Unihan table."""
+        RADICAL_REGEX = re.compile(ur"(\d+)\.(\d+)")
+
         def __init__(self, rsEntries, quiet=False):
             """
             Initialises the RadicalExtractor.
@@ -812,7 +820,6 @@ class CharacterRadicalBuilder(UnihanDerivedBuilder):
             @type quiet: bool
             @param quiet: if true no status information will be printed
             """
-            self.RADICAL_REGEX = re.compile(ur"(\d+)\.(\d+)")
             self.rsEntries = rsEntries
             self.quiet = quiet
 
@@ -946,7 +953,7 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
                                 + variantType + "': '" + variantInfo + "'")
 
     PROVIDES = 'CharacterVariant'
-    DEPENDS=['Unihan']
+    DEPENDS = ['Unihan']
 
     COLUMN_SOURCE_ABBREV = {'kCompatibilityVariant': 'C',
         'kSemanticVariant': 'M', 'kSimplifiedVariant': 'S',
@@ -958,6 +965,9 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
     """
     COLUMN_TYPES = {'ChineseCharacter': String(1), 'Variant': String(1),
         'Type': String(1)}
+
+    COLUMNS = ['ChineseCharacter', 'Variant', 'Type']
+    PRIMARY_KEYS = COLUMNS
 
     def __init__(self, **options):
         """
@@ -971,10 +981,8 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
         @keyword wideBuild: if C{True} characters outside the I{BMP} will be
             included.
         """
+        # constructor is only defined for docstring
         super(CharacterVariantBuilder, self).__init__(**options)
-
-        self.COLUMNS = ['ChineseCharacter', 'Variant', 'Type']
-        self.PRIMARY_KEYS = self.COLUMNS
 
     @classmethod
     def getDefaultOptions(cls):
@@ -1019,15 +1027,11 @@ class UnihanCharacterSetBuilder(EntryGeneratorBuilder):
     Builds a simple list of characters that belong to a specific class using the
     Unihan data.
     """
-    DEPENDS=['Unihan']
+    DEPENDS = ['Unihan']
 
-    def __init__(self, **options):
-        super(UnihanCharacterSetBuilder, self).__init__(**options)
-        # create name mappings
-        self.COLUMNS = ['ChineseCharacter']
-        self.PRIMARY_KEYS = self.COLUMNS
-        # set column types
-        self.COLUMN_TYPES = {'ChineseCharacter': String(1)}
+    COLUMNS = ['ChineseCharacter']
+    PRIMARY_KEYS = COLUMNS
+    COLUMN_TYPES = {'ChineseCharacter': String(1)}
 
     def getGenerator(self):
         # create generator
@@ -1109,7 +1113,7 @@ class CharacterReadingBuilder(UnihanDerivedBuilder):
     COLUMN_TARGET = 'Reading'
     COLUMN_TARGET_TYPE = Text()
     GENERATOR_CLASS = SimpleReadingSplitter
-    DEPENDS=['Unihan']
+    DEPENDS = ['Unihan']
 
 
 class CharacterUnihanPinyinBuilder(CharacterReadingBuilder):
@@ -1250,17 +1254,12 @@ class CharacterPinyinBuilder(EntryGeneratorBuilder):
     Builds the character Pinyin mapping table from the several sources.
     """
     PROVIDES = 'CharacterPinyin'
-    DEPENDS=['CharacterUnihanPinyin', 'CharacterXHPCPinyin',
+    DEPENDS = ['CharacterUnihanPinyin', 'CharacterXHPCPinyin',
         'CharacterXHCPinyin']
 
-    def __init__(self, **options):
-        super(CharacterPinyinBuilder, self).__init__(**options)
-        # create name mappings
-        self.COLUMNS = ['ChineseCharacter', 'Reading']
-        self.PRIMARY_KEYS = self.COLUMNS
-        # set column types
-        self.COLUMN_TYPES = {'ChineseCharacter': String(1),
-            'Reading': String(255)}
+    COLUMNS = ['ChineseCharacter', 'Reading']
+    PRIMARY_KEYS = COLUMNS
+    COLUMN_TYPES = {'ChineseCharacter': String(1), 'Reading': String(255)}
 
     def getGenerator(self):
         # create generator
@@ -1364,7 +1363,6 @@ class CSVFileLoader(TableBuilder):
         return CSVFileLoader.unicode_csv_reader(content, self.fileDialect)
 
     def build(self):
-        import locale
         import codecs
 
         definitionFile = self.findFile([self.TABLE_DECLARATION_FILE_MAPPING],
@@ -1888,7 +1886,7 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                                 raise ValueError("ambiguous stroke count " \
                                     + "information, due to various stroke " \
                                     + "count sources for " \
-                                    + repr((char, ZVariant)))
+                                    + repr((char, zVariant)))
                             else:
                                 # first run or equal to previous calculation
                                 lastStrokeCount = accumulatedStrokeCount
@@ -1958,7 +1956,7 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
 
                     yield {'ChineseCharacter': char, 'ZVariant': zVariant,
                         'StrokeCount': strokeCount}
-                except ValueError, e:
+                except ValueError:
                     warningZVariants.append(zVariant)
                 except exception.NoInformationError:
                     pass
@@ -1994,7 +1992,7 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
         # get characters to build combined stroke count for. Some characters
         #   from the CharacterDecomposition table might not have a stroke count
         #   entry in Unihan though their components do have.
-        characterSet.update([(char, 0) for char, totalCount in tableEntries])
+        characterSet.update([(char, 0) for char, _ in tableEntries])
 
         return CombinedStrokeCountBuilder.CombinedStrokeCountGenerator(self.db,
             characterSet, tableEntries, preferredBuilder, self.quiet)\
@@ -2245,8 +2243,8 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                         try:
                             layout, position = layoutStack.pop()
                         except IndexError:
-                            raise ValueError("malformed IDS for character '" \
-                                + mainChar + "'")
+                            raise ValueError(
+                                "malformed IDS for character '%s'" % char)
 
                         if type(entry) != types.TupleType:
                             # ideographic description character found, derive
@@ -2344,8 +2342,9 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                     if keyEntry in seenEntriesDict \
                         and seenEntriesDict[keyEntry] \
                             != entry['ResidualStrokeCount']:
-                        raise ValueError("ambiguous residual stroke count for " \
-                            + "character '" + mainChar + "' with entry '" \
+                        raise ValueError(
+                            "ambiguous residual stroke count for " \
+                            + "character '%s' with entry '" % char \
                             + "', '".join(list([unicode(column) \
                                 for column in keyEntry])) \
                             + "': '" + str(seenEntriesDict[keyEntry]) + "'/'" \
@@ -2512,6 +2511,8 @@ class CombinedCharacterResidualStrokeCountBuilder(
         """
         Generates the character to residual stroke count mapping.
         """
+        RADICAL_REGEX = re.compile(ur"(\d+)\.(\d+)")
+
         def __init__(self, tableEntries, preferredBuilder, quiet=False):
             """
             Initialises the CombinedResidualStrokeCountExtractor.
@@ -2524,7 +2525,6 @@ class CombinedCharacterResidualStrokeCountBuilder(
             @type quiet: bool
             @param quiet: if true no status information will be printed
             """
-            self.RADICAL_REGEX = re.compile(ur"(\d+)\.(\d+)")
             self.tableEntries = tableEntries
             self.preferredBuilder = preferredBuilder
             self.quiet = quiet
@@ -2548,14 +2548,13 @@ class CombinedCharacterResidualStrokeCountBuilder(
                         residualStrokeCount = int(matchObj.group(2))
                         if (char, radicalIndex) not in seenCharactersSet:
                             yield [char, 0, radicalIndex, residualStrokeCount]
+                        continue
                     except ValueError:
-                        if not self.quiet:
-                            warn("unable to read radical information of " \
-                                + "character '" + character + "': '" \
-                                    + radicalStroke + "'")
-                elif not self.quiet:
-                    warn("unable to read radical information of character '" \
-                        + character + "': '" + radicalStroke + "'")
+                        pass
+
+                if not self.quiet:
+                    warn("unable to read radical information of " \
+                        + "character '%s': '%s'" % (char, radicalStroke))
 
     DEPENDS = ['CharacterRadicalResidualStrokeCount', 'Unihan']
     COLUMN_SOURCE = 'kRSKangXi'
@@ -2626,7 +2625,6 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
         def generator(self):
             """Provides the dictionary entries."""
-            a = 0
             for line in self.fileHandle:
                 # ignore comments
                 if line.lstrip().startswith('#'):
@@ -2716,16 +2714,17 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
     def getGenerator(self):
         # get file handle
-        import os.path as path
         if  self.filePath:
             filePath =  self.filePath
         else:
             filePath = self.findFile(self.FILE_NAMES)
+
         handle = self.getFileHandle(filePath)
         if not self.quiet:
             warn("Reading table from file '" + filePath + "'")
+
         # ignore starting lines
-        for i in range(0, self.IGNORE_LINES):
+        for _ in range(0, self.IGNORE_LINES):
             handle.readline()
         # create generator
         return EDICTFormatBuilder.TableGenerator(handle, self.quiet,
@@ -2762,8 +2761,6 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         import zipfile
         import tarfile
 
-        fileName = os.path.basename(filePath)
-
         if self.fileType == '.zip' \
             or not self.fileType and zipfile.is_zipfile(filePath):
             import StringIO
@@ -2782,8 +2779,8 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
                 mode = ':gz'
             z = tarfile.open(filePath, 'r' + mode)
             archiveContent = self.getArchiveContentName(z.getnames(), filePath)
-            file = z.extractfile(archiveContent)
-            return StringIO.StringIO(file.read().decode(self.ENCODING))
+            fileObj = z.extractfile(archiveContent)
+            return StringIO.StringIO(fileObj.read().decode(self.ENCODING))
         elif self.fileType == '.gz' \
             or not self.fileType and filePath.endswith('.gz'):
             import gzip
@@ -2813,8 +2810,8 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         return text("CREATE VIRTUAL TABLE %s USING FTS3(%s);" \
             % (preparedTableName, ', '.join(preparedColumns)))
 
-    def buildFTS3Tables(self, tableName, columns, columnTypeMap={},
-        primaryKeys=[], fullTextColumns=[]):
+    def buildFTS3Tables(self, tableName, columns, columnTypeMap=None,
+        primaryKeys=None, fullTextColumns=None):
         """
         Builds a FTS3 table construct for supporting full text search under
         SQLite.
@@ -2830,6 +2827,9 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         @type fullTextColumns: list of str
         @param fullTextColumns: list of fulltext columns
         """
+        columnTypeMap = columnTypeMap or {}
+        primaryKeys = primaryKeys or []
+        fullTextColumns = fullTextColumns or []
 
         # table with non-FTS3 data
         simpleColumns = [column for column in columns \
@@ -2862,8 +2862,11 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         #t = Table(tableName, self.db.metadata, autoload=True, useexisting=True)
         self.db.engine.reflecttable(view)
 
-    def insertFTS3Tables(self, tableName, generator, columns=[],
-        fullTextColumns=[]):
+    def insertFTS3Tables(self, tableName, generator, columns=None,
+        fullTextColumns=None):
+
+        columns = columns or []
+        fullTextColumns = fullTextColumns or []
 
         simpleColumns = [column for column in columns \
             if column not in fullTextColumns]
@@ -2896,7 +2899,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
                 # table with non-FTS3 data
                 simpleTable.insert(simpleData).execute()
                 fts3Table.insert(fts3Data).execute()
-            except IntegrityError:
+            except IntegrityError, e:
                 if not self.quiet:
                     warn(unicode(e))
                     #warn(unicode(insertStatement))
@@ -2965,7 +2968,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             for newEntry in generator:
                 try:
                     table.insert(newEntry).execute()
-                except IntegrityError:
+                except IntegrityError, e:
                     if not self.quiet:
                         warn(unicode(e))
                         #warn(unicode(insertStatement))
@@ -3108,10 +3111,8 @@ class CEDICTFormatBuilder(EDICTFormatBuilder):
         'HeadwordSimplified': String(255), 'Reading': String(255),
         'Translation': Text()}
 
-    def __init__(self, **options):
-        self.ENTRY_REGEX = \
-            re.compile(r'\s*(\S+)(?:\s+(\S+))?\s*\[([^\]]*)\]\s*(/.*/)\s*$')
-        super(CEDICTFormatBuilder, self).__init__(**options)
+    ENTRY_REGEX = re.compile(
+        r'\s*(\S+)(?:\s+(\S+))?\s*\[([^\]]*)\]\s*(/.*/)\s*$')
 
 
 class CEDICTBuilder(CEDICTFormatBuilder):

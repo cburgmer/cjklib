@@ -21,6 +21,10 @@ Provides the library's unit tests for the L{reading.converter} classes.
 @todo Impl: Add second dimension to consistency check for converting between
     dialect forms for all entities. Use cartesian product option_list x dialects
 """
+
+# pylint: disable-msg=E1101
+#  testcase attributes and methods are only available in concrete classes
+
 import re
 import types
 import unittest

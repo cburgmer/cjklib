@@ -16,6 +16,10 @@ Additional software
   documentation.
 * nosetests from http://somethingaboutorange.com/mrl/projects/nose is used
   for unit testing.
+* pylint from http://www.logilab.org/857, a tool tool that checks if a
+  module satisfies the Python coding standard and can find simple
+  programming errors. Use the config pylintrc to adapt pylint to settings of
+  cjklib.
 
 Test cases
 ------------
@@ -60,3 +64,10 @@ Documentation
 ------------
 Epydoc is used to generate the API documentation:
   epydoc -v --config epydoc_config
+
+Source code checking
+------------
+pylint can be used to check for bugs and code with poor quality:
+  pylint --rcfile=pylintrc cjklib
+While some useless warnings and errors are already surpressed, others might
+crop up. Use your own gudging on evaluation.

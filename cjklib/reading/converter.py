@@ -51,12 +51,12 @@ import types
 from functools import partial
 
 from sqlalchemy import select
-from sqlalchemy.sql import and_, or_, not_
+from sqlalchemy.sql import and_
 
 from cjklib.exception import (ConversionError, AmbiguousConversionError,
     InvalidEntityError, UnsupportedError)
 from cjklib.dbconnector import DatabaseConnector
-import operator
+from cjklib.reading import operator as readingoperator
 import cjklib.reading
 
 class ReadingConverter(object):
@@ -153,7 +153,7 @@ class ReadingConverter(object):
         else:
             self.db = DatabaseConnector.getDBConnector()
 
-        self.readingFact = cjklib.reading.ReadingFactory(dbConnectInst=self.db)
+        self._f = cjklib.reading.ReadingFactory(dbConnectInst=self.db)
 
         self.optionValue = {}
         defaultOptions = self.getDefaultOptions()
@@ -165,7 +165,7 @@ class ReadingConverter(object):
 
         # get reading operators
         for arg in args:
-            if isinstance(arg, operator.ReadingOperator):
+            if isinstance(arg, readingoperator.ReadingOperator):
                 # store reading operator for the given reading
                 self.optionValue['sourceOperators'][arg.READING_NAME] = arg
                 self.optionValue['targetOperators'][arg.READING_NAME] = arg
@@ -176,7 +176,7 @@ class ReadingConverter(object):
         # get specialised source/target readings
         if 'sourceOperators' in options:
             for arg in options['sourceOperators']:
-                if isinstance(arg, operator.ReadingOperator):
+                if isinstance(arg, readingoperator.ReadingOperator):
                     # store reading operator for the given reading
                     self.optionValue['sourceOperators'][arg.READING_NAME] = arg
                 else:
@@ -185,7 +185,7 @@ class ReadingConverter(object):
 
         if 'targetOperators' in options:
             for arg in options['targetOperators']:
-                if isinstance(arg, operator.ReadingOperator):
+                if isinstance(arg, readingoperator.ReadingOperator):
                     # store reading operator for the given reading
                     self.optionValue['targetOperators'][arg.READING_NAME] = arg
                 else:
@@ -282,7 +282,7 @@ class ReadingConverter(object):
         """
         if readingN not in self.getOption('sourceOperators'):
             self.optionValue['sourceOperators'][readingN] \
-                = self.readingFact._getReadingOperatorInstance(readingN)
+                = self._f._getReadingOperatorInstance(readingN)
         return self.getOption('sourceOperators')[readingN]
 
     def _getToOperator(self, readingN):
@@ -297,7 +297,7 @@ class ReadingConverter(object):
         """
         if readingN not in self.getOption('targetOperators'):
             self.optionValue['targetOperators'][readingN] \
-                = self.readingFact._getReadingOperatorInstance(readingN)
+                = self._f._getReadingOperatorInstance(readingN)
         return self.getOption('targetOperators')[readingN]
 
 
@@ -366,8 +366,7 @@ class DialectSupportReadingConverter(ReadingConverter):
                 entitySequence.append(entity)
 
         # convert to standard form if supported (step 1)
-        if self.readingFact.isReadingConversionSupported(fromReading,
-            fromReading):
+        if self._f.isReadingConversionSupported(fromReading, fromReading):
             # get default options if available used for converting the reading
             #   dialect
             if fromReading in self.DEFAULT_READING_OPTIONS:
@@ -375,8 +374,8 @@ class DialectSupportReadingConverter(ReadingConverter):
             else:
                 fromDefaultOptions = {}
             # use user specified source operator, set target to default form
-            converter = self.readingFact._getReadingConverterInstance(
-                fromReading, fromReading,
+            converter = self._f._getReadingConverterInstance(fromReading,
+                fromReading,
                 sourceOperators=[self._getFromOperator(fromReading)],
                 targetOptions=fromDefaultOptions)
 
@@ -395,7 +394,7 @@ class DialectSupportReadingConverter(ReadingConverter):
             fromReading, toReading)
 
         # convert to requested form if supported (step 3)
-        if self.readingFact.isReadingConversionSupported(toReading, toReading):
+        if self._f.isReadingConversionSupported(toReading, toReading):
             # get default options if available used for converting the reading
             #   dialect
             if toReading in self.DEFAULT_READING_OPTIONS:
@@ -403,8 +402,8 @@ class DialectSupportReadingConverter(ReadingConverter):
             else:
                 toDefaultOptions = {}
             # use user specified target operator, set source to default form
-            converter = self.readingFact._getReadingConverterInstance(
-                toReading, toReading, sourceOptions=toDefaultOptions,
+            converter = self._f._getReadingConverterInstance(toReading,
+                toReading, sourceOptions=toDefaultOptions,
                 targetOperators=[self._getToOperator(toReading)])
 
             convertedEntitySequence = []
@@ -892,7 +891,8 @@ class PinyinDialectConverter(ReadingConverter):
 
         return toReadingEntities
 
-    def convertToSingleSyllableErhua(self, entityTuples):
+    @staticmethod
+    def convertToSingleSyllableErhua(entityTuples):
         """
         Converts the various I{Erhua} forms in a list of reading entities to
         a representation with one syllable, e.g. C{['tou2', 'r5']} to
@@ -908,7 +908,7 @@ class PinyinDialectConverter(ReadingConverter):
         for entry in entityTuples:
             if type(lastEntry) == type(()) and type(entry) == type(()):
                 lastPlainSyllable, lastTone = lastEntry
-                plainSyllable, tone = entry
+                plainSyllable, _ = entry
                 if plainSyllable.lower() == 'r' \
                     and lastPlainSyllable.lower() not in ['e', 'er', 'r', 'n',
                         'ng', 'hng', 'hm', 'm', u'ê']:
@@ -928,7 +928,8 @@ class PinyinDialectConverter(ReadingConverter):
 
         return convertedTuples
 
-    def convertToTwoSyllablesErhua(self, entityTuples):
+    @staticmethod
+    def convertToTwoSyllablesErhua(entityTuples):
         """
         Converts the various I{Erhua} forms in a list of reading entities to
         a representation with two syllable, e.g. C{['tour2']} to
@@ -956,7 +957,8 @@ class PinyinDialectConverter(ReadingConverter):
 
         return convertedTuples
 
-    def _checkForErhua(self, entityTuples):
+    @staticmethod
+    def _checkForErhua(entityTuples):
         """
         Checks the given entities for Erhua forms and raises a ConversionError.
 
@@ -1032,12 +1034,12 @@ class WadeGilesDialectConverter(EntityWiseReadingConverter):
             fromSubstr = self._getFromOperator(fromReading).getOption(option)
             toSubstr = self._getToOperator(toReading).getOption(option)
             if fromSubstr != toSubstr:
-                operator = self._getFromOperator(fromReading)
-                if fromSubstr == operator.ALLOWED_VOWEL_SUBST[option] \
+                operatorInst = self._getFromOperator(fromReading)
+                if fromSubstr == operatorInst.ALLOWED_VOWEL_SUBST[option] \
                     and fromSubstr in plainSyllable:
 
                     # check state of syllable
-                    res = operator.checkPlainEntity(plainSyllable, option)
+                    res = operatorInst.checkPlainEntity(plainSyllable, option)
                     if res == 'ambiguous':
                         lostForm = entity.replace(fromSubstr, toSubstr)\
                             .replace(fromSubstr.upper(), toSubstr.upper())
@@ -1153,8 +1155,8 @@ class PinyinWadeGilesConverter(RomanisationConverter):
 
     def convertBasicEntity(self, entity, fromReading, toReading):
         # split syllable into plain part and tonal information
-        plainSyllable, tone = self.readingFact.splitEntityTone(entity,
-            fromReading, **self.DEFAULT_READING_OPTIONS[fromReading])
+        plainSyllable, tone = self._f.splitEntityTone(entity, fromReading,
+            **self.DEFAULT_READING_OPTIONS[fromReading])
 
         # lookup in database
         if fromReading == "WadeGiles":
@@ -1182,8 +1184,8 @@ class PinyinWadeGilesConverter(RomanisationConverter):
                 + "' not supported")
 
         try:
-            return self.readingFact.getTonalEntity(transSyllable, tone,
-                toReading, **self.DEFAULT_READING_OPTIONS[toReading])
+            return self._f.getTonalEntity(transSyllable, tone, toReading,
+                **self.DEFAULT_READING_OPTIONS[toReading])
         except InvalidEntityError, e:
             # handle this as a conversion error as the converted syllable is not
             #   accepted by the operator
@@ -1452,7 +1454,7 @@ class GRPinyinConverter(RomanisationConverter):
 
         # mapping from GR tones to Pinyin
         self.grToneMapping = dict([(tone, int(tone[0])) \
-            for tone in operator.GROperator.TONES])
+            for tone in readingoperator.GROperator.TONES])
         # set optional neutral mapping
         if self.getOption('GROptionalNeutralToneMapping') == 'neutral':
             for tone in ['1stToneOptional5th', '2ndToneOptional5th',
@@ -1518,8 +1520,8 @@ class GRPinyinConverter(RomanisationConverter):
             erlhuahForm = True
         else:
             # split syllable into plain part and tonal information
-            plainSyllable, tone = self.readingFact.splitEntityTone(entity,
-                fromReading, **self.DEFAULT_READING_OPTIONS[fromReading])
+            plainSyllable, tone = self._f.splitEntityTone(entity, fromReading,
+                **self.DEFAULT_READING_OPTIONS[fromReading])
 
         # lookup in database
         if fromReading == "GR":
@@ -1562,7 +1564,7 @@ class GRPinyinConverter(RomanisationConverter):
                 if toReading == 'Pinyin' and erlhuahForm:
                     transSyllable += 'r'
 
-                return self.readingFact.getTonalEntity(transSyllable, transTone,
+                return self._f.getTonalEntity(transSyllable, transTone,
                     toReading, **self.DEFAULT_READING_OPTIONS[toReading])
         except InvalidEntityError, e:
             # handle this as a conversion error as the converted syllable is not
@@ -1572,7 +1574,7 @@ class GRPinyinConverter(RomanisationConverter):
     def _getGROperator(self):
         """Creates an instance of a GROperator if needed and returns it."""
         if self.grOperator == None:
-            self.grOperator = operator.GROperator(
+            self.grOperator = readingoperator.GROperator(
                 **self.DEFAULT_READING_OPTIONS['GR'])
         return self.grOperator
 
@@ -1742,8 +1744,8 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
                 ipaTupelList = []
                 for idx, entity in enumerate(sequence):
                     # split syllable into plain part and tonal information
-                    plainSyllable, tone = self.readingFact.splitEntityTone(
-                        entity, fromReading,
+                    plainSyllable, tone = self._f.splitEntityTone(entity,
+                        fromReading,
                         **self.DEFAULT_READING_OPTIONS[fromReading])
 
                     transEntry = None
@@ -1987,7 +1989,7 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
 
         braillePunctuation = list(set(self.PUNCTUATION_SIGNS_MAPPING.values()))
         # longer marks first in regex
-        braillePunctuation.sort(lambda x,y: len(y) - len(x))
+        braillePunctuation.sort(lambda x, y: len(y) - len(x))
         self.braillePunctuationRegex = re.compile(ur'(' \
             + '|'.join([re.escape(p) for p in braillePunctuation]) + '|.+?)')
 
@@ -2116,7 +2118,7 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
             fromOptions = self.DEFAULT_READING_OPTIONS[fromReading]
         else:
             fromOptions = {}
-        fromOperator = self.readingFact._getReadingOperatorInstance(fromReading,
+        fromOperator = self._f._getReadingOperatorInstance(fromReading,
             **fromOptions)
 
         plainEntity, tone = fromOperator.splitEntityTone(entity)
@@ -2366,8 +2368,8 @@ class JyutpingYaleConverter(RomanisationConverter):
 
     def convertBasicEntity(self, entity, fromReading, toReading):
         # split syllable into plain part and tonal information
-        plainSyllable, tone = self.readingFact.splitEntityTone(entity,
-            fromReading, **self.DEFAULT_READING_OPTIONS[fromReading])
+        plainSyllable, tone = self._f.splitEntityTone(entity, fromReading,
+            **self.DEFAULT_READING_OPTIONS[fromReading])
 
         # lookup in database
         if fromReading == "CantoneseYale":
@@ -2396,8 +2398,8 @@ class JyutpingYaleConverter(RomanisationConverter):
             raise ConversionError("conversion for entity '" + plainSyllable \
                 + "' not supported")
         try:
-            return self.readingFact.getTonalEntity(transSyllable, transTone,
-                toReading, **self.DEFAULT_READING_OPTIONS[toReading])
+            return self._f.getTonalEntity(transSyllable, transTone, toReading,
+                **self.DEFAULT_READING_OPTIONS[toReading])
         except InvalidEntityError, e:
             # handle this as a conversion error as the converted syllable is not
             #   accepted by the operator
@@ -2421,10 +2423,10 @@ class BridgeConverter(ReadingConverter):
         @return: conversion directions
         """
         dirSet = set()
-        for fromReading, bridgeReading, toReading in bridge:
+        for fromReading, _, toReading in bridge:
             dirSet.add((fromReading, toReading))
         return list(dirSet)
-
+    
     CONVERSION_BRIDGE = [('WadeGiles', 'Pinyin', 'MandarinIPA'),
         ('MandarinBraille', 'Pinyin', 'MandarinIPA'),
         ('WadeGiles', 'Pinyin', 'MandarinBraille'),
@@ -2502,13 +2504,13 @@ class BridgeConverter(ReadingConverter):
         # to bridge reading
         options = self.conversionOptions.copy()
         options['sourceOperators'] = [self._getFromOperator(fromReading)]
-        bridgeReadingEntities = self.readingFact.convertEntities(
-            readingEntities, fromReading, bridgeReading, **options)
+        bridgeReadingEntities = self._f.convertEntities(readingEntities,
+            fromReading, bridgeReading, **options)
 
         # from bridge reading
         options = self.conversionOptions.copy()
         options['targetOperators'] = [self._getToOperator(toReading)]
-        toReadingEntities = self.readingFact.convertEntities(
-            bridgeReadingEntities, bridgeReading, toReading, **options)
+        toReadingEntities = self._f.convertEntities(bridgeReadingEntities,
+            bridgeReading, toReading, **options)
 
         return toReadingEntities

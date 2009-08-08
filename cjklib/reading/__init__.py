@@ -161,8 +161,8 @@ import types
 
 from cjklib.exception import UnsupportedError
 from cjklib.dbconnector import DatabaseConnector
-import operator
-import converter
+from cjklib.reading import operator as readingoperator
+from cjklib.reading import converter as readingconverter
 
 class ReadingFactory(object):
     u"""
@@ -196,10 +196,11 @@ class ReadingFactory(object):
         @return: list of all classes inheriting form L{ReadingOperator}
         """
         # get all non-abstract classes that inherit from ReadingOperator
-        readingOperatorClasses = [clss for clss in operator.__dict__.values() \
+        readingOperatorClasses = [clss for clss \
+            in readingoperator.__dict__.values() \
             if type(clss) == types.TypeType \
-            and issubclass(clss, operator.ReadingOperator) \
-            and clss.READING_NAME]
+                and issubclass(clss, readingoperator.ReadingOperator) \
+                and clss.READING_NAME]
 
         return readingOperatorClasses
 
@@ -214,9 +215,9 @@ class ReadingFactory(object):
         """
         # get all non-abstract classes that inherit from ReadingConverter
         readingConverterClasses = [clss \
-            for clss in converter.__dict__.values() \
+            for clss in readingconverter.__dict__.values() \
             if type(clss) == types.TypeType \
-            and issubclass(clss, converter.ReadingConverter) \
+            and issubclass(clss, readingconverter.ReadingConverter) \
             and clss.CONVERSION_DIRECTIONS]
 
         return readingConverterClasses
@@ -500,7 +501,7 @@ class ReadingFactory(object):
         return (fromReading, toReading) \
             in self.sharedState['readingConverterClasses']
 
-    def getDefaultOptions(*args):
+    def getDefaultOptions(self, *args):
         """
         Returns the default options for the L{ReadingOperator} or
         L{ReadingConverter} applied for the given reading name or names
@@ -541,8 +542,8 @@ class ReadingFactory(object):
         # get cache
         instanceCache = self.sharedState[self.db]['readingOperatorInstances']
         if cacheKey not in instanceCache:
-            operator = self.createReadingOperator(readingN, **options)
-            instanceCache[cacheKey] = operator
+            operatorInst = self.createReadingOperator(readingN, **options)
+            instanceCache[cacheKey] = operatorInst
         return instanceCache[cacheKey]
 
     def _getReadingConverterInstance(self, fromReading, toReading, *args,
@@ -588,14 +589,15 @@ class ReadingFactory(object):
         if cacheKey not in instanceCache:
             opt = options.copy()
             opt['hideComplexConverter'] = False
-            conv = self.createReadingConverter(fromReading, toReading, *args,
-                **options)
+            converterInst = self.createReadingConverter(fromReading, toReading,
+                *args, **options)
             # use instance for all supported conversion directions
-            for convFromReading, convToReading in conv.CONVERSION_DIRECTIONS:
+            for convFromReading, convToReading \
+                in converterInst.CONVERSION_DIRECTIONS:
                 oCacheKey = ((convFromReading, convToReading),
                     self._getHashableCopy(options))
                 if oCacheKey not in instanceCache:
-                    instanceCache[oCacheKey] = conv
+                    instanceCache[oCacheKey] = converterInst
         return instanceCache[cacheKey]
 
     def _checkSpecialOperators(self, fromReading, toReading, args, options):
@@ -628,17 +630,17 @@ class ReadingFactory(object):
         """
         # check options, don't overwrite existing operators
         for arg in args:
-            if isinstance(arg, ReadingOperator):
+            if isinstance(arg, readingoperator.ReadingOperator):
                 if arg.READING_NAME == fromReading \
                     and 'sourceOptions' in options:
-                        raise ValueError(
-                            "source reading operator options given, " \
-                            + "but a source reading operator already exists")
+                    raise ValueError(
+                        "source reading operator options given, " \
+                        + "but a source reading operator already exists")
                 if arg.READING_NAME == toReading \
                     and 'targetOptions' in options:
-                        raise ValueError(
-                            "target reading operator options given, " \
-                            + "but a target reading operator already exists")
+                    raise ValueError(
+                        "target reading operator options given, " \
+                        + "but a target reading operator already exists")
         # create operators for options
         if 'sourceOptions' in options:
             readingOp = self._getReadingOperatorInstance(fromReading,

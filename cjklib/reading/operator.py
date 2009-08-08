@@ -50,9 +50,8 @@ import copy
 import types
 from functools import partial
 
-from sqlalchemy import Table, Column, Integer, String
-from sqlalchemy import select, union
-from sqlalchemy.sql import and_, or_, not_
+from sqlalchemy import select
+from sqlalchemy.sql import or_
 
 from cjklib.exception import (DecompositionError, AmbiguousDecompositionError,
     InvalidEntityError, CompositionError, UnsupportedError)
@@ -124,7 +123,7 @@ class ReadingOperator(object):
         """
         return self.optionValue[option]
 
-    def decompose(self, string):
+    def decompose(self, readingString):
         """
         Decomposes the given string into basic entities that can be mapped to
         one Chinese character each (exceptions possible).
@@ -137,8 +136,8 @@ class ReadingOperator(object):
 
         The base class' implementation will raise a NotImplementedError.
 
-        @type string: str
-        @param string: reading string
+        @type readingString: str
+        @param readingString: reading string
         @rtype: list of str
         @return: a list of basic entities of the input string
         @raise DecompositionError: if the string can not be decomposed.
@@ -284,7 +283,7 @@ class RomanisationOperator(ReadingOperator):
         """
         return set(string.ascii_lowercase)
 
-    def decompose(self, string):
+    def decompose(self, readingString):
         """
         Decomposes the given string into basic entities on a one-to-one mapping
         level to Chinese characters. Decomposing can be ambiguous and there are
@@ -300,14 +299,14 @@ class RomanisationOperator(ReadingOperator):
         of basic reading entities and other characters e.g. spaces and
         punctuation marks.
 
-        @type string: str
-        @param string: reading string
+        @type readingString: str
+        @param readingString: reading string
         @rtype: list of str
         @return: a list of basic entities of the input string
         @raise AmbiguousDecompositionError: if decomposition is ambiguous.
         @raise DecompositionError: if the given string has a wrong format.
         """
-        decompositionParts = self.getDecompositionTree(string)
+        decompositionParts = self.getDecompositionTree(readingString)
 
         strictDecomposition = []
         for segment in decompositionParts:
@@ -333,20 +332,20 @@ class RomanisationOperator(ReadingOperator):
                             strictDecomposition.extend(decomposition)
                             break
                     else:
-                        raise AmbiguousDecompositionError("decomposition of '" \
-                            + string + "' ambiguous: '" \
-                            + ''.join(decomposition) + "'")
+                        raise AmbiguousDecompositionError(
+                            "decomposition of '%s' ambiguous: '%s'" \
+                                % (readingString, ''.join(decomposition)))
 
         return strictDecomposition
 
-    def getDecompositionTree(self, string):
+    def getDecompositionTree(self, readingString):
         """
         Decomposes the given string into basic entities that can be mapped to
         one Chinese character each for all possible decompositions and returns
         the possible decompositions as a lattice.
 
-        @type string: str
-        @param string: reading string
+        @type readingString: str
+        @param readingString: reading string
         @rtype: list
         @return: a list of all possible decompositions consisting of basic
             entities as a lattice construct.
@@ -355,7 +354,7 @@ class RomanisationOperator(ReadingOperator):
         # break string into pieces with alphabet and non alphabet parts
         decompositionParts = []
         # get partial segmentations
-        for part in self.readingEntityRegex.split(string):
+        for part in self.readingEntityRegex.split(readingString):
             if part == '':
                 continue
             if not self.readingEntityRegex.match(part):
@@ -367,7 +366,7 @@ class RomanisationOperator(ReadingOperator):
 
         return decompositionParts
 
-    def getDecompositions(self, string):
+    def getDecompositions(self, readingString):
         """
         Decomposes the given string into basic entities that can be mapped to
         one Chinese character each for all possible decompositions. This method
@@ -376,14 +375,14 @@ class RomanisationOperator(ReadingOperator):
         The returned list construction consists of two entity types: entities of
         the romanisation and other strings.
 
-        @type string: str
-        @param string: reading string
+        @type readingString: str
+        @param readingString: reading string
         @rtype: list of list of str
         @return: a list of all possible decompositions consisting of basic
             entities.
         @raise DecompositionError: if the given string has a wrong format.
         """
-        decompositionParts = self.getDecompositionTree(string)
+        decompositionParts = self.getDecompositionTree(readingString)
         # merge segmentations to decomposition
         decompCrossProd = self._crossProduct(decompositionParts)
 
@@ -396,7 +395,7 @@ class RomanisationOperator(ReadingOperator):
 
         return decompositionList
 
-    def segment(self, string):
+    def segment(self, readingString):
         """
         Takes a string written in the romanisation and returns the possible
         segmentations as a list of syllables.
@@ -411,45 +410,46 @@ class RomanisationOperator(ReadingOperator):
         an exception, if set to C{False} the given string will be returned
         unsegmented.
 
-        @type string: str
-        @param string: reading string
+        @type readingString: str
+        @param readingString: reading string
         @rtype: list of list of str
         @return: a list of possible segmentations (several if ambiguous) into
             single syllables
         @raise DecompositionError: if the given string has an invalid format.
         """
-        segmentationTree = self._recursiveSegmentation(string)
-        if string != '' and len(segmentationTree) == 0:
+        segmentationTree = self._recursiveSegmentation(readingString)
+        if readingString != '' and len(segmentationTree) == 0:
             if self.getOption('strictSegmentation'):
-                raise DecompositionError(u"Segmentation of '" + string \
-                    + "' not possible or invalid syllable")
+                raise DecompositionError(
+                    u"Segmentation of '%s' not possible or invalid syllable" \
+                        % readingString)
             else:
-                return [[string]]
+                return [[readingString]]
         resultList = []
         for entry in segmentationTree:
             resultList.extend(self._treeToList(entry))
         return resultList
 
-    def _recursiveSegmentation(self, string):
+    def _recursiveSegmentation(self, readingString):
         """
         Takes a string written in the romanisation and returns the possible
         segmentations as a tree of syllables.
 
         The tree is represented by tuples C{(syllable, subtree)}.
 
-        @type string: str
-        @param string: reading string
+        @type readingString: str
+        @param readingString: reading string
         @rtype: list of tuple
         @return: a tree of possible segmentations (if ambiguous) into single
             syllables
         """
         segmentationParts = []
         substringIndex = 1
-        while substringIndex <= len(string) and \
-            self._hasSyllableSubstring(string[0:substringIndex].lower()):
-            syllable = string[0:substringIndex]
+        while substringIndex <= len(readingString) and \
+            self._hasSyllableSubstring(readingString[0:substringIndex].lower()):
+            syllable = readingString[0:substringIndex]
             if self.isReadingEntity(syllable):
-                remaining = string[substringIndex:]
+                remaining = readingString[substringIndex:]
                 if remaining != '':
                     remainingParts = self._recursiveSegmentation(remaining)
                     if remainingParts != []:
@@ -503,13 +503,13 @@ class RomanisationOperator(ReadingOperator):
         """
         return False
 
-    def _hasSyllableSubstring(self, string):
+    def _hasSyllableSubstring(self, readingString):
         """
         Checks if the given string is a syllable supported by this romanisation
         or a substring of one.
 
-        @type string: str
-        @param string: romanisation syllable or substring
+        @type readingString: str
+        @param readingString: romanisation syllable or substring
         @rtype: bool
         @return: true if this string is a substring of a syllable, false
             otherwise
@@ -520,7 +520,7 @@ class RomanisationOperator(ReadingOperator):
             for syllable in self.getReadingEntities():
                 for i in range(len(syllable)):
                     self._substringSet.add(syllable[0:i+1])
-        return string in self._substringSet
+        return readingString in self._substringSet
 
     def isReadingEntity(self, entity):
         """
@@ -945,7 +945,7 @@ class TonalIPAOperator(TonalFixedEntityOperator):
 
         return tones
 
-    def decompose(self, string):
+    def decompose(self, readingString):
         """
         Decomposes the given string into basic entities that can be mapped to
         one Chinese character each (exceptions possible).
@@ -956,12 +956,12 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         Single syllables can only be found if distinguished by a period or
         whitespace, such as L{compose()} would return.
 
-        @type string: str
-        @param string: reading string
+        @type readingString: str
+        @param readingString: reading string
         @rtype: list of str
         @return: a list of basic entities of the input string
         """
-        return self.splitRegex.split(string)
+        return self.splitRegex.split(readingString)
 
     def compose(self, readingEntities):
         """
@@ -1097,19 +1097,20 @@ class TonalIPAOperator(TonalFixedEntityOperator):
 
 class SimpleEntityOperator(ReadingOperator):
     """Provides an operator on readings with a single character per entity."""
-    def decompose(self, string):
+    def decompose(self, readingString):
         readingEntities = []
         i = 0
-        while i < len(string):
+        while i < len(readingString):
             # look for non-entity characters first
             oldIndex = i
-            while i < len(string) and not self.isReadingEntity(string[i]):
+            while i < len(readingString) \
+                and not self.isReadingEntity(readingString[i]):
                 i = i + 1
             if oldIndex != i:
-                readingEntities.append(string[oldIndex:i])
+                readingEntities.append(readingString[oldIndex:i])
             # if we didn't reach the end of the input we have a entity char
-            if i < len(string):
-                readingEntities.append(string[i])
+            if i < len(readingString):
+                readingEntities.append(readingString[i])
             i = i + 1
         return readingEntities
 
@@ -1306,6 +1307,23 @@ class PinyinOperator(TonalRomanisationOperator):
     'r' (for Erhua) and 'ê' have to be handled separately.
     """
 
+    Y_VOWEL_LIST = [u'ü', 'v', 'u:', 'uu']
+    """List of vowels for [y] after initials n/l used in guessing routine."""
+
+    DIACRITICS_LIST = {1: [u'\u0304'], 2: [u'\u0301'],
+        3: [u'\u030c', u'\u0306', u'\u0302'], 4: [u'\u0300']}
+    """
+    Dictionary of diacritics per tone used in guessing routine.
+    Only diacritics with X{canonical combining class} 230 supported
+    (unicodedata.combining() == 230, see Unicode 3.11, or
+    U{http://unicode.org/Public/UNIDATA/UCD.html\
+#Canonical_Combining_Class_Values}),
+    due to implementation of how ü and ê, ẑ, ĉ, ŝ are handled.
+    """
+
+    APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
+    """List of apostrophes used in guessing routine."""
+
     def __init__(self, **options):
         u"""
         Creates an instance of the PinyinOperator.
@@ -1492,7 +1510,7 @@ class PinyinOperator(TonalRomanisationOperator):
         return vowelList
 
     @classmethod
-    def guessReadingDialect(cls, string, includeToneless=False):
+    def guessReadingDialect(cls, readingString, includeToneless=False):
         u"""
         Takes a string written in Pinyin and guesses the reading dialect.
 
@@ -1505,31 +1523,27 @@ class PinyinOperator(TonalRomanisationOperator):
         C{'twoSyllables'} by default and only tested when C{'toneMarkType'} is
         assumed to be set to C{'Numbers'}.
 
-        @type string: str
-        @param string: Pinyin string
+        @type readingString: str
+        @param readingString: Pinyin string
+        @type includeToneless: bool
+        @param includeToneless: if set to C{True} option C{'toneMarkType'} can
+            take on value C{'None'}, but by default (i.e. set to C{False}) is
+            covered by tone mark type set to C{'Numbers'}.
         @rtype: dict
         @return: dictionary of basic keyword settings
         """
-        Y_VOWEL_LIST = [u'ü', 'v', 'u:', 'uu']
-        # list of possible tonal diacritics, only diacritics with canonical
-        #   combining class 230 supported (unicodedata.combining() == 230,
-        #   see Unicode 3.11, or http://unicode.org/Public/UNIDATA/UCD.html#
-        #     Canonical_Combining_Class_Values),
-        #   due to implementation of how ü and ê, ẑ, ĉ, ŝ are handled
-        DIACRITICS_LIST = {1: [u'\u0304'], 2: [u'\u0301'],
-            3: [u'\u030c', u'\u0306', u'\u0302'], 4: [u'\u0300']}
-        APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
-        readingStr = unicodedata.normalize("NFC", unicode(string))
+        readingStr = unicodedata.normalize("NFC", unicode(readingString))
 
         diacriticVowels = []
-        for vowel in PinyinOperator.TONEMARK_VOWELS:
-            for tone in DIACRITICS_LIST:
-                for mark in DIACRITICS_LIST[tone]:
+        for vowel in cls.TONEMARK_VOWELS:
+            for tone in cls.DIACRITICS_LIST:
+                for mark in cls.DIACRITICS_LIST[tone]:
                     diacriticVowels.append(
                         unicodedata.normalize("NFC", vowel + mark))
         # split regex for all dialect forms
         entities = re.findall(u'(?iu)((?:' + '|'.join(diacriticVowels) \
-            + '|'.join(Y_VOWEL_LIST) + u'|[a-uw-zêŋẑĉŝ])+[12345]?)', readingStr)
+            + '|'.join(cls.Y_VOWEL_LIST) + u'|[a-uw-zêŋẑĉŝ])+[12345]?)',
+            readingStr)
 
         # guess one of main dialects: tone mark type
         diacriticEntityCount = 0
@@ -1567,9 +1581,9 @@ class PinyinOperator(TonalRomanisationOperator):
             readingStrNFDClear = re.sub(ur'(?iu)([ezcs]\u0302|u\u0308)', '',
                 readingStrNFD)
 
-            for tone in DIACRITICS_LIST:
+            for tone in cls.DIACRITICS_LIST:
                 if diacritics[tone-1] not in readingStrNFDClear:
-                    for mark in DIACRITICS_LIST[tone]:
+                    for mark in cls.DIACRITICS_LIST[tone]:
                         if mark in readingStrNFDClear:
                             diacritics[tone-1] = mark
                             break
@@ -1578,7 +1592,7 @@ class PinyinOperator(TonalRomanisationOperator):
         if toneMarkType == 'Diacritics':
             yVowel = u'ü'
         else:
-            for vowel in Y_VOWEL_LIST:
+            for vowel in cls.Y_VOWEL_LIST:
                 if vowel in readingStr.lower():
                     yVowel = vowel
                     break
@@ -1586,15 +1600,15 @@ class PinyinOperator(TonalRomanisationOperator):
                 yVowel = u'ü'
 
         # guess apostrophe
-        for apostrophe in APOSTROPHE_LIST:
+        for apostrophe in cls.APOSTROPHE_LIST:
             if apostrophe in readingStr:
-                PinyinApostrophe = apostrophe
+                pinyinApostrophe = apostrophe
                 break
         else:
-            PinyinApostrophe = "'"
+            pinyinApostrophe = "'"
 
         # guess Erhua, if r found surrounded by non-alpha assume twoSyllables
-        Erhua = 'twoSyllables'
+        erhua = 'twoSyllables'
         if toneMarkType == 'Numbers':
             lastIndex = 0
             while lastIndex != -1:
@@ -1609,7 +1623,7 @@ class PinyinOperator(TonalRomanisationOperator):
                             break
                         else:
                             # found trailing r
-                            Erhua = 'oneSyllable'
+                            erhua = 'oneSyllable'
 
         # guess shortenedLetters
         for char in u'ŋẑĉŝ':
@@ -1621,7 +1635,7 @@ class PinyinOperator(TonalRomanisationOperator):
 
         return {'toneMarkType': toneMarkType,
             'PinyinDiacritics': tuple(diacritics), 'yVowel': yVowel,
-            'PinyinApostrophe': PinyinApostrophe, 'Erhua': Erhua,
+            'PinyinApostrophe': pinyinApostrophe, 'Erhua': erhua,
             'shortenedLetters': shortenedLetters}
 
     def getReadingCharacters(self):
@@ -1744,18 +1758,19 @@ class PinyinOperator(TonalRomanisationOperator):
         # or the syllable is n or ng
         if precedingEntity and self.isReadingEntity(precedingEntity) \
             and self.isReadingEntity(followingEntity):
-                plainSyllable, tone = self.splitEntityTone(followingEntity)
 
-                # take care of corner case Erhua form e'r, that needs to be
-                #   distinguished from er
-                if plainSyllable.lower() == 'r':
-                    precedingPlainSyllable, _ \
-                        = self.splitEntityTone(precedingEntity)
-                    return precedingPlainSyllable.lower() == 'e'
+            plainSyllable, _ = self.splitEntityTone(followingEntity)
 
-                return plainSyllable[0].lower() in ['a', 'e', 'o'] \
-                    or plainSyllable.lower() in ['n', 'ng', 'nr', 'ngr', u'ê',
-                        u'ŋ', u'ŋr']
+            # take care of corner case Erhua form e'r, that needs to be
+            #   distinguished from er
+            if plainSyllable.lower() == 'r':
+                precedingPlainSyllable, _ = self.splitEntityTone(
+                    precedingEntity)
+                return precedingPlainSyllable.lower() == 'e'
+
+            return plainSyllable[0].lower() in ['a', 'e', 'o'] \
+                or plainSyllable.lower() in ['n', 'ng', 'nr', 'ngr', u'ê', u'ŋ',
+                    u'ŋr']
         return False
 
     def isStrictDecomposition(self, readingEntities):
@@ -1791,14 +1806,14 @@ class PinyinOperator(TonalRomanisationOperator):
 
         return True
 
-    def _hasSyllableSubstring(self, string):
+    def _hasSyllableSubstring(self, readingString):
         # reimplement to allow for misplaced tone marks
-        def stripDiacritic(string):
+        def stripDiacritic(strng):
             """Strip one tonal diacritic mark off string."""
-            string = unicodedata.normalize("NFD", unicode(string))
-            string = self.toneMarkRegex.sub(r'\1', string, 1)
+            strng = unicodedata.normalize("NFD", unicode(strng))
+            strng = self.toneMarkRegex.sub(r'\1', strng, 1)
 
-            return unicodedata.normalize("NFC", unicode(string))
+            return unicodedata.normalize("NFC", unicode(strng))
 
         if not hasattr(self, '_substringSet'):
             # build index as called for the first time
@@ -1814,9 +1829,9 @@ class PinyinOperator(TonalRomanisationOperator):
                     self._substringSet.add(syllable[0:i+1])
 
         if self.getOption('toneMarkType') == 'Diacritics':
-            return stripDiacritic(string) in self._substringSet
+            return stripDiacritic(readingString) in self._substringSet
         else:
-            return string in self._substringSet
+            return readingString in self._substringSet
 
     def getTonalEntity(self, plainEntity, tone):
         # get normalised Unicode string, e.g. C{'e\u0302'} to C{'ê'}
@@ -2081,11 +2096,13 @@ class PinyinOperator(TonalRomanisationOperator):
         if self.getOption('Erhua') == 'oneSyllable' \
             and plainSyllable.lower().endswith('r') \
             and plainSyllable.lower() != 'er':
-                plainSyllable = plainSyllable[:-1]
-                erhuaForm = True
+
+            plainSyllable = plainSyllable[:-1]
+            erhuaForm = True
 
         elif plainSyllable.lower() == 'r' \
             and self.getOption('Erhua') == 'twoSyllables':
+
             raise UnsupportedError("Not supported for '" + plainSyllable + "'")
 
         table = self.db.tables['PinyinInitialFinal']
@@ -2374,7 +2391,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
         return options
 
     @classmethod
-    def guessReadingDialect(cls, string, includeToneless=False):
+    def guessReadingDialect(cls, readingString):
         u"""
         Takes a string written in Wade-Giles and guesses the reading dialect.
 
@@ -2387,15 +2404,15 @@ class WadeGilesOperator(TonalRomanisationOperator):
             - C{'umlautU'}
             - C{'useInitialSz'}
 
-        @type string: str
-        @param string: Wade-Giles string
+        @type readingString: str
+        @param readingString: Wade-Giles string
         @rtype: dict
         @return: dictionary of basic keyword settings
         """
         # split regex for all dialect forms
-        string = string.lower()
+        readingString = readingString.lower()
         entities = cls.syllableRegex.findall(
-            unicodedata.normalize('NFC', unicode(string)))
+            unicodedata.normalize('NFC', unicode(readingString)))
 
         # guess vowels and initial sz-, prefer defaults
         useInitialSz = False
@@ -2403,11 +2420,11 @@ class WadeGilesOperator(TonalRomanisationOperator):
         diacriticE = None
         umlautU = None
 
-        if u'ŭ' in string:
+        if u'ŭ' in readingString:
             zeroFinal = u'ŭ'
-        if u'ê' in string:
+        if u'ê' in readingString:
             diacriticE = u'ê'
-        if u'ü' in string:
+        if u'ü' in readingString:
             umlautU = u'ü'
 
         for entity in entities:
@@ -2505,13 +2522,13 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
         # guess apostrophe
         for apostrophe in cls.APOSTROPHE_LIST:
-            if apostrophe in string:
-                WadeGilesApostrophe = apostrophe
+            if apostrophe in readingString:
+                wadeGilesApostrophe = apostrophe
                 break
         else:
-            WadeGilesApostrophe = u'’'
+            wadeGilesApostrophe = u'’'
 
-        return {'WadeGilesApostrophe': WadeGilesApostrophe,
+        return {'WadeGilesApostrophe': wadeGilesApostrophe,
             'toneMarkType': toneMarkType, 'neutralToneMark': neutralToneMark,
             'diacriticE': diacriticE, 'zeroFinal': zeroFinal,
             'umlautU': umlautU, 'useInitialSz': useInitialSz}
@@ -2827,7 +2844,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
             select([table.c.WadeGilesInitial, table.c.WadeGilesFinal],
                 table.c.WadeGiles == plainSyllable.lower()))
         if not entry:
-            raise UnsupportedError("Not supported for '%s'" % plainEntity)
+            raise UnsupportedError("Not supported for '%s'" % plainSyllable)
 
         return (entry[0], entry[1])
 
@@ -2947,6 +2964,9 @@ class GROperator(TonalRomanisationOperator):
     longer and back vowel in rhotacised finals.
     """
 
+    APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
+    """List of apostrophes used in guessing routine."""
+
     def __init__(self, **options):
         u"""
         Creates an instance of the GROperator.
@@ -2997,7 +3017,7 @@ class GROperator(TonalRomanisationOperator):
         return options
 
     @classmethod
-    def guessReadingDialect(cls, string, includeToneless=False):
+    def guessReadingDialect(cls, readingString):
         u"""
         Takes a string written in GR and guesses the reading dialect.
 
@@ -3006,8 +3026,8 @@ class GROperator(TonalRomanisationOperator):
         same value which derives from a list of different apostrophes and
         similar characters.
 
-        @type string: str
-        @param string: GR string
+        @type readingString: str
+        @param readingString: GR string
         @rtype: dict
         @return: dictionary of basic keyword settings
         @todo Impl: Both options C{'GRRhotacisedFinalApostrophe'} and
@@ -3017,15 +3037,14 @@ class GROperator(TonalRomanisationOperator):
         @todo Impl: Guess optional neutral tone marker ｡ (U+FF61), ￮ (U+FFEE),
             ₀ (U+2080), ₒ (U+2092), ˳ (U+02F3)
         """
-        APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
-        readingStr = unicodedata.normalize("NFC", unicode(string))
+        readingStr = unicodedata.normalize("NFC", unicode(readingString))
 
         # guess apostrophe
-        for apostrophe in APOSTROPHE_LIST:
-            if apostrophe in readingStr:
+        apostrophe = "'"
+        for a in cls.APOSTROPHE_LIST:
+            if a in readingStr:
+                apostrophe = a
                 break
-        else:
-            apostrophe = "'"
 
         return {'GRRhotacisedFinalApostrophe': apostrophe,
             'GRSyllableSeparatorApostrophe': apostrophe}
@@ -3104,19 +3123,20 @@ class GROperator(TonalRomanisationOperator):
 
         return True
 
-    def _recursiveSegmentation(self, string):
+    def _recursiveSegmentation(self, readingString):
         # overwrite method to deal with the apostrophe that can be both a part
         #   of a syllable and a separator between syllables
         segmentationParts = []
         substringIndex = 1
-        while substringIndex <= len(string) and \
-            (self._hasSyllableSubstring(string[0:substringIndex].lower()) \
-                or string[0:substringIndex] \
+        while substringIndex <= len(readingString) and \
+            (self._hasSyllableSubstring(
+                readingString[0:substringIndex].lower()) \
+                or readingString[0:substringIndex] \
                     == self.getOption('GRSyllableSeparatorApostrophe')):
-            syllable = string[0:substringIndex]
+            syllable = readingString[0:substringIndex]
             if self.isReadingEntity(syllable) \
                 or syllable == self.getOption('GRSyllableSeparatorApostrophe'):
-                remaining = string[substringIndex:]
+                remaining = readingString[substringIndex:]
                 if remaining != '':
                     remainingParts = self._recursiveSegmentation(remaining)
                     if remainingParts != []:
@@ -3478,7 +3498,7 @@ class GROperator(TonalRomanisationOperator):
             baseTonalEntity)
         initial, h, baseTonalFinal = matchObj.groups()
 
-        TONE_MAPPING = {1: '1st', 2: '2nd', 3: '3rd', 4: '4th'}
+        toneMapping = {1: '1st', 2: '2nd', 3: '3rd', 4: '4th'}
 
         entityList = set()
 
@@ -3514,11 +3534,11 @@ class GROperator(TonalRomanisationOperator):
                 toneIndex = 2
 
             if baseTone == '5th':
-                tone = '5thToneEtymological' + TONE_MAPPING[toneIndex]
+                tone = '5thToneEtymological' + toneMapping[toneIndex]
             elif baseTone == 'Optional5th':
-                tone = TONE_MAPPING[toneIndex] + 'ToneOptional5th'
+                tone = toneMapping[toneIndex] + 'ToneOptional5th'
             else:
-                tone = TONE_MAPPING[toneIndex] + 'Tone'
+                tone = toneMapping[toneIndex] + 'Tone'
 
             plainEntity = initial + nonRhotacisedFinal
             # check if form exists
@@ -3908,7 +3928,7 @@ class MandarinBrailleOperator(ReadingOperator):
 
         return tones
 
-    def decompose(self, string):
+    def decompose(self, readingString):
         """
         Decomposes the given string into basic entities that can be mapped to
         one Chinese character each (exceptions possible).
@@ -3919,8 +3939,8 @@ class MandarinBrailleOperator(ReadingOperator):
         The returned list contains a mix of basic reading entities and other
         characters e.g. spaces and punctuation marks.
 
-        @type string: str
-        @param string: reading string
+        @type readingString: str
+        @param readingString: reading string
         @rtype: list of str
         @return: a list of basic entities of the input string
         """
@@ -3934,7 +3954,7 @@ class MandarinBrailleOperator(ReadingOperator):
 
             return newList
 
-        return buildList(self.splitRegex.split(string))
+        return buildList(self.splitRegex.split(readingString))
 
     def compose(self, readingEntities):
         """
@@ -4467,7 +4487,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         # create tone regex
         if self.getOption('toneMarkType') != 'None':
             self.primaryToneRegex = re.compile(r"(?iu)^[a-z]+([" \
-                + r"".join(set([re.escape(toneMark) for toneMark, hChar \
+                + r"".join(set([re.escape(toneMark) for toneMark, _ \
                     in self.TONE_MARK_MAPPING[self.getOption('toneMarkType')]\
                         .values()])) \
                 + r"]?)")
@@ -4504,7 +4524,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         """
         vowelList = set([])
         for nucleusFirstChar in 'aeioumnh':
-            for toneMark, hChar in \
+            for toneMark, _ in \
                 CantoneseYaleOperator.TONE_MARK_MAPPING['Diacritics'].values():
                 if toneMark:
                     vowelList.add(unicodedata.normalize("NFC",
@@ -4512,7 +4532,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         return vowelList
 
     @classmethod
-    def guessReadingDialect(cls, string, includeToneless=False):
+    def guessReadingDialect(cls, readingString, includeToneless=False):
         """
         Takes a string written in Cantonese Yale and guesses the reading
         dialect.
@@ -4522,14 +4542,18 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         C{'Diacritics'} and C{'Numbers'} are considered as the latter one can
         also represent the state of missing tones.
 
-        @type string: str
-        @param string: Cantonese Yale string
+        @type readingString: str
+        @param readingString: Cantonese Yale string
+        @type includeToneless: bool
+        @param includeToneless: if set to C{True} option C{'toneMarkType'} can
+            take on value C{'None'}, but by default (i.e. set to C{False}) is
+            covered by tone mark type set to C{'Numbers'}.
         @rtype: dict
         @return: dictionary of basic keyword settings
         """
         # split into entities using a simple regex for all dialect forms
         entities = cls.syllableRegex.findall(
-            unicodedata.normalize("NFD", unicode(string.lower())))
+            unicodedata.normalize("NFD", unicode(readingString.lower())))
 
         # guess tone mark type
         diacriticEntityCount = 0
@@ -4611,20 +4635,20 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         return "".join(readingEntities)
 
-    def _hasSyllableSubstring(self, string):
+    def _hasSyllableSubstring(self, readingString):
         # reimplement to allow for misplaced tone marks
-        def stripDiacritic(string):
+        def stripDiacritic(strng):
             """Strip one tonal diacritic mark off string."""
-            string = unicodedata.normalize("NFD", unicode(string))
+            strng = unicodedata.normalize("NFD", unicode(strng))
             for toneMark, _ in self.TONE_MARK_MAPPING['Diacritics'].values():
-                index = string.find(toneMark)
+                index = strng.find(toneMark)
                 if toneMark and index >= 0:
                     # only remove one occurence so that multi-entity strings are
                     #   not merged to one, e.g. xīān (for Pinyin)
-                    string = string.replace(toneMark, '', 1)
+                    strng = strng.replace(toneMark, '', 1)
                     break
 
-            return unicodedata.normalize("NFC", string)
+            return unicodedata.normalize("NFC", strng)
 
         if not hasattr(self, '_substringSet'):
             # build index as called for the first time
@@ -4643,9 +4667,9 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                     self._substringSet.add(syllable[0:i+1])
 
         if self.getOption('toneMarkType') == 'Diacritics':
-            return stripDiacritic(string) in self._substringSet
+            return stripDiacritic(readingString) in self._substringSet
         else:
-            return string in self._substringSet
+            return readingString in self._substringSet
 
     def getTonalEntity(self, plainEntity, tone):
         """

@@ -10,7 +10,10 @@ include scripts/*.py
 include README
 include COPYING
 include DEVELOPMENT
+include THANKS
+include TODO
 include changelog
 include cjklib.conf
 include epydoc_config
+include pylintrc
 include cjklib.db

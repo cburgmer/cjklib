@@ -19,6 +19,9 @@
 Provides the library's unit tests for L{characterlookup.CharacterLookup}.
 """
 
+# pylint: disable-msg=E1101
+#  testcase attributes and methods are only available in concrete classes
+
 import re
 import unittest
 
@@ -44,15 +47,17 @@ class CharacterLookupTest():
         Serves as a normal database connector engine, but fakes existance of
         some tables.
         """
-        def __init__(self, dbConnectInst, mockTables=[], mockTableDefinition={},
-            mockNonTables=[]):
+        def __init__(self, dbConnectInst, mockTables=None,
+            mockTableDefinition=None, mockNonTables=None):
+            
             self._dbConnectInst = dbConnectInst
             self._dbConnectInst.engine \
                 = CharacterLookupReadingMethodsTestCase.EngineMock(
                 self._dbConnectInst.engine, mockTables, mockNonTables)
 
-            self.mockTables = mockTables
-            self.mockTableDefinition = mockTableDefinition
+            self.mockTables = mockTables or []
+            self.mockTableDefinition = mockTableDefinition or {}
+        
         def __getattr__(self, attr):
             if attr == 'tables':
                 return CharacterLookupReadingMethodsTestCase.CacheDict(
@@ -64,10 +69,10 @@ class CharacterLookupTest():
         Serves as a normal SQLAlchemy engine, but fakes existance of some
         tables.
         """
-        def __init__(self, engine, mockTables=[], mockNonTables=[]):
+        def __init__(self, engine, mockTables=None, mockNonTables=None):
             self._engine = engine
-            self.mockTables = mockTables
-            self.mockNonTables = mockNonTables
+            self.mockTables = mockTables or []
+            self.mockNonTables = mockNonTables or []
         def has_table(self, table):
             if table in self.mockTables:
                 return True

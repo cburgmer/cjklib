@@ -21,7 +21,6 @@ Provides a command line interface (I{CLI}) to the build functionality of cjklib.
 
 import sys
 import os
-import re
 import locale
 import copy
 from optparse import OptionParser, OptionGroup, Option, OptionValueError, Values
@@ -371,7 +370,7 @@ There is NO WARRANTY, to the extent permitted by law.""" \
         while len(buildGroupList) != 0:
             group = buildGroupList.pop()
             if self.BUILD_GROUPS.has_key(group):
-                buildGroupList.extend(self.BUILD_GROUPS[group])
+                buildGroupList.update(self.BUILD_GROUPS[group])
             else:
                 groups.append(group)
 
@@ -387,16 +386,16 @@ There is NO WARRANTY, to the extent permitted by law.""" \
 
             print "finished"
         except exception.UnsupportedError, e:
-            print >>sys.stderr, \
+            print >> sys.stderr, \
                 "Error building local tables, some names do not exist: %s" % e
             return False
         except KeyboardInterrupt:
-            print >>sys.stderr, "Keyboard interrupt."
+            print >> sys.stderr, "Keyboard interrupt."
             try:
                 # remove temporary tables
                 dbBuilder.clearTemporary()
             except KeyboardInterrupt:
-                print >>sys.stderr, \
+                print >> sys.stderr, \
                     "Interrupted while cleaning temporary tables"
             return False
 

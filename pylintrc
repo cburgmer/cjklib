@@ -1,0 +1,73 @@
+# PyLint configuration file for cjklib.
+#
+# This pylintrc file will allow for camel case naming.
+#
+# See /usr/share/doc/pylint/examples/pylintrc_camelcase
+#
+# Just place it in ~/.pylintrc for user-wide installation or simply
+# use within a call to pylint or export environment variable
+# export PYLINTRC=$DIR/pylintrc
+
+
+[BASIC]
+# Regular expression which should only match correct module names
+module-rgx=(([a-z][a-z0-9]*)|([A-Z][a-zA-Z0-9]+))$
+
+attr-rgx=[a-z_][a-zA-Z0-9_]{1,30}
+
+# Regular expression which should only match correct class names
+class-rgx=[A-Z][a-zA-Z0-9]+$
+
+# Regular expression which should only match correct function names
+function-rgx=[a-z_][a-zA-Z0-9]*$
+
+# Regular expression which should only match correct method names
+method-rgx=[a-z_][a-zA-Z0-9_]*$
+
+# Regular expression which should only match correct argument names
+argument-rgx=[a-z][a-zA-Z0-9]*$
+
+# Regular expression which should only match correct variable names
+variable-rgx=[a-z][a-zA-Z0-9_]*$
+
+
+[FORMAT]
+indent-string='    '
+
+[MESSAGES CONTROL]
+# Disable the following PyLint messages:
+# W0201: *Attribute %r defined outside __init__*
+#   cached get() methods loading instance attributes on demand
+# C0111: *Missing docstring*
+#   epydoc shows inherited docstrings
+# W0105: *String statement has no effect*
+#   we use a huge amount of class variable docstrings
+# W0223: *Method %r is abstract in class %r but is not overridden*
+#   inheritance class hierarchy including multiple abstract classes
+# C0301: *Line too long (%s/%s)* 
+#   pylint doesn't decode files properly (Unicode), fix seems difficult
+# W0142: *Used * or ** magic*
+#   a lot of modules with variable options count
+# W0402: *Uses of a deprecated module %r*
+#   string module, see http://www.logilab.org/email/2261
+#
+# See further options in source files, using pattern "# pylint: disable-msg=.+"
+disable-msg=W0201,C0111,W0105,W0223,C0301,W0142
+
+[REPORTS]
+
+# set the output format. Available formats are text, parseable, colorized and
+# html
+output-format=colorized
+
+# Include message's id in output
+include-ids=yes
+
+# Tells wether to display a full report or only the messages
+reports=no
+
+[MISCELLANEOUS]
+
+# List of note tags to take in consideration, separated by a comma.
+# TODO  -- future plan
+notes=TODO

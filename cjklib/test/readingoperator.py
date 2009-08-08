@@ -18,12 +18,16 @@
 """
 Provides the library's unit tests for the L{reading.operator} classes.
 """
+
+# pylint: disable-msg=E1101
+#  testcase attributes and methods are only available in concrete classes
+
 import re
 import types
 import unittest
 import unicodedata
 
-from cjklib.reading import ReadingFactory, operator
+from cjklib.reading import ReadingFactory
 from cjklib import exception
 
 class ReadingOperatorTest():
@@ -108,7 +112,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                         newList[j * lastSetLen + k*repeatEntry[i] \
                             + l].update(elem)
             lastSetLen = repeatEntry[i]
-        import sys
+
         return newList
 
     def testReadingNameUnique(self):
@@ -215,7 +219,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                 + ' (reading %s)' % self.READING_NAME)
 
         # test instantiation of default options
-        defaultInstance = self.readingOperatorClass(**readingDialect)
+        self.readingOperatorClass(**readingDialect)
 
     def testReadingCharacters(self):
         """
@@ -315,7 +319,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
             plainEntities = readingOperator.getPlainReadingEntities()
             for plainEntity in plainEntities:
                 try:
-                    result = readingOperator.getOnsetRhyme(plainEntity)
+                    readingOperator.getOnsetRhyme(plainEntity)
                 except exception.InvalidEntityError:
                     self.fail("Plain entity %s not accepted" \
                         % repr(plainEntity) \

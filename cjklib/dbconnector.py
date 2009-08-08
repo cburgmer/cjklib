@@ -19,11 +19,14 @@
 Provides simple read access to a SQL database.
 """
 
-import re
 import os
+import os.path
+import ConfigParser
+import logging
 
 from sqlalchemy import MetaData, Table, create_engine
 from sqlalchemy.sql import text
+from sqlalchemy.engine import url
 
 class DatabaseConnector:
     """
@@ -93,9 +96,6 @@ class DatabaseConnector:
         """
         try:
             databaseSettings = {}
-            import ConfigParser
-            import os
-            import os.path
             config = ConfigParser.SafeConfigParser()
             config.read([os.path.join(os.path.expanduser('~'), '.' \
                     + projectName + '.conf'),
@@ -141,16 +141,16 @@ class DatabaseConnector:
         @attention: Currently only works for MySQL and SQLite.
         """
         if self.engine.name == 'mysql':
+            dbName = url.make_url(self.databaseUrl).database
             viewList = self.execute(
                 text("""SELECT table_name FROM Information_schema.view
                     WHERE table_schema = :dbName"""),
-                dbName=self.dbName).fetchall()
+                dbName=dbName).fetchall()
         elif self.engine.name == 'sqlite':
             viewList = self.execute(
                 text("SELECT name FROM sqlite_master WHERE type IN ('view')"))\
                 .fetchall()
         else:
-            import logging
             logging.warning("Don't know how to get all views from database. Unable to register. Views will not show up in list of available tables.")
             return
 
