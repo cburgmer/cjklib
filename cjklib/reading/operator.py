@@ -43,6 +43,10 @@ Composing will reverse the process, using a I{Pinyin} string:
 
 For more complex operators, see L{PinyinOperator} or L{MandarinIPAOperator}.
 """
+
+# pylint: disable-msg=E1101
+#  member variables are set by setattr()
+
 import re
 import string
 import unicodedata
@@ -69,8 +73,7 @@ class ReadingOperator(object):
     the strings returned by L{decompose()} are supported entities for the given
     reading.
 
-    The methods L{getDefaultOptions()} and L{getOption()} provide means to
-    handle the I{reading dialect}'s specific settings.
+    The methods L{getDefaultOptions()} will return the reading default dialect.
 
     The class itself can't be used directly, it has to be subclassed and its
     methods need to be extended.
@@ -91,14 +94,12 @@ class ReadingOperator(object):
         else:
             self.db = DatabaseConnector.getDBConnector()
 
-        self.optionValue = {}
-        defaultOptions = self.getDefaultOptions()
-        for option in defaultOptions:
-            if type(defaultOptions[option]) \
-                in [type(()), type([]), type({}), type(set())]:
-                self.optionValue[option] = copy.deepcopy(defaultOptions[option])
+        for option, defaultValue in self.getDefaultOptions().items():
+            optionValue = options.get(option, defaultValue)
+            if not hasattr(optionValue, '__call__'):
+                setattr(self, option, copy.deepcopy(optionValue))
             else:
-                self.optionValue[option] = defaultOptions[option]
+                setattr(self, option, optionValue)
 
     @classmethod
     def getDefaultOptions(cls):
@@ -113,15 +114,6 @@ class ReadingOperator(object):
         @return: the reading operator's default options.
         """
         return {}
-
-    def getOption(self, option):
-        """
-        Returns the value of the reading operator's option.
-
-        @return: the value of the given reading operator's option.
-        @todo Fix: Remove this method and follow Python style with attributes
-        """
-        return self.optionValue[option]
 
     def decompose(self, readingString):
         """
@@ -233,7 +225,7 @@ class RomanisationOperator(ReadingOperator):
         tree while it is created. Does this though yield significant
         improvement? Would at least be O(n).
     """
-    readingEntityRegex = re.compile(u"([A-Za-z]+)")
+    _readingEntityRegex = re.compile(u"([A-Za-z]+)")
     """Regular Expression for finding romanisation entities in input."""
 
     def __init__(self, **options):
@@ -253,15 +245,9 @@ class RomanisationOperator(ReadingOperator):
         """
         super(RomanisationOperator, self).__init__(**options)
 
-        if 'strictSegmentation' in options:
-            self.optionValue['strictSegmentation'] \
-                = options['strictSegmentation']
-
-        if 'case' in options:
-            if options['case'] not in ['lower', 'both']:
-                raise ValueError("Invalid option '" + str(options['case']) \
-                    + "' for keyword 'case'")
-            self.optionValue['case'] = options['case']
+        if self.case not in ['lower', 'both']:
+            raise ValueError("Invalid option %s for keyword 'case'"
+                % repr(self.case))
 
     @classmethod
     def getDefaultOptions(cls):
@@ -354,10 +340,10 @@ class RomanisationOperator(ReadingOperator):
         # break string into pieces with alphabet and non alphabet parts
         decompositionParts = []
         # get partial segmentations
-        for part in self.readingEntityRegex.split(readingString):
+        for part in self._readingEntityRegex.split(readingString):
             if part == '':
                 continue
-            if not self.readingEntityRegex.match(part):
+            if not self._readingEntityRegex.match(part):
                 # non-reading entity
                 decompositionParts.append([[part]])
             else:
@@ -419,7 +405,7 @@ class RomanisationOperator(ReadingOperator):
         """
         segmentationTree = self._recursiveSegmentation(readingString)
         if readingString != '' and len(segmentationTree) == 0:
-            if self.getOption('strictSegmentation'):
+            if self.strictSegmentation:
                 raise DecompositionError(
                     u"Segmentation of '%s' not possible or invalid syllable" \
                         % readingString)
@@ -538,7 +524,7 @@ class RomanisationOperator(ReadingOperator):
             otherwise.
         """
         # check capitalisation
-        if self.getOption('case') == 'lower' and not entity.islower():
+        if self.case == 'lower' and not entity.islower():
             return False
 
         if not hasattr(self, '_syllableTable'):
@@ -829,7 +815,7 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
             otherwise.
         """
         # check for special capitalisation
-        if self.getOption('case') == 'lower' and not entity.islower():
+        if self.case == 'lower' and not entity.islower():
             return False
 
         return TonalFixedEntityOperator.isPlainReadingEntity(self,
@@ -865,27 +851,27 @@ class TonalIPAOperator(TonalFixedEntityOperator):
     @todo Fix:  What about CompositionError? All romanisations raise it, but
         they have a distinct set of characters that belong to the reading.
     """
-    TONE_MARK_REGEX = {'Numbers': re.compile(r'(\d)$'),
-        'ChaoDigits': re.compile(r'([12345]+)$'),
-        'IPAToneBar': re.compile(ur'([˥˦˧˨˩꜈꜉꜊꜋꜌]+)$'),
-        'Diacritics': re.compile(ur'([\u0300\u0301\u0302\u0303\u030c]+)')
+    TONE_MARK_REGEX = {'numbers': re.compile(r'(\d)$'),
+        'chaoDigits': re.compile(r'([12345]+)$'),
+        'ipaToneBar': re.compile(ur'([˥˦˧˨˩꜈꜉꜊꜋꜌]+)$'),
+        'diacritics': re.compile(ur'([\u0300\u0301\u0302\u0303\u030c]+)')
         }
 
-    DEFAULT_TONE_MARK_TYPE = 'IPAToneBar'
+    DEFAULT_TONE_MARK_TYPE = 'ipaToneBar'
     """Tone mark type to select by default."""
 
     TONES = []
     """List of tone names. Needs to be implemented in child class."""
 
-    TONE_MARK_PREFER = {'Numbers': {}, 'ChaoDigits': {}, 'IPAToneBar': {},
-        'Diacritics': {}}
+    TONE_MARK_PREFER = {'numbers': {}, 'chaoDigits': {}, 'ipaToneBar': {},
+        'diacritics': {}}
     """
     Mapping of tone marks to tone name which will be preferred on ambiguous
     mappings. Needs to be implemented in child classes.
     """
 
-    TONE_MARK_MAPPING = {'Numbers': {}, 'ChaoDigits': {}, 'IPAToneBar': {},
-        'Diacritics': {}}
+    TONE_MARK_MAPPING = {'numbers': {}, 'chaoDigits': {}, 'ipaToneBar': {},
+        'diacritics': {}}
     """
     Mapping of tone names to tone mark for each tone mark type. Needs to be
     implemented in child classes.
@@ -900,8 +886,8 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         @param options: extra options
         @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
             given, default settings will be assumed.
-        @keyword toneMarkType: type of tone marks, one out of C{'Numbers'},
-            C{'ChaoDigits'}, C{'IPAToneBar'}, C{'Diacritics'}, C{'None'}
+        @keyword toneMarkType: type of tone marks, one out of C{'numbers'},
+            C{'chaoDigits'}, C{'ipaToneBar'}, C{'diacritics'}, C{'none'}
         @keyword missingToneMark: if set to C{'noinfo'} no tone information
             will be deduced when no tone mark is found (takes on value C{None}),
             if set to C{'ignore'} this entity will not be valid. Either
@@ -910,24 +896,18 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         """
         super(TonalIPAOperator, self).__init__(**options)
 
-        if 'toneMarkType' in options:
-            if options['toneMarkType'] not in ['Numbers', 'ChaoDigits',
-                'IPAToneBar', 'Diacritics', 'None']:
-                raise ValueError("Invalid option '" \
-                    + str(options['toneMarkType']) \
-                    + "' for keyword 'toneMarkType'")
-            self.optionValue['toneMarkType'] = options['toneMarkType']
+        if self.toneMarkType not in ['numbers', 'chaoDigits', 'ipaToneBar',
+            'diacritics', 'none']:
+            raise ValueError("Invalid option %s for keyword 'toneMarkType'"
+                % repr(self.toneMarkType))
 
         # check if we have to be strict on tones, i.e. report missing tone info
-        if 'missingToneMark' in options:
-            if options['missingToneMark'] not in ['noinfo', 'ignore']:
-                raise ValueError("Invalid option '" \
-                    + str(options['missingToneMark']) \
-                    + "' for keyword 'missingToneMark'")
-            self.optionValue['missingToneMark'] = options['missingToneMark']
+        if self.missingToneMark not in ['noinfo', 'ignore']:
+            raise ValueError("Invalid option %s for keyword 'missingToneMark'"
+                % repr(self.missingToneMark))
 
         # split regex
-        self.splitRegex = re.compile('([\.\s]+)')
+        self._splitRegex = re.compile('([\.\s]+)')
 
     @classmethod
     def getDefaultOptions(cls):
@@ -939,8 +919,7 @@ class TonalIPAOperator(TonalFixedEntityOperator):
 
     def getTones(self):
         tones = self.TONES[:]
-        if self.getOption('missingToneMark') == 'noinfo' \
-            or self.getOption('toneMarkType') == 'None':
+        if self.missingToneMark == 'noinfo' or self.toneMarkType == 'none':
             tones.append(None)
 
         return tones
@@ -961,7 +940,7 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         @rtype: list of str
         @return: a list of basic entities of the input string
         """
-        return self.splitRegex.split(readingString)
+        return self._splitRegex.split(readingString)
 
     def compose(self, readingEntities):
         """
@@ -1009,13 +988,15 @@ class TonalIPAOperator(TonalFixedEntityOperator):
             representation.
         """
         if tone not in self.getTones():
-            raise InvalidEntityError("Invalid tone information given for '" \
-                + plainEntity + "': '" + str(tone) + "'")
-        if self.getOption('toneMarkType') == "None" or tone == None:
+            raise InvalidEntityError(
+                "Invalid tone information given for '%s': '%s'"
+                    % (plainEntity, unicode(tone)))
+        
+        if self.toneMarkType == 'none' or tone == None:
             entity = plainEntity
         else:
             entity = plainEntity \
-                + self.TONE_MARK_MAPPING[self.getOption('toneMarkType')][tone]
+                + self.TONE_MARK_MAPPING[self.toneMarkType][tone]
         return unicodedata.normalize("NFC", entity)
 
     def splitEntityTone(self, entity):
@@ -1036,11 +1017,10 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         # get decomposed Unicode string, e.g. C{'â'} to C{'u\u0302'}
         entity = unicodedata.normalize("NFD", unicode(entity))
 
-        toneMarkType = self.getOption('toneMarkType')
-        if toneMarkType == 'None':
+        if self.toneMarkType == 'none':
             return unicodedata.normalize("NFC", entity), None
         else:
-            matchObj = self.TONE_MARK_REGEX[toneMarkType].search(entity)
+            matchObj = self.TONE_MARK_REGEX[self.toneMarkType].search(entity)
             if matchObj:
                 toneMark = matchObj.group(1)
             else:
@@ -1066,20 +1046,19 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         @raise InvalidEntityError: if the toneMark does not exist.
         """
         if not hasattr(self, '_toneMarkLookup'):
-            toneMarkType = self.getOption('toneMarkType')
             # create lookup dict
             self._toneMarkLookup = {}
-            for tone in self.TONE_MARK_MAPPING[toneMarkType]:
+            for tone in self.TONE_MARK_MAPPING[self.toneMarkType]:
                 if tone == None:
                     continue
-                mark = self.TONE_MARK_MAPPING[toneMarkType][tone]
+                mark = self.TONE_MARK_MAPPING[self.toneMarkType][tone]
                 # fill lookup with tone mark, overwrite if another tone mark
                 #   was already entered but the current tone mark is prefered
                 if mark not in self._toneMarkLookup \
-                    or (mark in self.TONE_MARK_PREFER[toneMarkType] \
-                    and self.TONE_MARK_PREFER[toneMarkType][mark] == tone):
+                    or (mark in self.TONE_MARK_PREFER[self.toneMarkType] \
+                    and self.TONE_MARK_PREFER[self.toneMarkType][mark] == tone):
                     self._toneMarkLookup[mark] = tone
-                elif mark not in self.TONE_MARK_PREFER[toneMarkType]:
+                elif mark not in self.TONE_MARK_PREFER[self.toneMarkType]:
                     # not specifying a preference mapping for more than two
                     #   possible tones will result in undefined mapping
                     raise Exception(
@@ -1088,7 +1067,7 @@ class TonalIPAOperator(TonalFixedEntityOperator):
 
         if toneMark in self._toneMarkLookup:
             return self._toneMarkLookup[toneMark]
-        elif toneMark == '' and self.getOption('missingToneMark') == 'noinfo':
+        elif toneMark == '' and self.missingToneMark == 'noinfo':
             return None
         else:
             raise InvalidEntityError("Invalid tone mark given with '" \
@@ -1188,7 +1167,7 @@ class PinyinOperator(TonalRomanisationOperator):
     reading string.
 
     An alternative rule can be specified to the constructor passing a function
-    as an option C{PinyinApostropheFunction}. A possible function could be a
+    as an option C{pinyinApostropheFunction}. A possible function could be a
     rule separating all syllables by an apostrophe thus simplifying the reading
     process for beginners.
 
@@ -1215,10 +1194,10 @@ class PinyinOperator(TonalRomanisationOperator):
         >>> from cjklib.reading import ReadingFactory
         >>> f = ReadingFactory()
         >>> f.convert('an3ma5mi5ba5ni2mou1', 'Pinyin', 'Pinyin',
-        ...     sourceOptions={'toneMarkType': 'Numbers'},
-        ...     targetOptions={'toneMarkType': 'Numbers',
+        ...     sourceOptions={'toneMarkType': 'numbers'},
+        ...     targetOptions={'toneMarkType': 'numbers',
         ...         'missingToneMark': 'fifth',
-        ...         'PinyinApostropheFunction': noToneApostropheRule})
+        ...         'pinyinApostropheFunction': noToneApostropheRule})
         u"an3ma'mi'ba'ni2mou1"
 
     R-colouring
@@ -1341,9 +1320,9 @@ class PinyinOperator(TonalRomanisationOperator):
             string will be returned unsegmented.
         @keyword case: if set to C{'lower'}, only lower case will be supported,
             if set to C{'both'} a mix of upper and lower case will be supported.
-        @keyword toneMarkType: if set to C{'Diacritics'} tones will be marked
-            using diacritic marks, if set to C{'Numbers'} appended numbers from
-            1 to 5 will be used to mark tones, if set to C{'None'} no tone marks
+        @keyword toneMarkType: if set to C{'diacritics'} tones will be marked
+            using diacritic marks, if set to C{'numbers'} appended numbers from
+            1 to 5 will be used to mark tones, if set to C{'none'} no tone marks
             will be used and no tonal information will be supplied at all.
         @keyword missingToneMark: if set to C{'fifth'} no tone mark is set to
             indicate the fifth tone (I{qingsheng}, e.g. C{'wo3men'} stands for
@@ -1351,14 +1330,14 @@ class PinyinOperator(TonalRomanisationOperator):
             deduced when no tone mark is found (takes on value C{None}), if set
             to C{'ignore'} this entity will not be valid and for segmentation
             the behaviour defined by C{'strictSegmentation'} will take affect.
-            This option only has effect for the tone mark type C{'Numbers'}.
+            This option only has effect for the tone mark type C{'numbers'}.
         @keyword strictDiacriticPlacement: if set to C{True} syllables have to
             follow the diacritic placement rule of Pinyin strictly (see
             L{_placeNucleusToneMark()}). Wrong placement will result in
             L{splitEntityTone()} raising an L{InvalidEntityError}. Defaults to
             C{False}. In either way, diacritics must be placed on one of the
             vowels (nasal semi-vowels being an exception).
-        @keyword PinyinDiacritics: a 4-tuple of diacritic marks for tones one
+        @keyword pinyinDiacritics: a 4-tuple of diacritic marks for tones one
             to for. If a circumflex (U+0302) is contained as diacritic mark,
             special vowel I{ê} will not be supported and the given string will
             be interpreted as tonal version of vowel I{e}.
@@ -1366,16 +1345,16 @@ class PinyinOperator(TonalRomanisationOperator):
             for I{ü} which depicts (among others) the close front rounded vowel
             [y] (IPA) in Pinyin and includes an umlaut. Changes forms of
             syllables I{nü, nüe, lü, lüe}. This option is not valid for the
-            tone mark type C{'Diacritics'}.
+            tone mark type C{'diacritics'}.
         @keyword shortenedLetters: if set to C{True} final letter I{ng} will be
             shortend to I{ŋ}, and initial letters I{zh}, I{ch}, I{sh} will be
             shortend to I{ẑ}, I{ĉ}, I{ŝ}.
-        @keyword PinyinApostrophe: an alternate apostrophe that is taken instead
+        @keyword pinyinApostrophe: an alternate apostrophe that is taken instead
             of the default one.
-        @keyword PinyinApostropheFunction: a function that indicates when a
+        @keyword pinyinApostropheFunction: a function that indicates when a
             syllable combination needs to be split by an I{apostrophe}, see
             L{aeoApostropheRule()} for the default implementation.
-        @keyword Erhua: if set to C{'ignore'} no special support will be
+        @keyword erhua: if set to C{'ignore'} no special support will be
             provided for retroflex -r at syllable end (I{Erhua}), i.e. I{zher}
             will raise an exception. If set to C{'twoSyllables'} syllables with
             an append r are given/will be segmented into two syllables, the -r
@@ -1385,109 +1364,77 @@ class PinyinOperator(TonalRomanisationOperator):
         """
         super(PinyinOperator, self).__init__(**options)
 
-        # check which tone marks to use
-        if 'toneMarkType' in options:
-            if options['toneMarkType'] not in ['Diacritics', 'Numbers', 'None']:
-                raise ValueError("Invalid option '" \
-                    + str(options['toneMarkType']) \
-                    + "' for keyword 'toneMarkType'")
-            self.optionValue['toneMarkType'] = options['toneMarkType']
+        # check tone marks
+        if self.toneMarkType not in ['diacritics', 'numbers', 'none']:
+            raise ValueError("Invalid option %s for keyword 'toneMarkType'"
+                % repr(self.toneMarkType))
 
-        # check if we have to be strict on tones, i.e. report missing tone info
-        if 'missingToneMark' in options:
-            if options['missingToneMark'] not in ['fifth', 'noinfo', 'ignore']:
-                raise ValueError("Invalid option '" \
-                    + str(options['missingToneMark']) \
-                    + "' for keyword 'missingToneMark'")
-            self.optionValue['missingToneMark'] = options['missingToneMark']
+        # check strictness on tones, i.e. report missing tone info
+        if self.missingToneMark not in ['fifth', 'noinfo', 'ignore']:
+            raise ValueError("Invalid option %s for keyword 'missingToneMark'"
+                % repr(self.missingToneMark))
 
-        # should we check if the diacritics are placed correctly?
-        if 'strictDiacriticPlacement' in options:
-            self.optionValue['strictDiacriticPlacement'] \
-                = options['strictDiacriticPlacement']
-
-        # which diacritics to use?
-        if 'PinyinDiacritics' in options:
-            diacritics = tuple(options['PinyinDiacritics'])
-            if len(diacritics) != 4:
-                raise ValueError(
-                    "Invalid value %s for keyword 'PinyinDiacritics'" \
-                        % repr(diacritics))
-            elif len(set(diacritics)) != 4:
-                raise ValueError(
-                    "Non-injective value %s for keyword 'PinyinDiacritics'" \
-                        % repr(diacritics))
-            self.optionValue['PinyinDiacritics'] = diacritics
+        self.pinyinDiacritics = tuple(self.pinyinDiacritics)
+        # check diacritics
+        if len(self.pinyinDiacritics) != 4:
+            raise ValueError("Invalid value %s for keyword 'pinyinDiacritics'"
+                % repr(self.pinyinDiacritics))
+        elif len(set(self.pinyinDiacritics)) != 4:
+            raise ValueError(
+                "Non-injective value %s for keyword 'pinyinDiacritics'"
+                    % repr(self.pinyinDiacritics))
 
         # Lookup of tone marks for tones
-        diacritics = self.getOption('PinyinDiacritics')
-        self.tonemarkMap = dict([(diacritic, idx + 1) for idx, diacritic \
-            in enumerate(diacritics)])
-        self.tonemarkMapReverse = dict([(idx + 1, diacritic) \
-            for idx, diacritic in enumerate(diacritics)])
+        self._tonemarkMap = dict([(diacritic, idx + 1) for idx, diacritic \
+            in enumerate(self.pinyinDiacritics)])
+        self._tonemarkMapReverse = dict([(idx + 1, diacritic) \
+            for idx, diacritic in enumerate(self.pinyinDiacritics)])
 
         # Regular Expression matching the Pinyin tone marks.
         tonemarkVowels = set(self.TONEMARK_VOWELS)
-        if u'\u0302' in self.getOption('PinyinDiacritics'):
+        if u'\u0302' in self.pinyinDiacritics:
             # if circumflex is included, disable vowel ê
             tonemarkVowels.remove(u'ê')
         tonemarkVowelsNFD = sorted([unicodedata.normalize("NFD", vowel) \
             for vowel in tonemarkVowels], reverse=True)
-        diacriticsSorted = sorted(diacritics, reverse=True)
-        self.toneMarkRegex = re.compile(u'(?iu)((?:%s)+)(%s)' \
+        diacriticsSorted = sorted(self.pinyinDiacritics, reverse=True)
+        self._toneMarkRegex = re.compile(u'(?iu)((?:%s)+)(%s)' \
             % ('|'.join([re.escape(vowel) for vowel in tonemarkVowelsNFD]),
                 '|'.join([re.escape(d) for d in diacriticsSorted])))
 
-        # set alternative ü vowel if given
-        if 'yVowel' in options:
-            if self.getOption('toneMarkType') == 'Diacritics' \
-                and options['yVowel'].lower() != u'ü':
-                raise ValueError("keyword 'yVowel' is not valid for tone mark" \
-                    + " type 'Diacritics'")
+        # check alternative ü vowel
+        self.yVowel = self.yVowel.lower()
+        if self.toneMarkType == 'diacritics' and self.yVowel != u'ü':
+            raise ValueError(
+                "Keyword 'yVowel' is not valid for tone mark type 'diacritics'")
 
-            self.optionValue['yVowel'] = options['yVowel'].lower()
+        # check apostrophe function
+        if not hasattr(self.pinyinApostropheFunction, '__call__'):
+            raise ValueError("Non-callable object %s" \
+                    % repr(self.pinyinApostropheFunction)
+                + " for keyword 'pinyinApostropheFunction'")
 
-        # do we shorten ng, zh, ch, sh?
-        if 'shortenedLetters' in options:
-            self.optionValue['shortenedLetters'] = options['shortenedLetters']
-
-        # set alternative apostrophe if given
-        if 'PinyinApostrophe' in options:
-            self.optionValue['PinyinApostrophe'] = options['PinyinApostrophe']
-
-        # set apostrophe function if given
-        if 'PinyinApostropheFunction' in options:
-            if not hasattr(options['PinyinApostropheFunction'], '__call__'):
-                raise ValueError("Non-callable object '%s'" \
-                        % options['PinyinApostropheFunction'] \
-                    + " for keyword 'PinyinApostropheFunction'")
-            self.optionValue['PinyinApostropheFunction'] \
-                = options['PinyinApostropheFunction']
-
-        # check if we support Erhua
-        if 'Erhua' in options:
-            if options['Erhua'] not in ['ignore', 'twoSyllables',
-                'oneSyllable']:
-                raise ValueError("Invalid option '" + str(options['Erhua']) \
-                    + "' for keyword 'Erhua'")
-            self.optionValue['Erhua'] = options['Erhua']
+        # check Erhua support
+        if self.erhua not in ['ignore', 'twoSyllables', 'oneSyllable']:
+            raise ValueError("Invalid option %s for keyword 'erhua'"
+                % repr(self.erhua))
 
         # set split regular expression, works for all 3 main dialects, get at
         #   least the whole alphabet to have a conservative recognition
-        self.readingEntityRegex = re.compile(u'(?iu)((?:' \
+        self._readingEntityRegex = re.compile(u'(?iu)((?:' \
             + '|'.join([re.escape(v) for v in self._getDiacriticVowels()]) \
-            + '|' + re.escape(self.getOption('yVowel')) \
+            + '|' + re.escape(self.yVowel) \
             + u'|[a-zêüŋẑĉŝ])+[12345]?)')
 
     @classmethod
     def getDefaultOptions(cls):
         options = super(PinyinOperator, cls).getDefaultOptions()
-        options.update({'toneMarkType': 'Diacritics',
+        options.update({'toneMarkType': 'diacritics',
             'missingToneMark': 'noinfo', 'strictDiacriticPlacement': False,
-            'PinyinDiacritics': (u'\u0304', u'\u0301', u'\u030c', u'\u0300'),
-            'yVowel': u'ü', 'shortenedLetters': False, 'PinyinApostrophe': "'",
-            'Erhua': 'twoSyllables',
-            'PinyinApostropheFunction': cls.aeoApostropheRule})
+            'pinyinDiacritics': (u'\u0304', u'\u0301', u'\u030c', u'\u0300'),
+            'yVowel': u'ü', 'shortenedLetters': False, 'pinyinApostrophe': "'",
+            'erhua': 'twoSyllables',
+            'pinyinApostropheFunction': cls.aeoApostropheRule})
 
         return options
 
@@ -1502,10 +1449,10 @@ class PinyinOperator(TonalRomanisationOperator):
         @return: list of Pinyin vowels with diacritical marks
         """
         # no need to take care of user specified ü, as this is not possible for
-        #   tone mark type 'Diacritics' by convention
+        #   tone mark type 'diacritics' by convention
         vowelList = []
         for vowel in PinyinOperator.TONEMARK_VOWELS:
-            for mark in self.getOption('PinyinDiacritics'):
+            for mark in self.pinyinDiacritics:
                 vowelList.append(unicodedata.normalize("NFC", vowel + mark))
         return vowelList
 
@@ -1514,21 +1461,21 @@ class PinyinOperator(TonalRomanisationOperator):
         u"""
         Takes a string written in Pinyin and guesses the reading dialect.
 
-        The basic options C{'toneMarkType'}, C{'PinyinDiacritics'}, C{'yVowel'},
-        C{'Erhua'}, C{'PinyinApostrophe'} and C{'shortenedLetters'} are guessed.
+        The basic options C{'toneMarkType'}, C{'pinyinDiacritics'}, C{'yVowel'},
+        C{'erhua'}, C{'pinyinApostrophe'} and C{'shortenedLetters'} are guessed.
         Unless C{'includeToneless'} is set to C{True} only the tone mark types
-        C{'Diacritics'} and C{'Numbers'} are considered as the latter one can
+        C{'diacritics'} and C{'numbers'} are considered as the latter one can
         also represent the state of missing tones. Strings tested for
-        C{'yVowel'} are C{ü}, C{v} and C{u:}. C{'Erhua'} is set to
+        C{'yVowel'} are C{ü}, C{v} and C{u:}. C{'erhua'} is set to
         C{'twoSyllables'} by default and only tested when C{'toneMarkType'} is
-        assumed to be set to C{'Numbers'}.
+        assumed to be set to C{'numbers'}.
 
         @type readingString: str
         @param readingString: Pinyin string
         @type includeToneless: bool
         @param includeToneless: if set to C{True} option C{'toneMarkType'} can
-            take on value C{'None'}, but by default (i.e. set to C{False}) is
-            covered by tone mark type set to C{'Numbers'}.
+            take on value C{'none'}, but by default (i.e. set to C{False}) is
+            covered by tone mark type set to C{'numbers'}.
         @rtype: dict
         @return: dictionary of basic keyword settings
         """
@@ -1564,18 +1511,18 @@ class PinyinOperator(TonalRomanisationOperator):
                 / len(entities)) < 0.1:
             # less than 1/10 units carry some possible tone mark, so decide
             #   for toneless
-            toneMarkType = 'None'
+            toneMarkType = 'none'
         else:
             if diacriticEntityCount > numberEntityCount:
-                toneMarkType = 'Diacritics'
+                toneMarkType = 'diacritics'
             else:
                 # even if equal prefer numbers, as in case of missing tone marks
-                #   we rather asume tone 'None' which is possible here
-                toneMarkType = 'Numbers'
+                #   we rather asume tone 'none' which is possible here
+                toneMarkType = 'numbers'
 
         # guess diacritic marks
-        diacritics = list(cls.getDefaultOptions()['PinyinDiacritics'])
-        if toneMarkType == 'Diacritics':
+        diacritics = list(cls.getDefaultOptions()['pinyinDiacritics'])
+        if toneMarkType == 'diacritics':
             readingStrNFD = unicodedata.normalize("NFD", readingStr)
             # remove non-tonal diacritics
             readingStrNFDClear = re.sub(ur'(?iu)([ezcs]\u0302|u\u0308)', '',
@@ -1589,7 +1536,7 @@ class PinyinOperator(TonalRomanisationOperator):
                             break
 
         # guess ü vowel
-        if toneMarkType == 'Diacritics':
+        if toneMarkType == 'diacritics':
             yVowel = u'ü'
         else:
             for vowel in cls.Y_VOWEL_LIST:
@@ -1609,7 +1556,7 @@ class PinyinOperator(TonalRomanisationOperator):
 
         # guess Erhua, if r found surrounded by non-alpha assume twoSyllables
         erhua = 'twoSyllables'
-        if toneMarkType == 'Numbers':
+        if toneMarkType == 'numbers':
             lastIndex = 0
             while lastIndex != -1:
                 # find all instances of 'r' with following non-alpha
@@ -1634,31 +1581,31 @@ class PinyinOperator(TonalRomanisationOperator):
             shortenedLetters = False
 
         return {'toneMarkType': toneMarkType,
-            'PinyinDiacritics': tuple(diacritics), 'yVowel': yVowel,
-            'PinyinApostrophe': pinyinApostrophe, 'Erhua': erhua,
+            'pinyinDiacritics': tuple(diacritics), 'yVowel': yVowel,
+            'pinyinApostrophe': pinyinApostrophe, 'erhua': erhua,
             'shortenedLetters': shortenedLetters}
 
     def getReadingCharacters(self):
         characters = set(string.ascii_lowercase + u'üêŋẑĉŝ')
-        characters.update(list(self.getOption('yVowel')))
+        characters.update(list(self.yVowel))
         # NFD combining diacritics
-        for char in list(u'üêŋẑĉŝ') + list(self.getOption('yVowel')):
+        for char in list(u'üêŋẑĉŝ') + list(self.yVowel):
             characters.update(unicodedata.normalize('NFD', unicode(char)))
         # add NFC vowels, strip of combining diacritical marks
         for char in self._getDiacriticVowels():
             characters.update(list(char))
         # tones
         characters.update(['1', '2', '3', '4', '5'])
-        for diacritic in self.getOption('PinyinDiacritics'):
+        for diacritic in self.pinyinDiacritics:
             # make sure that combinations of two and more diacritics work
             characters.update(list(diacritic))
         return characters
 
     def getTones(self):
         tones = range(1, 6)
-        if self.getOption('toneMarkType') == 'None' \
-            or (self.getOption('missingToneMark') == 'noinfo' \
-            and self.getOption('toneMarkType') == 'Numbers'):
+        if self.toneMarkType == 'none' \
+            or (self.missingToneMark == 'noinfo' \
+                and self.toneMarkType == 'numbers'):
             tones.append(None)
         return tones
 
@@ -1679,13 +1626,13 @@ class PinyinOperator(TonalRomanisationOperator):
         newReadingEntities = []
         precedingEntity = None
 
-        apostropheFunction = self.getOption('PinyinApostropheFunction')
+        apostropheFunction = self.pinyinApostropheFunction
         if type(apostropheFunction) == types.MethodType:
             apostropheFunction = partial(apostropheFunction, self)
 
         for entity in readingEntities:
             if apostropheFunction(precedingEntity, entity):
-                newReadingEntities.append(self.getOption('PinyinApostrophe'))
+                newReadingEntities.append(self.pinyinApostrophe)
             elif precedingEntity and entity:
                 # check if composition won't combine reading and non-reading e.
                 precedingEntityIsReading = self.isReadingEntity(precedingEntity)
@@ -1721,7 +1668,7 @@ class PinyinOperator(TonalRomanisationOperator):
         if len(readingEntities) == 0:
             return []
         elif len(readingEntities) > 2 \
-            and readingEntities[1] == self.getOption('PinyinApostrophe') \
+            and readingEntities[1] == self.pinyinApostrophe \
             and self.isReadingEntity(readingEntities[0]) \
             and self.isReadingEntity(readingEntities[2]):
             # apostrophe on pos #1 preceded and followed by a syllable
@@ -1779,7 +1726,7 @@ class PinyinOperator(TonalRomanisationOperator):
         strictly for unambiguous decomposition: syllables have to be preceded by
         an apostrophe if the decomposition would be ambiguous otherwise.
 
-        The function stored given as option C{'PinyinApostropheFunction'} is
+        The function stored given as option C{'pinyinApostropheFunction'} is
         used to check if a apostrophe should have been placed.
 
         @type readingEntities: list of str
@@ -1789,9 +1736,10 @@ class PinyinOperator(TonalRomanisationOperator):
         """
         precedingEntity = None
 
-        apostropheFunction = self.getOption('PinyinApostropheFunction')
-        if type(apostropheFunction) == types.MethodType:
-            apostropheFunction = partial(apostropheFunction, self)
+        if type(self.pinyinApostropheFunction) == types.MethodType:
+            apostropheFunction = partial(self.pinyinApostropheFunction, self)
+        else:
+            apostropheFunction = self.pinyinApostropheFunction
 
         for entity in readingEntities:
             if self.isReadingEntity(entity):
@@ -1811,13 +1759,13 @@ class PinyinOperator(TonalRomanisationOperator):
         def stripDiacritic(strng):
             """Strip one tonal diacritic mark off string."""
             strng = unicodedata.normalize("NFD", unicode(strng))
-            strng = self.toneMarkRegex.sub(r'\1', strng, 1)
+            strng = self._toneMarkRegex.sub(r'\1', strng, 1)
 
             return unicodedata.normalize("NFC", unicode(strng))
 
         if not hasattr(self, '_substringSet'):
             # build index as called for the first time
-            if self.getOption('toneMarkType') == 'Diacritics':
+            if self.toneMarkType == 'diacritics':
                 # we remove diacritics, so plain entities suffice
                 entities = self.getPlainReadingEntities()
             else:
@@ -1828,7 +1776,7 @@ class PinyinOperator(TonalRomanisationOperator):
                 for i in range(len(syllable)):
                     self._substringSet.add(syllable[0:i+1])
 
-        if self.getOption('toneMarkType') == 'Diacritics':
+        if self.toneMarkType == 'diacritics':
             return stripDiacritic(readingString) in self._substringSet
         else:
             return readingString in self._substringSet
@@ -1840,20 +1788,20 @@ class PinyinOperator(TonalRomanisationOperator):
         if tone != None:
             tone = int(tone)
         if tone not in self.getTones():
-            raise InvalidEntityError("Invalid tone information given for '" \
-                + plainEntity + "': '" + str(tone) + "'")
+            raise InvalidEntityError(
+                "Invalid tone information given for '%s': %s"
+                    % (plainEntity, unicode(tone)))
 
-        if self.getOption('toneMarkType') == 'None':
+        if self.toneMarkType == 'none':
             return plainEntity
 
-        elif self.getOption('toneMarkType') == 'Numbers':
-            if tone == None or (tone == 5 \
-                and self.getOption('missingToneMark') == 'fifth'):
+        elif self.toneMarkType == 'numbers':
+            if tone == None or (tone == 5 and self.missingToneMark == 'fifth'):
                 return plainEntity
             else:
                 return plainEntity + str(tone)
 
-        elif self.getOption('toneMarkType') == 'Diacritics':
+        elif self.toneMarkType == 'diacritics':
             # split syllable into onset, nucleus and coda, handle nasal and ê
             #   syllables independently
             if plainEntity.lower() in ['n', 'ng', 'm', 'r', u'ê', 'nr', 'ngr',
@@ -1867,8 +1815,8 @@ class PinyinOperator(TonalRomanisationOperator):
                 matchObj = self.PINYIN_SOUND_REGEX.match(plainEntity)
                 onset, nucleus, coda = matchObj.group(1, 2, 3)
             if not nucleus:
-                raise InvalidEntityError("no nucleus found for '" \
-                    + plainEntity + "'")
+                raise InvalidEntityError("no nucleus found for '%s'"
+                    % plainEntity)
             # place tone mark
             tonalNucleus = self._placeNucleusToneMark(nucleus, tone)
             return onset + tonalNucleus + coda
@@ -1902,15 +1850,15 @@ class PinyinOperator(TonalRomanisationOperator):
         if tone != 5:
             if len(nucleus) == 1:
                 # only one character in nucleus, place tone mark there
-                tonalNucleus = nucleus + self.tonemarkMapReverse[tone]
+                tonalNucleus = nucleus + self._tonemarkMapReverse[tone]
             elif nucleus[0].lower() in ('a', 'e', 'o'):
                 # if several vowels place on a, e, o...
-                tonalNucleus = nucleus[0] + self.tonemarkMapReverse[tone] \
+                tonalNucleus = nucleus[0] + self._tonemarkMapReverse[tone] \
                     + nucleus[1:]
             else:
                 # ...otherwise on second vowel (see Pinyin rules)
                 tonalNucleus = nucleus[0] + nucleus[1] \
-                    + self.tonemarkMapReverse[tone] + nucleus[2:]
+                    + self._tonemarkMapReverse[tone] + nucleus[2:]
         else:
             tonalNucleus = nucleus
         # get normalised Unicode string,
@@ -1933,40 +1881,40 @@ class PinyinOperator(TonalRomanisationOperator):
         """
         # get decomposed Unicode string, e.g. C{'ū'} to C{'u\u0304'}
         entity = unicodedata.normalize("NFD", unicode(entity))
-        if self.getOption('toneMarkType') == 'None':
+        if self.toneMarkType == 'none':
             plainEntity = entity
             tone = None
 
-        elif self.getOption('toneMarkType') == 'Numbers':
+        elif self.toneMarkType == 'numbers':
             matchObj = re.search(u"[12345]$", entity)
             if matchObj:
                 plainEntity = entity[0:len(entity)-1]
                 tone = int(matchObj.group(0))
             else:
-                if self.getOption('missingToneMark') == 'fifth':
+                if self.missingToneMark == 'fifth':
                     plainEntity = entity
                     tone = 5
-                elif self.getOption('missingToneMark') == 'ignore':
-                    raise InvalidEntityError("No tone information given for '" \
-                        + entity + "'")
+                elif self.missingToneMark == 'ignore':
+                    raise InvalidEntityError(
+                        "No tone information given for '%s'" % entity)
                 else:
                     plainEntity = entity
                     tone = None
 
-        elif self.getOption('toneMarkType') == 'Diacritics':
+        elif self.toneMarkType == 'diacritics':
             # find character with tone marker
-            matchObj = self.toneMarkRegex.search(entity)
+            matchObj = self._toneMarkRegex.search(entity)
             if matchObj:
                 diacriticalMark = matchObj.group(2)
-                tone = self.tonemarkMap[diacriticalMark]
+                tone = self._tonemarkMap[diacriticalMark]
                 # strip off diacritical mark, don't overwrite shortendLetters
-                plainEntity = self.toneMarkRegex.sub(r'\1', entity, 1)
+                plainEntity = self._toneMarkRegex.sub(r'\1', entity, 1)
             else:
                 # fifth tone doesn't have any marker
                 plainEntity = entity
                 tone = 5
             # check if placement of dicritic is correct
-            if self.getOption('strictDiacriticPlacement'):
+            if self.strictDiacriticPlacement:
                 nfcEntity = unicodedata.normalize("NFC", unicode(entity))
                 if nfcEntity != self.getTonalEntity(plainEntity, tone):
                     raise InvalidEntityError("Wrong placement of diacritic " \
@@ -1991,24 +1939,24 @@ class PinyinOperator(TonalRomanisationOperator):
         # set used syllables
         plainSyllables = set(self.db.selectScalars(
             select([self.db.tables['PinyinSyllables'].c.Pinyin])))
-        if u'\u0302' in self.getOption('PinyinDiacritics'):
+        if u'\u0302' in self.pinyinDiacritics:
             # if circumflex is included, disable vowel ê
             plainSyllables.remove(u'ê')
         # support for Erhua if needed
-        if self.getOption('Erhua') == 'twoSyllables':
+        if self.erhua == 'twoSyllables':
             # single 'r' for patterns like 'tóur'
             plainSyllables.add('r')
-        elif self.getOption('Erhua') == 'oneSyllable':
+        elif self.erhua == 'oneSyllable':
             # add a -r form for all syllables except e and er
             for syllable in plainSyllables.copy():
                 if syllable not in ['e', 'er']:
                     plainSyllables.add(syllable + 'r')
 
         # change forms for alternative ü
-        if self.getOption('yVowel') != u'ü':
+        if self.yVowel != u'ü':
             translatedSyllables = set()
             for syllable in plainSyllables:
-                syllable = syllable.replace(u'ü', self.getOption('yVowel'))
+                syllable = syllable.replace(u'ü', self.yVowel)
                 if syllable in translatedSyllables:
                     # check if through conversion we collide with an already
                     #   existing syllable
@@ -2019,7 +1967,7 @@ class PinyinOperator(TonalRomanisationOperator):
 
             plainSyllables = translatedSyllables
 
-        if self.getOption('shortenedLetters'):
+        if self.shortenedLetters:
             initialDict = {'zh': u'ẑ', 'ch': u'ĉ', 'sh': u'ŝ'}
             shortendSyllables = set()
             for syllable in plainSyllables:
@@ -2093,7 +2041,7 @@ class PinyinOperator(TonalRomanisationOperator):
         @todo Fix: doesn't work for all dialects
         """
         erhuaForm = False
-        if self.getOption('Erhua') == 'oneSyllable' \
+        if self.erhua == 'oneSyllable' \
             and plainSyllable.lower().endswith('r') \
             and plainSyllable.lower() != 'er':
 
@@ -2101,17 +2049,17 @@ class PinyinOperator(TonalRomanisationOperator):
             erhuaForm = True
 
         elif plainSyllable.lower() == 'r' \
-            and self.getOption('Erhua') == 'twoSyllables':
+            and self.erhua == 'twoSyllables':
 
-            raise UnsupportedError("Not supported for '" + plainSyllable + "'")
+            raise UnsupportedError("Not supported for '%s'" % plainSyllable)
 
         table = self.db.tables['PinyinInitialFinal']
         entry = self.db.selectRow(
             select([table.c.PinyinInitial, table.c.PinyinFinal],
                 table.c.Pinyin == plainSyllable.lower()))
         if not entry:
-            raise InvalidEntityError("'" + plainSyllable \
-                + "' not a valid plain Pinyin syllable'")
+            raise InvalidEntityError("'%s' not a valid plain Pinyin syllable'"
+                % plainSyllable)
 
         if erhuaForm:
             return (entry[0], entry[1] + 'r')
@@ -2170,7 +2118,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
     The neutral tone by default is not marked. As sometimes the digits zero or
     five are used, they can be set by option C{'neutralToneMark'}.
 
-    The apostrophe marking aspiration can be set by C{'WadeGilesApostrophe'}.
+    The apostrophe marking aspiration can be set by C{'wadeGilesApostrophe'}.
 
     Tones are by default marked with superscript characters. This can be
     controlled by option C{'toneMarkType'}.
@@ -2210,8 +2158,8 @@ class WadeGilesOperator(TonalRomanisationOperator):
         >>> operator.WadeGilesOperator.guessReadingDialect(
         ...     u"k'ai1-men2-chien4-shan1")
         {'zeroFinal': u'\u016d', 'diacriticE': u'e', 'umlautU': u'\xfc', \
-'toneMarkType': 'Numbers', 'useInitialSz': False, 'neutralToneMark': 'none', \
-'WadeGilesApostrophe': "'"}
+'toneMarkType': 'numbers', 'useInitialSz': False, 'neutralToneMark': 'none', \
+'wadeGilesApostrophe': "'"}
 
     @todo Lang: Asterisk (*) marking the entering tone (入聲): e.g. I{chio²*}
         and I{chüeh²*} for 覺 used by Giles (A Chinese-English Dictionary,
@@ -2295,12 +2243,12 @@ class WadeGilesOperator(TonalRomanisationOperator):
             string will be returned unsegmented.
         @keyword case: if set to C{'lower'}, only lower case will be supported,
             if set to C{'both'} a mix of upper and lower case will be supported.
-        @keyword WadeGilesApostrophe: an alternate apostrophe that is taken
+        @keyword wadeGilesApostrophe: an alternate apostrophe that is taken
             instead of the default one.
-        @keyword toneMarkType: if set to C{'Numbers'} appended numbers from 1 to
-            5 will be used to mark tones, if set to C{'SuperscriptNumbers'}
+        @keyword toneMarkType: if set to C{'numbers'} appended numbers from 1 to
+            5 will be used to mark tones, if set to C{'superscriptNumbers'}
             appended superscript numbers from 1 to 5 will be used to mark tones,
-            if set to C{'None'} no tone marks will be used and no tonal
+            if set to C{'none'} no tone marks will be used and no tonal
             information will be supplied at all.
         @keyword neutralToneMark: if set to C{'none'} no tone mark is set to
             indicate the fifth tone (I{qingsheng}, e.g. C{'chih¹tao'}, if set
@@ -2311,8 +2259,8 @@ class WadeGilesOperator(TonalRomanisationOperator):
             if set to C{'ignore'} this entity will not be valid and for
             segmentation the behaviour defined by C{'strictSegmentation'} will
             take affect. This options only has effect for tone mark type
-            C{'Numbers'} and C{'SuperscriptNumbers'}. This option is only valid
-            if C{'neutralToneMark'} is set to something other than C{'None'}.
+            C{'numbers'} and C{'superscriptNumbers'}. This option is only valid
+            if C{'neutralToneMark'} is set to something other than C{'none'}.
         @keyword diacriticE: character used instead of I{ê}. C{'e'} is a
             possible alternative, no ambiguities arise.
         @keyword zeroFinal: character used instead of I{ŭ}. C{'u'} is a
@@ -2325,58 +2273,27 @@ class WadeGilesOperator(TonalRomanisationOperator):
             zeroFinal, umlautU
         """
         super(WadeGilesOperator, self).__init__(**options)
-        # check which character to use for ê
-        if 'diacriticE' in options:
-            self.optionValue['diacriticE'] = options['diacriticE']
 
-        # check which character to use for ê
-        if 'zeroFinal' in options:
-            self.optionValue['zeroFinal'] = options['zeroFinal']
-
-        # check which character to use for ü, if we use u we allow forms like
-        #   'hsu', 'hsun' but generate ambiguous cases like 'chuan', 'chun'
-        if 'umlautU' in options:
-            self.optionValue['umlautU'] = options['umlautU']
-
-        # check if we use szŭ instead of ssŭ
-        if 'useInitialSz' in options:
-            self.optionValue['useInitialSz'] = options['useInitialSz']
-
-        # set alternate apostrophe if given
-        if 'WadeGilesApostrophe' in options:
-            self.optionValue['WadeGilesApostrophe'] \
-                 = options['WadeGilesApostrophe']
-
-        # check wich tone mark to use for neutral tone
-        if 'neutralToneMark' in options:
-            if options['neutralToneMark'] not in ['none', 'zero', 'five']:
-                raise ValueError("Invalid option '" \
-                    + str(options['neutralToneMark']) \
-                    + "' for keyword 'neutralToneMark'")
-            self.optionValue['neutralToneMark'] = options['neutralToneMark']
+        # check tone mark for neutral tone
+        if self.neutralToneMark not in ['none', 'zero', 'five']:
+            raise ValueError("Invalid option %s for keyword 'neutralToneMark'"
+                % repr(self.neutralToneMark))
 
         # check which tone marks to use
-        if 'toneMarkType' in options:
-            if options['toneMarkType'] not in ['Numbers', 'SuperscriptNumbers',
-                'None']:
-                raise ValueError("Invalid option '" \
-                    + str(options['toneMarkType']) \
-                    + "' for keyword 'toneMarkType'")
-            self.optionValue['toneMarkType'] = options['toneMarkType']
+        if self.toneMarkType not in ['numbers', 'superscriptNumbers', 'none']:
+            raise ValueError("Invalid option %s for keyword 'toneMarkType'"
+                % repr(self.toneMarkType))
 
         # check behaviour on missing tone info
-        if 'missingToneMark' in options:
-            if options['missingToneMark'] not in ['noinfo', 'ignore']:
-                raise ValueError("Invalid option '" \
-                    + str(options['missingToneMark']) \
-                    + "' for keyword 'missingToneMark'")
-            self.optionValue['missingToneMark'] = options['missingToneMark']
+        if self.missingToneMark not in ['noinfo', 'ignore']:
+            raise ValueError("Invalid option %s for keyword 'missingToneMark'"
+                % repr(self.missingToneMark))
 
-        self.readingEntityRegex = re.compile(u"(?iu)((?:" \
-            + re.escape(self.getOption('WadeGilesApostrophe')) \
-            + "|" + re.escape(self.getOption('diacriticE')) \
-            + "|" + re.escape(self.getOption('zeroFinal')) \
-            + "|" + re.escape(self.getOption('umlautU')) \
+        self._readingEntityRegex = re.compile(u"(?iu)((?:" \
+            + re.escape(self.wadeGilesApostrophe) \
+            + "|" + re.escape(self.diacriticE) \
+            + "|" + re.escape(self.zeroFinal) \
+            + "|" + re.escape(self.umlautU) \
             + u"|[a-züêŭ])+[012345⁰¹²³⁴⁵]?)")
 
     @classmethod
@@ -2384,8 +2301,8 @@ class WadeGilesOperator(TonalRomanisationOperator):
         options = super(WadeGilesOperator, cls).getDefaultOptions()
         options.update({
             'diacriticE': u'ê', 'zeroFinal': u'ŭ', 'umlautU': u'ü',
-            'useInitialSz': False, 'WadeGilesApostrophe': u'’',
-            'neutralToneMark': 'none', 'toneMarkType': 'SuperscriptNumbers',
+            'useInitialSz': False, 'wadeGilesApostrophe': u'’',
+            'neutralToneMark': 'none', 'toneMarkType': 'superscriptNumbers',
             'missingToneMark': u'noinfo'})
 
         return options
@@ -2397,7 +2314,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
         The following options are tested:
             - C{'toneMarkType'}
-            - C{'WadeGilesApostrophe'}
+            - C{'wadeGilesApostrophe'}
             - C{'neutralToneMark'}
             - C{'diacriticE'}
             - C{'zeroFinal'}
@@ -2494,9 +2411,9 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
         # compare statistics
         if digitEntityCount > superscriptEntityCount:
-            toneMarkType = 'Numbers'
+            toneMarkType = 'numbers'
         else:
-            toneMarkType = 'SuperscriptNumbers'
+            toneMarkType = 'superscriptNumbers'
 
         if digitEntityCount > 0 or superscriptEntityCount > 0:
             # guess neutral tone mark
@@ -2528,15 +2445,14 @@ class WadeGilesOperator(TonalRomanisationOperator):
         else:
             wadeGilesApostrophe = u'’'
 
-        return {'WadeGilesApostrophe': wadeGilesApostrophe,
+        return {'wadeGilesApostrophe': wadeGilesApostrophe,
             'toneMarkType': toneMarkType, 'neutralToneMark': neutralToneMark,
             'diacriticE': diacriticE, 'zeroFinal': zeroFinal,
             'umlautU': umlautU, 'useInitialSz': useInitialSz}
 
     def getReadingCharacters(self):
         characters = set(string.ascii_lowercase + u'üêŭ')
-        userSpecified = [self.getOption('diacriticE'),
-            self.getOption('zeroFinal'), self.getOption('umlautU')]
+        userSpecified = [self.diacriticE, self.zeroFinal, self.umlautU]
         characters.update(userSpecified)
         # NFD combining diacritics
         for char in list(u'üêŭ') + userSpecified:
@@ -2544,14 +2460,14 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
         characters.update(['0', '1', '2', '3', '4', '5', u'⁰', u'¹', u'²', u'³',
             u'⁴', u'⁵'])
-        characters.add(self.getOption('WadeGilesApostrophe'))
+        characters.add(self.wadeGilesApostrophe)
         return characters
 
     def getTones(self):
         tones = range(1, 6)
-        if self.getOption('toneMarkType') == 'None' \
-            or (self.getOption('neutralToneMark') != 'none' \
-                and self.getOption('missingToneMark') == 'noinfo'):
+        if self.toneMarkType == 'none' \
+            or (self.neutralToneMark != 'none' \
+                and self.missingToneMark == 'noinfo'):
             tones.append(None)
         return tones
 
@@ -2592,8 +2508,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
                         or (not precedingEntityIsReading and entityIsReading \
                             and precedingEntity[-1] \
                                 in self._readingCharacters) \
-                        or (precedingEntity \
-                                == self.getOption('WadeGilesApostrophe') \
+                        or (precedingEntity == self.wadeGilesApostrophe \
                             and entity[0] in self._readingCharacters \
                             and precedingEntity != entity)):
 
@@ -2637,23 +2552,22 @@ class WadeGilesOperator(TonalRomanisationOperator):
         if tone not in self.getTones():
             raise InvalidEntityError(
                 "Invalid tone information given for '%s': '%s'" \
-                    % (plainEntity, str(tone)))
+                    % (plainEntity, unicode(tone)))
 
-        if self.getOption('toneMarkType') == 'None':
+        if self.toneMarkType == 'none':
             return plainEntity
 
-        if tone == None or (tone == 5 \
-            and self.getOption('neutralToneMark') == 'none'):
+        if tone == None or (tone == 5 and self.neutralToneMark == 'none'):
             return plainEntity
         else:
-            if tone == 5 and self.getOption('neutralToneMark') == 'zero':
-                if self.getOption('toneMarkType') == 'Numbers':
+            if tone == 5 and self.neutralToneMark == 'zero':
+                if self.toneMarkType == 'numbers':
                     toneMark = '0'
                 else:
                     toneMark = self.TO_SUPERSCRIPT[0]
-            elif self.getOption('toneMarkType') == 'Numbers':
+            elif self.toneMarkType == 'numbers':
                 toneMark = str(tone)
-            elif self.getOption('toneMarkType') == 'SuperscriptNumbers':
+            elif self.toneMarkType == 'superscriptNumbers':
                 toneMark = self.TO_SUPERSCRIPT[tone]
 
             return plainEntity + toneMark
@@ -2661,25 +2575,25 @@ class WadeGilesOperator(TonalRomanisationOperator):
         assert False
 
     def splitEntityTone(self, entity):
-        if self.getOption('toneMarkType') == 'None':
+        if self.toneMarkType == 'none':
             plainEntity = entity
             tone = None
 
         else:
             tone = None
-            if self.getOption('toneMarkType') == 'Numbers':
+            if self.toneMarkType == 'numbers':
                 matchObj = re.search(u"[012345]$", entity)
                 if matchObj:
                     tone = int(matchObj.group(0))
-            elif self.getOption('toneMarkType') == 'SuperscriptNumbers':
+            elif self.toneMarkType == 'superscriptNumbers':
                 matchObj = re.search(u"[⁰¹²³⁴⁵]$", entity)
                 if matchObj:
                     tone = self.FROM_SUPERSCRIPT[matchObj.group(0)]
 
             # only allow 0 and 5 for the correct setting
-            if self.getOption('neutralToneMark') == 'none' and tone in [0, 5] \
-                or self.getOption('neutralToneMark') == 'zero' and tone == 5 \
-                or self.getOption('neutralToneMark') == 'five' and tone == 0:
+            if self.neutralToneMark == 'none' and tone in [0, 5] \
+                or self.neutralToneMark == 'zero' and tone == 5 \
+                or self.neutralToneMark == 'five' and tone == 0:
                 raise InvalidEntityError(
                     "Invalid tone information given for '%s'" % entity)
 
@@ -2690,10 +2604,10 @@ class WadeGilesOperator(TonalRomanisationOperator):
             if tone:
                 plainEntity = entity[0:len(entity)-1]
             else:
-                if self.getOption('neutralToneMark') == 'none':
+                if self.neutralToneMark == 'none':
                     plainEntity = entity
                     tone = 5
-                elif self.getOption('missingToneMark') == 'noinfo':
+                elif self.missingToneMark == 'noinfo':
                     plainEntity = entity
                 else:
                     raise InvalidEntityError(
@@ -2714,33 +2628,32 @@ class WadeGilesOperator(TonalRomanisationOperator):
         plainSyllables = set(self.db.selectScalars(
             select([self.db.tables['WadeGilesSyllables'].c.WadeGiles])))
         # use selected apostrophe
-        if self.getOption('WadeGilesApostrophe') \
-            != self.DB_ASPIRATION_APOSTROPHE:
+        if self.wadeGilesApostrophe != self.DB_ASPIRATION_APOSTROPHE:
             translatedSyllables = set()
             for syllable in plainSyllables:
                 syllable = syllable.replace(self.DB_ASPIRATION_APOSTROPHE,
-                    self.getOption('WadeGilesApostrophe'))
+                    self.wadeGilesApostrophe)
                 translatedSyllables.add(syllable)
 
             plainSyllables = translatedSyllables
 
-        if self.getOption('diacriticE') != u'ê':
+        if self.diacriticE != u'ê':
             translatedSyllables = set()
             for syllable in plainSyllables:
-                syllable = syllable.replace(u'ê', self.getOption('diacriticE'))
+                syllable = syllable.replace(u'ê', self.diacriticE)
                 translatedSyllables.add(syllable)
 
             plainSyllables = translatedSyllables
 
-        if self.getOption('zeroFinal') != u'ŭ':
+        if self.zeroFinal != u'ŭ':
             translatedSyllables = set()
             for syllable in plainSyllables:
-                syllable = syllable.replace(u'ŭ', self.getOption('zeroFinal'))
+                syllable = syllable.replace(u'ŭ', self.zeroFinal)
                 translatedSyllables.add(syllable)
 
             plainSyllables = translatedSyllables
 
-        if self.getOption('useInitialSz'):
+        if self.useInitialSz:
             translatedSyllables = set()
             for syllable in plainSyllables:
                 if syllable.startswith('ss'):
@@ -2749,10 +2662,10 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
             plainSyllables = translatedSyllables
 
-        if self.getOption('umlautU'):
+        if self.umlautU:
             translatedSyllables = set()
             for syllable in plainSyllables:
-                syllable = syllable.replace(u'ü', self.getOption('umlautU'))
+                syllable = syllable.replace(u'ü', self.umlautU)
                 translatedSyllables.add(syllable)
 
             plainSyllables = translatedSyllables
@@ -2794,12 +2707,12 @@ class WadeGilesOperator(TonalRomanisationOperator):
                 or self.isPlainReadingEntity(
                     plainEntity.lower().replace(vowel, originalVowel))):
             raise ValueError(
-                u"Not a plain reading entity or no vowel '%s': '%s'" \
+                u"Not a plain reading entity or no vowel '%s': '%s'"
                     % (vowel, plainEntity))
 
         plainEntity = plainEntity.lower()
         # convert orthogonal options
-        plainForm = plainEntity.replace(self.getOption('WadeGilesApostrophe'),
+        plainForm = plainEntity.replace(self.wadeGilesApostrophe,
             self.DB_ASPIRATION_APOSTROPHE)
         if plainForm.startswith('sz'):
             plainForm = 'ss' + plainForm[2:]
@@ -2983,36 +2896,24 @@ class GROperator(TonalRomanisationOperator):
             if set to C{'both'} a mix of upper and lower case will be supported.
         @keyword abbreviations: if set to C{True} abbreviated spellings will be
             supported.
-        @keyword GRRhotacisedFinalApostrophe: an alternate apostrophe that is
+        @keyword grRhotacisedFinalApostrophe: an alternate apostrophe that is
             taken instead of the default one for marking a longer and back vowel
             in rhotacised finals.
-        @keyword GRSyllableSeparatorApostrophe: an alternate apostrophe that is
+        @keyword grSyllableSeparatorApostrophe: an alternate apostrophe that is
             taken instead of the default one for separating 0-initial syllables
             from preceding ones.
         """
         super(GROperator, self).__init__(**options)
 
-        if 'abbreviations' in options:
-            self.optionValue['abbreviations'] = options['abbreviations']
-
-        if 'GRRhotacisedFinalApostrophe' in options:
-            self.optionValue['GRRhotacisedFinalApostrophe'] \
-                = options['GRRhotacisedFinalApostrophe']
-
-        if 'GRSyllableSeparatorApostrophe' in options:
-            self.optionValue['GRSyllableSeparatorApostrophe'] \
-                = options['GRSyllableSeparatorApostrophe']
-
-        self.readingEntityRegex = re.compile(u"([\.ₒ]?(?:" \
-            + re.escape(self.getOption('GRRhotacisedFinalApostrophe')) \
-            + "|[A-Za-z])+)")
+        self._readingEntityRegex = re.compile(u"([\.ₒ]?(?:"
+            + re.escape(self.grRhotacisedFinalApostrophe) + "|[A-Za-z])+)")
 
     @classmethod
     def getDefaultOptions(cls):
         options = super(GROperator, cls).getDefaultOptions()
         options.update({'abbreviations': True,
-            'GRRhotacisedFinalApostrophe': u"’",
-            'GRSyllableSeparatorApostrophe': u"’"})
+            'grRhotacisedFinalApostrophe': u"’",
+            'grSyllableSeparatorApostrophe': u"’"})
 
         return options
 
@@ -3021,8 +2922,8 @@ class GROperator(TonalRomanisationOperator):
         u"""
         Takes a string written in GR and guesses the reading dialect.
 
-        The options C{'GRRhotacisedFinalApostrophe'} and
-        C{'GRSyllableSeparatorApostrophe'} are guessed. Both will be set to the
+        The options C{'grRhotacisedFinalApostrophe'} and
+        C{'grSyllableSeparatorApostrophe'} are guessed. Both will be set to the
         same value which derives from a list of different apostrophes and
         similar characters.
 
@@ -3030,8 +2931,8 @@ class GROperator(TonalRomanisationOperator):
         @param readingString: GR string
         @rtype: dict
         @return: dictionary of basic keyword settings
-        @todo Impl: Both options C{'GRRhotacisedFinalApostrophe'} and
-            C{'GRSyllableSeparatorApostrophe'} can be set independantly as
+        @todo Impl: Both options C{'grRhotacisedFinalApostrophe'} and
+            C{'grSyllableSeparatorApostrophe'} can be set independantly as
             the former one should only be found before an C{l} and the latter
             mostly before vowels.
         @todo Impl: Guess optional neutral tone marker ｡ (U+FF61), ￮ (U+FFEE),
@@ -3046,13 +2947,13 @@ class GROperator(TonalRomanisationOperator):
                 apostrophe = a
                 break
 
-        return {'GRRhotacisedFinalApostrophe': apostrophe,
-            'GRSyllableSeparatorApostrophe': apostrophe}
+        return {'grRhotacisedFinalApostrophe': apostrophe,
+            'grSyllableSeparatorApostrophe': apostrophe}
 
     def getReadingCharacters(self):
         characters = set(string.ascii_lowercase)
         characters.update([u'.', u'ₒ'])
-        characters.add(self.getOption('GRRhotacisedFinalApostrophe'))
+        characters.add(self.grRhotacisedFinalApostrophe)
         return characters
 
     def getTones(self):
@@ -3078,7 +2979,7 @@ class GROperator(TonalRomanisationOperator):
             if precedingEntity and entity:
                 precedingEntityIsReading = self.isReadingEntity(precedingEntity)
                 entityIsReading = self.isReadingEntity(entity)
-                separator = self.getOption('GRSyllableSeparatorApostrophe')
+                separator = self.grSyllableSeparatorApostrophe
 
                 if precedingEntityIsReading and entityIsReading \
                     and (entity[0].lower() in ['a', 'e', 'i', 'o', 'u'] \
@@ -3093,8 +2994,7 @@ class GROperator(TonalRomanisationOperator):
                     or (not precedingEntityIsReading and entityIsReading \
                         and precedingEntity[-1] in self._readingCharacters \
                         and precedingEntity != separator) \
-                    or (precedingEntity \
-                            == self.getOption('GRRhotacisedFinalApostrophe') \
+                    or (precedingEntity == self.grRhotacisedFinalApostrophe \
                         and not entityIsReading and entity[0] == 'l')):
 
                     if precedingEntityIsReading:
@@ -3132,10 +3032,10 @@ class GROperator(TonalRomanisationOperator):
             (self._hasSyllableSubstring(
                 readingString[0:substringIndex].lower()) \
                 or readingString[0:substringIndex] \
-                    == self.getOption('GRSyllableSeparatorApostrophe')):
+                    == self.grSyllableSeparatorApostrophe):
             syllable = readingString[0:substringIndex]
             if self.isReadingEntity(syllable) \
-                or syllable == self.getOption('GRSyllableSeparatorApostrophe'):
+                or syllable == self.grSyllableSeparatorApostrophe:
                 remaining = readingString[substringIndex:]
                 if remaining != '':
                     remainingParts = self._recursiveSegmentation(remaining)
@@ -3158,8 +3058,7 @@ class GROperator(TonalRomanisationOperator):
         if len(readingEntities) == 0:
             return []
         elif len(readingEntities) > 2 \
-            and readingEntities[1] \
-                == self.getOption('GRSyllableSeparatorApostrophe') \
+            and readingEntities[1] == self.grSyllableSeparatorApostrophe \
             and self.isReadingEntity(readingEntities[0]) \
             and self.isReadingEntity(readingEntities[2]):
             # apostrophe on pos #1 preceded and followed by a syllable
@@ -3185,8 +3084,8 @@ class GROperator(TonalRomanisationOperator):
         @raise InvalidEntityError: if an invalid tone is passed.
         """
         if tone not in self.getTones():
-            raise InvalidEntityError("Invalid tone information given for '" \
-                + unicode(tone) + "'")
+            raise InvalidEntityError("Invalid tone information given: '%s'"
+                    % unicode(tone))
 
         if tone.startswith("5thToneEtymological"):
             return int(tone[-3])
@@ -3231,8 +3130,9 @@ class GROperator(TonalRomanisationOperator):
         @raise UnsupportedError: if the given entity is an Erlhuah form.
         """
         if tone not in self.getTones():
-            raise InvalidEntityError("Invalid tone information given for '" \
-                + plainEntity + "': '" + unicode(tone) + "'")
+            raise InvalidEntityError(
+                "Invalid tone information given for '%s': '%s'"
+                    % (plainEntity, unicode(tone)))
 
         # catch basic Erlhuah forms (don't raise for tonal 'el' even if invalid)
         if self.isRhotacisedReadingEntity(plainEntity):
@@ -3407,8 +3307,9 @@ class GROperator(TonalRomanisationOperator):
                             = row[idx + 1]
 
         if tone not in self.getTones():
-            raise InvalidEntityError("Invalid tone information given for '" \
-                + plainEntity + "': '" + unicode(tone) + "'")
+            raise InvalidEntityError(
+                "Invalid tone information given for '%s': '%s'"
+                    % (plainEntity, unicode(tone)))
 
         # no Erlhuah for e and er
         if plainEntity in ['e', 'el']:
@@ -3439,10 +3340,10 @@ class GROperator(TonalRomanisationOperator):
         tonalFinal = self._rhotacisedFinals[column][v + c2]
 
         # use selected apostrophe
-        if self.getOption('GRRhotacisedFinalApostrophe') \
+        if self.grRhotacisedFinalApostrophe \
             != self.DB_RHOTACISED_FINAL_APOSTROPHE:
             tonalFinal = tonalFinal.replace(self.DB_RHOTACISED_FINAL_APOSTROPHE,
-                    self.getOption('GRRhotacisedFinalApostrophe'))
+                    self.grRhotacisedFinalApostrophe)
 
         tonalEntity = c1 + tonalFinal
 
@@ -3490,7 +3391,7 @@ class GROperator(TonalRomanisationOperator):
 
         # transform to DB apostrophe
         baseTonalEntity = baseTonalEntity.replace(
-            self.getOption('GRRhotacisedFinalApostrophe'),
+            self.grRhotacisedFinalApostrophe,
             self.DB_RHOTACISED_FINAL_APOSTROPHE)
 
         # match initials and rest, grab tonal 'h' for mnlr
@@ -3576,7 +3477,7 @@ class GROperator(TonalRomanisationOperator):
         @return: C{True} if entity is an abbreviated form.
         """
         # check capitalisation
-        if self.getOption('case') == 'lower' and not entity.islower():
+        if self.case == 'lower' and not entity.islower():
             return False
 
         if not hasattr(self, '_abbreviatedSyllableTable'):
@@ -3715,7 +3616,7 @@ class GROperator(TonalRomanisationOperator):
 
     def getReadingEntities(self):
         syllableSet = self.getFullReadingEntities()
-        if self.getOption('abbreviations'):
+        if self.abbreviations:
             syllableSet.update(self.getAbbreviatedEntities())
 
         return syllableSet
@@ -3760,7 +3661,7 @@ class MandarinIPAOperator(TonalIPAOperator):
     achieved by simply using the first character of the given string:
 
         >>> from cjklib.reading import operator
-        >>> ipaOp = operator.MandarinIPAOperator(toneMarkType='IPAToneBar')
+        >>> ipaOp = operator.MandarinIPAOperator(toneMarkType='ipaToneBar')
         >>> syllable, toneName = ipaOp.splitEntityTone(u'mən˧˥')
         >>> tone = int(toneName[0])
 
@@ -3774,27 +3675,27 @@ class MandarinIPAOperator(TonalIPAOperator):
     """
     READING_NAME = "MandarinIPA"
 
-    TONE_MARK_PREFER = {'Numbers': {'3': '3rdToneRegular', '5': '5thTone'},
-        'ChaoDigits': {'': '5thTone'}, 'IPAToneBar': {}, 'Diacritics': {}}
+    TONE_MARK_PREFER = {'numbers': {'3': '3rdToneRegular', '5': '5thTone'},
+        'chaoDigits': {'': '5thTone'}, 'ipaToneBar': {}, 'diacritics': {}}
 
     TONES = ['1stTone', '2ndTone', '3rdToneRegular', '3rdToneLow',
         '4thTone', '5thTone', '5thToneHalfHigh', '5thToneMiddle',
         '5thToneHalfLow', '5thToneLow']
 
-    TONE_MARK_MAPPING = {'Numbers': {'1stTone': '1', '2ndTone': '2',
+    TONE_MARK_MAPPING = {'numbers': {'1stTone': '1', '2ndTone': '2',
             '3rdToneRegular': '3', '3rdToneLow': '3', '4thTone': '4',
             '5thTone':'5', '5thToneHalfHigh': '5', '5thToneMiddle': '5',
             '5thToneHalfLow': '5', '5thToneLow': '5'},
-        'ChaoDigits': {'1stTone': '55', '2ndTone': '35',
+        'chaoDigits': {'1stTone': '55', '2ndTone': '35',
             '3rdToneRegular': '214', '3rdToneLow': '21', '4thTone': '51',
             '5thTone':'', '5thToneHalfHigh': '', '5thToneMiddle': '',
             '5thToneHalfLow': '', '5thToneLow': ''},
-        'IPAToneBar': {'1stTone': u'˥˥', '2ndTone': u'˧˥',
+        'ipaToneBar': {'1stTone': u'˥˥', '2ndTone': u'˧˥',
             '3rdToneRegular': u'˨˩˦', '3rdToneLow': u'˨˩', '4thTone': u'˥˩',
             '5thTone':'', '5thToneHalfHigh': u'꜉', '5thToneMiddle': u'꜊',
             '5thToneHalfLow': u'꜋', '5thToneLow': u'꜌'},
         # TODO
-        #'Diacritics': {'1stTone': u'\u0301', '2ndTone': u'\u030c',
+        #'diacritics': {'1stTone': u'\u0301', '2ndTone': u'\u030c',
             #'3rdToneRegular': u'\u0301\u0300\u0301', '3rdToneLow': u'\u0300',
             #'4thTone': u'\u0302', '5thTone': u'', '5thToneHalfHigh': '',
             #'5thToneMiddle': '', '5thToneHalfLow': '', '5thToneLow': ''}
@@ -3827,8 +3728,9 @@ class MandarinIPAOperator(TonalIPAOperator):
             select([table.c.IPAInitial, table.c.IPAFinal],
                 table.c.IPA == plainSyllable))
         if not entry:
-            raise InvalidEntityError("'" + plainSyllable \
-                + "' not a valid IPA form in this system'")
+            raise InvalidEntityError(
+                "Entity '%s' is no valid IPA form in this system'"
+                    % plainSyllable)
         return (entry[0], entry[1])
 
 
@@ -3866,8 +3768,8 @@ class MandarinBrailleOperator(ReadingOperator):
         @param options: extra options
         @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
             given, default settings will be assumed.
-        @keyword toneMarkType: if set to C{'Braille'} tones will be marked
-            (using the Braille characters ), if set to C{'None'} no tone marks
+        @keyword toneMarkType: if set to C{'braille'} tones will be marked
+            (using the Braille characters ), if set to C{'none'} no tone marks
             will be used and no tonal information will be supplied at all.
         @keyword missingToneMark: if set to C{'fifth'} missing tone marks are
             interpreted as fifth tone (which by default lack a tone mark), if
@@ -3877,21 +3779,15 @@ class MandarinBrailleOperator(ReadingOperator):
         """
         super(MandarinBrailleOperator, self).__init__(**options)
 
-        # check which tone marks to use
-        if 'toneMarkType' in options:
-            if options['toneMarkType'] not in ['Braille', 'None']:
-                raise ValueError("Invalid option '" \
-                    + str(options['toneMarkType']) \
-                    + "' for keyword 'toneMarkType'")
-            self.optionValue['toneMarkType'] = options['toneMarkType']
+        # check tone marks
+        if self.toneMarkType not in ['braille', 'none']:
+            raise ValueError("Invalid option %s for keyword 'toneMarkType'"
+                % repr(self.toneMarkType))
 
-        # check if we have to be strict on tones, i.e. report missing tone info
-        if 'missingToneMark' in options:
-            if options['missingToneMark'] not in ['fifth', 'extended']:
-                raise ValueError("Invalid option '" \
-                    + str(options['missingToneMark']) \
-                    + "' for keyword 'missingToneMark'")
-            self.optionValue['missingToneMark'] = options['missingToneMark']
+        # check strictness on tones, i.e. report missing tone info
+        if self.missingToneMark not in ['fifth', 'extended']:
+            raise ValueError("Invalid option %s for keyword 'missingToneMark'"
+                % repr(self.missingToneMark))
 
         # split regex
         initials = ''.join(self.db.selectScalars(
@@ -3901,15 +3797,15 @@ class MandarinBrailleOperator(ReadingOperator):
             select([self.db.tables['PinyinBrailleFinalMapping'].c.Braille],
                 distinct=True)))
         # initial and final optional (but at least one), tone optional
-        self.splitRegex = re.compile(ur'((?:(?:[' + re.escape(initials) \
+        self._splitRegex = re.compile(ur'((?:(?:[' + re.escape(initials) \
             + '][' + re.escape(finals) + ']?)|['+ re.escape(finals) \
             + u'])[' + re.escape(''.join(self.TONEMARKS)) + ']?)')
-        self.brailleRegex = re.compile(ur'([⠀-⣿]+|[^⠀-⣿]+)')
+        self._brailleRegex = re.compile(ur'([⠀-⣿]+|[^⠀-⣿]+)')
 
     @classmethod
     def getDefaultOptions(cls):
         options = super(MandarinBrailleOperator, cls).getDefaultOptions()
-        options.update({'toneMarkType': 'Braille',
+        options.update({'toneMarkType': 'braille',
             'missingToneMark': 'extended'})
 
         return options
@@ -3922,8 +3818,7 @@ class MandarinBrailleOperator(ReadingOperator):
         @return: set of supported tone marks.
         """
         tones = range(1, 6)
-        if self.getOption('missingToneMark') == 'extended' \
-            or self.getOption('toneMarkType') == 'None':
+        if self.missingToneMark == 'extended' or self.toneMarkType == 'none':
             tones.append(None)
 
         return tones
@@ -3947,14 +3842,14 @@ class MandarinBrailleOperator(ReadingOperator):
         def buildList(entityList):
             # further splitting of Braille and non-Braille parts/removing empty
             #   strings
-            newList = self.brailleRegex.findall(entityList[0])
+            newList = self._brailleRegex.findall(entityList[0])
 
             if len(entityList) > 1:
                 newList.extend(buildList(entityList[1:]))
 
             return newList
 
-        return buildList(self.splitRegex.split(readingString))
+        return buildList(self._splitRegex.split(readingString))
 
     def compose(self, readingEntities):
         """
@@ -4013,9 +3908,11 @@ class MandarinBrailleOperator(ReadingOperator):
         @raise InvalidEntityError: if the entity is invalid.
         """
         if tone not in self.getTones():
-            raise InvalidEntityError("Invalid tone information given for '" \
-                + plainEntity + "': '" + str(tone) + "'")
-        if self.getOption('toneMarkType') == 'None' or tone == None:
+            raise InvalidEntityError(
+                "Invalid tone information given for '%s': '%s'"
+                    % (plainEntity, unicode(tone)))
+        
+        if self.toneMarkType == 'none' or tone == None:
             return plainEntity
         else:
             return plainEntity + self.TONEMARKS[tone-1]
@@ -4031,7 +3928,7 @@ class MandarinBrailleOperator(ReadingOperator):
         @return: plain entity without tone mark and additionally the tone
         @raise InvalidEntityError: if the entity is invalid.
         """
-        if self.getOption('toneMarkType') == 'None':
+        if self.toneMarkType == 'none':
             return entity, None
         else:
             if entity[-1] in self.TONEMARKS:
@@ -4101,7 +3998,7 @@ class JyutpingOperator(TonalRomanisationOperator):
             U{http://lshk.ctl.cityu.edu.hk/cantonese.php}
     """
     READING_NAME = 'Jyutping'
-    readingEntityRegex = re.compile(u"([A-Za-z]+[123456]?)")
+    _readingEntityRegex = re.compile(u"([A-Za-z]+[123456]?)")
 
     def __init__(self, **options):
         """
@@ -4117,9 +4014,9 @@ class JyutpingOperator(TonalRomanisationOperator):
             string will be returned unsegmented.
         @keyword case: if set to C{'lower'}, only lower case will be supported,
             if set to C{'both'} a mix of upper and lower case will be supported.
-        @keyword toneMarkType: if set to C{'Numbers'} the default form of
+        @keyword toneMarkType: if set to C{'numbers'} the default form of
             appended numbers from 1 to 6 will be used to mark tones, if set to
-            C{'None'} no tone marks will be used and no tonal information will
+            C{'none'} no tone marks will be used and no tonal information will
             be supplied at all.
         @keyword missingToneMark: if set to C{'noinfo'} no tone information
             will be deduced when no tone mark is found (takes on value C{None}),
@@ -4129,26 +4026,20 @@ class JyutpingOperator(TonalRomanisationOperator):
         """
         super(JyutpingOperator, self).__init__(**options)
 
-        # check which tone marks to use
-        if 'toneMarkType' in options:
-            if options['toneMarkType'] not in ['Numbers', 'None']:
-                raise ValueError("Invalid option '" \
-                    + str(options['toneMarkType']) \
-                    + "' for keyword 'toneMarkType'")
-            self.optionValue['toneMarkType'] = options['toneMarkType']
+        # check tone marks
+        if self.toneMarkType not in ['numbers', 'none']:
+            raise ValueError("Invalid option %s for keyword 'toneMarkType'"
+                % repr(self.toneMarkType))
 
-        # check if we have to be strict on tones, i.e. report missing tone info
-        if 'missingToneMark' in options:
-            if options['missingToneMark'] not in ['noinfo', 'ignore']:
-                raise ValueError("Invalid option '" \
-                    + str(options['missingToneMark']) \
-                    + "' for keyword 'missingToneMark'")
-            self.optionValue['missingToneMark'] = options['missingToneMark']
+        # check strictness on tones, i.e. report missing tone info
+        if self.missingToneMark not in ['noinfo', 'ignore']:
+            raise ValueError("Invalid option %s for keyword 'missingToneMark'"
+                % repr(self.missingToneMark))
 
     @classmethod
     def getDefaultOptions(cls):
         options = super(JyutpingOperator, cls).getDefaultOptions()
-        options.update({'toneMarkType': 'Numbers', 'missingToneMark': 'noinfo'})
+        options.update({'toneMarkType': 'numbers', 'missingToneMark': 'noinfo'})
 
         return options
 
@@ -4159,8 +4050,7 @@ class JyutpingOperator(TonalRomanisationOperator):
 
     def getTones(self):
         tones = range(1, 7)
-        if self.getOption('missingToneMark') != 'ignore' \
-            or self.getOption('toneMarkType') == 'None':
+        if self.missingToneMark != 'ignore' or self.toneMarkType == 'none':
             tones.append(None)
         return tones
 
@@ -4202,13 +4092,13 @@ class JyutpingOperator(TonalRomanisationOperator):
                 "Syllable '%s' can not occur with tone '%s'" \
                     % (plainEntity, str(tone)))
 
-        if self.getOption('toneMarkType') == 'None' or tone == None:
+        if self.toneMarkType == 'none' or tone == None:
             return plainEntity
 
         return plainEntity + str(tone)
 
     def splitEntityTone(self, entity):
-        if self.getOption('toneMarkType') == 'None':
+        if self.toneMarkType == 'none':
             return entity, None
 
         matchObj = re.search(u"[123456]$", entity)
@@ -4222,7 +4112,7 @@ class JyutpingOperator(TonalRomanisationOperator):
                         % (plainEntity, str(tone)))
             return plainEntity, tone
         else:
-            if self.getOption('missingToneMark') == 'ignore':
+            if self.missingToneMark == 'ignore':
                 raise InvalidEntityError("No tone information given for '" \
                     + entity + "'")
             else:
@@ -4365,16 +4255,16 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
     TONES = ['1stToneLevel', '1stToneFalling', '2ndTone', '3rdTone', '4thTone',
         '5thTone', '6thTone']
     """Names of tones used in the romanisation."""
-    TONE_MARK_MAPPING = {'Numbers': {'1stToneLevel': ('1', ''),
+    TONE_MARK_MAPPING = {'numbers': {'1stToneLevel': ('1', ''),
             '1stToneFalling': ('1', ''), '2ndTone': ('2', ''),
             '3rdTone': ('3', ''), '4thTone': ('4', ''), '5thTone': ('5', ''),
             '6thTone': ('6', ''), None: ('', '')},
-        'Diacritics': {'1stToneLevel': (u'\u0304', ''),
+        'diacritics': {'1stToneLevel': (u'\u0304', ''),
             '1stToneFalling': (u'\u0300', ''),
             '2ndTone': (u'\u0301', ''), '3rdTone': (u'', ''),
             '4thTone': (u'\u0300', 'h'), '5thTone': (u'\u0301', 'h'),
             '6thTone': (u'', 'h')},
-        'Internal': {'1stToneLevel': ('0', ''),
+        'internal': {'1stToneLevel': ('0', ''),
             '1stToneFalling': ('1', ''), '2ndTone': ('2', ''),
             '3rdTone': ('3', ''), '4thTone': ('4', ''), '5thTone': ('5', ''),
             '6thTone': ('6', ''), None: ('', '')}}
@@ -4382,7 +4272,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
     Mapping of tone name to representation per tone mark type. Representations
     includes a diacritic mark and optional the letter 'h' marking a low tone.
 
-    The C{'Internal'} dialect is used for conversion between different forms of
+    The C{'internal'} dialect is used for conversion between different forms of
     Cantonese Yale. As conversion to the other dialects can lose information
     (Diacritics: missing tone, Numbers: distinction between high level and high
     rising, None: no tones at all) conversion to this dialect can retain all
@@ -4420,95 +4310,78 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             string will be returned unsegmented.
         @keyword case: if set to C{'lower'}, only lower case will be supported,
             if set to C{'both'} a mix of upper and lower case will be supported.
-        @keyword toneMarkType: if set to C{'Diacritics'} tones will be marked
+        @keyword toneMarkType: if set to C{'diacritics'} tones will be marked
             using diacritic marks and the character I{h} for low tones, if set
-            to C{'Numbers'} appended numbers from 1 to 6 will be used to mark
-            tones, if set to C{'None'} no tone marks will be used and no tonal
+            to C{'numbers'} appended numbers from 1 to 6 will be used to mark
+            tones, if set to C{'none'} no tone marks will be used and no tonal
             information will be supplied at all.
         @keyword missingToneMark: if set to C{'noinfo'} no tone information
             will be deduced when no tone mark is found (takes on value C{None}),
             if set to C{'ignore'} this entity will not be valid and for
             segmentation the behaviour defined by C{'strictSegmentation'} will
-            take affect. This option only has effect if the value C{'Numbers'}
+            take affect. This option only has effect if the value C{'numbers'}
             is given for the option I{toneMarkType}.
         @keyword strictDiacriticPlacement: if set to C{True} syllables have to
             follow the diacritic placement rule of Cantonese Yale strictly (see
             L{getTonalEntity()}). Wrong placement will result in
             L{splitEntityTone()} raising an L{InvalidEntityError}. Defaults to
             C{False}.
-        @keyword YaleFirstTone: tone in Yale which the first tone for tone marks
+        @keyword yaleFirstTone: tone in Yale which the first tone for tone marks
             with numbers should be mapped to. Value can be C{'1stToneLevel'} to
             map to the level tone with contour 55 or C{'1stToneFalling'} to map
             to the falling tone with contour 53. This option can only be used
-            for tone mark type C{'Numbers'}.
+            for tone mark type C{'numbers'}.
         """
         super(CantoneseYaleOperator, self).__init__(**options)
 
-        # check which tone marks to use
-        if 'toneMarkType' in options:
-            if options['toneMarkType'] not in ['Diacritics', 'Numbers', 'None',
-                'Internal']:
-                raise ValueError("Invalid option '" \
-                    + str(options['toneMarkType']) \
-                    + "' for keyword 'toneMarkType'")
-            self.optionValue['toneMarkType'] = options['toneMarkType']
+        # check tone marks
+        if self.toneMarkType not in ['diacritics', 'numbers', 'none',
+            'internal']:
+            raise ValueError("Invalid option %s for keyword 'toneMarkType'"
+                % repr(self.toneMarkType))
 
-        # check if we have to be strict on tones, i.e. report missing tone info
-        if 'missingToneMark' in options:
-            if options['missingToneMark'] not in ['noinfo', 'ignore']:
-                raise ValueError("Invalid option '" \
-                    + str(options['missingToneMark']) \
-                    + "' for keyword 'missingToneMark'")
-            self.optionValue['missingToneMark'] = options['missingToneMark']
+        # check strictness on tones, i.e. report missing tone info
+        if self.missingToneMark not in ['noinfo', 'ignore']:
+            raise ValueError("Invalid option %s for keyword 'missingToneMark'"
+                % repr(self.missingToneMark))
 
-        # set the YaleFirstTone for handling ambiguous conversion of first
+        # check yaleFirstTone for handling ambiguous conversion of first
         #   tone in Cantonese that has two different representations in Yale
-        if 'YaleFirstTone' in options:
-            if options['YaleFirstTone'] not in ['1stToneLevel',
-                '1stToneFalling']:
-                raise ValueError("Invalid option '" \
-                    + unicode(options['YaleFirstTone']) \
-                    + "' for keyword 'YaleFirstTone'")
-            self.optionValue['YaleFirstTone'] = options['YaleFirstTone']
+        if self.yaleFirstTone not in ['1stToneLevel', '1stToneFalling']:
+            raise ValueError("Invalid option %s for keyword 'yaleFirstTone'"
+                % repr(self.yaleFirstTone))
 
         # create lookup dict
-        if self.getOption('toneMarkType') != 'None':
+        if self.toneMarkType != 'none':
             # create lookup dicts
-            self.toneMarkLookup = {}
+            self._toneMarkLookup = {}
             for tone in self.getTones():
-                toneMarks = self.TONE_MARK_MAPPING[
-                    self.getOption('toneMarkType')][tone]
-                self.toneMarkLookup[toneMarks] = tone
-            if self.getOption('toneMarkType') == 'Numbers':
+                toneMarks = self.TONE_MARK_MAPPING[self.toneMarkType][tone]
+                self._toneMarkLookup[toneMarks] = tone
+            if self.toneMarkType == 'numbers':
                 # first tone ambiguous for tone mark as numbers, set user
                 #   selected tone
-                self.toneMarkLookup[('1', '')] = self.getOption('YaleFirstTone')
+                self._toneMarkLookup[('1', '')] = self.yaleFirstTone
 
         # create tone regex
-        if self.getOption('toneMarkType') != 'None':
-            self.primaryToneRegex = re.compile(r"(?iu)^[a-z]+([" \
+        if self.toneMarkType != 'none':
+            self._primaryToneRegex = re.compile(r"(?iu)^[a-z]+([" \
                 + r"".join(set([re.escape(toneMark) for toneMark, _ \
-                    in self.TONE_MARK_MAPPING[self.getOption('toneMarkType')]\
-                        .values()])) \
+                    in self.TONE_MARK_MAPPING[self.toneMarkType].values()])) \
                 + r"]?)")
-            self.hCharRegex = re.compile(r"(?i)^.*(?:[aeiou]|m|ng)(h)")
-
-        # should we check if the diacritics are placed correctly?
-        if 'strictDiacriticPlacement' in options:
-            self.optionValue['strictDiacriticPlacement'] \
-                = options['strictDiacriticPlacement']
+            self._hCharRegex = re.compile(r"(?i)^.*(?:[aeiou]|m|ng)(h)")
 
         # set split regular expression, works for all tone marks
-        self.readingEntityRegex = re.compile(u'(?iu)((?:' \
+        self._readingEntityRegex = re.compile(u'(?iu)((?:' \
             + '|'.join([re.escape(v) for v in self._getDiacriticVowels()]) \
             + u'|[a-z])+[0123456]?)')
 
     @classmethod
     def getDefaultOptions(cls):
         options = super(CantoneseYaleOperator, cls).getDefaultOptions()
-        options.update({'toneMarkType': 'Diacritics',
+        options.update({'toneMarkType': 'diacritics',
             'missingToneMark': 'noinfo', 'strictDiacriticPlacement': False,
-            'YaleFirstTone': '1stToneLevel'})
+            'yaleFirstTone': '1stToneLevel'})
 
         return options
 
@@ -4525,7 +4398,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         vowelList = set([])
         for nucleusFirstChar in 'aeioumnh':
             for toneMark, _ in \
-                CantoneseYaleOperator.TONE_MARK_MAPPING['Diacritics'].values():
+                CantoneseYaleOperator.TONE_MARK_MAPPING['diacritics'].values():
                 if toneMark:
                     vowelList.add(unicodedata.normalize("NFC",
                         nucleusFirstChar + toneMark))
@@ -4539,15 +4412,15 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         Currently only the option C{'toneMarkType'} is guessed. Unless
         C{'includeToneless'} is set to C{True} only the tone mark types
-        C{'Diacritics'} and C{'Numbers'} are considered as the latter one can
+        C{'diacritics'} and C{'numbers'} are considered as the latter one can
         also represent the state of missing tones.
 
         @type readingString: str
         @param readingString: Cantonese Yale string
         @type includeToneless: bool
         @param includeToneless: if set to C{True} option C{'toneMarkType'} can
-            take on value C{'None'}, but by default (i.e. set to C{False}) is
-            covered by tone mark type set to C{'Numbers'}.
+            take on value C{'none'}, but by default (i.e. set to C{False}) is
+            covered by tone mark type set to C{'numbers'}.
         @rtype: dict
         @return: dictionary of basic keyword settings
         """
@@ -4577,14 +4450,14 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                 / len(entities)) < 0.1:
             # less than 1/10 units carry some possible tone mark, so decide
             #   for toneless
-            toneMarkType = 'None'
+            toneMarkType = 'none'
         else:
             if diacriticEntityCount > numberEntityCount:
-                toneMarkType = 'Diacritics'
+                toneMarkType = 'diacritics'
             else:
                 # even if equal prefer numbers, as in case of missing tone marks
-                #   we rather asume tone 'None' which is possible here
-                toneMarkType = 'Numbers'
+                #   we rather asume tone 'none' which is possible here
+                toneMarkType = 'numbers'
 
         return {'toneMarkType': toneMarkType}
 
@@ -4599,9 +4472,9 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
     def getTones(self):
         tones = self.TONES[:]
-        if (self.getOption('missingToneMark') == 'noinfo' \
-            and self.getOption('toneMarkType') in ['Numbers', 'Internal']) \
-            or self.getOption('toneMarkType') == 'None':
+        if (self.missingToneMark == 'noinfo' \
+            and self.toneMarkType in ['numbers', 'internal']) \
+            or self.toneMarkType == 'none':
             tones.append(None)
         return tones
 
@@ -4640,7 +4513,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         def stripDiacritic(strng):
             """Strip one tonal diacritic mark off string."""
             strng = unicodedata.normalize("NFD", unicode(strng))
-            for toneMark, _ in self.TONE_MARK_MAPPING['Diacritics'].values():
+            for toneMark, _ in self.TONE_MARK_MAPPING['diacritics'].values():
                 index = strng.find(toneMark)
                 if toneMark and index >= 0:
                     # only remove one occurence so that multi-entity strings are
@@ -4652,7 +4525,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         if not hasattr(self, '_substringSet'):
             # build index as called for the first time
-            if self.getOption('toneMarkType') == 'Diacritics':
+            if self.toneMarkType == 'diacritics':
                 # we remove diacritics, so plain entities suffice
                 entities = self.getPlainReadingEntities()
                 # extend with low tone indicator 'h'
@@ -4666,7 +4539,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                 for i in range(len(syllable)):
                     self._substringSet.add(syllable[0:i+1])
 
-        if self.getOption('toneMarkType') == 'Diacritics':
+        if self.toneMarkType == 'diacritics':
             return stripDiacritic(readingString) in self._substringSet
         else:
             return readingString in self._substringSet
@@ -4680,14 +4553,12 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                 "Syllable '%s' can not occur with tone '%s'" \
                     % (plainEntity, str(tone)))
 
-        toneMarkType = self.getOption('toneMarkType')
-
-        if toneMarkType == 'None':
+        if self.toneMarkType == 'none':
             return plainEntity
 
-        toneMark, hChar = self.TONE_MARK_MAPPING[toneMarkType][tone]
+        toneMark, hChar = self.TONE_MARK_MAPPING[self.toneMarkType][tone]
 
-        if toneMarkType == 'Diacritics':
+        if self.toneMarkType == 'diacritics':
             # split entity into vowel (aeiou) and non-vowel part for placing
             #   marks, h only for initial
             matchObj = re.match('(?i)^([^aeiou]*?)([aeiou]*)([^haeiou]*)$',
@@ -4711,7 +4582,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                     + toneMark + nonVowelT[1:] + hChar)
 
             return nonVowelH + vowels + nonVowelT
-        elif toneMarkType in ['Numbers', 'Internal']:
+        elif self.toneMarkType in ['numbers', 'internal']:
             return plainEntity + toneMark
 
     def splitEntityTone(self, entity):
@@ -4731,11 +4602,11 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         """
         # get decomposed Unicode string, e.g. C{'ū'} to C{'u\u0304'}
         entity = unicodedata.normalize("NFD", unicode(entity))
-        if self.getOption('toneMarkType') == 'None':
+        if self.toneMarkType == 'none':
             return unicodedata.normalize("NFC", entity), None
 
         # find primary tone mark
-        matchObj = self.primaryToneRegex.search(entity)
+        matchObj = self._primaryToneRegex.search(entity)
         if not matchObj:
             raise InvalidEntityError("Invalid entity or no tone information " \
                 "given for '" + entity + "'")
@@ -4743,7 +4614,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         plainEntity = entity[0:matchObj.start(1)] + entity[matchObj.end(1):]
 
         # find lower tone mark 'h' character
-        matchObj = self.hCharRegex.search(plainEntity)
+        matchObj = self._hCharRegex.search(plainEntity)
         if matchObj:
             hChar = matchObj.group(1)
             plainEntity = unicodedata.normalize("NFC",
@@ -4753,21 +4624,24 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             hChar = ''
 
         try:
-            tone = self.toneMarkLookup[(toneMark, hChar.lower())]
+            tone = self._toneMarkLookup[(toneMark, hChar.lower())]
             # make sure stop tones always have the level tone, for diacritics
             if self.hasStopTone(plainEntity) and tone == '1stToneFalling' \
-                and self.getOption('toneMarkType') == 'Numbers':
+                and self.toneMarkType == 'numbers':
                 tone = '1stToneLevel'
         except KeyError:
-            raise InvalidEntityError("Invalid entity or no tone information " \
-                "given for '" + entity + "'")
+            raise InvalidEntityError(
+                "Invalid entity or no tone information given for '%s'"
+                    % entity)
 
         # check if placement of dicritic is correct
-        if self.getOption('strictDiacriticPlacement'):
+        if self.strictDiacriticPlacement:
             nfcEntity = unicodedata.normalize("NFC", unicode(entity))
             if nfcEntity != self.getTonalEntity(plainEntity, tone):
-                raise InvalidEntityError("Wrong placement of diacritic for '" \
-                    + entity + "' while strict checking enforced")
+                raise InvalidEntityError(
+                    "Wrong placement of diacritic for '%s'" \
+                        % entity \
+                    + " while strict checking enforced")
 
         if not self.isToneValid(plainEntity, tone):
             raise InvalidEntityError(
@@ -4962,33 +4836,33 @@ class CantoneseIPAOperator(TonalIPAOperator):
     for explicit marking short/long pronunciation.
     """
 
-    TONE_MARK_PREFER = {'Numbers': {'1': 'HighLevel', '3': 'MidLevel',
+    TONE_MARK_PREFER = {'numbers': {'1': 'HighLevel', '3': 'MidLevel',
             '6': 'MidLowLevel'},
-        'ChaoDigits': {'55': 'HighLevel', '33': 'MidLevel',
+        'chaoDigits': {'55': 'HighLevel', '33': 'MidLevel',
             '22': 'MidLowLevel'},
-        'IPAToneBar': {u'˥˥': 'HighLevel', u'˧˧': 'MidLevel',
+        'ipaToneBar': {u'˥˥': 'HighLevel', u'˧˧': 'MidLevel',
             u'˨˨': 'MidLowLevel'},
-        'Diacritics': {}}
+        'diacritics': {}}
 
-    TONE_MARK_MAPPING = {'Numbers': {'HighLevel': '1', 'MidLevel': '3',
+    TONE_MARK_MAPPING = {'numbers': {'HighLevel': '1', 'MidLevel': '3',
             'MidLowLevel': '6', 'HighRising': '2', 'MidLowRising': '5',
             'MidLowFalling': '4', 'HighFalling': '1', 'HighStopped_Short': '1',
             'MidStopped_Short': '3', 'MidLowStopped_Short': '6',
             'HighStopped_Long': '1', 'MidStopped_Long': '3',
             'MidLowStopped_Long': '6'},
-        'ChaoDigits': {'HighLevel': '55', 'MidLevel': '33',
+        'chaoDigits': {'HighLevel': '55', 'MidLevel': '33',
             'MidLowLevel': '22', 'HighRising': '25', 'MidLowRising': '23',
             'MidLowFalling': '21', 'HighFalling': '52',
             'HighStopped_Short': '5', 'MidStopped_Short': '3',
             'MidLowStopped_Short': '2', 'HighStopped_Long': '55',
             'MidStopped_Long': '33', 'MidLowStopped_Long': '22'},
-        'IPAToneBar': {'HighLevel': u'˥˥', 'MidLevel': u'˧˧',
+        'ipaToneBar': {'HighLevel': u'˥˥', 'MidLevel': u'˧˧',
             'MidLowLevel': u'˨˨', 'HighRising': u'˨˥', 'MidLowRising': u'˨˧',
             'MidLowFalling': u'˨˩', 'HighFalling': u'˥˨',
             'HighStopped_Short': u'˥', 'MidStopped_Short': u'˧',
             'MidLowStopped_Short': u'˨', 'HighStopped_Long': u'˥˥',
             'MidStopped_Long': u'˧˧', 'MidLowStopped_Long': u'˨˨'},
-        #'Diacritics': {}
+        #'diacritics': {}
         }
     # The mapping is injective for the restriction on the seven basic tones,
     #   and together with TONE_MARK_PREFER L{getToneForToneMark()} knows what to
@@ -5003,13 +4877,13 @@ class CantoneseIPAOperator(TonalIPAOperator):
         @param options: extra options
         @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
             given, default settings will be assumed.
-        @keyword toneMarkType: type of tone marks, one out of C{'Numbers'},
-            C{'ChaoDigits'}, C{'IPAToneBar'}, C{'Diacritics'}, C{'None'}
+        @keyword toneMarkType: type of tone marks, one out of C{'numbers'},
+            C{'chaoDigits'}, C{'ipaToneBar'}, C{'diacritics'}, C{'none'}
         @keyword missingToneMark: if set to C{'noinfo'} no tone information
             will be deduced when no tone mark is found (takes on value C{None}),
             if set to C{'ignore'} this entity will not be valid.
-        @keyword 1stToneName: tone for mark C{'1'} under tone mark type
-            C{'Numbers'} for ambiguous mapping between tones I{'HighLevel'} or I{'HighFalling'} under syllables without stop tones. For the latter
+        @keyword firstToneName: tone for mark C{'1'} under tone mark type
+            C{'numbers'} for ambiguous mapping between tones I{'HighLevel'} or I{'HighFalling'} under syllables without stop tones. For the latter
             tone mark C{'1'} will still resolve to I{'HighLevel'},
             I{'HighStopped'} or I{'HighStopped_Short'} and I{'HighStopped_Long'}
             depending on the value of option C{'stopTones'}.
@@ -5020,52 +4894,44 @@ class CantoneseIPAOperator(TonalIPAOperator):
         """
         super(CantoneseIPAOperator, self).__init__(**options)
 
-        toneMarkType = self.getOption('toneMarkType')
-        if toneMarkType == 'Diacritics':
+        if self.toneMarkType == 'diacritics':
             raise NotImplementedError() # TODO
 
-        if '1stToneName' in options:
-            if options['1stToneName'] not in self.TONES:
-                raise ValueError("Invalid option '" \
-                    + str(options['1stToneName']) \
-                    + "' for keyword '1stToneName'")
+        if self.firstToneName not in self.TONES:
+            raise ValueError("Invalid tone %s for keyword 'firstToneName'"
+                % repr(self.firstToneName))
 
-            self.optionValue['1stToneName'] = options['1stToneName']
-
-        if 'stopTones' in options:
-            if options['stopTones'] not in ['none', 'general', 'explicit']:
-                raise ValueError("Invalid option '" \
-                    + str(options['stopTones']) + "' for keyword 'stopTones'")
-
-            self.optionValue['stopTones'] = options['stopTones']
+        if self.stopTones not in ['none', 'general', 'explicit']:
+            raise ValueError("Invalid option %s for keyword 'stopTones'"
+                % repr(self.stopTones))
 
         # lookup base tone to explicit stop tone
-        self.stopToneLookup = {}
+        self._stopToneLookup = {}
         for stopTone in self.STOP_TONES_EXPLICIT:
             baseTone, vowelLength = self.STOP_TONES_EXPLICIT[stopTone]
-            if not baseTone in self.stopToneLookup:
-                self.stopToneLookup[baseTone] = {}
-            self.stopToneLookup[baseTone][vowelLength] = stopTone
+            if not baseTone in self._stopToneLookup:
+                self._stopToneLookup[baseTone] = {}
+            self._stopToneLookup[baseTone][vowelLength] = stopTone
         # add general stop tones
         for stopTone in self.STOP_TONES:
-            self.stopToneLookup[stopTone] \
-                = self.stopToneLookup[self.STOP_TONES[stopTone]]
+            self._stopToneLookup[stopTone] \
+                = self._stopToneLookup[self.STOP_TONES[stopTone]]
 
     @classmethod
     def getDefaultOptions(cls):
         options = super(CantoneseIPAOperator, cls).getDefaultOptions()
-        options.update({'stopTones': 'none', '1stToneName': 'HighLevel'})
+        options.update({'stopTones': 'none', 'firstToneName': 'HighLevel'})
 
         return options
 
     def getTones(self):
         tones = self.TONES[:]
-        if self.getOption('stopTones') == 'general':
+        if self.stopTones == 'general':
             tones.extend(self.STOP_TONES.keys())
-        elif self.getOption('stopTones') == 'explicit':
+        elif self.stopTones == 'explicit':
             tones.extend(self.STOP_TONES_EXPLICIT.keys())
-        if self.getOption('missingToneMark') == 'noinfo' \
-            or self.getOption('toneMarkType') == 'None':
+        if self.missingToneMark == 'noinfo' \
+            or self.toneMarkType == 'none':
             tones.append(None)
 
         return tones
@@ -5104,12 +4970,11 @@ class CantoneseIPAOperator(TonalIPAOperator):
         # find explicit form
         explicitTone = self.getExplicitTone(plainEntity, tone)
 
-        toneMarkType = self.getOption('toneMarkType')
-        if toneMarkType == "None" or explicitTone == None:
+        if self.toneMarkType == 'none' or explicitTone == None:
             entity = plainEntity
         else:
             entity = plainEntity \
-                + self.TONE_MARK_MAPPING[toneMarkType][explicitTone]
+                + self.TONE_MARK_MAPPING[self.toneMarkType][explicitTone]
         return unicodedata.normalize("NFC", entity)
 
     def splitEntityTone(self, entity):
@@ -5117,22 +4982,21 @@ class CantoneseIPAOperator(TonalIPAOperator):
         plainEntity, baseTone \
             = super(CantoneseIPAOperator, self).splitEntityTone(entity)
 
-        if self.getOption('toneMarkType') == 'Numbers' \
+        if self.toneMarkType == 'numbers' \
             and baseTone == 'HighLevel' \
             and not self.hasStopTone(plainEntity):
-            # for tone mark type 'Numbers' use user preference with 1st tone
-            baseTone = self.getOption('1stToneName')
+            # for tone mark type 'numbers' use user preference with 1st tone
+            baseTone = self.firstToneName
 
         # convert base tone to dialect setting
-        if self.getOption('stopTones') == 'none' or baseTone == None:
+        if self.stopTones == 'none' or baseTone == None:
             tone = baseTone
         else:
             explicitTone = self.getExplicitTone(plainEntity, baseTone)
 
-            if explicitTone in self.TONES \
-                or self.getOption('stopTones') == 'explicit':
+            if explicitTone in self.TONES or self.stopTones == 'explicit':
                 tone = explicitTone
-            elif self.getOption('stopTones') == 'general':
+            elif self.stopTones == 'general':
                 tone, _ = explicitTone.split('_')
 
         if not self.isToneValid(plainEntity, tone):
@@ -5162,11 +5026,11 @@ class CantoneseIPAOperator(TonalIPAOperator):
                     % (plainEntity, str(tone)))
 
         if self.hasStopTone(plainEntity):
-            if self.getOption('stopTones') == 'none':
+            if self.stopTones == 'none':
                 # stop tones are realised with base tones
                 return tone in ['HighLevel', 'MidLevel', 'MidLowLevel', None]
             else:
-                if self.getOption('stopTones') == 'general':
+                if self.stopTones == 'general':
                     # general stop tones
                     return tone not in self.TONES
                 else:
@@ -5230,11 +5094,11 @@ class CantoneseIPAOperator(TonalIPAOperator):
         @raise InvalidEntityError: if the entity is invalid.
         """
         # only need explicit tones
-        if baseTone in self.stopToneLookup:
+        if baseTone in self._stopToneLookup:
             # check if we have an unreleased final consonant
             if self.hasStopTone(plainEntity):
                 vowelLength = self._getUnreleasedFinalData()[plainEntity]
-                return self.stopToneLookup[baseTone][vowelLength]
+                return self._stopToneLookup[baseTone][vowelLength]
             elif baseTone in self.STOP_TONES:
                 # baseTone is a general stop tone but entity doesn't support
                 #   stop tones

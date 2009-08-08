@@ -39,12 +39,16 @@ factory:
 Convert between different dialects of the same reading I{Wade-Giles}:
 
     >>> f.convert(u'kuo3-yü2', 'WadeGiles', 'WadeGiles',
-    ...     sourceOptions={'toneMarkType': 'Numbers'},
-    ...     targetOptions={'toneMarkType': 'SuperscriptNumbers'})
+    ...     sourceOptions={'toneMarkType': 'numbers'},
+    ...     targetOptions={'toneMarkType': 'superscriptNumbers'})
     u'kuo\xb3-y\xfc\xb2'
 
 See L{PinyinDialectConverter} for more examples.
 """
+
+# pylint: disable-msg=E1101
+#  member variables are set by setattr()
+
 import re
 import copy
 import types
@@ -66,8 +70,8 @@ class ReadingConverter(object):
     The basic method is L{convert()} which converts one input string from one
     reading to another.
 
-    The methods L{getDefaultOptions()} and L{getOption()} provide means to
-    handle conversion specific settings.
+    The method L{getDefaultOptions()} will return the conversion default
+    settings.
 
     The class itself can't be used directly, it has to be subclassed and its
     methods need to be extended.
@@ -99,14 +103,14 @@ class ReadingConverter(object):
         >>> from cjklib.reading import ReadingFactory
         >>> f = ReadingFactory()
         >>> print f.convert(u'xiao3to1', 'Pinyin', 'GR',
-        ...     sourceOptions={'toneMarkType': 'Numbers'})
+        ...     sourceOptions={'toneMarkType': 'numbers'})
         Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
         ...
         cjklib.exception.CompositionError: Unable to delimit non-reading entity\
  'to1'
         >>> print f.convert(u'xiao3to1', 'Pinyin', 'GR',
-        ...     sourceOptions={'toneMarkType': 'Numbers',
+        ...     sourceOptions={'toneMarkType': 'numbers',
         ...         'strictSegmentation': True})
         Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
@@ -155,42 +159,48 @@ class ReadingConverter(object):
 
         self._f = cjklib.reading.ReadingFactory(dbConnectInst=self.db)
 
-        self.optionValue = {}
-        defaultOptions = self.getDefaultOptions()
-        for option in defaultOptions:
-            if type(defaultOptions[option]) in [type(()), type([]), type({})]:
-                self.optionValue[option] = copy.deepcopy(defaultOptions[option])
+        for option, defaultValue in self.getDefaultOptions().items():
+            optionValue = options.get(option, defaultValue)
+            if option not in ['sourceOperators', 'targetOperators'] \
+                and not hasattr(optionValue, '__call__'):
+                setattr(self, option, copy.deepcopy(optionValue))
             else:
-                self.optionValue[option] = defaultOptions[option]
+                setattr(self, option, optionValue)
 
-        # get reading operators
+        if type(self.sourceOperators) != type({}):
+            self.sourceOperators \
+                = dict([(operatorInst.READING_NAME, operatorInst) \
+                    for operatorInst in self.sourceOperators])
+        if type(self.targetOperators) != type({}):
+            self.targetOperators \
+                = dict([(operatorInst.READING_NAME, operatorInst) \
+                    for operatorInst in self.targetOperators])
+
+        for operatorInst in self.sourceOperators.values():
+            if not isinstance(operatorInst, readingoperator.ReadingOperator):
+                raise ValueError(
+                    "Unknown type '%s' given as source reading operator"
+                        % str(type(operatorInst)))
+        for operatorInst in self.targetOperators.values():
+            if not isinstance(operatorInst, readingoperator.ReadingOperator):
+                raise ValueError(
+                    "Unknown type '%s' given as target reading operator"
+                        % str(type(operatorInst)))
+
+        # get reading operators from args
         for arg in args:
             if isinstance(arg, readingoperator.ReadingOperator):
                 # store reading operator for the given reading
-                self.optionValue['sourceOperators'][arg.READING_NAME] = arg
-                self.optionValue['targetOperators'][arg.READING_NAME] = arg
+                if arg.READING_NAME in self.sourceOperators \
+                    or arg.READING_NAME in self.targetOperators:
+                    raise ValueError("Operator for '%s'" \
+                            % arg.READING_NAME
+                        + " specified twice as plain and keyword argument")
+                self.sourceOperators[arg.READING_NAME] = arg
+                self.targetOperators[arg.READING_NAME] = arg
             else:
-                raise ValueError("unknown type '" + str(type(arg)) \
-                    + "' given as ReadingOperator")
-
-        # get specialised source/target readings
-        if 'sourceOperators' in options:
-            for arg in options['sourceOperators']:
-                if isinstance(arg, readingoperator.ReadingOperator):
-                    # store reading operator for the given reading
-                    self.optionValue['sourceOperators'][arg.READING_NAME] = arg
-                else:
-                    raise ValueError("unknown type '" + str(type(arg)) \
-                        + "' given as source reading operator")
-
-        if 'targetOperators' in options:
-            for arg in options['targetOperators']:
-                if isinstance(arg, readingoperator.ReadingOperator):
-                    # store reading operator for the given reading
-                    self.optionValue['targetOperators'][arg.READING_NAME] = arg
-                else:
-                    raise ValueError("unknown type '" + str(type(arg)) \
-                        + "' given as target reading operator")
+                raise ValueError("Unknown type '%s' given as reading operator"
+                    % str(type(arg)))
 
     @classmethod
     def getDefaultOptions(cls):
@@ -204,15 +214,6 @@ class ReadingConverter(object):
         @return: the reading converter's default options.
         """
         return {'sourceOperators': {}, 'targetOperators': {}}
-
-    def getOption(self, option):
-        """
-        Returns the value of the reading converter's option.
-
-        @return: the value of the given reading converter's option.
-        @todo Fix: Remove this method and follow Python style with attributes
-        """
-        return self.optionValue[option]
 
     def convert(self, string, fromReading, toReading):
         """
@@ -280,10 +281,10 @@ class ReadingConverter(object):
         @return: a L{ReadingOperator} instance
         @raise UnsupportedError: if the given reading is not supported.
         """
-        if readingN not in self.getOption('sourceOperators'):
-            self.optionValue['sourceOperators'][readingN] \
+        if readingN not in self.sourceOperators:
+            self.sourceOperators[readingN] \
                 = self._f._getReadingOperatorInstance(readingN)
-        return self.getOption('sourceOperators')[readingN]
+        return self.sourceOperators[readingN]
 
     def _getToOperator(self, readingN):
         """
@@ -295,10 +296,10 @@ class ReadingConverter(object):
         @return: a L{ReadingOperator} instance
         @raise UnsupportedError: if the given reading is not supported.
         """
-        if readingN not in self.getOption('targetOperators'):
-            self.optionValue['targetOperators'][readingN] \
+        if readingN not in self.targetOperators:
+            self.targetOperators[readingN] \
                 = self._f._getReadingOperatorInstance(readingN)
-        return self.getOption('targetOperators')[readingN]
+        return self.targetOperators[readingN]
 
 
 class DialectSupportReadingConverter(ReadingConverter):
@@ -599,7 +600,7 @@ class PinyinDialectConverter(ReadingConverter):
             tones represented by numbers:
 
             >>> from cjklib.reading import *
-            >>> targetOp = operator.PinyinOperator(toneMarkType='Numbers')
+            >>> targetOp = operator.PinyinOperator(toneMarkType='numbers')
             >>> pinyinConv = converter.PinyinDialectConverter(
             ...     targetOperators=[targetOp])
             >>> pinyinConv.convert(u'hànzì', 'Pinyin', 'Pinyin')
@@ -608,7 +609,7 @@ class PinyinDialectConverter(ReadingConverter):
         - Convert Pinyin written with numbers, the ü (u with umlaut) replaced
             by character v and omitted fifth tone to standard Pinyin:
 
-            >>> sourceOp = operator.PinyinOperator(toneMarkType='Numbers',
+            >>> sourceOp = operator.PinyinOperator(toneMarkType='numbers',
             ...    yVowel='v', missingToneMark='fifth')
             >>> pinyinConv = converter.PinyinDialectConverter(
             ...     sourceOperators=[sourceOp])
@@ -619,19 +620,19 @@ class PinyinDialectConverter(ReadingConverter):
 
             >>> f = ReadingFactory()
             >>> f.convert('nv3hai2zi', 'Pinyin', 'Pinyin',
-            ...     sourceOptions={'toneMarkType': 'Numbers', 'yVowel': 'v',
+            ...     sourceOptions={'toneMarkType': 'numbers', 'yVowel': 'v',
             ...     'missingToneMark': 'fifth'})
             u'n\u01dah\xe1izi'
 
         - Decompose the reading of a dictionary entry from CEDICT into syllables
             and convert the ü-vowel and forms of I{Erhua sound}:
 
-            >>> pinyinFrom = operator.PinyinOperator(toneMarkType='Numbers',
+            >>> pinyinFrom = operator.PinyinOperator(toneMarkType='numbers',
             ...     yVowel='u:', Erhua='oneSyllable')
             >>> syllables = pinyinFrom.decompose('sun1nu:r3')
             >>> print syllables
             ['sun1', 'nu:r3']
-            >>> pinyinTo = operator.PinyinOperator(toneMarkType='Numbers',
+            >>> pinyinTo = operator.PinyinOperator(toneMarkType='numbers',
             ...     Erhua='twoSyllables')
             >>> pinyinConv = converter.PinyinDialectConverter(
             ...     sourceOperators=[pinyinFrom], targetOperators=[pinyinTo])
@@ -641,9 +642,9 @@ class PinyinDialectConverter(ReadingConverter):
         - Or more elegantly with entities already decomposed:
 
             >>> f.convertEntities(['sun1', 'nu:r3'], 'Pinyin', 'Pinyin',
-            ...     sourceOptions={'toneMarkType': 'Numbers', 'yVowel': 'u:',
+            ...     sourceOptions={'toneMarkType': 'numbers', 'yVowel': 'u:',
             ...        'Erhua': 'oneSyllable'},
-            ...     targetOptions={'toneMarkType': 'Numbers',
+            ...     targetOptions={'toneMarkType': 'numbers',
             ...        'Erhua': 'twoSyllables'})
             [u'sun1', u'n\xfc3', u'r5']
 
@@ -688,46 +689,35 @@ class PinyinDialectConverter(ReadingConverter):
             conserved.
         """
         super(PinyinDialectConverter, self).__init__(*args, **options)
-        # set options
-        if 'keepPinyinApostrophes' in options:
-            self.optionValue['keepPinyinApostrophes'] \
-                = options['keepPinyinApostrophes']
 
-        if 'breakUpErhua' in options:
-            if options['breakUpErhua'] not in ['on', 'auto', 'off']:
-                raise ValueError("Invalid option '" \
-                    + str(options['breakUpErhua']) \
-                    + "' for keyword 'breakUpErhua'")
-            self.optionValue['breakUpErhua'] = options['breakUpErhua']
+        if self.breakUpErhua not in ['on', 'auto', 'off']:
+            raise ValueError("Invalid option %s for keyword 'breakUpErhua'"
+                % repr(self.breakUpErhua))
 
         # get Erhua settings, 'twoSyllables' is default
-        if self.getOption('breakUpErhua') == 'on' \
-            or (self.getOption('breakUpErhua') == 'auto' \
-                and self._getToOperator('Pinyin').getOption('Erhua') \
-                    == 'ignore')\
-            or (self._getToOperator('Pinyin').getOption('Erhua') \
-                == 'twoSyllables'\
-            and self._getFromOperator('Pinyin').getOption('Erhua') \
-                == 'oneSyllable'):
+        if self.breakUpErhua == 'on' \
+            or (self.breakUpErhua == 'auto' \
+                and self._getToOperator('Pinyin').erhua == 'ignore')\
+            or (self._getToOperator('Pinyin').erhua == 'twoSyllables'\
+            and self._getFromOperator('Pinyin').erhua == 'oneSyllable'):
             # need to convert from one-syllable-form to two-syllables-form
-            self.convertErhuaFunc = self.convertToTwoSyllablesErhua
-        elif self._getToOperator('Pinyin').getOption('Erhua') == 'oneSyllable'\
-            and self._getFromOperator('Pinyin').getOption('Erhua') \
-                != 'oneSyllable':
+            self._convertErhuaFunc = self.convertToTwoSyllablesErhua
+        elif self._getToOperator('Pinyin').erhua == 'oneSyllable'\
+            and self._getFromOperator('Pinyin').erhua != 'oneSyllable':
             # need to convert from two-syllables-form to one-syllable-form
-            self.convertErhuaFunc = self.convertToSingleSyllableErhua
-        elif self._getFromOperator('Pinyin').getOption('Erhua') != 'ignore'\
-            and self._getToOperator('Pinyin').getOption('Erhua') == 'ignore':
+            self._convertErhuaFunc = self.convertToSingleSyllableErhua
+        elif self._getFromOperator('Pinyin').erhua != 'ignore'\
+            and self._getToOperator('Pinyin').erhua == 'ignore':
             # no real conversion but make sure to raise an error for Erhua forms
-            self.convertErhuaFunc = self._checkForErhua
+            self._convertErhuaFunc = self._checkForErhua
         else:
             # do nothing
-            self.convertErhuaFunc = lambda x: x
+            self._convertErhuaFunc = lambda x: x
 
         # shortenedLetters lookup
-        self.initialShortendDict = {'zh': u'ẑ', 'ch': u'ĉ', 'sh': u'ŝ'}
-        self.reverseShortendDict = dict([(short, letter) \
-            for letter, short in self.initialShortendDict.items()])
+        self._initialShortendDict = {'zh': u'ẑ', 'ch': u'ĉ', 'sh': u'ŝ'}
+        self._reverseShortendDict = dict([(short, letter) \
+            for letter, short in self._initialShortendDict.items()])
 
     @classmethod
     def getDefaultOptions(cls):
@@ -763,7 +753,7 @@ class PinyinDialectConverter(ReadingConverter):
                 + fromReading + "' to '" + toReading + "' not supported")
 
         # remove apostrophes
-        if not self.getOption('keepPinyinApostrophes'):
+        if not self.keepPinyinApostrophes:
             readingEntities = self._getFromOperator(fromReading)\
                 .removeApostrophes(readingEntities)
 
@@ -781,7 +771,7 @@ class PinyinDialectConverter(ReadingConverter):
                 entityTuples.append(entity)
 
         # fix Erhua forms if needed
-        entityTuples = self.convertErhuaFunc(entityTuples)
+        entityTuples = self._convertErhuaFunc(entityTuples)
 
         targetTones = self._getToOperator(toReading).getTones()
 
@@ -798,10 +788,8 @@ class PinyinDialectConverter(ReadingConverter):
                         "support missing tone information")
 
                 # convert shortenedLetters
-                if self._getFromOperator('Pinyin').getOption(
-                        'shortenedLetters') \
-                    and not self._getToOperator('Pinyin').getOption(
-                        'shortenedLetters'):
+                if self._getFromOperator('Pinyin').shortenedLetters \
+                    and not self._getToOperator('Pinyin').shortenedLetters:
 
                     plainSyllable = plainSyllable.replace(u'ŋ', 'ng')
                     # upper- / titlecase
@@ -810,9 +798,9 @@ class PinyinDialectConverter(ReadingConverter):
                         plainSyllable = plainSyllable.replace(u'Ŋ', 'Ng')
                     else:
                         plainSyllable = plainSyllable.replace(u'Ŋ', 'NG')
-                    if plainSyllable[0].lower() in self.reverseShortendDict:
+                    if plainSyllable[0].lower() in self._reverseShortendDict:
                         shortend = plainSyllable[0].lower()
-                        full = self.reverseShortendDict[shortend]
+                        full = self._reverseShortendDict[shortend]
                         plainSyllable = plainSyllable.replace(shortend, full)
                         # upper- vs. titlecase
                         if plainSyllable.isupper():
@@ -822,10 +810,8 @@ class PinyinDialectConverter(ReadingConverter):
                             plainSyllable = plainSyllable.replace(
                                 shortend.upper(), full.title())
 
-                elif not self._getFromOperator('Pinyin').getOption(
-                        'shortenedLetters') \
-                    and self._getToOperator('Pinyin').getOption(
-                        'shortenedLetters'):
+                elif not self._getFromOperator('Pinyin').shortenedLetters \
+                    and self._getToOperator('Pinyin').shortenedLetters:
 
                     # final ng
                     matchObj = re.search('(?i)ng', plainSyllable)
@@ -844,7 +830,7 @@ class PinyinDialectConverter(ReadingConverter):
                     matchObj = re.match('(?i)[zcs]h', plainSyllable)
                     if matchObj:
                         form = matchObj.group(0)
-                        shortend = self.initialShortendDict[form.lower()]
+                        shortend = self._initialShortendDict[form.lower()]
                         # letter case
                         if plainSyllable.isupper() or plainSyllable.istitle():
                             shortend = shortend.upper()
@@ -853,10 +839,9 @@ class PinyinDialectConverter(ReadingConverter):
 
                 # fix Erhua form if needed
                 if plainSyllable.lower() == 'r' \
-                    and ((self.getOption('breakUpErhua') == 'auto' \
-                        and self._getToOperator('Pinyin').getOption('Erhua') \
-                            == 'ignore') \
-                        or self.getOption('breakUpErhua') == 'on'):
+                    and ((self.breakUpErhua == 'auto' \
+                        and self._getToOperator('Pinyin').erhua == 'ignore') \
+                        or self.breakUpErhua == 'on'):
                     # transfer letter case, title() cannot be tested, len() == 1
                     if plainSyllable.isupper():
                         plainSyllable = 'ER'
@@ -864,14 +849,14 @@ class PinyinDialectConverter(ReadingConverter):
                         plainSyllable = 'er'
 
                 # check for special vowel for ü on input
-                fromYVowel = self._getFromOperator('Pinyin').getOption('yVowel')
-                toYVowel = self._getToOperator('Pinyin').getOption('yVowel')
+                fromYVowel = self._getFromOperator('Pinyin').yVowel
+                toYVowel = self._getToOperator('Pinyin').yVowel
                 if fromYVowel != toYVowel:
                     plainSyllable = plainSyllable.replace(fromYVowel, toYVowel)\
                         .replace(fromYVowel.upper(), toYVowel.upper())
 
                 # capitalisation
-                if self._getToOperator(toReading).getOption('case') == 'lower':
+                if self._getToOperator(toReading).case == 'lower':
                     plainSyllable = plainSyllable.lower()
 
                 try:
@@ -882,10 +867,9 @@ class PinyinDialectConverter(ReadingConverter):
                     # handle this as a conversion error as the converted
                     #   syllable is not accepted by the operator
                     raise ConversionError(*e.args)
-            elif entry == self._getToOperator(fromReading).getOption(
-                'PinyinApostrophe'):
-                toReadingEntities.append(self._getToOperator(toReading)\
-                    .getOption('PinyinApostrophe'))
+            elif entry == self._getToOperator(fromReading).pinyinApostrophe:
+                toReadingEntities.append(
+                    self._getToOperator(toReading).pinyinApostrophe)
             else:
                 toReadingEntities.append(entry)
 
@@ -991,7 +975,7 @@ class WadeGilesDialectConverter(EntityWiseReadingConverter):
         >>> from cjklib.reading import ReadingFactory
         >>> f = ReadingFactory()
         >>> f.convert(u'Ssŭ1ma3 Ch’ien1', 'WadeGiles', 'WadeGiles',
-        ...     sourceOptions={'toneMarkType': 'Numbers'})
+        ...     sourceOptions={'toneMarkType': 'numbers'})
         u'Ss\u016d\xb9-ma\xb3 Ch\u2019ien\xb9'
 
     Convert form without diacritic to standard form:
@@ -1031,8 +1015,8 @@ class WadeGilesDialectConverter(EntityWiseReadingConverter):
 
         # forms with possibly lost diacritics
         for option in ['diacriticE', 'zeroFinal', 'umlautU']:
-            fromSubstr = self._getFromOperator(fromReading).getOption(option)
-            toSubstr = self._getToOperator(toReading).getOption(option)
+            fromSubstr = getattr(self._getFromOperator(fromReading), option)
+            toSubstr = getattr(self._getToOperator(toReading), option)
             if fromSubstr != toSubstr:
                 operatorInst = self._getFromOperator(fromReading)
                 if fromSubstr == operatorInst.ALLOWED_VOWEL_SUBST[option] \
@@ -1054,22 +1038,22 @@ class WadeGilesDialectConverter(EntityWiseReadingConverter):
                     plainSyllable = plainSyllable.replace(fromSubstr, toSubstr)
 
         # other special forms
-        for option in ['WadeGilesApostrophe']:
-            fromSubstr = self._getFromOperator(fromReading).getOption(option)
-            toSubstr = self._getToOperator(toReading).getOption(option)
+        for option in ['wadeGilesApostrophe']:
+            fromSubstr = getattr(self._getFromOperator(fromReading), option)
+            toSubstr = getattr(self._getToOperator(toReading), option)
             if fromSubstr != toSubstr:
                 plainSyllable = plainSyllable.replace(fromSubstr, toSubstr)
 
         # useInitialSz
         if plainSyllable.startswith('sz') or plainSyllable.startswith('ss'):
-            if self._getToOperator(toReading).getOption('useInitialSz'):
+            if self._getToOperator(toReading).useInitialSz:
                 initial = 'sz'
             else:
                 initial = 'ss'
             plainSyllable = initial + plainSyllable[2:]
 
         # fix letter case
-        if self._getToOperator(toReading).getOption('case') != 'lower':
+        if self._getToOperator(toReading).case != 'lower':
             if entity.isupper():
                 plainSyllable = plainSyllable.upper()
             elif self._istitlecase(entity):
@@ -1109,10 +1093,10 @@ class PinyinWadeGilesConverter(RomanisationConverter):
     are found.
     """
     CONVERSION_DIRECTIONS = [('Pinyin', 'WadeGiles'), ('WadeGiles', 'Pinyin')]
-    # use the tone mark type 'Numbers' from Pinyin to support missing tonal
+    # use the tone mark type 'numbers' from Pinyin to support missing tonal
     #   information. Erhua furthermore is not supported.
-    DEFAULT_READING_OPTIONS = {'Pinyin': {'Erhua': 'ignore',
-        'toneMarkType': 'Numbers'}, 'WadeGiles': {}}
+    DEFAULT_READING_OPTIONS = {'Pinyin': {'erhua': 'ignore',
+        'toneMarkType': 'numbers'}, 'WadeGiles': {}}
 
     def convertEntitySequence(self, entitySequence, fromReading, toReading):
         # TODO overwritten to use _titlecase and _istitlecase
@@ -1242,19 +1226,12 @@ class GRDialectConverter(ReadingConverter):
             p. xxii", Conversion to Pinyin can use that.
         """
         super(GRDialectConverter, self).__init__(*args, **options)
-        # set options
-        if 'keepGRApostrophes' in options:
-            self.optionValue['keepGRApostrophes'] \
-                = options['keepGRApostrophes']
 
         # conversion of abbreviated forms
-        if 'breakUpAbbreviated' in options:
-            if options['breakUpAbbreviated'] not in ['on', 'auto', 'off']:
-                raise ValueError("Invalid option '" \
-                    + str(options['breakUpAbbreviated']) \
-                    + "' for keyword 'breakUpAbbreviated'")
-            self.optionValue['breakUpAbbreviated'] \
-                = options['breakUpAbbreviated']
+        if self.breakUpAbbreviated not in ['on', 'auto', 'off']:
+            raise ValueError(
+                "Invalid option %s for keyword 'breakUpAbbreviated'"
+                    % repr(self.breakUpAbbreviated))
 
     @classmethod
     def getDefaultOptions(cls):
@@ -1271,19 +1248,18 @@ class GRDialectConverter(ReadingConverter):
                 + fromReading + "' to '" + toReading + "' not supported")
 
         # abbreviated forms
-        breakUpAbbreviated = self.getOption('breakUpAbbreviated')
+        breakUpAbbreviated = self.breakUpAbbreviated
         if breakUpAbbreviated == 'on' \
             or (breakUpAbbreviated == 'auto' \
-                and not self._getToOperator(toReading).getOption(
-                    'abbreviations')):
+                and not self._getToOperator(toReading).abbreviations):
             readingEntities = self.convertAbbreviatedEntities(readingEntities)
 
-        if self.getOption('keepGRApostrophes'):
+        if self.keepGRApostrophes:
             # convert separator apostrophe
             fromApostrophe = self._getFromOperator(fromReading)\
-                .getOption('GRSyllableSeparatorApostrophe')
+                .grSyllableSeparatorApostrophe
             toApostrophe = self._getToOperator(toReading)\
-                .getOption('GRSyllableSeparatorApostrophe')
+                .grSyllableSeparatorApostrophe
             if fromApostrophe != toApostrophe:
                 convertedEntities = []
                 for entity in readingEntities:
@@ -1297,14 +1273,14 @@ class GRDialectConverter(ReadingConverter):
                 .removeApostrophes(readingEntities)
 
         # capitalisation
-        if self._getToOperator(toReading).getOption('case') == 'lower':
+        if self._getToOperator(toReading).case == 'lower':
             readingEntities = [entity.lower() for entity in readingEntities]
 
         # convert rhotacised final apostrophe
         fromApostrophe = self._getFromOperator(fromReading)\
-            .getOption('GRRhotacisedFinalApostrophe')
+            .grRhotacisedFinalApostrophe
         toApostrophe = self._getToOperator(toReading)\
-            .getOption('GRRhotacisedFinalApostrophe')
+            .grRhotacisedFinalApostrophe
         if fromApostrophe != toApostrophe:
             readingEntities = [entity.replace(fromApostrophe, toApostrophe) \
                 for entity in readingEntities]
@@ -1415,12 +1391,12 @@ class GRPinyinConverter(RomanisationConverter):
     the case of I{optional neutral tones} it has to be decided whether the
     neutral tone version or the etymological tone is chosen, as Pinyin can only
     display one. This can be controlled using option
-    C{'GROptionalNeutralToneMapping'}.
+    C{'grOptionalNeutralToneMapping'}.
     """
     CONVERSION_DIRECTIONS = [('GR', 'Pinyin'), ('Pinyin', 'GR')]
     # GR deals with Erlhuah in one syllable, force on Pinyin. Convert GR
     #   abbreviations to full forms
-    DEFAULT_READING_OPTIONS = {'Pinyin': {'Erhua': 'oneSyllable'},
+    DEFAULT_READING_OPTIONS = {'Pinyin': {'erhua': 'oneSyllable'},
         'GR': {'abbreviations': False}}
 
     def __init__(self, *args, **options):
@@ -1436,42 +1412,35 @@ class GRPinyinConverter(RomanisationConverter):
             source readings.
         @keyword targetOperators: list of L{ReadingOperator}s used for handling
             target readings.
-        @keyword GROptionalNeutralToneMapping: if set to 'original' GR syllables
+        @keyword grOptionalNeutralToneMapping: if set to 'original' GR syllables
             marked with an optional neutral tone will be mapped to the
             etymological tone, if set to 'neutral' they will be mapped to the
             neutral tone in Pinyin.
         """
         super(GRPinyinConverter, self).__init__(*args, **options)
 
-        if 'GROptionalNeutralToneMapping' in options:
-            if options['GROptionalNeutralToneMapping'] not in ['original',
-                'neutral']:
-                raise ValueError("Invalid option '" \
-                    + str(options['GROptionalNeutralToneMapping']) \
-                    + "' for keyword 'GROptionalNeutralToneMapping'")
-            self.optionValue['GROptionalNeutralToneMapping'] \
-                = options['GROptionalNeutralToneMapping']
+        if self.grOptionalNeutralToneMapping not in ['original', 'neutral']:
+            raise ValueError(
+                "Invalid option %s for keyword 'grOptionalNeutralToneMapping'"
+                    % repr(self.grOptionalNeutralToneMapping))
 
         # mapping from GR tones to Pinyin
-        self.grToneMapping = dict([(tone, int(tone[0])) \
+        self._grToneMapping = dict([(tone, int(tone[0])) \
             for tone in readingoperator.GROperator.TONES])
         # set optional neutral mapping
-        if self.getOption('GROptionalNeutralToneMapping') == 'neutral':
+        if self.grOptionalNeutralToneMapping == 'neutral':
             for tone in ['1stToneOptional5th', '2ndToneOptional5th',
                 '3rdToneOptional5th', '4thToneOptional5th']:
-                self.grToneMapping[tone] = 5
+                self._grToneMapping[tone] = 5
 
         # mapping from Pinyin tones to GR
-        self.pyToneMapping = {1: '1stTone', 2: '2ndTone', 3: '3rdTone',
+        self._pyToneMapping = {1: '1stTone', 2: '2ndTone', 3: '3rdTone',
             4: '4thTone', 5: None}
-
-        # GROperator instance
-        self.grOperator = None
 
     @classmethod
     def getDefaultOptions(cls):
         options = super(GRPinyinConverter, cls).getDefaultOptions()
-        options.update({'GROptionalNeutralToneMapping': 'original'})
+        options.update({'grOptionalNeutralToneMapping': 'original'})
 
         return options
 
@@ -1528,7 +1497,7 @@ class GRPinyinConverter(RomanisationConverter):
             table = self.db.tables['PinyinGRMapping']
             transSyllable = self.db.selectScalar(select([table.c.Pinyin],
                 table.c.GR == plainSyllable))
-            transTone = self.grToneMapping[tone]
+            transTone = self._grToneMapping[tone]
 
         elif fromReading == "Pinyin":
             # reduce Erlhuah form
@@ -1539,8 +1508,8 @@ class GRPinyinConverter(RomanisationConverter):
             table = self.db.tables['PinyinGRMapping']
             transSyllable = self.db.selectScalar(select([table.c.GR],
                 table.c.Pinyin == plainSyllable))
-            if self.pyToneMapping[tone]:
-                transTone = self.pyToneMapping[tone]
+            if self._pyToneMapping[tone]:
+                transTone = self._pyToneMapping[tone]
             else:
                 raise AmbiguousConversionError("conversion for entity '" \
                     + plainSyllable + "' with tone '" + str(tone) \
@@ -1573,10 +1542,10 @@ class GRPinyinConverter(RomanisationConverter):
 
     def _getGROperator(self):
         """Creates an instance of a GROperator if needed and returns it."""
-        if self.grOperator == None:
-            self.grOperator = readingoperator.GROperator(
+        if not hasattr(self, '_grOperator'):
+            self._grOperator = readingoperator.GROperator(
                 **self.DEFAULT_READING_OPTIONS['GR'])
-        return self.grOperator
+        return self._grOperator
 
 
 class PinyinIPAConverter(DialectSupportReadingConverter):
@@ -1672,8 +1641,8 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
     """
     CONVERSION_DIRECTIONS = [('Pinyin', 'MandarinIPA')]
 
-    DEFAULT_READING_OPTIONS = {'Pinyin': {'Erhua': 'ignore',
-        'toneMarkType': 'Numbers', 'missingToneMark': 'noinfo',
+    DEFAULT_READING_OPTIONS = {'Pinyin': {'erhua': 'ignore',
+        'toneMarkType': 'numbers', 'missingToneMark': 'noinfo',
         'case': 'lower'}}
     # TODO once we support Erhua, use oneSyllable form to lookup
 
@@ -1712,22 +1681,17 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
         super(PinyinIPAConverter, self).__init__(*args, **options)
 
         # set the sandhiFunction for handling tonal changes
-        if 'sandhiFunction' in options:
-            if options['sandhiFunction'] \
-                and not hasattr(options['sandhiFunction'], '__call__'):
-                raise ValueError(
-                    "Non-callable object '%s' for keyword 'sandhiFunction'" \
-                        % options['sandhiFunction'])
-            self.optionValue['sandhiFunction'] = options['sandhiFunction']
+        if self.sandhiFunction and not hasattr(self.sandhiFunction, '__call__'):
+            raise ValueError("Non-callable object %s" \
+                    % repr(self.sandhiFunction)
+                + " for keyword 'sandhiFunction'")
+        
         # set the sandhiFunction for handling general phonological changes
-        if 'coarticulationFunction' in options:
-            if options['coarticulationFunction'] \
-                and not hasattr(options['coarticulationFunction'], '__call__'):
-                raise ValueError("Non-callable object '%s'" \
-                        % options['coarticulationFunction'] \
-                    + " for keyword 'coarticulationFunction'")
-            self.optionValue['coarticulationFunction'] \
-                = options['coarticulationFunction']
+        if self.coarticulationFunction \
+            and not hasattr(self.coarticulationFunction, '__call__'):
+            raise ValueError("Non-callable object %s" \
+                    % repr(self.coarticulationFunction)
+                + " for keyword 'coarticulationFunction'")
 
     @classmethod
     def getDefaultOptions(cls):
@@ -1749,12 +1713,13 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
                         **self.DEFAULT_READING_OPTIONS[fromReading])
 
                     transEntry = None
-                    coarticulationFunction = self.getOption(
-                        'coarticulationFunction')
-                    if coarticulationFunction:
-                        if type(coarticulationFunction) == types.MethodType:
+                    if self.coarticulationFunction:
+                        if type(self.coarticulationFunction) \
+                            == types.MethodType:
                             coarticulationFunction = partial(
-                                coarticulationFunction, self)
+                                self.coarticulationFunction, self)
+                        else:
+                            coarticulationFunction = self.coarticulationFunction
 
                         transEntry = coarticulationFunction(sequence[:idx],
                             plainSyllable, tone, sequence[idx+1:])
@@ -1766,12 +1731,13 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
                     ipaTupelList.append(transEntry)
 
                 # handle sandhi
-                if self._getToOperator(toReading).getOption('toneMarkType') \
-                    != 'None':
-                    sandhiFunction = self.getOption('sandhiFunction')
-                    if sandhiFunction:
-                        if type(sandhiFunction) == types.MethodType:
-                            sandhiFunction = partial(sandhiFunction, self)
+                if self._getToOperator(toReading).toneMarkType != 'None':
+                    sandhiFunction = self.sandhiFunction
+                    if self.sandhiFunction:
+                        if type(self.sandhiFunction) == types.MethodType:
+                            sandhiFunction = partial(self.sandhiFunction, self)
+                        else:
+                            sandhiFunction = self.sandhiFunction
 
                         ipaTupelList = sandhiFunction(ipaTupelList)
 
@@ -1946,8 +1912,8 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
     CONVERSION_DIRECTIONS = [('Pinyin', 'MandarinBraille'),
         ('MandarinBraille', 'Pinyin')]
 
-    DEFAULT_READING_OPTIONS = {'Pinyin': {'Erhua': 'ignore',
-        'toneMarkType': 'Numbers', 'missingToneMark': 'noinfo'}}
+    DEFAULT_READING_OPTIONS = {'Pinyin': {'erhua': 'ignore',
+        'toneMarkType': 'numbers', 'missingToneMark': 'noinfo'}}
 
     PUNCTUATION_SIGNS_MAPPING = {u'。': u'⠐⠆', u',': u'⠐', u'?': u'⠐⠄',
         u'!': u'⠰⠂', u':': u'⠒', u';': u'⠰', u'-': u'⠠⠤', u'…': u'⠐⠐⠐',
@@ -1972,17 +1938,17 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
         self._createMappings()
 
         # punctuation mapping
-        self.reversePunctuationMapping = {}
+        self._reversePunctuationMapping = {}
         for key in self.PUNCTUATION_SIGNS_MAPPING:
-            if key in self.reversePunctuationMapping:
+            if key in self._reversePunctuationMapping:
                 # ambiguous mapping, so remove
-                self.reversePunctuationMapping[key] = None
+                self._reversePunctuationMapping[key] = None
             else:
                 value = self.PUNCTUATION_SIGNS_MAPPING[key]
-                self.reversePunctuationMapping[value] = key
+                self._reversePunctuationMapping[value] = key
 
         # regex to split out punctuation
-        self.pinyinPunctuationRegex = re.compile(ur'(' \
+        self._pinyinPunctuationRegex = re.compile(ur'(' \
             + '|'.join([re.escape(p) for p \
                 in self.PUNCTUATION_SIGNS_MAPPING.keys()]) \
             + '|.+?)')
@@ -1990,7 +1956,7 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
         braillePunctuation = list(set(self.PUNCTUATION_SIGNS_MAPPING.values()))
         # longer marks first in regex
         braillePunctuation.sort(lambda x, y: len(y) - len(x))
-        self.braillePunctuationRegex = re.compile(ur'(' \
+        self._braillePunctuationRegex = re.compile(ur'(' \
             + '|'.join([re.escape(p) for p in braillePunctuation]) + '|.+?)')
 
     def _createMappings(self):
@@ -1998,8 +1964,8 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
         Creates the mappings of syllable initials and finals from the database.
         """
         # initials
-        self.pinyinInitial2Braille = {}
-        self.braille2PinyinInitial = {}
+        self._pinyinInitial2Braille = {}
+        self._braille2PinyinInitial = {}
 
         table = self.db.tables['PinyinBrailleInitialMapping']
         entries = self.db.selectRows(
@@ -2007,21 +1973,21 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
 
         for pinyinInitial, brailleChar in entries:
             # Pinyin 2 Braille
-            if pinyinInitial in self.pinyinInitial2Braille:
+            if pinyinInitial in self._pinyinInitial2Braille:
                 raise ValueError(
                     "Ambiguous mapping from Pinyin syllable initial to Braille")
-            self.pinyinInitial2Braille[pinyinInitial] = brailleChar
+            self._pinyinInitial2Braille[pinyinInitial] = brailleChar
             # Braille 2 Pinyin
-            if brailleChar not in self.braille2PinyinInitial:
-                self.braille2PinyinInitial[brailleChar] = set()
-            self.braille2PinyinInitial[brailleChar].add(pinyinInitial)
+            if brailleChar not in self._braille2PinyinInitial:
+                self._braille2PinyinInitial[brailleChar] = set()
+            self._braille2PinyinInitial[brailleChar].add(pinyinInitial)
 
-        self.pinyinInitial2Braille[''] = ''
-        self.braille2PinyinInitial[''] = set([''])
+        self._pinyinInitial2Braille[''] = ''
+        self._braille2PinyinInitial[''] = set([''])
 
         # finals
-        self.pinyinFinal2Braille = {}
-        self.braille2PinyinFinal = {}
+        self._pinyinFinal2Braille = {}
+        self._braille2PinyinFinal = {}
 
         table = self.db.tables['PinyinBrailleFinalMapping']
         entries = self.db.selectRows(
@@ -2029,17 +1995,17 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
 
         for pinyinFinal, brailleChar in entries:
             # Pinyin 2 Braille
-            if pinyinFinal in self.pinyinFinal2Braille:
+            if pinyinFinal in self._pinyinFinal2Braille:
                 raise ValueError(
                     "Ambiguous mapping from Pinyin syllable final to Braille")
-            self.pinyinFinal2Braille[pinyinFinal] = brailleChar
+            self._pinyinFinal2Braille[pinyinFinal] = brailleChar
             # Braille 2 Pinyin
-            if brailleChar not in self.braille2PinyinFinal:
-                self.braille2PinyinFinal[brailleChar] = set()
-            self.braille2PinyinFinal[brailleChar].add(pinyinFinal)
+            if brailleChar not in self._braille2PinyinFinal:
+                self._braille2PinyinFinal[brailleChar] = set()
+            self._braille2PinyinFinal[brailleChar].add(pinyinFinal)
 
         # map ê to same Braille character as e
-        self.pinyinFinal2Braille[u'ê'] = self.pinyinFinal2Braille[u'e']
+        self._pinyinFinal2Braille[u'ê'] = self._pinyinFinal2Braille[u'e']
 
     def convertEntitySequence(self, entitySequence, fromReading, toReading):
         toReadingEntities = []
@@ -2052,7 +2018,7 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
                         toReadingEntities.append(toReadingEntity)
                 else:
                     # find punctuation marks
-                    for subEntity in self.pinyinPunctuationRegex.findall(
+                    for subEntity in self._pinyinPunctuationRegex.findall(
                         sequence):
                         if subEntity in self.PUNCTUATION_SIGNS_MAPPING:
                             toReadingEntities.append(
@@ -2068,15 +2034,15 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
                         toReadingEntities.append(toReadingEntity)
                 else:
                     # find punctuation marks
-                    for subEntity in self.braillePunctuationRegex.findall(
+                    for subEntity in self._braillePunctuationRegex.findall(
                         sequence):
-                        if subEntity in self.reversePunctuationMapping:
-                            if not self.reversePunctuationMapping[subEntity]:
+                        if subEntity in self._reversePunctuationMapping:
+                            if not self._reversePunctuationMapping[subEntity]:
                                 raise AmbiguousConversionError(
                                     "conversion for entity '" + subEntity \
                                         + "' is ambiguous")
                             toReadingEntities.append(
-                                self.reversePunctuationMapping[subEntity])
+                                self._reversePunctuationMapping[subEntity])
                         else:
                             toReadingEntities.append(subEntity)
 
@@ -2128,14 +2094,14 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
 
             if plainEntity not in ['zi', 'ci', 'si', 'zhi', 'chi', 'shi', 'ri']:
                 try:
-                    transSyllable = self.pinyinInitial2Braille[initial] \
-                        + self.pinyinFinal2Braille[final]
+                    transSyllable = self._pinyinInitial2Braille[initial] \
+                        + self._pinyinFinal2Braille[final]
                 except KeyError:
                     raise ConversionError("conversion for entity '" \
                         + plainEntity + "' not supported")
             else:
                 try:
-                    transSyllable = self.pinyinInitial2Braille[initial]
+                    transSyllable = self._pinyinInitial2Braille[initial]
                 except KeyError:
                     raise ConversionError("conversion for entity '" \
                         + plainEntity + "' not supported")
@@ -2145,8 +2111,8 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
 
             # get all possible forms
             forms = []
-            for i in self.braille2PinyinInitial[initial]:
-                for f in self.braille2PinyinFinal[final]:
+            for i in self._braille2PinyinInitial[initial]:
+                for f in self._braille2PinyinFinal[final]:
                     # get Pinyin syllable
                     table = self.db.tables['PinyinInitialFinal']
                     entry = self.db.selectScalar(
@@ -2193,7 +2159,7 @@ class JyutpingDialectConverter(EntityWiseReadingConverter):
             = self._getFromOperator(fromReading).splitEntityTone(entity)
 
         # capitalisation
-        if self._getToOperator(toReading).getOption('case') == 'lower':
+        if self._getToOperator(toReading).case == 'lower':
             plainSyllable = plainSyllable.lower()
 
         # get syllable with tone mark
@@ -2226,8 +2192,8 @@ class CantoneseYaleDialectConverter(EntityWiseReadingConverter):
         >>> from cjklib.reading import ReadingFactory
         >>> f = ReadingFactory()
         >>> f.convert(u'gwong2jau1wa2', 'CantoneseYale', 'CantoneseYale',
-        ...     sourceOptions={'toneMarkType': 'Numbers',
-        ...         'YaleFirstTone': '1stToneFalling'})
+        ...     sourceOptions={'toneMarkType': 'numbers',
+        ...         'yaleFirstTone': '1stToneFalling'})
         u'gw\xf3ngj\xe0uw\xe1'
     """
     CONVERSION_DIRECTIONS = [('CantoneseYale', 'CantoneseYale')]
@@ -2252,7 +2218,7 @@ class CantoneseYaleDialectConverter(EntityWiseReadingConverter):
             = self._getFromOperator(fromReading).splitEntityTone(entity)
 
         # capitalisation
-        if self._getToOperator(toReading).getOption('case') == 'lower':
+        if self._getToOperator(toReading).case == 'lower':
             plainSyllable = plainSyllable.lower()
 
         # get syllable with tone mark
@@ -2293,7 +2259,7 @@ class JyutpingYaleConverter(RomanisationConverter):
     system makes a distinction between the high level tone and the high falling
     tone in general while Jyutping does not. On conversion it is thus important
     to choose the correct mapping. This can be configured by applying the option
-    C{YaleFirstTone} when construction the converter (or telling the
+    C{yaleFirstTone} when construction the converter (or telling the
     L{ReadingFactory} which converter to use).
 
     Example:
@@ -2301,10 +2267,10 @@ class JyutpingYaleConverter(RomanisationConverter):
         >>> from cjklib.reading import ReadingFactory
         >>> f = ReadingFactory()
         >>> f.convert(u'gwong2zau1waa2', 'Jyutping', 'CantoneseYale',
-        ...     YaleFirstTone='1stToneFalling')
+        ...     yaleFirstTone='1stToneFalling')
         u'gw\xf3ngj\xe0uw\xe1'
 
-    @todo Fix: Extend dialect C{'Internal'} for CantoneseYale, so that letter
+    @todo Fix: Extend dialect C{'internal'} for CantoneseYale, so that letter
         case is transfered over one character syllables with low tone (adding
         a second letter 'h'). See test case
         L{cjklib.test.readingconverter.ReadingConverterConsistencyTest.testLetterCaseConversion()}.
@@ -2314,13 +2280,13 @@ class JyutpingYaleConverter(RomanisationConverter):
     # use special dialect for Yale to retain information for first tone and
     #   missing tones
     DEFAULT_READING_OPTIONS = {'Jyutping': {},
-        'CantoneseYale': {'toneMarkType': 'Internal'}}
+        'CantoneseYale': {'toneMarkType': 'internal'}}
 
     DEFAULT_TONE_MAPPING = {1: '1stToneLevel', 2: '2ndTone', 3: '3rdTone',
         4: '4thTone', 5: '5thTone', 6: '6thTone'}
     """
     Mapping of Jyutping tones to Yale tones. Tone 1 can be changed via option
-    'YaleFirstTone'.
+    'yaleFirstTone'.
     """
 
     def __init__(self, *args, **options):
@@ -2336,7 +2302,7 @@ class JyutpingYaleConverter(RomanisationConverter):
             source readings.
         @keyword targetOperators: list of L{ReadingOperator}s used for handling
             target readings.
-        @keyword YaleFirstTone: tone in Yale which the first tone from Jyutping
+        @keyword yaleFirstTone: tone in Yale which the first tone from Jyutping
             should be mapped to. Value can be C{'1stToneLevel'} to map to the
             level tone with contour 55 or C{'1stToneFalling'} to map to the
             falling tone with contour 53. This is only important if the target
@@ -2344,25 +2310,20 @@ class JyutpingYaleConverter(RomanisationConverter):
         """
         super(JyutpingYaleConverter, self).__init__(*args, **options)
 
-        # set the YaleFirstTone for handling ambiguous conversion of first
+        # check yaleFirstTone for handling ambiguous conversion of first
         #   tone in Cantonese that has two different representations in Yale,
         #   but only one in Jyutping
-        if 'YaleFirstTone' in options:
-            if options['YaleFirstTone'] not in ['1stToneLevel',
-                '1stToneFalling']:
-                raise ValueError("Invalid option '" \
-                    + unicode(options['YaleFirstTone']) \
-                    + "' for keyword 'YaleFirstTone'")
-            self.optionValue['YaleFirstTone'] = options['YaleFirstTone']
+        if self.yaleFirstTone not in ['1stToneLevel', '1stToneFalling']:
+            raise ValueError("Invalid option %s for keyword 'yaleFirstTone'"
+                % repr(self.yaleFirstTone))
 
-        self.optionValue['defaultToneMapping'][1] \
-            = self.optionValue['YaleFirstTone']
+        self.defaultToneMapping = self.DEFAULT_TONE_MAPPING.copy()
+        self.defaultToneMapping[1] = self.yaleFirstTone
 
     @classmethod
     def getDefaultOptions(cls):
         options = super(JyutpingYaleConverter, cls).getDefaultOptions()
-        options.update({'YaleFirstTone': '1stToneLevel',
-            'defaultToneMapping': cls.DEFAULT_TONE_MAPPING})
+        options.update({'yaleFirstTone': '1stToneLevel'})
 
         return options
 
@@ -2392,7 +2353,7 @@ class JyutpingYaleConverter(RomanisationConverter):
             if not tone:
                 transTone = None
             else:
-                transTone = self.optionValue['defaultToneMapping'][tone]
+                transTone = self.defaultToneMapping[tone]
 
         if not transSyllable:
             raise ConversionError("conversion for entity '" + plainSyllable \

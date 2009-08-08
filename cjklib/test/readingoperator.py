@@ -174,21 +174,21 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
 
         # check if option value changes after instantiation
         for option in defaultOptions:
-            self.assertEqual(defaultInstance.getOption(option),
+            self.assertEqual(getattr(defaultInstance, option),
                 defaultOptions[option],
                 "Default option value %s for %s changed on instantiation: %s" \
                     % (repr(defaultOptions[option]), repr(option),
-                        repr(defaultInstance.getOption(option))) \
+                        repr(getattr(defaultInstance, option))) \
                 + ' (reading %s)' % self.READING_NAME)
 
         # check options against instance without explicit option dict
         instance = self.readingOperatorClass()
         for option in defaultOptions:
-            self.assertEqual(instance.getOption(option),
-                defaultInstance.getOption(option),
+            self.assertEqual(getattr(instance, option),
+                getattr(defaultInstance, option),
                 "Option value for %s unequal for default instances: %s and %s" \
-                    % (repr(option), repr(instance.getOption(option)),
-                        repr(defaultInstance.getOption(option))) \
+                    % (repr(option), repr(getattr(instance, option)),
+                        repr(getattr(defaultInstance, option))) \
                 + ' (reading %s)' % self.READING_NAME)
 
     def testGuessReadingDialect(self):
@@ -655,15 +655,15 @@ class CanoneseIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     READING_NAME = 'CantoneseIPA'
 
     DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
-        [{}, {'toneMarkType': 'Numbers'}, {'toneMarkType': 'ChaoDigits'},
-            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'},
-            {'toneMarkType': 'Numbers', '1stToneName': 'HighFalling'},
-            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore',
-                '1stToneName': 'HighFalling'},
-            {'toneMarkType': 'ChaoDigits', 'missingToneMark': 'ignore'},
-            #{'toneMarkType': 'Diacritics'}, # TODO NotImplementedError
-            #{'toneMarkType': 'Diacritics', 'missingToneMark': 'ignore'},
-            {'toneMarkType': 'None'}],
+        [{}, {'toneMarkType': 'numbers'}, {'toneMarkType': 'chaoDigits'},
+            {'toneMarkType': 'numbers', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'numbers', 'firstToneName': 'HighFalling'},
+            {'toneMarkType': 'numbers', 'missingToneMark': 'ignore',
+                'firstToneName': 'HighFalling'},
+            {'toneMarkType': 'chaoDigits', 'missingToneMark': 'ignore'},
+            #{'toneMarkType': 'diacritics'}, # TODO NotImplementedError
+            #{'toneMarkType': 'diacritics', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'none'}],
         [{}, {'stopTones': 'general'}, {'stopTones': 'explicit'}],
         )
 
@@ -758,12 +758,12 @@ class CanoneseYaleOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     READING_NAME = 'CantoneseYale'
 
     DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
-        [{}, {'strictDiacriticPlacement': True}, {'toneMarkType': 'Numbers'},
-            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'},
-            {'toneMarkType': 'Numbers', 'YaleFirstTone': '1stToneFalling'},
-            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore',
-                'YaleFirstTone': '1stToneFalling'},
-            {'toneMarkType': 'None'}],
+        [{}, {'strictDiacriticPlacement': True}, {'toneMarkType': 'numbers'},
+            {'toneMarkType': 'numbers', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'numbers', 'yaleFirstTone': '1stToneFalling'},
+            {'toneMarkType': 'numbers', 'missingToneMark': 'ignore',
+                'yaleFirstTone': '1stToneFalling'},
+            {'toneMarkType': 'none'}],
         [{}, {'strictSegmentation': True}],
         [{}, {'case': 'lower'}],
         )
@@ -786,7 +786,7 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u'SÌSÍSISÌHSÍHSIHSĪKSIKSIHK', [u'SÌ', u'SÍ', u'SI', u'SÌH', u'SÍH',
                 u'SIH', u'SĪK', u'SIK', u'SIHK']),
             ]),
-        ({'toneMarkType': 'Numbers'}, [
+        ({'toneMarkType': 'numbers'}, [
             (u'gwong2jau1wa2', [u'gwong2', u'jau1', u'wa2']),
             (u'yut6yu5', [u'yut6', u'yu5']),
             (u'nei5hou2', [u'nei5', u'hou2']),
@@ -814,7 +814,7 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u'SÌ', u'SÍ', u'SI', u'SÌH', u'SÍH', u'SIH', u'SĪK', u'SIK',
                 u'SIHK'], u'SÌSÍSISÌHSÍHSIHSĪKSIKSIHK'),
             ]),
-        ({'toneMarkType': 'Numbers'}, [
+        ({'toneMarkType': 'numbers'}, [
             ([u'gwong2', u'jau1', u'wa2'], u'gwong2jau1wa2'),
             ([u'yut6', u'yu5'], u'yut6yu5'),
             ([u'GWONG2', u'JAU1', u'WA2'], u'GWONG2JAU1WA2'),
@@ -831,7 +831,7 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u'jau\u0300', u'gwóng'], exception.CompositionError),
                 # wrong placement of tone
             ]),
-        ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
+        ({'toneMarkType': 'numbers', 'missingToneMark': 'ignore'}, [
             ([u'gwong2', u'jau1', u'wa2'], u'gwong2jau1wa2'),
             ([u'gwong2', u'jau', u'wa2'], exception.CompositionError),
             ])
@@ -892,11 +892,11 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
         ]
 
     GUESS_DIALECT_REFERENCES = [
-        (u"Mh", {'toneMarkType': 'Diacritics'}),
-        (u"YUHT", {'toneMarkType': 'Diacritics'}),
-        (u"yuht", {'toneMarkType': 'Diacritics'}),
-        (u"wā", {'toneMarkType': 'Diacritics'}),
-        (u"gwong2", {'toneMarkType': 'Numbers'}),
+        (u"Mh", {'toneMarkType': 'diacritics'}),
+        (u"YUHT", {'toneMarkType': 'diacritics'}),
+        (u"yuht", {'toneMarkType': 'diacritics'}),
+        (u"wā", {'toneMarkType': 'diacritics'}),
+        (u"gwong2", {'toneMarkType': 'numbers'}),
         ]
 
 
@@ -905,7 +905,7 @@ class JyutpingOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     READING_NAME = 'Jyutping'
 
     DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
-        [{}, {'missingToneMark': 'ignore'}, {'toneMarkType': 'None'}],
+        [{}, {'missingToneMark': 'ignore'}, {'toneMarkType': 'none'}],
         [{}, {'strictSegmentation': True}],
         [{}, {'case': 'lower'}],
         )
@@ -1038,18 +1038,18 @@ class PinyinOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
             and followingEntity[0].isalpha()
 
     DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
-         [{}, {'toneMarkType': 'Numbers'},
-            {'toneMarkType': 'Numbers', 'missingToneMark': 'fifth'},
-            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'},
-            {'toneMarkType': 'Numbers', 'yVowel': 'v'},
-            {'toneMarkType': 'Numbers', 'yVowel': 'uu'},
-            {'toneMarkType': 'None'},
-            {'PinyinDiacritics': (u'\u0304', u'\u0301', u'\u0306', u'\u0300')},
-            {'PinyinDiacritics': (u'\u0304', u'\u0301', u'\u0302', u'\u0300')},
+         [{}, {'toneMarkType': 'numbers'},
+            {'toneMarkType': 'numbers', 'missingToneMark': 'fifth'},
+            {'toneMarkType': 'numbers', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'numbers', 'yVowel': 'v'},
+            {'toneMarkType': 'numbers', 'yVowel': 'uu'},
+            {'toneMarkType': 'none'},
+            {'pinyinDiacritics': (u'\u0304', u'\u0301', u'\u0306', u'\u0300')},
+            {'pinyinDiacritics': (u'\u0304', u'\u0301', u'\u0302', u'\u0300')},
             {'strictDiacriticPlacement': True}],
-        [{}, {'PinyinApostrophe': u'’'}],
-        [{}, {'PinyinApostropheFunction': noToneApostropheRule}],
-        [{}, {'Erhua': 'oneSyllable'}, {'Erhua': 'ignore'}],
+        [{}, {'pinyinApostrophe': u'’'}],
+        [{}, {'pinyinApostropheFunction': noToneApostropheRule}],
+        [{}, {'erhua': 'oneSyllable'}, {'erhua': 'ignore'}],
         [{}, {'strictSegmentation': True}],
         [{}, {'case': 'lower'}],
         [{}, {'shortenedLetters': True}],
@@ -1092,7 +1092,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u'tiananmen', exception.DecompositionError),
             (u'zhīshi', [u'zhī', 'shi']),
             ]),
-        ({'toneMarkType': 'Numbers'}, [
+        ({'toneMarkType': 'numbers'}, [
             (u"tiān'ānmén", [u"tiān", "'", u"ānmén"]),
             ("xian", ["xian"]),
             (u"xīān", [u"xīān"]),
@@ -1109,7 +1109,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ("XIAN", ["XIAN"]),
             (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
             ]),
-        ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
+        ({'toneMarkType': 'numbers', 'missingToneMark': 'ignore'}, [
             (u"tiān'ānmén", [u"tiān", "'", u"ānmén"]),
             ("xian", ["xian"]),
             (u"xīān", [u"xīān"]),
@@ -1126,7 +1126,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ("XIAN", ["XIAN"]),
             (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
             ]),
-        ({'Erhua': 'oneSyllable'}, [
+        ({'erhua': 'oneSyllable'}, [
             (u"tiān'ānmén", [u"tiān", "'", u"ān", u"mén"]),
             ("xian", ["xian"]),
             (u"xīān", [u"xī", u"ān"]),
@@ -1177,7 +1177,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ("XIAN", ["XIAN"]),
             (u"TIAN1'AN1MEN2", [u"TIAN1", "'", u"AN1", u"MEN2"]),
             ]),
-        ({'toneMarkType': 'Numbers', 'yVowel': 'v'}, [
+        ({'toneMarkType': 'numbers', 'yVowel': 'v'}, [
             (u'nv3hai2', [u'nv3', u'hai2']),
             (u'nvhai', [u'nv', 'hai']),
             (u'nü3hai2', [u'nü3', u'hai2']),
@@ -1208,7 +1208,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"chang", u"an"], u"chang'an"),
             ([u"ĉaŋ", u"an"], exception.CompositionError),
             ]),
-        ({'toneMarkType': 'Numbers'}, [
+        ({'toneMarkType': 'numbers'}, [
             ([u"tiān", u"ān", u"mén"], u"tiānānmén"),
             (["xian"], "xian"),
             ([u"xī", u"ān"], u"xīān"),
@@ -1227,7 +1227,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1'AN1MEN2", ),
             ([u"e", u"r"], u"e'r"),
             ]),
-        ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
+        ({'toneMarkType': 'numbers', 'missingToneMark': 'ignore'}, [
             ([u"tiān", u"ān", u"mén"], u"tiānānmén"),
             (["xian"], "xian"),
             ([u"xī", u"ān"], u"xīān"),
@@ -1246,7 +1246,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1'AN1MEN2", ),
             ([u"e5", u"r5"], u"e5'r5"),
             ]),
-        ({'Erhua': 'oneSyllable'}, [
+        ({'erhua': 'oneSyllable'}, [
             ([u"tiān", u"ān", u"mén"], u"tiān'ānmén"),
             (["xian"], "xian"),
             ([u"xī", u"ān"], u"xī'ān"),
@@ -1265,7 +1265,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1AN1MEN2", ),
             ([u"e", u"r"], exception.CompositionError),
             ]),
-        ({'toneMarkType': 'Numbers', 'Erhua': 'oneSyllable'}, [
+        ({'toneMarkType': 'numbers', 'erhua': 'oneSyllable'}, [
             ([u"tiān", u"ān", u"mén"], u"tiānānmén"),
             (["xian"], "xian"),
             ([u"xī", u"ān"], u"xīān"),
@@ -1305,7 +1305,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"TIAN1", u"AN1", u"MEN2"], u"TIAN1AN1MEN2", ),
             ([u"e", u"r"], u"e'r"),
             ]),
-        ({'toneMarkType': 'Numbers', 'yVowel': 'v'}, [
+        ({'toneMarkType': 'numbers', 'yVowel': 'v'}, [
             ([u'nv3', u'hai2'], u'nv3hai2'),
             ([u'nü3', u'hai2'], u'nü3hai2'),
             ]),
@@ -1367,7 +1367,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"taŋ", False),
             (u"ề", True),
             ]),
-        ({'toneMarkType': 'Numbers'}, [
+        ({'toneMarkType': 'numbers'}, [
             (u"tiān", False),
             (u"ān", False),
             (u"mén", False),
@@ -1396,7 +1396,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"r1", False),
             (u"ề", False),
             ]),
-        ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
+        ({'toneMarkType': 'numbers', 'missingToneMark': 'ignore'}, [
             (u"tiān", False),
             (u"ān", False),
             (u"mén", False),
@@ -1425,7 +1425,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"r1", False),
             (u"ề", False),
             ]),
-        ({'Erhua': 'oneSyllable'}, [
+        ({'erhua': 'oneSyllable'}, [
             (u"tiān", True),
             (u"ān", True),
             (u"mén", True),
@@ -1512,7 +1512,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"r1", False),
             (u"ề", True),
             ]),
-        ({'toneMarkType': 'Numbers', 'yVowel': 'v'}, [
+        ({'toneMarkType': 'numbers', 'yVowel': 'v'}, [
             (u"tiān", False),
             (u"ān", False),
             (u"mén", False),
@@ -1577,7 +1577,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"ŜAŊ", True),
             (u"ề", True),
             ]),
-        ({'PinyinDiacritics': (u'\u0304', u'\u0301', u'\u0302', u'\u0300')}, [
+        ({'pinyinDiacritics': (u'\u0304', u'\u0301', u'\u0302', u'\u0300')}, [
             (u"tiān", True),
             (u"ān", True),
             (u"mén", True),
@@ -1627,7 +1627,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"TIĀN", u"ĀN", u"MÉN"], False),
             ([u"TIAN1", u"AN1", u"MEN2"], True),
             ]),
-        ({'toneMarkType': 'Numbers'}, [
+        ({'toneMarkType': 'numbers'}, [
             ([u"tiān", "'", u"ān", u"mén"], True),
             ([u"tiān", u"ān", u"mén"], True),
             ([u"chan", u"gan"], True),
@@ -1640,7 +1640,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"TIĀN", u"ĀN", u"MÉN"], True),
             ([u"TIAN1", u"AN1", u"MEN2"], False),
             ]),
-        ({'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'}, [
+        ({'toneMarkType': 'numbers', 'missingToneMark': 'ignore'}, [
             ([u"tiān", "'", u"ān", u"mén"], True),
             ([u"tiān", u"ān", u"mén"], True),
             ([u"chan", u"gan"], True),
@@ -1653,7 +1653,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"TIĀN", u"ĀN", u"MÉN"], True),
             ([u"TIAN1", u"AN1", u"MEN2"], False),
             ]),
-        ({'toneMarkType': 'Numbers', 'Erhua': 'oneSyllable'}, [
+        ({'toneMarkType': 'numbers', 'erhua': 'oneSyllable'}, [
             ([u"tiān", "'", u"ān", u"mén"], True),
             ([u"tiān", u"ān", u"mén"], True),
             ([u"chan", u"gan"], True),
@@ -1669,38 +1669,38 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
         ]
 
     GUESS_DIALECT_REFERENCES = [
-        (u"tiān'ānmén", {'toneMarkType': 'Diacritics',
-            'PinyinApostrophe': "'"}),
-        (u"tiān’ānmén", {'toneMarkType': 'Diacritics',
-            'PinyinApostrophe': u"’"}),
-        (u"xīān", {'toneMarkType': 'Diacritics'}),
-        (u"tian1'an1men2", {'toneMarkType': 'Numbers',
-            'PinyinApostrophe': "'"}),
-        (u"nv3hai2", {'toneMarkType': 'Numbers', 'yVowel': 'v'}),
-        (u"NV3HAI2", {'toneMarkType': 'Numbers', 'yVowel': 'v'}),
-        (u"nuu3hai2", {'toneMarkType': 'Numbers', 'yVowel': 'uu'}),
-        (u"nǚhái", {'toneMarkType': 'Diacritics', 'yVowel': u'ü'}),
-        (u"NǙHÁI", {'toneMarkType': 'Diacritics', 'yVowel': u'ü'}),
-        (u"xi1'an1", {'toneMarkType': 'Numbers', 'PinyinApostrophe': "'"}),
-        (u"lao3tou2r5", {'toneMarkType': 'Numbers',
-            'Erhua': 'twoSyllables'}),
-        (u"lao3tour2", {'toneMarkType': 'Numbers', 'Erhua': 'oneSyllable'}),
-        (u"peínǐ", {'toneMarkType': 'Diacritics'}), # wrong placement of tone
-        (u"TIĀNĀNMÉN", {'toneMarkType': 'Diacritics'}),
-        (u"e5'r5", {'toneMarkType': 'Numbers', 'PinyinApostrophe': "'",
-            'Erhua': 'twoSyllables'}),
-        (u"yi xia r ", {'toneMarkType': 'Numbers', 'Erhua': 'twoSyllables'}),
-        (u"ẑīdao", {'toneMarkType': 'Diacritics', 'shortenedLetters': True}),
-        (u"mian4taŋ1", {'toneMarkType': 'Numbers', 'shortenedLetters': True}),
-        (u"ŜÀŊHǍI", {'toneMarkType': 'Diacritics', 'shortenedLetters': True,
-            'PinyinDiacritics': (u'\u0304', u'\u0301', u'\u030c', u'\u0300')}),
-        (u"SHÀNGHǍI", {'toneMarkType': 'Diacritics',
+        (u"tiān'ānmén", {'toneMarkType': 'diacritics',
+            'pinyinApostrophe': "'"}),
+        (u"tiān’ānmén", {'toneMarkType': 'diacritics',
+            'pinyinApostrophe': u"’"}),
+        (u"xīān", {'toneMarkType': 'diacritics'}),
+        (u"tian1'an1men2", {'toneMarkType': 'numbers',
+            'pinyinApostrophe': "'"}),
+        (u"nv3hai2", {'toneMarkType': 'numbers', 'yVowel': 'v'}),
+        (u"NV3HAI2", {'toneMarkType': 'numbers', 'yVowel': 'v'}),
+        (u"nuu3hai2", {'toneMarkType': 'numbers', 'yVowel': 'uu'}),
+        (u"nǚhái", {'toneMarkType': 'diacritics', 'yVowel': u'ü'}),
+        (u"NǙHÁI", {'toneMarkType': 'diacritics', 'yVowel': u'ü'}),
+        (u"xi1'an1", {'toneMarkType': 'numbers', 'pinyinApostrophe': "'"}),
+        (u"lao3tou2r5", {'toneMarkType': 'numbers',
+            'erhua': 'twoSyllables'}),
+        (u"lao3tour2", {'toneMarkType': 'numbers', 'erhua': 'oneSyllable'}),
+        (u"peínǐ", {'toneMarkType': 'diacritics'}), # wrong placement of tone
+        (u"TIĀNĀNMÉN", {'toneMarkType': 'diacritics'}),
+        (u"e5'r5", {'toneMarkType': 'numbers', 'pinyinApostrophe': "'",
+            'erhua': 'twoSyllables'}),
+        (u"yi xia r ", {'toneMarkType': 'numbers', 'erhua': 'twoSyllables'}),
+        (u"ẑīdao", {'toneMarkType': 'diacritics', 'shortenedLetters': True}),
+        (u"mian4taŋ1", {'toneMarkType': 'numbers', 'shortenedLetters': True}),
+        (u"ŜÀŊHǍI", {'toneMarkType': 'diacritics', 'shortenedLetters': True,
+            'pinyinDiacritics': (u'\u0304', u'\u0301', u'\u030c', u'\u0300')}),
+        (u"SHÀNGHǍI", {'toneMarkType': 'diacritics',
             'shortenedLetters': False}),
-        (u"Wŏ huì shuō yìdiănr", {'toneMarkType': 'Diacritics',
-            'PinyinDiacritics': (u'\u0304', u'\u0301', u'\u0306', u'\u0300')}),
-        (u"Xiàndài Hànyû Dàcídiân", {'toneMarkType': 'Diacritics',
-            'PinyinDiacritics': (u'\u0304', u'\u0301', u'\u0302', u'\u0300')}),
-        (u"ê Hàn", {'PinyinDiacritics': (u'\u0304', u'\u0301', u'\u030c',
+        (u"Wŏ huì shuō yìdiănr", {'toneMarkType': 'diacritics',
+            'pinyinDiacritics': (u'\u0304', u'\u0301', u'\u0306', u'\u0300')}),
+        (u"Xiàndài Hànyû Dàcídiân", {'toneMarkType': 'diacritics',
+            'pinyinDiacritics': (u'\u0304', u'\u0301', u'\u0302', u'\u0300')}),
+        (u"ê Hàn", {'pinyinDiacritics': (u'\u0304', u'\u0301', u'\u030c',
             u'\u0300')}),
         ]
 
@@ -1728,8 +1728,8 @@ class WadeGilesOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
         [{}, {'umlautU': 'u'}],
         [{}, {'useInitialSz': True}],
         [{}, {'neutralToneMark': 'zero'}, {'neutralToneMark': 'five'}],
-        [{}, {'WadeGilesApostrophe': u"'"}],
-        [{}, {'toneMarkType': 'Numbers'}, {'toneMarkType': 'None'}],
+        [{}, {'wadeGilesApostrophe': u"'"}],
+        [{}, {'toneMarkType': 'numbers'}, {'toneMarkType': 'none'}],
         [{}, {'missingToneMark': 'ignore'}],
         [{}, {'strictSegmentation': True}],
         [{}, {'case': 'lower'}],
@@ -1757,22 +1757,22 @@ class WadeGilesOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"K’ung³-tzŭ³", [u"K’ung³", u"-", u"tzŭ³"]),
             (u"Ssŭma Ch’ien", [u"Ssŭ", "ma", " ", u"Ch’ien"]),
             ]),
-        ({'WadeGilesApostrophe': "'", 'zeroFinal': 'u'}, [
+        ({'wadeGilesApostrophe': "'", 'zeroFinal': 'u'}, [
             (u"Ssuma Ch'ien", [u"Ssu", u"ma", " ", u"Ch'ien"]),
             ]),
-        ({'WadeGilesApostrophe': "'"}, [
+        ({'wadeGilesApostrophe': "'"}, [
             (u"Ssuma Ch'ien", [u"Ssuma", " ", u"Ch'ien"]),
             (u"Ssŭma Ch'ien", [u"Ssŭ", u"ma", " ", u"Ch'ien"]),
             ]),
-        ({'WadeGilesApostrophe': "'", 'zeroFinal': 'u'}, [
+        ({'wadeGilesApostrophe': "'", 'zeroFinal': 'u'}, [
             (u"Ssuma Ch'ien", [u"Ssu", "ma", " ", u"Ch'ien"]),
             (u"Ssŭma Ch'ien", [u"Ssŭma", " ", u"Ch'ien"]),
             ]),
-        ({'toneMarkType': 'Numbers', 'umlautU': 'u'}, [
+        ({'toneMarkType': 'numbers', 'umlautU': 'u'}, [
             (u"Shih3-Chi4", [u"Shih3", "-", u"Chi4"]),
             ("chueh1", ["chueh1"])
             ]),
-        ({'WadeGilesApostrophe': "'", 'strictSegmentation': True}, [
+        ({'wadeGilesApostrophe': "'", 'strictSegmentation': True}, [
             (u"Ssuma Ch'ien", exception.DecompositionError),
             (u"Ssŭma Ch'ien", [u"Ssŭ", "ma", " ", u"Ch'ien"]),
             ]),
@@ -1783,19 +1783,19 @@ class WadeGilesOperatorReferenceTest(ReadingOperatorReferenceTest,
             ([u"K’ung³", u"-", u"tzŭ³"], u"K’ung³-tzŭ³"),
             ([u"K’ung³", u"tzŭ³"], u"K’ung³-tzŭ³"),
             ]),
-        ({'WadeGilesApostrophe': "'", 'zeroFinal': 'u'}, [
+        ({'wadeGilesApostrophe': "'", 'zeroFinal': 'u'}, [
             ([u"Ssu", "ma", " ", u"Ch'ien"], u"Ssu-ma Ch'ien"),
             ]),
-        ({'WadeGilesApostrophe': "'"}, [
+        ({'wadeGilesApostrophe': "'"}, [
             ([u"Ssu", "ma", " ", u"Ch'ien"], exception.CompositionError),
             ([u"Ssŭ", "ma", " ", u"Ch'ien"], u"Ssŭ-ma Ch'ien"),
             ]),
-        ({'toneMarkType': 'Numbers'}, [
+        ({'toneMarkType': 'numbers'}, [
             ([u"Shih3", "-", u"Chi4"], u"Shih3-Chi4"),
             ([u"Shih3", u"Chi4"], u"Shih3-Chi4"),
             (['t', u'’', 'ung1'], exception.CompositionError),
             ]),
-        ({'toneMarkType': 'Numbers', 'neutralToneMark': 'zero',
+        ({'toneMarkType': 'numbers', 'neutralToneMark': 'zero',
             'missingToneMark': 'ignore'}, [
             ([u"Shih3", "-", u"Chi"], u"Shih3-Chi"),
             ([u"Shih3", u"Chi"], u"Shih3Chi"),
@@ -1910,7 +1910,7 @@ class WadeGilesOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"shih⁵", False),
             (u"shih1", False),
             ]),
-        ({'toneMarkType': 'Numbers'}, [
+        ({'toneMarkType': 'numbers'}, [
             (u"shih", True),
             (u"jou⁴", False),
             (u"nü³", False),
@@ -1925,7 +1925,7 @@ class WadeGilesOperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"shih⁵", False),
             (u"shih1", True),
             ]),
-        ({'WadeGilesApostrophe': "'"}, [
+        ({'wadeGilesApostrophe': "'"}, [
             (u"shih", True),
             (u"jou⁴", True),
             (u"nü³", True),
@@ -1943,25 +1943,25 @@ class WadeGilesOperatorReferenceTest(ReadingOperatorReferenceTest,
         ]
 
     GUESS_DIALECT_REFERENCES = [
-        (u"K’ung³-tzǔ³", {'toneMarkType': 'SuperscriptNumbers',
-            'WadeGilesApostrophe': u'’', 'zeroFinal': u'ǔ'}),
-        (u"K’ung³-tzŭ³", {'toneMarkType': 'SuperscriptNumbers',
-            'WadeGilesApostrophe': u'’', 'zeroFinal': u'ŭ'}),
-        (u"Ssŭma Ch'ien", {'WadeGilesApostrophe': "'", 'zeroFinal': u'ŭ'}),
-        (u"Szuma Ch'ien", {'WadeGilesApostrophe': "'", 'zeroFinal': 'u',
+        (u"K’ung³-tzǔ³", {'toneMarkType': 'superscriptNumbers',
+            'wadeGilesApostrophe': u'’', 'zeroFinal': u'ǔ'}),
+        (u"K’ung³-tzŭ³", {'toneMarkType': 'superscriptNumbers',
+            'wadeGilesApostrophe': u'’', 'zeroFinal': u'ŭ'}),
+        (u"Ssŭma Ch'ien", {'wadeGilesApostrophe': "'", 'zeroFinal': u'ŭ'}),
+        (u"Szuma Ch'ien", {'wadeGilesApostrophe': "'", 'zeroFinal': 'u',
             'useInitialSz': True}),
-        (u"Szu1ma3 Ch'ien1", {'WadeGilesApostrophe': "'", 'zeroFinal': 'u',
-            'useInitialSz': True, 'toneMarkType': 'Numbers'}),
-        (u"Shih3-Chi4", {'toneMarkType': 'Numbers'}),
+        (u"Szu1ma3 Ch'ien1", {'wadeGilesApostrophe': "'", 'zeroFinal': 'u',
+            'useInitialSz': True, 'toneMarkType': 'numbers'}),
+        (u"Shih3-Chi4", {'toneMarkType': 'numbers'}),
         (u"chih¹-tao⁵", {'neutralToneMark': 'five'}),
         (u"chih¹-tao", {'neutralToneMark': 'none'}),
         (u"p’êng3yu0", {'neutralToneMark': 'zero', 'diacriticE': u'ê',
-            'WadeGilesApostrophe': u'’', 'toneMarkType': 'Numbers'}),
+            'wadeGilesApostrophe': u'’', 'toneMarkType': 'numbers'}),
         (u"p’eng³yu", {'neutralToneMark': 'none', 'diacriticE': u'e',
-            'WadeGilesApostrophe': u'’', 'toneMarkType': 'SuperscriptNumbers'}),
-        (u"hsu¹", {'umlautU': 'u', 'toneMarkType': 'SuperscriptNumbers'}),
-        (u"nueh1", {'umlautU': 'u', 'toneMarkType': 'Numbers'}),
-        (u"yu³", {'umlautU': u'ü', 'toneMarkType': 'SuperscriptNumbers'}),
+            'wadeGilesApostrophe': u'’', 'toneMarkType': 'superscriptNumbers'}),
+        (u"hsu¹", {'umlautU': 'u', 'toneMarkType': 'superscriptNumbers'}),
+        (u"nueh1", {'umlautU': 'u', 'toneMarkType': 'numbers'}),
+        (u"yu³", {'umlautU': u'ü', 'toneMarkType': 'superscriptNumbers'}),
         (u"Cheng Ho", {'diacriticE': 'e', 'neutralToneMark': 'zero'}),
             # either zero or five to enable tone "None" for all syllables
         ]
@@ -1973,8 +1973,8 @@ class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
         [{}, {'strictSegmentation': True}],
         [{}, {'abbreviations': False}],
-        [{}, {'GRRhotacisedFinalApostrophe': "'"}],
-        [{}, {'GRSyllableSeparatorApostrophe': "'"}],
+        [{}, {'grRhotacisedFinalApostrophe': "'"}],
+        [{}, {'grSyllableSeparatorApostrophe': "'"}],
         [{}, {'case': 'lower'}],
         )
 
@@ -2365,12 +2365,12 @@ u:nr            iuel    yuel    euel    iuell           hiuel   iuel
         super(GROperatorReferenceTest, self).setUp()
 
         self.converter = self.f.createReadingConverter('Pinyin',
-            'GR', sourceOptions={'Erhua': 'oneSyllable'},
-            targetOptions={'GRRhotacisedFinalApostrophe': "'"})
+            'GR', sourceOptions={'erhua': 'oneSyllable'},
+            targetOptions={'grRhotacisedFinalApostrophe': "'"})
         self.pinyinOperator = self.f.createReadingOperator('Pinyin',
-            Erhua='oneSyllable')
+            erhua='oneSyllable')
         self.grOperator = self.f.createReadingOperator('GR',
-            GRRhotacisedFinalApostrophe="'")
+            grRhotacisedFinalApostrophe="'")
 
         # read in plain text mappings
         self.grJunctionSpecialMapping = {}
@@ -2529,7 +2529,7 @@ class MandarinBrailleOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     READING_NAME = 'MandarinBraille'
 
     DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
-        [{}, {'toneMarkType': 'None'}, {'missingToneMark': 'fifth'}],
+        [{}, {'toneMarkType': 'none'}, {'missingToneMark': 'fifth'}],
         )
 
 
@@ -2550,12 +2550,12 @@ class MandarinIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     READING_NAME = 'MandarinIPA'
 
     DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
-        [{}, {'toneMarkType': 'Numbers'}, {'toneMarkType': 'ChaoDigits'},
-            {'toneMarkType': 'Numbers', 'missingToneMark': 'ignore'},
-            {'toneMarkType': 'ChaoDigits', 'missingToneMark': 'ignore'},
-            #{'toneMarkType': 'Diacritics'}, # TODO NotImplementedError
-            #{'toneMarkType': 'Diacritics', 'missingToneMark': 'ignore'},
-            {'toneMarkType': 'None'}],
+        [{}, {'toneMarkType': 'numbers'}, {'toneMarkType': 'chaoDigits'},
+            {'toneMarkType': 'numbers', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'chaoDigits', 'missingToneMark': 'ignore'},
+            #{'toneMarkType': 'diacritics'}, # TODO NotImplementedError
+            #{'toneMarkType': 'diacritics', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'none'}],
         )
 
     def cleanDecomposition(self, decomposition, reading, **options):

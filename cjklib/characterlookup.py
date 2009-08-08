@@ -284,7 +284,7 @@ class CharacterLookup:
 
     CHARARACTER_READING_MAPPING = {'Hangul': ('CharacterHangul', {}),
         'Jyutping': ('CharacterJyutping', {'case': 'lower'}),
-        'Pinyin': ('CharacterPinyin', {'toneMarkType': 'Numbers',
+        'Pinyin': ('CharacterPinyin', {'toneMarkType': 'numbers',
             'case': 'lower'})
         }
     """
@@ -332,8 +332,8 @@ class CharacterLookup:
             or self.db.engine.has_table(domainTable):
             # check column
             if characterDomain != 'Unicode':
-                self.characterDomainTable = self.db.tables[domainTable]
-                if 'ChineseCharacter' not in self.characterDomainTable.columns:
+                self._characterDomainTable = self.db.tables[domainTable]
+                if 'ChineseCharacter' not in self._characterDomainTable.columns:
                     raise ValueError(
                         "Character domain table '%s' " % domainTable \
                             + "has no column 'ChineseCharacter'")
@@ -377,8 +377,8 @@ class CharacterLookup:
             return charList
         else:
             filteredCharList = set(self.db.selectScalars(select(
-                [self.characterDomainTable.c.ChineseCharacter],
-                self.characterDomainTable.c.ChineseCharacter.in_(charList))))
+                [self._characterDomainTable.c.ChineseCharacter],
+                self._characterDomainTable.c.ChineseCharacter.in_(charList))))
             # sort
             sortedFiltered = []
             for char in charList:
@@ -459,9 +459,9 @@ class CharacterLookup:
         if self.characterDomain == 'Unicode':
             fromObj = []
         else:
-            fromObj = [table.join(self.characterDomainTable,
+            fromObj = [table.join(self._characterDomainTable,
                 table.c.ChineseCharacter \
-                    == self.characterDomainTable.c.ChineseCharacter)]
+                    == self._characterDomainTable.c.ChineseCharacter)]
 
         return self.db.selectScalars(select([table.c.ChineseCharacter],
             table.c.Reading==readingString,
@@ -659,8 +659,8 @@ class CharacterLookup:
         if self.characterDomain == 'Unicode':
             fromObj = []
         else:
-            fromObj = [table.join(self.characterDomainTable, table.c.Variant \
-                == self.characterDomainTable.c.ChineseCharacter)]
+            fromObj = [table.join(self._characterDomainTable, table.c.Variant \
+                == self._characterDomainTable.c.ChineseCharacter)]
 
         return self.db.selectScalars(select([table.c.Variant],
             and_(table.c.ChineseCharacter == char,
@@ -688,8 +688,8 @@ class CharacterLookup:
         if self.characterDomain == 'Unicode':
             fromObj = []
         else:
-            fromObj = [table.join(self.characterDomainTable, table.c.Variant \
-                == self.characterDomainTable.c.ChineseCharacter)]
+            fromObj = [table.join(self._characterDomainTable, table.c.Variant \
+                == self._characterDomainTable.c.ChineseCharacter)]
 
         return self.db.selectRows(select([table.c.Variant, table.c.Type],
             table.c.ChineseCharacter == char,
@@ -827,9 +827,9 @@ class CharacterLookup:
         if self.characterDomain == 'Unicode':
             fromObj = []
         else:
-            fromObj = [table.join(self.characterDomainTable,
+            fromObj = [table.join(self._characterDomainTable,
                 table.c.ChineseCharacter \
-                    == self.characterDomainTable.c.ChineseCharacter)]
+                    == self._characterDomainTable.c.ChineseCharacter)]
 
         result = self.db.selectRows(select(
             [table.c.ChineseCharacter, table.c.ZVariant, table.c.StrokeCount],
@@ -1595,9 +1595,9 @@ class CharacterLookup:
         if self.characterDomain == 'Unicode':
             fromObj = []
         else:
-            fromObj = [table.join(self.characterDomainTable,
+            fromObj = [table.join(self._characterDomainTable,
                 table.c.ChineseCharacter \
-                    == self.characterDomainTable.c.ChineseCharacter)]
+                    == self._characterDomainTable.c.ChineseCharacter)]
 
         entries = self.db.selectRows(select([table.c.ChineseCharacter,
             table.c.ZVariant, table.c.RadicalIndex,
@@ -1632,9 +1632,9 @@ class CharacterLookup:
         if self.characterDomain == 'Unicode':
             fromObj = []
         else:
-            fromObj = [table.join(self.characterDomainTable,
+            fromObj = [table.join(self._characterDomainTable,
                 table.c.ChineseCharacter \
-                    == self.characterDomainTable.c.ChineseCharacter)]
+                    == self._characterDomainTable.c.ChineseCharacter)]
 
         return self.db.selectScalars(select([table.c.ChineseCharacter],
             table.c.RadicalIndex == radicalIndex, from_obj=fromObj))
@@ -1658,9 +1658,9 @@ class CharacterLookup:
         if self.characterDomain == 'Unicode':
             fromObj = []
         else:
-            fromObj = [table.join(self.characterDomainTable,
+            fromObj = [table.join(self._characterDomainTable,
                 table.c.ChineseCharacter \
-                    == self.characterDomainTable.c.ChineseCharacter)]
+                    == self._characterDomainTable.c.ChineseCharacter)]
 
         return self.db.selectScalars(select([table.c.ChineseCharacter],
             table.c.RadicalIndex == radicalIndex, from_obj=fromObj))
@@ -1688,9 +1688,9 @@ class CharacterLookup:
                 residualTable.c.RadicalIndex == kangxiTable.c.RadicalIndex))]
         # constrain to selected character domain
         if self.characterDomain != 'Unicode':
-            fromObj[0] = fromObj[0].join(self.characterDomainTable,
+            fromObj[0] = fromObj[0].join(self._characterDomainTable,
                 residualTable.c.ChineseCharacter \
-                    == self.characterDomainTable.c.ChineseCharacter)
+                    == self._characterDomainTable.c.ChineseCharacter)
 
         return self.db.selectRows(select([residualTable.c.ChineseCharacter,
             residualTable.c.ResidualStrokeCount],
@@ -1717,9 +1717,9 @@ class CharacterLookup:
         if self.characterDomain == 'Unicode':
             fromObj = []
         else:
-            fromObj = [table.join(self.characterDomainTable,
+            fromObj = [table.join(self._characterDomainTable,
                 table.c.ChineseCharacter \
-                    == self.characterDomainTable.c.ChineseCharacter)]
+                    == self._characterDomainTable.c.ChineseCharacter)]
 
         return self.db.selectRows(
             select([table.c.ChineseCharacter, table.c.ResidualStrokeCount],
@@ -2154,9 +2154,9 @@ class CharacterLookup:
                     table.c.ZVariant == joinTables[0].c.ZVariant))
         # constrain to selected character domain
         if self.characterDomain != 'Unicode':
-            fromObject = fromObject.join(self.characterDomainTable,
+            fromObject = fromObject.join(self._characterDomainTable,
                 joinTables[-1].c.ChineseCharacter \
-                    == self.characterDomainTable.c.ChineseCharacter)
+                    == self._characterDomainTable.c.ChineseCharacter)
 
         sel = select([joinTables[0].c.ChineseCharacter,
             joinTables[0].c.ZVariant], and_(*filters), from_obj=[fromObject],
@@ -2229,9 +2229,9 @@ class CharacterLookup:
         if self.characterDomain == 'Unicode':
             fromObj = []
         else:
-            fromObj = [table.join(self.characterDomainTable,
+            fromObj = [table.join(self._characterDomainTable,
                 table.c.ChineseCharacter \
-                    == self.characterDomainTable.c.ChineseCharacter)]
+                    == self._characterDomainTable.c.ChineseCharacter)]
 
         entries = self.db.selectRows(select([table.c.ChineseCharacter,
             table.c.ZVariant, table.c.Decomposition], from_obj=fromObj)\

@@ -169,21 +169,21 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
         for option in defaultOptions:
             if option in ['sourceOperators', 'targetOperators']:
                 continue # TODO in general forbid changing of options?
-            self.assertEqual(defaultInstance.getOption(option),
+            self.assertEqual(getattr(defaultInstance, option),
                 defaultOptions[option],
                 "Default option value %s for %s changed on instantiation: %s" \
                     % (repr(defaultOptions[option]), repr(option),
-                        repr(defaultInstance.getOption(option))) \
+                        repr(getattr(defaultInstance, option))) \
                 + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
 
         # check options against instance without explicit option dict
         instance = self.readingConverterClass()
         for option in defaultOptions:
-            self.assertEqual(instance.getOption(option),
-                defaultInstance.getOption(option),
+            self.assertEqual(getattr(instance, option),
+                getattr(defaultInstance, option),
                 "Option value for %s unequal for default instances: %s and %s" \
-                    % (repr(option), repr(instance.getOption(option)),
-                        repr(defaultInstance.getOption(option))) \
+                    % (repr(option), repr(getattr(instance, option)),
+                        repr(getattr(defaultInstance, option))) \
                 + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
 
     def testLetterCaseConversion(self):
@@ -422,34 +422,34 @@ class CantoneseYaleDialectReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('CantoneseYale', 'CantoneseYale')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {}, 'targetOptions': {'toneMarkType': 'Numbers'}}, [
+        ({'sourceOptions': {}, 'targetOptions': {'toneMarkType': 'numbers'}}, [
             (u'gwóngjāuwá', u'gwong2jau1wa2'),
             (u'gwóngjàuwá', u'gwong2jau1wa2'),
             (u'GWÓNGJĀUWÁ', u'GWONG2JAU1WA2'),
             (u'sīsísisìhsíhsihsīksiksihk', u'si1si2si3si4si5si6sik1sik3sik6'),
             (u'SÌSÍSISÌHSÍHSIHSĪKSIKSIHK', u'SI1SI2SI3SI4SI5SI6SIK1SIK3SIK6'),
             ]),
-        ({'sourceOptions': {'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
+        ({'sourceOptions': {'toneMarkType': 'numbers'}, 'targetOptions': {}}, [
             (u'gwong2jau1wa2', u'gwóngjāuwá'),
             (u'gwong2jauwa2', exception.ConversionError),
             (u'GWONG2JAU1WA2', u'GWÓNGJĀUWÁ'),
             (u'si1si2si3si4si5si6sik1sik3sik6', u'sīsísisìhsíhsihsīksiksihk'),
             (u'SI1SI2SI3SI4SI5SI6SIK1SIK3SIK6', u'SĪSÍSISÌHSÍHSIHSĪKSIKSIHK'),
             ]),
-        ({'sourceOptions': {'toneMarkType': 'Numbers',
-            'YaleFirstTone': '1stToneFalling'},
+        ({'sourceOptions': {'toneMarkType': 'numbers',
+            'yaleFirstTone': '1stToneFalling'},
             'targetOptions': {}}, [
             (u'gwong2jau1wa2', u'gwóngjàuwá'),
             (u'si1si2si3si4si5si6sik1sik3sik6', u'sìsísisìhsíhsihsīksiksihk'),
             (u'SI1SI2SI3SI4SI5SI6SIK1SIK3SIK6', u'SÌSÍSISÌHSÍHSIHSĪKSIKSIHK'),
             ]),
         ({'sourceOptions': {'strictDiacriticPlacement': True},
-            'targetOptions': {'toneMarkType': 'Numbers'}}, [
+            'targetOptions': {'toneMarkType': 'numbers'}}, [
             (u'gwóngjaùwá', u'gwóngjaùwá'),
             ]),
         ({'sourceOptions': {'strictSegmentation': True,
             'strictDiacriticPlacement': True},
-            'targetOptions': {'toneMarkType': 'Numbers'}}, [
+            'targetOptions': {'toneMarkType': 'numbers'}}, [
             (u'gwóngjaùwá', exception.DecompositionError),
             ]),
         ]
@@ -475,7 +475,7 @@ class JyutpingYaleConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('Jyutping', 'CantoneseYale')
 
-    OPTIONS_LIST = [{'YaleFirstTone': '1stToneFalling'}]
+    OPTIONS_LIST = [{'yaleFirstTone': '1stToneFalling'}]
 
     @classmethod
     def titlecase(cls, string):
@@ -535,15 +535,15 @@ class PinyinDialectReferenceTest(ReadingConverterReferenceTest,
         ({'sourceOptions': {}, 'targetOptions': {}}, [
             (u'xīān', u"xī'ān"),
             ]),
-        ({'sourceOptions': {'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
+        ({'sourceOptions': {'toneMarkType': 'numbers'}, 'targetOptions': {}}, [
             ('lao3shi1', u'lǎoshī'),
             ]),
-        ({'sourceOptions': {'toneMarkType': 'Numbers', 'yVowel': 'v'},
+        ({'sourceOptions': {'toneMarkType': 'numbers', 'yVowel': 'v'},
             'targetOptions': {}}, [
             ('nv3hai2', u'nǚhái'),
             ('NV3HAI2', u'NǙHÁI'),
             ]),
-        ({'sourceOptions': {'toneMarkType': 'Numbers'},
+        ({'sourceOptions': {'toneMarkType': 'numbers'},
             'targetOptions': {'shortenedLetters': True}}, [
             ('lao3shi1', u'lǎoŝī'),
             ('Zhi1shi5', u'Ẑīŝi'),
@@ -551,14 +551,14 @@ class PinyinDialectReferenceTest(ReadingConverterReferenceTest,
             (u'nü3hai2', u'nǚhái'),
             ]),
         ({'sourceOptions': {'shortenedLetters': True},
-            'targetOptions': {'toneMarkType': 'Numbers'}}, [
+            'targetOptions': {'toneMarkType': 'numbers'}}, [
             (u'lǎoŝī', 'lao3shi1'),
             (u'Ẑīŝi', 'Zhi1shi5'),
             (u'Běijīŋ', 'Bei3jing1'),
             (u'nǚhái', u'nü3hai2'),
             (u'ĉaŋ', u'chang5'),
             ]),
-        ({'sourceOptions': {'PinyinDiacritics': (u'\u0304', u'\u0301',
+        ({'sourceOptions': {'pinyinDiacritics': (u'\u0304', u'\u0301',
                 u'\u0306', u'\u0300')},
             'targetOptions': {}}, [
             (u'Wŏ peí nĭ qù Xīān.', u"Wǒ péi nǐ qù Xī'ān."),
@@ -580,11 +580,11 @@ class WadeGilesDialectReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('WadeGiles', 'WadeGiles')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
+        ({'sourceOptions': {'toneMarkType': 'numbers'}, 'targetOptions': {}}, [
             (u"Ssŭ1ma3 Ch’ien1", u'Ssŭ¹-ma³ Ch’ien¹'),
             ]),
-        ({'sourceOptions': {'toneMarkType': 'Numbers',
-            'WadeGilesApostrophe': "'"}, 'targetOptions': {}}, [
+        ({'sourceOptions': {'toneMarkType': 'numbers',
+            'wadeGilesApostrophe': "'"}, 'targetOptions': {}}, [
             (u"Ssŭ1ma3 Ch'ien1", u'Ssŭ¹-ma³ Ch’ien¹'),
             ]),
         ({'sourceOptions': {'zeroFinal': u'ǔ'}, 'targetOptions': {}}, [
@@ -611,7 +611,7 @@ class WadeGilesDialectReferenceTest(ReadingConverterReferenceTest,
             (u'chih¹-tao', exception.ConversionError),
             ]),
         ({'sourceOptions': {'neutralToneMark': u'zero',
-            'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
+            'toneMarkType': 'numbers'}, 'targetOptions': {}}, [
             (u'chih1-tao0', u'chih¹-tao'),
             ]),
         ]
@@ -632,7 +632,7 @@ class WadeGilesPinyinReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('WadeGiles', 'Pinyin')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {'toneMarkType': 'Numbers'},
+        ({'sourceOptions': {'toneMarkType': 'numbers'},
             'targetOptions': {}}, [
             (u'kuo', 'guo'),
             (u'kuo³-yü²', u'kuo³-yü²'),
@@ -1061,9 +1061,9 @@ class WadeGilesPinyinReferenceTest(ReadingConverterReferenceTest,
         super(WadeGilesPinyinReferenceTest, self).setUp()
 
         # set up LOC table
-        wgOptions = {'WadeGilesApostrophe': u'`', 'toneMarkType': "None",
+        wgOptions = {'wadeGilesApostrophe': u'`', 'toneMarkType': 'none',
             'diacriticE': 'e', 'zeroFinal': 'u'}
-        pinyinOptions = {'Erhua': 'ignore', 'toneMarkType': 'None'}
+        pinyinOptions = {'erhua': 'ignore', 'toneMarkType': 'none'}
         self.converter = self.f.createReadingConverter('WadeGiles',
             'Pinyin', sourceOptions=wgOptions, targetOptions=pinyinOptions)
         self.wgOperator = self.f.createReadingOperator('WadeGiles', **wgOptions)
@@ -1152,8 +1152,8 @@ class GRDialectReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('GR', 'GR')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {'GRSyllableSeparatorApostrophe': "'"},
-            'targetOptions': {'GRRhotacisedFinalApostrophe': "'"}}, [
+        ({'sourceOptions': {'grSyllableSeparatorApostrophe': "'"},
+            'targetOptions': {'grRhotacisedFinalApostrophe': "'"}}, [
             (u"tian'anmen", u'tian’anmen'),
             (u'jie’l', u"jie'l")
             ]),
@@ -1173,7 +1173,7 @@ class GRPinyinConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('GR', 'Pinyin')
 
-    OPTIONS_LIST = [{'GROptionalNeutralToneMapping': 'neutral'}]
+    OPTIONS_LIST = [{'grOptionalNeutralToneMapping': 'neutral'}]
 
     @classmethod
     def titlecase(cls, string):
@@ -1205,7 +1205,7 @@ class GRPinyinReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('GR', 'Pinyin')
 
     CONVERSION_REFERENCES = [
-        ({'GROptionalNeutralToneMapping': 'neutral'}, [
+        ({'grOptionalNeutralToneMapping': 'neutral'}, [
             # Extract from Y.R. Chao's Sayable Chinese quoted from English
             #   Wikipedia (http://en.wikipedia.org/w/index.php?\
             #title=Gwoyeu_Romatzyh&oldid=301522286
@@ -1261,7 +1261,7 @@ class BraillePinyinReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('MandarinBraille', 'Pinyin')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {}, 'targetOptions': {'toneMarkType': 'Numbers'}}, [
+        ({'sourceOptions': {}, 'targetOptions': {'toneMarkType': 'numbers'}}, [
             (u'⠍⠢⠆', exception.AmbiguousConversionError), # mo/me
             (u'⠇⠢⠆', exception.AmbiguousConversionError), # lo/le
             (u'⠢⠆', exception.AmbiguousConversionError),  # o/e
@@ -1283,7 +1283,7 @@ class PinyinBrailleReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('Pinyin', 'MandarinBraille')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
+        ({'sourceOptions': {'toneMarkType': 'numbers'}, 'targetOptions': {}}, [
             ('lao3shi1', u'⠇⠖⠄⠱⠁'),
             ]),
         ({'sourceOptions': {}, 'targetOptions': {}}, [
@@ -1293,7 +1293,7 @@ class PinyinBrailleReferenceTest(ReadingConverterReferenceTest,
             (u'mè', u'⠍⠢⠆'),
             (u'gu', u'⠛⠥'),
             ]),
-        ({'sourceOptions': {'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
+        ({'sourceOptions': {'toneMarkType': 'numbers'}, 'targetOptions': {}}, [
             (u'Qing ni deng yi1xia!', u'⠅⠡ ⠝⠊ ⠙⠼ ⠊⠁⠓⠫⠰⠂'),
             (u'mangwen shushe', u'⠍⠦⠒ ⠱⠥⠱⠢'),
             (u'shi4yong', u'⠱⠆⠹'),
@@ -1301,7 +1301,7 @@ class PinyinBrailleReferenceTest(ReadingConverterReferenceTest,
             (u'yi3xia', u'⠊⠄⠓⠫'),
             (u'gu', u'⠛⠥'),
             ]),
-        ({'sourceOptions': {'toneMarkType': 'Numbers'},
+        ({'sourceOptions': {'toneMarkType': 'numbers'},
             'targetOptions': {'missingToneMark': 'fifth'}}, [
             (u'gu', exception.ConversionError),
             (u'gu5', u'⠛⠥'),
@@ -1325,7 +1325,7 @@ class PinyinIPAReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('Pinyin', 'MandarinIPA')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {'toneMarkType': 'Numbers'}, 'targetOptions': {}}, [
+        ({'sourceOptions': {'toneMarkType': 'numbers'}, 'targetOptions': {}}, [
             ('lao3shi1', u'lau˨˩.ʂʅ˥˥'),
             ('LAO3SHI1', u'lau˨˩.ʂʅ˥˥'),
             ]),
@@ -1351,7 +1351,7 @@ class WadeGilesIPAReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('WadeGiles', 'MandarinIPA')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {'toneMarkType': 'Numbers'},
+        ({'sourceOptions': {'toneMarkType': 'numbers'},
             'targetOptions': {}}, [
             (u'kuo3-yü2', u'kuo˨˩.y˧˥'),
             (u'LAO3-SHIH1', u'lau˨˩.ʂʅ˥˥'),

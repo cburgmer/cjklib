@@ -94,13 +94,13 @@ class CharacterInfo:
 
     DICTIONARY_INFO = {
         'HanDeDict': {'type': 'CEDICT', 'reading': 'Pinyin',
-            'options': {'toneMarkType': 'Numbers'}, 'defaultLocale' :'C',
+            'options': {'toneMarkType': 'numbers'}, 'defaultLocale' :'C',
             'readingFunc': lambda entities: ' '.join(entities)},
         'CFDICT': {'type': 'CEDICT', 'reading': 'Pinyin',
-            'options': {'toneMarkType': 'Numbers'}, 'defaultLocale' :'C',
+            'options': {'toneMarkType': 'numbers'}, 'defaultLocale' :'C',
             'readingFunc': lambda entities: ' '.join(entities)},
         'CEDICT': {'type': 'CEDICT', 'reading': 'Pinyin',
-            'options': {'toneMarkType': 'Numbers'}, 'defaultLocale' :'C',
+            'options': {'toneMarkType': 'numbers'}, 'defaultLocale' :'C',
             'readingFunc': lambda entities: ' '.join(entities)},
         'CEDICTGR': {'type': 'EDICT', 'reading': 'GR', 'options': {},
             'defaultLocale' :'T',
@@ -503,7 +503,7 @@ class CharacterInfo:
             for conversion.
         @todo Fix:  Conversion without tones will mostly break as the target
             reading doesn't support missing tone information. Prefering
-            'Diacritic' version (Pinyin/CantoneseYale) over 'Numbers' as tone
+            'diacritic' version (Pinyin/CantoneseYale) over 'numbers' as tone
             marks in the absence of any marks would solve this issue (forcing
             fifth tone), but would mean we prefer possible false information
             over the less specific estimation of the given entities as missing
@@ -1231,8 +1231,9 @@ def main():
             parameter = a
 
     try:
-        charInfo = CharacterInfo(locale=charLocale, characterDomain=charDomain,
-            readingN=targetReading, dictionary=dictionary)
+        charInfo = CharacterInfo(charLocale=charLocale,
+            characterDomain=charDomain, readingN=targetReading,
+            dictionary=dictionary)
         charLocale = charInfo.locale
         dictionary = charInfo.dictionary
 

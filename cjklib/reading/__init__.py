@@ -222,7 +222,7 @@ class ReadingFactory(object):
 
         return readingConverterClasses
 
-    sharedState = {'readingOperatorClasses': {}, 'readingConverterClasses': {}}
+    _sharedState = {'readingOperatorClasses': {}, 'readingConverterClasses': {}}
     """
     Dictionary holding global state information used by all instances of the
     ReadingFactory.
@@ -339,7 +339,7 @@ class ReadingFactory(object):
             self.db = DatabaseConnector.getDBConnector(databaseUrl)
         # create object instance cache if needed, shared with all factories
         #   using the same database connection
-        if self.db not in self.sharedState:
+        if self.db not in self._sharedState:
             # clear also generates the structure
             self.clearCache()
         # publish default reading operators and converters
@@ -352,9 +352,9 @@ class ReadingFactory(object):
 
     def clearCache(self):
         """Clears cached classes for the current database."""
-        self.sharedState[self.db] = {}
-        self.sharedState[self.db]['readingOperatorInstances'] = {}
-        self.sharedState[self.db]['readingConverterInstances'] = {}
+        self._sharedState[self.db] = {}
+        self._sharedState[self.db]['readingOperatorInstances'] = {}
+        self._sharedState[self.db]['readingConverterInstances'] = {}
 
     def publishReadingOperator(self, readingOperator):
         """
@@ -364,7 +364,7 @@ class ReadingFactory(object):
         @type readingOperator: classobj
         @param readingOperator: a new L{ReadingOperator} to be published
         """
-        self.sharedState['readingOperatorClasses']\
+        self._sharedState['readingOperatorClasses']\
             [readingOperator.READING_NAME] = readingOperator
 
     def getSupportedReadings(self):
@@ -374,7 +374,7 @@ class ReadingFactory(object):
         @rtype: list of str
         @return: a list of readings a L{ReadingOperator} is available for
         """
-        return self.sharedState['readingOperatorClasses'].keys()
+        return self._sharedState['readingOperatorClasses'].keys()
 
     def getReadingOperatorClass(self, readingN):
         """
@@ -386,9 +386,9 @@ class ReadingFactory(object):
         @return: a L{ReadingOperator} class
         @raise UnsupportedError: if the given reading is not supported.
         """
-        if readingN not in self.sharedState['readingOperatorClasses']:
+        if readingN not in self._sharedState['readingOperatorClasses']:
             raise UnsupportedError("reading '" + readingN + "' not supported")
-        return self.sharedState['readingOperatorClasses'][readingN]
+        return self._sharedState['readingOperatorClasses'][readingN]
 
     def createReadingOperator(self, readingN, **options):
         """
@@ -413,7 +413,7 @@ class ReadingFactory(object):
         @param readingConverter: a new L{readingConverter} to be published
         """
         for fromReading, toReading in readingConverter.CONVERSION_DIRECTIONS:
-            self.sharedState['readingConverterClasses']\
+            self._sharedState['readingConverterClasses']\
                 [(fromReading, toReading)] = readingConverter
 
     def getReadingConverterClass(self, fromReading, toReading):
@@ -433,7 +433,7 @@ class ReadingFactory(object):
         if not self.isReadingConversionSupported(fromReading, toReading):
             raise UnsupportedError("conversion from '" + fromReading \
                 + "' to '" + toReading + "' not supported")
-        return self.sharedState['readingConverterClasses']\
+        return self._sharedState['readingConverterClasses']\
             [(fromReading, toReading)]
 
     def createReadingConverter(self, fromReading, toReading, *args, **options):
@@ -499,7 +499,7 @@ class ReadingFactory(object):
         @return: true if conversion is supported, false otherwise
         """
         return (fromReading, toReading) \
-            in self.sharedState['readingConverterClasses']
+            in self._sharedState['readingConverterClasses']
 
     def getDefaultOptions(self, *args):
         """
@@ -540,7 +540,7 @@ class ReadingFactory(object):
         # construct key for lookup in cache
         cacheKey = (readingN, self._getHashableCopy(options))
         # get cache
-        instanceCache = self.sharedState[self.db]['readingOperatorInstances']
+        instanceCache = self._sharedState[self.db]['readingOperatorInstances']
         if cacheKey not in instanceCache:
             operatorInst = self.createReadingOperator(readingN, **options)
             instanceCache[cacheKey] = operatorInst
@@ -585,7 +585,7 @@ class ReadingFactory(object):
         # construct key for lookup in cache
         cacheKey = ((fromReading, toReading), self._getHashableCopy(options))
         # get cache
-        instanceCache = self.sharedState[self.db]['readingConverterInstances']
+        instanceCache = self._sharedState[self.db]['readingConverterInstances']
         if cacheKey not in instanceCache:
             opt = options.copy()
             opt['hideComplexConverter'] = False
