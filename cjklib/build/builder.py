@@ -31,6 +31,7 @@ provided here for additional usage.
 import types
 import re
 import os.path
+import copy
 import xml.sax
 import csv
 
@@ -71,7 +72,11 @@ class TableBuilder(object):
         """
         self.db = options.get('dbConnectInst')
         for option, defaultValue in self.getDefaultOptions().items():
-            setattr(self, option, options.get(option, defaultValue))
+            optionValue = options.get(option, defaultValue)
+            if not hasattr(optionValue, '__call__'):
+                setattr(self, option, copy.deepcopy(optionValue))
+            else:
+                setattr(self, option, optionValue)
 
     @classmethod
     def getDefaultOptions(cls):
@@ -184,10 +189,10 @@ class TableBuilder(object):
             else:
                 colType = Text()
                 if not self.quiet:
-                    warn("column %s has no type, assuming default 'Text()'" \
+                    warn("column %s has no type, assuming default 'Text()'"
                         % column)
             table.append_column(Column(column, colType,
-                primary_key=(column in primaryKeys)))
+                primary_key=(column in primaryKeys), autoincrement=False))
 
         return table
 
@@ -366,13 +371,12 @@ class UnihanGenerator:
                 continue
             # check if new character entry found
             if entryIndex != unicodeHexIndex and entryIndex != -1:
-                try:
-                    # yield old one
+                # skip characters outside the BMP, i.e. for Chinese characters
+                #   >= 0x20000 unless wideBuild is specified
+                codePoint = int(entryIndex, 16)
+                if self.wideBuild or codePoint < int('20000', 16):
                     char = unichr(int(entryIndex, 16))
                     yield(char, entry)
-                except ValueError:
-                    # catch for Unicode characters outside BMP for narrow builds
-                    pass
                 # empty old entry
                 entry = {}
             entryIndex = unicodeHexIndex
@@ -481,7 +485,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
         'kXHC1983': Text()}
 
     PRIMARY_KEYS = [CHARACTER_COLUMN]
-    
+
     INCLUDE_KEYS = ['kCompatibilityVariant', 'kCantonese', 'kFrequency',
         'kHangul', 'kHanyuPinlu', 'kJapaneseKun', 'kJapaneseOn', 'kMandarin',
         'kRSJapanese', 'kRSKanWa', 'kRSKangXi', 'kRSKorean', 'kSemanticVariant',
@@ -511,7 +515,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
     @classmethod
     def getDefaultOptions(cls):
         options = super(UnihanBuilder, cls).getDefaultOptions()
-        options.update({'wideBuild': False, 'slimTable': True})
+        options.update({'wideBuild': False, 'slimUnihanTable': False})
 
         return options
 
@@ -537,7 +541,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
         if not self.unihanGenerator:
             path = self.findFile(['Unihan.txt', 'Unihan.zip'],
                 "Unihan database file")
-            if self.slimTable:
+            if self.slimUnihanTable:
                 columns = self.INCLUDE_KEYS
             else:
                 columns = None
@@ -614,15 +618,22 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
 
     class KanjidicGenerator:
         """Generates the KANJIDIC table."""
-        def __init__(self, dataPath, tagDict):
+        def __init__(self, dataPath, tagDict, wideBuild=False):
             """
             Initialises the KanjidicGenerator.
 
             @type dataPath: list of str
             @param dataPath: optional list of paths to the data file(s)
+            @type tagDict: dict
+            @param tagDict: a dictionary mapping xml tag paths and attributes
+                to a Column and a conversion function
+            @type wideBuild: bool
+            @param wideBuild: if C{True} characters outside the I{BMP} will be
+                included.
             """
             self.dataPath = dataPath
             self.tagDict = tagDict
+            self.wideBuild = wideBuild
 
         def getHandle(self):
             """
@@ -653,7 +664,9 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
             saxparser.parse(self.getHandle())
 
             for entry in entryList:
-                yield(entry)
+                if self.wideBuild or 'ChineseCharacter' not in entry \
+                    or ord(entry['ChineseCharacter']) < int('20000', 16):
+                    yield(entry)
 
     PROVIDES = 'Kanjidic'
     CHARACTER_COLUMN = 'ChineseCharacter'
@@ -699,10 +712,38 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
     """
 
     def __init__(self, **options):
+        """
+        Constructs the Kanjidic2Builder.
+
+        @param options: extra options
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword dataPath: optional list of paths to the data file(s)
+        @keyword quiet: if C{True} no status information will be printed to
+            stderr
+        @keyword wideBuild: if C{True} characters outside the I{BMP} will be
+            included.
+        """
         super(Kanjidic2Builder, self).__init__(**options)
         tags = [tag for tag, _ in self.KANJIDIC_TAG_MAPPING.values()]
         self.COLUMNS = tags
         self.PRIMARY_KEYS = [self.CHARACTER_COLUMN]
+
+    @classmethod
+    def getDefaultOptions(cls):
+        options = super(Kanjidic2Builder, cls).getDefaultOptions()
+        options.update({'wideBuild': False})
+
+        return options
+
+    @classmethod
+    def getOptionMetaData(cls, option):
+        optionsMetaData = {'wideBuild': {'type': 'bool',
+                'description': "include characters outside the Unicode BMP"}}
+
+        if option in optionsMetaData:
+            return optionsMetaData[option]
+        else:
+            return super(Kanjidic2Builder, cls).getOptionMetaData(option)
 
     def getGenerator(self):
         """
@@ -970,17 +1011,6 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
     PRIMARY_KEYS = COLUMNS
 
     def __init__(self, **options):
-        """
-        Constructs the CharacterVariantBuilder.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword dataPath: optional list of paths to the data file(s)
-        @keyword quiet: if C{True} no status information will be printed to
-            stderr
-        @keyword wideBuild: if C{True} characters outside the I{BMP} will be
-            included.
-        """
         # constructor is only defined for docstring
         super(CharacterVariantBuilder, self).__init__(**options)
 
@@ -1111,7 +1141,7 @@ class CharacterReadingBuilder(UnihanDerivedBuilder):
                     yield(character, reading.lower())
 
     COLUMN_TARGET = 'Reading'
-    COLUMN_TARGET_TYPE = Text()
+    COLUMN_TARGET_TYPE = String(255)
     GENERATOR_CLASS = SimpleReadingSplitter
     DEPENDS = ['Unihan']
 
@@ -1773,7 +1803,7 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
                             + "'")
 
     PROVIDES = 'StrokeCount'
-    DEPENDS = ['CharacterDecomposition', 'StrokeOrder']
+    DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Strokes']
 
     COLUMNS = ['ChineseCharacter', 'StrokeCount', 'ZVariant']
     PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant']
@@ -1966,7 +1996,7 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                         "for character '" + char + "' for Z-variant(s) '" \
                         + ''.join([str(z) for z in warningZVariants]) + "'")
 
-    DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Unihan']
+    DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Strokes', 'Unihan']
     COLUMN_SOURCE = 'kTotalStrokes'
 
     def getGenerator(self):
@@ -2376,7 +2406,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
     PROVIDES = 'CharacterRadicalResidualStrokeCount'
     DEPENDS = ['CharacterDecomposition', 'StrokeCount', 'KangxiRadical',
         'KangxiRadicalIsolatedCharacter', 'RadicalEquivalentCharacter',
-        'CharacterKangxiRadical']
+        'CharacterKangxiRadical', 'Strokes']
 
     COLUMNS = ['ChineseCharacter', 'ZVariant', 'RadicalIndex', 'RadicalForm',
         'RadicalZVariant', 'MainCharacterLayout', 'RadicalRelativePosition',

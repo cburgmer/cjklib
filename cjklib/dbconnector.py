@@ -123,7 +123,8 @@ class DatabaseConnector:
         """
         self.databaseUrl = databaseUrl
         # connect to database
-        self.engine = create_engine(databaseUrl, echo=False)
+        self.engine = create_engine(databaseUrl, echo=False,
+            convert_unicode=True)
         # create connection
         self.connection = self.engine.connect()
         # parse table information
@@ -138,12 +139,14 @@ class DatabaseConnector:
         Registers all views and makes them accessible through the same methods
         as tables in SQLalchemy.
 
+        @rtype: list of str
+        @return: List of registered views
         @attention: Currently only works for MySQL and SQLite.
         """
         if self.engine.name == 'mysql':
             dbName = url.make_url(self.databaseUrl).database
             viewList = self.execute(
-                text("""SELECT table_name FROM Information_schema.view
+                text("""SELECT table_name FROM Information_schema.views
                     WHERE table_schema = :dbName"""),
                 dbName=dbName).fetchall()
         elif self.engine.name == 'sqlite':
@@ -159,11 +162,45 @@ class DatabaseConnector:
             #   http://www.sqlalchemy.org/trac/ticket/812
             Table(viewName, self.metadata, autoload=True)
 
+        return [viewName for viewName, in viewList]
+
+    def getTables(self):
+        """
+        Gets all tables (and views) from the Database.
+
+        @rtype: list of str
+        @return: all tables and views
+        """
+        tables = self._registerViews()
+        tables.extend(self.engine.table_names())
+        return tables
+
     def execute(self, *options, **keywords):
         """
         Executes a request on the given database.
         """
         return self.connection.execute(*options, **keywords)
+
+    def _decode(self, data):
+        """
+        Decodes a data row.
+
+        MySQL will currently return utf8_bin collated values as string object
+        encoded in utf8. We need to fix that here.
+        @param data: a tuple or scalar value
+        """
+        if type(data) == type(()):
+            newData = []
+            for cell in data:
+                if type(cell) == type(''):
+                    cell = cell.decode('utf8')
+                newData.append(cell)
+            return tuple(newData)
+        else:
+            if type(data) == type(''):
+                return data.decode('utf8')
+            else:
+                return data
 
     # select commands
 
@@ -179,7 +216,7 @@ class DatabaseConnector:
         firstRow = result.fetchone()
         assert not firstRow or len(firstRow) == 1
         if firstRow:
-            return firstRow[0]
+            return self._decode(firstRow[0])
 
     def selectScalars(self, request):
         """
@@ -189,7 +226,7 @@ class DatabaseConnector:
         @return: a list of scalars
         """
         result = self.connection.execute(request)
-        return [row[0] for row in result.fetchall()]
+        return [self._decode(row[0]) for row in result.fetchall()]
 
     def selectRow(self, request):
         """
@@ -202,7 +239,7 @@ class DatabaseConnector:
         assert result.rowcount <= 1
         firstRow = result.fetchone()
         if firstRow:
-            return tuple(firstRow)
+            return self._decode(tuple(firstRow))
 
     def selectRows(self, request):
         """
@@ -212,4 +249,4 @@ class DatabaseConnector:
         @return: a list of scalars
         """
         result = self.connection.execute(request)
-        return [tuple(row) for row in result.fetchall()]
+        return [self._decode(tuple(row)) for row in result.fetchall()]

@@ -87,6 +87,13 @@ character set using the general Unicode collation:
 
 CREATE DATABASE cjklib DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
+You might need to set access rights, too (substitute user_name and
+host_name):
+
+GRANT ALL ON cjklib_unittest.* TO 'user_name'@'host_name';
+
+Now you need to change cjklib.conf to tell cjklib to use MySQL.
+
 MySQL < 6 doesn't support true UTF-8, and uses a Version with max 3 bytes, so
 characters outside the Basic Multilingual Plane (BMP) can't be encoded. Building
 the Unihan database thus might result in Warnings, Characters above 0x20000
@@ -96,5 +103,5 @@ See above for full-text support.
 
 Contributing
 ------------
-If you are interested in contributing to cjklib or have any comments, please
-contact <cburgmer@ira.uka.de>.
+If you are interested in contributing to cjklib or have any comments, join
+cjklib-devel@googlegroups.com (http://groups.google.com/group/cjklib-devel).

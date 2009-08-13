@@ -30,6 +30,12 @@ or to ommit current slow tests:
     -e testGetCharactersForReadingAcceptsAllEntities
 to use the test cases included in cjklib/test/.
 
+To test the build methods you need to download external files first:
+  cd test
+  python download.py
+Currently only SQLite in-memory database testing is enabled. You might want
+to enable MySQL, see cjklib/test/build.py for details.
+
 To check documentation included in doc strings ("doctest"), on BASH do:
   nosetests --with-doctest cjklib.characterlookup cjklib.reading
     cjklib.reading.operator cjklib.reading.converter
@@ -70,4 +76,4 @@ Source code checking
 pylint can be used to check for bugs and code with poor quality:
   pylint --rcfile=pylintrc cjklib
 While some useless warnings and errors are already surpressed, others might
-crop up. Use your own gudging on evaluation.
+crop up. Use your own judging on evaluation.

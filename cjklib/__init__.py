@@ -101,7 +101,7 @@ mistakes do happen, especially for data which differs on different locales.
 
 Dependencies
 ============
-cjklib is written in Python and is well tested on Python 2.5.
+cjklib is written in Python and is well tested on Python 2.5 and 2.6.
 Apart from this dependency it needs a database back-end for most of its parts
 and library SQLAlchemy.
 Currently tested are:

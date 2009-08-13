@@ -5,6 +5,7 @@ include cjklib/reading/*.py
 include setup.py
 include cjknife
 include buildcjkdb
+include test/*.py
 include examples/*.py
 include scripts/*.py
 include README

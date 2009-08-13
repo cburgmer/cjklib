@@ -349,6 +349,7 @@ There is NO WARRANTY, to the extent permitted by law.""" \
     def runBuild(self, buildGroupList, options):
         if not buildGroupList:
             return
+        buildGroupList = set(buildGroupList)
         # by default fail if a table couldn't be built
         options['noFail'] = False
         if 'all' in buildGroupList or 'allAvail' in buildGroupList:

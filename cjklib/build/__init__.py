@@ -156,7 +156,7 @@ class DatabaseBuilder:
         """
         self.options.update(options)
 
-    def getBuilderOptions(self, builderClass):
+    def getBuilderOptions(self, builderClass, ignoreUnknown=False):
         """
         Gets a dictionary of options for the given builder that were specified
         to the DatabaseBuilder.
@@ -165,12 +165,18 @@ class DatabaseBuilder:
         C{'dataPath'}) or I{local} options given in the formats
         C{'--BuilderClassName-option'} or C{'--TableName-option'}. For example
         C{'--Unihan-wideBuild'} sets the option C{'wideBuild'} for all builders
-        providing the C{Unihan} table.
+        providing the C{Unihan} table. C{'--BuilderClassName-option'} has
+        precedence over C{'--TableName-option'}.
 
         @type builderClass: classobj
         @param builderClass: L{TableBuilder} class
         @rtype: dict
         @return: dictionary of options for the given table builder.
+        @type ignoreUnknown: bool
+        @param ignoreUnknown: if set to C{True} unknown options will be ignored,
+            otherwise a ValueError is raised.
+        @raise ValueError: if unknown option is specified and ignoreUnknown is
+            C{False}
         """
         understoodOptions = builderClass.getDefaultOptions()
 
@@ -179,6 +185,7 @@ class DatabaseBuilder:
             if not o.startswith('--')])
 
         # no set (and maybe overwrite with) locals
+        builderSpecificOptions = {}
         for option, value in self.options.items():
             if option.startswith('--'):
                 # local options
@@ -187,12 +194,54 @@ class DatabaseBuilder:
                 if className == builderClass.__name__ \
                     or className == builderClass.PROVIDES:
                     if optionName in understoodOptions:
-                        builderOptions[optionName] = value
+                        if className == builderClass.__name__:
+                            # queue for later adding
+                            builderSpecificOptions[optionName] = value
+                        else:
+                            builderOptions[optionName] = value
                     elif className and not self.quiet:
-                        warn('Unknown option "%s" for builder "%s", ignoring' \
-                            % (optionName, className))
+                        errorMsg = "Unknown option '%s' for builder '%s'" \
+                            % (optionName, className)
+                        if ignoreUnknown:
+                            warn(errorMsg + ", ignoring")
+                        else:
+                            raise ValueError(errorMsg)
+
+        # now add builder specific options that can overwrite table options
+        builderOptions.update(builderSpecificOptions)
 
         return builderOptions
+
+    def setBuilderOptions(self, builderClass, options, exclusive=False):
+        """
+        Sets the options for the given builder that were specified.
+
+        @type builderClass: classobj
+        @param builderClass: L{TableBuilder} class
+        @type options: dict
+        @param options: dictionary of options for the given table builder.
+        @type exclusive: bool
+        @param exclusive: if set to C{True} unspecified options will be set to
+            the default value.
+        @raise ValueError: if unknown option is specified
+        """
+        understoodOptions = builderClass.getDefaultOptions()
+        newOptions = {}
+
+        for option, value in options.items():
+            if option not in understoodOptions:
+                raise ValueError("Unknown option '%s' for builder '%s'" \
+                    % (option, builderClass.__name__))
+            localOptName = '--%s-%s' % (builderClass.__name__, option)
+            newOptions[localOptName] = value
+
+        if exclusive:
+            for option, defaultValue in understoodOptions.items():
+                if option not in options:
+                    localOptName = '--%s-%s' % (builderClass.__name__, option)
+                    newOptions[localOptName] = defaultValue
+
+        self.options.update(newOptions)
 
     def build(self, tables):
         """
@@ -248,9 +297,10 @@ class DatabaseBuilder:
             # check first if the table will only be created for resolving
             # dependencies and note it down for deletion
             transaction = self.db.connection.begin()
+
             try:
                 # get specific options given to the DatabaseBuilder
-                options = self.getBuilderOptions(builder)
+                options = self.getBuilderOptions(builder, ignoreUnknown=True)
                 options['dbConnectInst'] = self.db
                 instance = builder(**options)
                 # mark tables as deletable if its only provided because of
@@ -324,6 +374,7 @@ class DatabaseBuilder:
 
         @type tables: list
         @param tables: list of tables to remove
+        @raise UnsupportedError: if a unsupportes table is provided.
         """
         if type(tables) != type([]):
             tables = [tables]
@@ -331,16 +382,20 @@ class DatabaseBuilder:
         tableBuilderClasses = []
         for table in set(tables):
             if not self.tableBuilderLookup.has_key(table):
-                raise exception.UnsupportedError("table '" + table \
-                    + "' not provided")
+                raise exception.UnsupportedError("Table '%s' not provided"
+                    % table)
             tableBuilderClasses.append(self.tableBuilderLookup[table])
 
         for builder in tableBuilderClasses:
-            instance = builder(self.dataPath, self.db, self.quiet)
             if self.db.engine.has_table(builder.PROVIDES):
                 if not self.quiet:
-                    warn("Removing previously built table '" \
-                        + builder.PROVIDES + "'")
+                    warn("Removing previously built table '%s'"
+                        % builder.PROVIDES)
+
+                # get specific options given to the DatabaseBuilder
+                options = self.getBuilderOptions(builder, ignoreUnknown=True)
+                options['dbConnectInst'] = self.db
+                instance = builder(**options)
                 instance.remove()
 
     def needsRebuild(self, tableName):
@@ -351,7 +406,7 @@ class DatabaseBuilder:
         @type tableName: classobj
         @param tableName: L{TableBuilder} class
         @rtype: bool
-        @return: True, if table needs to be rebuilt
+        @return: C{True}, if table needs to be rebuilt
         """
         if self.rebuildExisting:
             return True
