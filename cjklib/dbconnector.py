@@ -24,7 +24,7 @@ import os.path
 import ConfigParser
 import logging
 
-from sqlalchemy import MetaData, Table, create_engine
+from sqlalchemy import MetaData, Table, engine_from_config
 from sqlalchemy.sql import text
 from sqlalchemy.engine import url
 
@@ -47,50 +47,67 @@ class DatabaseConnector:
         3. C{selectRow()}: returns only one entry
         4. C{selectScalar()}: returns one single value
     """
-    dbconnectInst = None
+    DEFAULT_URL = 'sqlite:///cjklib.db'
+    """Default database url."""
+
+    _dbconnectInst = None
     """
     Instance of a L{DatabaseConnector} used for all connections to SQL server.
     """
-    databaseUrl = None
+    _dbconnectInstSettings = None
     """
     Database url used to create the connector instance.
     """
 
     @classmethod
-    def getDBConnector(cls, databaseUrl=None):
+    def getDBConnector(cls, configuration=None, projectName='cjklib'):
         """
         Returns a shared L{DatabaseConnector} instance.
 
-        @type databaseUrl: str
-        @param databaseUrl: database url passed to the L{DatabaseConnector}
-        """
-        if cls.databaseUrl and databaseUrl \
-            and cls.databaseUrl != databaseUrl:
-            cls.dbconnectInst = None
+        To connect to a user specific database give
+        C{{'url': 'driver://user:pass@host/database'}} as configuration.
+        See the documentation of sqlalchemy.create_engine() for more options.
 
-        if not cls.dbconnectInst:
-            # get database settings and connect to database
-            # if no settings given read from config or assume default
-            if not databaseUrl:
+        @param configuration: database connection options for SQLAlchemy
+        @type projectName: str
+        @param projectName: name of project which will be used as name of the
+            config file
+        """
+        # allow single string and interpret as url
+        if type(configuration) in (type(''), type(u'')):
+            configuration = {'url': configuration}
+
+        # if settings changed, remove old instance
+        if cls._dbconnectInstSettings and configuration \
+            and cls._dbconnectInstSettings != configuration:
+            cls._dbconnectInst = None
+
+        if not cls._dbconnectInst:
+            # get database settings and connect to database, if no settings
+            #   given read from config or assume default
+            if not configuration:
                 # try to read from config
-                databaseSettings = DatabaseConnector.getConfigSettings('cjklib')
-                if 'databaseUrl' in databaseSettings:
-                    databaseUrl = databaseSettings['databaseUrl']
-                else:
-                    # default
-                    databaseUrl = 'sqlite:///cjklib.db'
-            cls.dbconnectInst = DatabaseConnector(databaseUrl)
-            cls.databaseUrl = databaseUrl
-        return cls.dbconnectInst
+                databaseSettings = DatabaseConnector.getConfigSettings(
+                    projectName)
+            else:
+                databaseSettings = configuration.copy()
+            databaseSettings.setdefault('url', cls.DEFAULT_URL)
+
+            cls._dbconnectInst = DatabaseConnector(databaseSettings)
+            cls._dbconnectInstSettings = databaseSettings
+
+        return cls._dbconnectInst
 
     @staticmethod
-    def getConfigSettings(projectName):
+    def getConfigSettings(projectName='cjklib', section='Connection'):
         """
         Gets the SQL connection parameter from a config file.
 
         @type projectName: str
         @param projectName: name of project which will be used as name of the
             config file
+        @type section: str
+        @param section: section of the config file
         @rtype: dict
         @return: configuration settings for the given project
         """
@@ -101,30 +118,29 @@ class DatabaseConnector:
                     + projectName + '.conf'),
                 os.path.join('/', 'etc', projectName + '.conf')])
 
-            try:
-                databaseSettings['databaseUrl'] = config.get('General',
-                    'databaseUrl')
-            except ConfigParser.NoOptionError:
-                pass
-
-            return databaseSettings
-
+            return dict(config.items(section))
         except ConfigParser.NoSectionError:
             return {}
 
-    def __init__(self, databaseUrl):
+    def __init__(self, configuration):
         """
         Constructs the DatabaseConnector object and connects to the database
         specified by the options given in databaseSettings.
 
-        @type databaseUrl: str
-        @param databaseUrl: database connection setting in the format
-            C{driver://user:pass@host/database}.
+        To connect to a user specific database give
+        C{{'url': 'driver://user:pass@host/database'}} as configuration.
+        See the documentation of sqlalchemy.create_engine() for more options.
+
+        @type configuration: dict
+        @param configuration: database connection options for SQLAlchemy
         """
-        self.databaseUrl = databaseUrl
+        configuration = configuration or {}
+        if type(configuration) in (type(''), type(u'')):
+            # backwards compatibility to option databaseUrl
+            configuration = {'url': configuration}
+        self.databaseUrl = configuration['url']
         # connect to database
-        self.engine = create_engine(databaseUrl, echo=False,
-            convert_unicode=True)
+        self.engine = engine_from_config(configuration, prefix='')
         # create connection
         self.connection = self.engine.connect()
         # parse table information
@@ -144,7 +160,7 @@ class DatabaseConnector:
         @attention: Currently only works for MySQL and SQLite.
         """
         if self.engine.name == 'mysql':
-            dbName = url.make_url(self.databaseUrl).database
+            dbName = self.engine.url.database
             viewList = self.execute(
                 text("""SELECT table_name FROM Information_schema.views
                     WHERE table_schema = :dbName"""),

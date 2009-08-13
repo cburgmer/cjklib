@@ -31,13 +31,15 @@ import unittest
 
 from cjklib.reading import ReadingFactory, converter, operator
 from cjklib import exception
+from cjklib.test import NeedsDatabaseTest
 
-class ReadingConverterTest():
+class ReadingConverterTest(NeedsDatabaseTest):
     """Base class for testing of L{ReadingConverter}s."""
     CONVERSION_DIRECTION = None
     """Tuple of reading names for conversion from reading A to reading B."""
 
     def setUp(self):
+        NeedsDatabaseTest.setUp(self)
         self.fromReading, self.toReading = self.CONVERSION_DIRECTION
 
         for clss in self.getReadingConverterClasses().values():
@@ -47,7 +49,7 @@ class ReadingConverterTest():
         else:
             self.readingConverterClass = None
 
-        self.f = ReadingFactory()
+        self.f = ReadingFactory(dbConnectInst=self.db)
 
     def shortDescription(self):
         methodName = getattr(self, self.id().split('.')[-1])
@@ -335,7 +337,7 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
                                 + ', options %s)' % options)
 
 
-class ReadingConverterTestCaseCheck(unittest.TestCase):
+class ReadingConverterTestCaseCheck(NeedsDatabaseTest, unittest.TestCase):
     """
     Checks if every L{ReadingConverter} has its own
     L{ReadingConverterConsistencyTest}.
@@ -347,7 +349,7 @@ class ReadingConverterTestCaseCheck(unittest.TestCase):
         testClasses = self.getReadingConverterConsistencyTestClasses()
         testClassReadingNames = [clss.CONVERSION_DIRECTION for clss \
             in testClasses]
-        self.f = ReadingFactory()
+        self.f = ReadingFactory(dbConnectInst=self.db)
 
         for clss in self.f.getReadingConverterClasses():
             for direction in clss.CONVERSION_DIRECTIONS:

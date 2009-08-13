@@ -29,14 +29,16 @@ import unicodedata
 
 from cjklib.reading import ReadingFactory
 from cjklib import exception
+from cjklib.test import NeedsDatabaseTest
 
-class ReadingOperatorTest():
+class ReadingOperatorTest(NeedsDatabaseTest):
     """Base class for testing of L{ReadingOperator}s."""
     READING_NAME = None
     """Name of reading to test"""
 
     def setUp(self):
-        self.f = ReadingFactory()
+        NeedsDatabaseTest.setUp(self)
+        self.f = ReadingFactory(dbConnectInst=self.db)
 
         for clss in self.f.getReadingOperatorClasses():
             if clss.READING_NAME == self.READING_NAME:
@@ -501,7 +503,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                             % (self.READING_NAME, dialect))
 
 
-class ReadingOperatorTestCaseCheck(unittest.TestCase):
+class ReadingOperatorTestCaseCheck(NeedsDatabaseTest, unittest.TestCase):
     """
     Checks if every L{ReadingOperator} has its own
     L{ReadingOperatorConsistencyTest}.
@@ -512,7 +514,7 @@ class ReadingOperatorTestCaseCheck(unittest.TestCase):
         """
         testClasses = self.getReadingOperatorConsistencyTestClasses()
         testClassReadingNames = [clss.READING_NAME for clss in testClasses]
-        self.f = ReadingFactory()
+        self.f = ReadingFactory(dbConnectInst=self.db)
 
         for clss in self.f.getReadingOperatorClasses():
             self.assert_(clss.READING_NAME in testClassReadingNames,

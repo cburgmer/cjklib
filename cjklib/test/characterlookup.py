@@ -28,9 +28,9 @@ import unittest
 from cjklib.reading import ReadingFactory
 from cjklib import characterlookup
 from cjklib import exception
-from cjklib import dbconnector
+from cjklib.test import NeedsDatabaseTest
 
-class CharacterLookupTest():
+class CharacterLookupTest(NeedsDatabaseTest):
     """Base class for testing the L{characterlookup.CharacterLookup} class."""
     class CacheDict(dict):
         def __init__(self, cachedDict, *args, **options):
@@ -49,7 +49,7 @@ class CharacterLookupTest():
         """
         def __init__(self, dbConnectInst, mockTables=None,
             mockTableDefinition=None, mockNonTables=None):
-            
+
             self._dbConnectInst = dbConnectInst
             self._dbConnectInst.engine \
                 = CharacterLookupReadingMethodsTestCase.EngineMock(
@@ -57,7 +57,7 @@ class CharacterLookupTest():
 
             self.mockTables = mockTables or []
             self.mockTableDefinition = mockTableDefinition or {}
-        
+
         def __getattr__(self, attr):
             if attr == 'tables':
                 return CharacterLookupReadingMethodsTestCase.CacheDict(
@@ -84,7 +84,9 @@ class CharacterLookupTest():
             return getattr(self._engine, attr)
 
     def setUp(self):
-        self.characterLookup = characterlookup.CharacterLookup('T')
+        NeedsDatabaseTest.setUp(self)
+        self.characterLookup = characterlookup.CharacterLookup('T',
+            dbConnectInst=self.db)
 
     def shortDescription(self):
         methodName = getattr(self, self.id().split('.')[-1])
@@ -100,44 +102,44 @@ class CharacterLookupMetaTestCase(CharacterLookupTest,
         """Test initialisation."""
         # test if locales are accepted
         for locale in 'TCJKV':
-            characterlookup.CharacterLookup(locale)
+            characterlookup.CharacterLookup(locale, dbConnectInst=self.db)
 
         # test if locale is rejected
-        self.assertRaises(ValueError, characterlookup.CharacterLookup, 'F')
+        self.assertRaises(ValueError, characterlookup.CharacterLookup, 'F',
+            dbConnectInst=self.db)
 
-        # test user specified database connector
-        db = dbconnector.DatabaseConnector.getDBConnector()
-        characterlookup.CharacterLookup('T', dbConnectInst=db)
+        # test default database connector
+        characterlookup.CharacterLookup('T')
 
         # test if character domain 'Unicode' is accepted
-        characterlookup.CharacterLookup('T', 'Unicode')
+        characterlookup.CharacterLookup('T', 'Unicode', dbConnectInst=self.db)
 
         # test if character domain is accepted
         from sqlalchemy import Table, Column, String
         domain = 'MyDomain'
-        tableObj = Table(domain + 'Set', db.metadata,
+        tableObj = Table(domain + 'Set', self.db.metadata,
             Column('ChineseCharacter', String))
-        mydb = CharacterLookupTest.DatabaseConnectorMock(db,
+        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
             mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
         characterlookup.CharacterLookup('T', domain, dbConnectInst=mydb)
-        db.metadata.remove(tableObj)
+        self.db.metadata.remove(tableObj)
 
         # test if character domain is rejected
         domain = 'MyDomain'
-        mydb = CharacterLookupTest.DatabaseConnectorMock(db,
+        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
             mockNonTables=[domain + 'Set'])
         self.assertRaises(ValueError, characterlookup.CharacterLookup, 'T',
             domain, dbConnectInst=mydb)
 
         # test if character domain is rejected
         domain = 'MyOtherDomain'
-        tableObj = Table(domain + 'Set', db.metadata,
+        tableObj = Table(domain + 'Set', self.db.metadata,
             Column('SomeColumn', String))
-        mydb = CharacterLookupTest.DatabaseConnectorMock(db,
+        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
             mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
         self.assertRaises(ValueError, characterlookup.CharacterLookup, 'T',
             domain, dbConnectInst=mydb)
-        db.metadata.remove(tableObj)
+        self.db.metadata.remove(tableObj)
 
     def testAvailableCharacterDomains(self):
         """Test if C{getAvailableCharacterDomains()} returns proper domains."""
@@ -146,33 +148,32 @@ class CharacterLookupMetaTestCase(CharacterLookupTest,
             in self.characterLookup.getAvailableCharacterDomains())
 
         # test provided domain
-        db = dbconnector.DatabaseConnector.getDBConnector()
         from sqlalchemy import Table, Column, String
         domain = 'MyDomain'
-        tableObj = Table(domain + 'Set', db.metadata,
+        tableObj = Table(domain + 'Set', self.db.metadata,
             Column('ChineseCharacter', String))
-        mydb = CharacterLookupTest.DatabaseConnectorMock(db,
+        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
             mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
         cjk = characterlookup.CharacterLookup('T', dbConnectInst=mydb)
         self.assert_(domain in cjk.getAvailableCharacterDomains())
-        db.metadata.remove(tableObj)
+        self.db.metadata.remove(tableObj)
 
         # test domain not included
         domain = 'MyDomain'
-        mydb = CharacterLookupTest.DatabaseConnectorMock(db,
+        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
             mockNonTables=[domain + 'Set'])
         cjk = characterlookup.CharacterLookup('T', dbConnectInst=mydb)
         self.assert_(domain not in cjk.getAvailableCharacterDomains())
 
         # test domain not included
         domain = 'MyOtherDomain'
-        tableObj = Table(domain + 'Set', db.metadata,
+        tableObj = Table(domain + 'Set', self.db.metadata,
             Column('SomeColumn', String))
-        mydb = CharacterLookupTest.DatabaseConnectorMock(db,
+        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
             mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
         cjk = characterlookup.CharacterLookup('T', dbConnectInst=mydb)
         self.assert_(domain not in cjk.getAvailableCharacterDomains())
-        db.metadata.remove(tableObj)
+        self.db.metadata.remove(tableObj)
 
 
 class CharacterLookupReadingMethodsTestCase(CharacterLookupTest,
@@ -189,7 +190,7 @@ class CharacterLookupReadingMethodsTestCase(CharacterLookupTest,
 
     def setUp(self):
         CharacterLookupTest.setUp(self)
-        self.f = ReadingFactory()
+        self.f = ReadingFactory(dbConnectInst=self.db)
 
     def testReadingMappingAvailability(self):
         """
@@ -281,7 +282,7 @@ class CharacterLookupReferenceTestCase(CharacterLookupTest):
             self._instanceDict = {}
         if options not in self._instanceDict:
             self._instanceDict[options] = characterlookup.CharacterLookup(
-                *options)
+                dbConnectInst=self.db, *options)
 
         return self._instanceDict[options]
 
@@ -354,7 +355,7 @@ class CharacterLookupGetReadingForCharacterReferenceTestCase(
     METHOD_NAME = 'getReadingForCharacter'
 
     REFERENCE_LIST = [
-        (('T'), [
+        (('T', ), [
             ((u'中', 'Pinyin'), {}, [u'zhōng', u'zhòng']),
             ((u'漢', 'Hangul'), {}, [u'한']),
             ((u'漢', 'MandarinBraille'), {}, [u'⠓⠧⠆', u'⠞⠧⠁']),
