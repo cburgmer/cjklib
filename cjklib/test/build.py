@@ -41,8 +41,8 @@ class TableBuilderTest():
     """Builders of depending tables to prefer."""
 
     DATABASES = [
-        #'sqlite://', # SQLite in-memory database
-        'mysql:///cjklib_unittest?charset=utf8', # see below
+        'sqlite://', # SQLite in-memory database
+        #'mysql:///cjklib_unittest?charset=utf8', # see below
         ]
     """
     Databases to test.
