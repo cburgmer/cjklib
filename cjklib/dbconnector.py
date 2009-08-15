@@ -47,7 +47,7 @@ class DatabaseConnector:
         3. C{selectRow()}: returns only one entry
         4. C{selectScalar()}: returns one single value
     """
-    DEFAULT_URL = 'sqlite:///cjklib.db'
+    DEFAULT_URL_TEMPLATE = 'sqlite:///%s.db'
     """Default database url."""
 
     _dbconnectInst = None
@@ -91,15 +91,14 @@ class DatabaseConnector:
                     projectName)
             else:
                 databaseSettings = configuration.copy()
-            databaseSettings.setdefault('url', cls.DEFAULT_URL)
 
             cls._dbconnectInst = DatabaseConnector(databaseSettings)
             cls._dbconnectInstSettings = databaseSettings
 
         return cls._dbconnectInst
 
-    @staticmethod
-    def getConfigSettings(projectName='cjklib', section='Connection'):
+    @classmethod
+    def getConfigSettings(cls, projectName='cjklib', section='Connection'):
         """
         Gets the SQL connection parameter from a config file.
 
@@ -112,15 +111,18 @@ class DatabaseConnector:
         @return: configuration settings for the given project
         """
         try:
-            databaseSettings = {}
             config = ConfigParser.SafeConfigParser()
             config.read([os.path.join(os.path.expanduser('~'), '.' \
                     + projectName + '.conf'),
                 os.path.join('/', 'etc', projectName + '.conf')])
 
-            return dict(config.items(section))
+            configuration = dict(config.items(section))
         except ConfigParser.NoSectionError:
-            return {}
+            configuration = {}
+
+        configuration.setdefault('url',
+            cls.DEFAULT_URL_TEMPLATE % projectName)
+        return configuration
 
     def __init__(self, configuration):
         """
