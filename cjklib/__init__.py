@@ -80,7 +80,7 @@ The following data is used:
     - Radical residual stroke count (from kRSKangxi) and total stroke count
         (from KTotalStrokes)
     - Mandarin character readings in Pinyin (from kMandarin, kHanyuPinlu,
-        kXHC1983)
+        kXHC1983, kHanyuPinyin)
     - Cantonese character readings in Jyutping (from kCantonese)
     - Korean character readings in Hangul (from kHangul)
     - Character variant forms (from kCompatibilityVariant, kSemanticVariant,
@@ -93,11 +93,9 @@ This includes dictionary data from:
     - kHanyuPinlu: Xiàndài Hànyǔ Pínlǜ Cídiǎn (現代漢語頻率詞典).
         北京語言學院語言教學研究所編著, First edition 1986/6, 2nd printing 1990/4,
         ISBN 7-5619-0094-5.
-
-Currently no data validation scheme is implemented as this library is still
-in early development. Rather than specifying few data cjklib tries to support as
-much options as possible. The library tries to be as accurate as possible but
-mistakes do happen, especially for data which differs on different locales.
+    - kHanyuPinyin: Hànyǔ Dà Zìdiǎn (漢語大字典).
+        許力以主任，徐中舒主編，（漢語大字典工作委員會）。
+        武漢：四川辭書出版社，湖北辭書出版社, 1986-1990. ISBN: 7-5403-0030-2/H.16.
 
 Dependencies
 ============

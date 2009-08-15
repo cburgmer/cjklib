@@ -20,12 +20,6 @@ Provides the building methods for the cjklib package.
 
 Some L{TableBuilder} implementations aren't used by the CJK library but are
 provided here for additional usage.
-
-@todo Impl: Implement UnihanBuilder52 for Unicode 5.2.0 which ships with several
-    text files included in one .zip
-@todo Impl: Include new source kHanyuPinyin for Pinyin. Think about extending
-    the Pinyin tables with source information, allowing for selection of a
-    subset of sources.
 """
 
 import types
@@ -317,12 +311,18 @@ class UnihanGenerator:
 
     ENTRY_REGEX = re.compile(ur"U\+([0-9A-F]+)\s+(\w+)\s+(.+)\s*$")
 
-    def __init__(self, fileName, useKeys=None, wideBuild=False, quiet=False):
+    UNIHAN_FILE_MEMBERS = ['Unihan_DictionaryIndices.txt',
+        'Unihan_DictionaryLikeData.txt', 'Unihan_NormativeProperties.txt',
+        'Unihan_NumericValues.txt', 'Unihan_OtherMappings.txt',
+        'Unihan_RadicalStrokeCounts.txt', 'Unihan_Readings.txt',
+        'Unihan_Variants.txt']
+
+    def __init__(self, fileNames, useKeys=None, wideBuild=False, quiet=False):
         """
         Constructs the UnihanGenerator.
 
-        @type fileName: str
-        @param fileName: path to the Unihan database file
+        @type fileNames: list of str
+        @param fileNames: paths to the Unihan database files
         @type useKeys: list
         @param useKeys: if given only these keys will be read from the table,
             otherwise all keys will be returned
@@ -332,7 +332,7 @@ class UnihanGenerator:
         @type quiet: bool
         @param quiet: if true no status information will be printed to stderr
         """
-        self.fileName = fileName
+        self.fileNames = fileNames
         self.wideBuild = wideBuild
         self.quiet = quiet
         if useKeys != None:
@@ -349,64 +349,95 @@ class UnihanGenerator:
         all other data is given as is. These are merged into one entry for each
         character.
         """
-        # attributes a separated over several lines. Read over lines until new
-        # character found and yield old entry.
-        handle = self.getHandle()
+        handleDict = self.getHandles()
+        handleReadBuffer = {}
+        # current entry goes here
         entryIndex = -1
         entry = {}
-        for line in handle:
-            # ignore comments
-            if line.startswith('#'):
-                continue
-            resultObj = self.ENTRY_REGEX.match(line)
-            if not resultObj:
-                if not self.quiet:
-                    warn("can't read line from Unihan.txt: '" + line + "'")
-                continue
-            unicodeHexIndex, key, value = resultObj.group(1, 2, 3)
 
-            # if we have a limited target key set, check if the current one is
-            # to be included
-            if self.limitKeys and not key in self.keySet:
-                continue
-            # check if new character entry found
-            if entryIndex != unicodeHexIndex and entryIndex != -1:
-                # skip characters outside the BMP, i.e. for Chinese characters
-                #   >= 0x20000 unless wideBuild is specified
-                codePoint = int(entryIndex, 16)
-                if self.wideBuild or codePoint < int('20000', 16):
-                    char = unichr(int(entryIndex, 16))
-                    yield(char, entry)
-                # empty old entry
-                entry = {}
-            entryIndex = unicodeHexIndex
-            entry[key] = value
-        # generate last entry
-        # skip characters outside the BMP, i.e. for Chinese characters
-        #   >= 0x20000 unless wideBuild is specified
-        codePoint = int(entryIndex, 16)
-        if entry and (self.wideBuild or codePoint < int('20000', 16)):
-            # yield old one
-            char = unichr(codePoint)
-            yield(char, entry)
-        handle.close()
+        while True:
+            # synchronize all handles of sorted code points, break if we read
+            #   past the current entryIndex
+            for fileName, handle in handleDict.items():
+                # check if we already red something from the current handle
+                if fileName in handleReadBuffer:
+                    redIndex, key, value = handleReadBuffer[fileName]
+                    if entryIndex == redIndex:
+                        entry[key] = value
+                        del handleReadBuffer[fileName]
+                    else:
+                        # the red index is greater than our current one, skip
+                        assert entryIndex < redIndex, "File '%s' is not sorted"
+                        continue
 
-    def getHandle(self):
+                # we can read further into the current handle
+                for line in handle:
+                    if line.startswith('#') or line.strip() == '':
+                        continue
+
+                    resultObj = self.ENTRY_REGEX.match(line)
+                    if not resultObj:
+                        if not self.quiet:
+                            warn("Can't read line from '%s': '%s'"
+                                % (fileName, line))
+                        continue
+                    unicodeHexCodePoint, key, value = resultObj.group(1, 2, 3)
+                    redIndex = int(unicodeHexCodePoint, 16)
+                    # skip characters outside the BMP, i.e. for Chinese
+                    #   characters >= 0x20000 unless wideBuild is specified
+                    if not self.wideBuild and redIndex >= int('20000', 16):
+                        continue
+                    # if we have a limited target key set, check if the current
+                    #   one is to be included
+                    if self.limitKeys and not key in self.keySet:
+                        continue
+                    # check if we found data for the current entryIndex
+                    if redIndex == entryIndex:
+                        entry[key] = value
+                    else:
+                        handleReadBuffer[fileName] = (redIndex, key, value)
+                        # we red past our current entry
+                        break
+                else:
+                    # reached end of file
+                    if fileName not in handleReadBuffer:
+                        # our buffer is empty and file end reached, remove
+                        handleDict[fileName].close()
+                        del handleDict[fileName]
+
+            if entryIndex >= 0:
+                char = unichr(entryIndex)
+                yield(char, entry)
+
+            # if the read buffer is empty, all files are finished
+            if not handleReadBuffer:
+                break
+
+            # next entry with smallest index
+            entryIndex = min(
+                [redIndex for redIndex, _, _ in handleReadBuffer.values()])
+            entry = {}
+
+    def getHandles(self):
         """ 
-        Returns a handle of the Unihan database file.
+        Returns a list of handles of the Unihan database files.
 
-        @rtype: file
-        @return: file handle of the Unihan file
+        @rtype: dict
+        @return: dictionary of names and handles of the Unihan files
         """
+        handles = {}
         import zipfile
-        if zipfile.is_zipfile(self.fileName):
+        if len(self.fileNames) == 1 and zipfile.is_zipfile(self.fileNames[0]):
             import StringIO
-            z = zipfile.ZipFile(self.fileName, "r")
-            handle = StringIO.StringIO(z.read("Unihan.txt").decode('utf-8'))
+            z = zipfile.ZipFile(self.fileNames[0], "r")
+            for member in z.namelist():
+                handles[member] \
+                    = StringIO.StringIO(z.read(member).decode('utf-8'))
         else:
             import codecs
-            handle = codecs.open(self.fileName, 'r', 'utf-8')
-        return handle
+            for member in self.fileNames:
+                handles[member] = codecs.open(member, 'r', 'utf-8')
+        return handles
 
     def keys(self):
         """
@@ -414,25 +445,27 @@ class UnihanGenerator:
 
         If the whole table is read a seek through the file is needed first to
         find all keys, otherwise the predefined set is returned.
-        @rtype: list
+
+        @rtype: list of str
         @return: list of column names
         """
         if not self.keySet:
             if not self.quiet:
-                warn("looking for all keys in Unihan database...")
+                warn("Looking for all keys in Unihan database...")
             self.keySet = set()
-            handle = self.getHandle()
-            for line in handle:
-                # ignore comments
-                if line.startswith('#'):
-                    continue
-                resultObj = self.ENTRY_REGEX.match(line)
-                if not resultObj:
-                    continue
+            handleDict = self.getHandles()
+            for handle in handleDict.values():
+                for line in handle:
+                    # ignore comments
+                    if line.startswith('#'):
+                        continue
+                    resultObj = self.ENTRY_REGEX.match(line)
+                    if not resultObj:
+                        continue
 
-                _, key, _ = resultObj.group(1, 2, 3)
-                self.keySet.add(key)
-            handle.close()
+                    _, key, _ = resultObj.group(1, 2, 3)
+                    self.keySet.add(key)
+                handle.close()
         return list(self.keySet)
 
 
@@ -482,7 +515,9 @@ class UnihanBuilder(EntryGeneratorBuilder):
         'kSimplifiedVariant': Text(), 'kTotalStrokes': Integer(),
         'kTraditionalVariant': Text(), 'kVietnamese': Text(),
         'kZVariant': Text(), 'kGB0': String(4), 'kBigFive': String(4),
-        'kXHC1983': Text()}
+        'kXHC1983': Text(), 'kHanyuPinyin': Text(), 'kIICore': Text(),
+        'kSemanticVariant': Text(), 'kSpecializedSemanticVariant': Text(),
+        'kCompatibilityVariant': Text()}
 
     PRIMARY_KEYS = [CHARACTER_COLUMN]
 
@@ -491,7 +526,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
         'kRSJapanese', 'kRSKanWa', 'kRSKangXi', 'kRSKorean', 'kSemanticVariant',
         'kSimplifiedVariant', 'kSpecializedSemanticVariant', 'kTotalStrokes',
         'kTraditionalVariant', 'kVietnamese', 'kXHC1983', 'kZVariant',
-        'kIICore', 'kGB0', 'kBigFive']
+        'kIICore', 'kGB0', 'kBigFive', 'kHanyuPinyin']
     """Keys included in a slim version if explicitly specified."""
 
     def __init__(self, **options):
@@ -539,17 +574,30 @@ class UnihanBuilder(EntryGeneratorBuilder):
         @return: instance of a L{UnihanGenerator}
         """
         if not self.unihanGenerator:
-            path = self.findFile(['Unihan.txt', 'Unihan.zip'],
-                "Unihan database file")
+            fileNames = UnihanGenerator.UNIHAN_FILE_MEMBERS[:]
+            fileNames.extend(['Unihan.zip', 'Unihan.txt'])
+            path = self.findFile(fileNames, "Unihan database file(s)")
             if self.slimUnihanTable:
                 columns = self.INCLUDE_KEYS
             else:
                 columns = None
 
-            self.unihanGenerator = UnihanGenerator(path, useKeys=columns,
+            # check for multiple file names (Unicode >= 5.2)
+            pathList = []
+            if path.endswith(('Unihan.zip', 'Unihan.txt')):
+                pathList = [path]
+            else:
+                dirname = os.path.dirname(path)
+                for fileName in UnihanGenerator.UNIHAN_FILE_MEMBERS:
+                    filePath = os.path.join(dirname, fileName)
+                    if os.path.exists(filePath):
+                        pathList.append(filePath)
+                assert(len(pathList) > 0)
+
+            self.unihanGenerator = UnihanGenerator(pathList, useKeys=columns,
                 wideBuild=self.wideBuild, quiet=self.quiet)
             if not self.quiet:
-                warn("reading file '" + path + "'")
+                warn("reading file(s) '%s'" % "', '".join(pathList))
         return self.unihanGenerator
 
     def getGenerator(self):
@@ -788,6 +836,17 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
     """
 
     def __init__(self, **options):
+        """
+        Constructs the UnihanDerivedBuilder.
+
+        @param options: extra options
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword dataPath: optional list of paths to the data file(s)
+        @keyword quiet: if C{True} no status information will be printed to
+            stderr
+        @keyword ignoreMissing: if C{True} a missing source column will be
+            ignored and a empty table will be built.
+        """
         super(UnihanDerivedBuilder, self).__init__(**options)
         # create name mappings
         self.COLUMNS = ['ChineseCharacter', self.COLUMN_TARGET]
@@ -796,19 +855,45 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
         self.COLUMN_TYPES = {'ChineseCharacter': String(1),
             self.COLUMN_TARGET: self.COLUMN_TARGET_TYPE}
 
+    @classmethod
+    def getDefaultOptions(cls):
+        options = super(UnihanDerivedBuilder, cls).getDefaultOptions()
+        options.update({'ignoreMissing': True})
+
+        return options
+
+    @classmethod
+    def getOptionMetaData(cls, option):
+        optionsMetaData = {'ignoreMissing': {'type': 'bool',
+                'description': \
+                    "ignore missing Unihan column and build empty table"}}
+
+        if option in optionsMetaData:
+            return optionsMetaData[option]
+        else:
+            return super(UnihanDerivedBuilder, cls).getOptionMetaData(option)
+
     def getGenerator(self):
         # create generator
         table = self.db.tables['Unihan']
-        tableEntries = self.db.selectRows(
-            select([table.c.ChineseCharacter, table.c[self.COLUMN_SOURCE]],
-                table.c[self.COLUMN_SOURCE] != None))
-
+        if self.COLUMN_SOURCE in table.c:
+            tableEntries = self.db.selectRows(
+                select([table.c.ChineseCharacter, table.c[self.COLUMN_SOURCE]],
+                    table.c[self.COLUMN_SOURCE] != None))
+        elif self.ignoreMissing:
+            tableEntries = []
+            if not self.quiet:
+                warn("Column '%s' does not exist in source 'Unihan', ignoring"
+                    % self.COLUMN_SOURCE)
+        else:
+            raise IOError("Column '%s' does not exist in source 'Unihan'"
+                % self.COLUMN_SOURCE)
         return self.GENERATOR_CLASS(tableEntries, self.quiet).generator()
 
     def build(self):
         if not self.quiet:
-            warn("Reading table content from Unihan column '" \
-                + self.COLUMN_SOURCE + "'")
+            warn("Reading table content from Unihan column '%s'"
+                % self.COLUMN_SOURCE)
         super(UnihanDerivedBuilder, self).build()
 
 
@@ -1011,6 +1096,17 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
     PRIMARY_KEYS = COLUMNS
 
     def __init__(self, **options):
+        """
+        Constructs the CharacterVariantBuilder.
+
+        @param options: extra options
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword dataPath: optional list of paths to the data file(s)
+        @keyword quiet: if C{True} no status information will be printed to
+            stderr
+        @keyword wideBuild: if C{True} characters outside the I{BMP} will be
+            included.
+        """
         # constructor is only defined for docstring
         super(CharacterVariantBuilder, self).__init__(**options)
 
@@ -1047,8 +1143,8 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
 
     def build(self):
         if not self.quiet:
-            warn("Reading table content from Unihan columns '" \
-                + "', '".join(self.COLUMN_SOURCE_ABBREV.keys()) + "'")
+            warn("Reading table content from Unihan columns '%s'"
+                % "', '".join(self.COLUMN_SOURCE_ABBREV.keys()))
         super(CharacterVariantBuilder, self).build()
 
 
@@ -1074,8 +1170,8 @@ class UnihanCharacterSetBuilder(EntryGeneratorBuilder):
 
     def build(self):
         if not self.quiet:
-            warn("Reading table content from Unihan column '" \
-                + self.COLUMN_SOURCE + "'")
+            warn("Reading table content from Unihan column '%s'"
+                % self.COLUMN_SOURCE)
         super(UnihanCharacterSetBuilder, self).build()
 
 
@@ -1204,12 +1300,12 @@ class CharacterXHPCReadingBuilder(CharacterReadingBuilder):
     COLUMN_SOURCE = 'kHanyuPinlu'
 
 
-class CharacterXHCReadingBuilder(CharacterReadingBuilder):
+class CharacterDiacriticPinyinBuilder(CharacterReadingBuilder):
     """
-    Builds the Xiandai Hanyu Cidian Pinyin mapping table using the Unihan
-    database.
+    Builds Pinyin mapping table using the Unihan database for syllables with
+    diacritics.
     """
-    class XHCReadingSplitter(CharacterReadingBuilder.SimpleReadingSplitter):
+    class ReadingSplitter:
         """
         Generates the Xiandai Hanyu Cidian Pinyin syllables from the Unihan
         table.
@@ -1223,7 +1319,7 @@ class CharacterXHCReadingBuilder(CharacterReadingBuilder):
 
         def __init__(self, readingEntries, quiet=False):
             """
-            Initialises the XHCReadingSplitter.
+            Initialises the ReadingSplitter.
 
             @type readingEntries: list of tuple
             @param readingEntries: character reading entries from the Unihan
@@ -1231,8 +1327,8 @@ class CharacterXHCReadingBuilder(CharacterReadingBuilder):
             @type quiet: bool
             @param quiet: if true no status information will be printed
             """
-            CharacterReadingBuilder.SimpleReadingSplitter.__init__(self,
-                readingEntries, quiet)
+            self.readingEntries = readingEntries
+            self.quiet = quiet
             self._toneMarkRegex = re.compile(u'[' \
                 + ''.join(self.TONEMARK_MAP.keys()) + ']')
 
@@ -1270,13 +1366,30 @@ class CharacterXHCReadingBuilder(CharacterReadingBuilder):
                 if not self.quiet and len(set(readingList)) < len(readingList):
                     warn('reading information of character ' + character \
                         + ' is inconsistent: ' + ', '.join(readingList))
-                for reading in set(readingList):
+                readings = set()
+                for readingEntry in set(readingList):
+                    readings.update(readingEntry.split(','))
+                for reading in readings:
                     yield(character, self.convertTonemark(reading.lower()))
 
-    GENERATOR_CLASS = XHCReadingSplitter
+    GENERATOR_CLASS = ReadingSplitter
 
+
+class CharacterXHCReadingBuilder(CharacterDiacriticPinyinBuilder):
+    """
+    Builds the Xiandai Hanyu Cidian Pinyin mapping table using the Unihan
+    database.
+    """
     PROVIDES = 'CharacterXHCPinyin'
     COLUMN_SOURCE = 'kXHC1983'
+
+
+class CharacterHDZReadingBuilder(CharacterDiacriticPinyinBuilder):
+    """
+    Builds the Hanyu Da Zidian Pinyin mapping table using the Unihan database.
+    """
+    PROVIDES = 'CharacterHDZPinyin'
+    COLUMN_SOURCE = 'kHanyuPinyin'
 
 
 class CharacterPinyinBuilder(EntryGeneratorBuilder):
@@ -1285,7 +1398,7 @@ class CharacterPinyinBuilder(EntryGeneratorBuilder):
     """
     PROVIDES = 'CharacterPinyin'
     DEPENDS = ['CharacterUnihanPinyin', 'CharacterXHPCPinyin',
-        'CharacterXHCPinyin']
+        'CharacterXHCPinyin', 'CharacterHDZPinyin']
 
     COLUMNS = ['ChineseCharacter', 'Reading']
     PRIMARY_KEYS = COLUMNS
