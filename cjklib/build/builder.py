@@ -1418,13 +1418,30 @@ class CharacterHDZReadingBuilder(CharacterDiacriticPinyinBuilder):
     COLUMN_SOURCE = 'kHanyuPinyin'
 
 
+class CharacterPinyinAdditionalBuilder(EntryGeneratorBuilder):
+    """
+    Provides a mapping of character to Pinyin with additional data not found
+    in other sources.
+    """
+    PROVIDES = 'CharacterAdditionalPinyin'
+    COLUMNS = ['ChineseCharacter', 'Reading']
+    PRIMARY_KEYS = COLUMNS
+    COLUMN_TYPES = {'ChineseCharacter': String(1), 'Reading': String(255)}
+
+    def getGenerator(self):
+        tableEntries = [
+            (u'〇', 'ling2'), # as mentioned in kHanyuPinlu, kXHC1983
+            ]
+        return ListGenerator(tableEntries).generator()
+
+
 class CharacterPinyinBuilder(EntryGeneratorBuilder):
     """
     Builds the character Pinyin mapping table from the several sources.
     """
     PROVIDES = 'CharacterPinyin'
     DEPENDS = ['CharacterUnihanPinyin', 'CharacterXHPCPinyin',
-        'CharacterXHCPinyin', 'CharacterHDZPinyin']
+        'CharacterXHCPinyin', 'CharacterHDZPinyin', 'CharacterAdditionalPinyin']
 
     COLUMNS = ['ChineseCharacter', 'Reading']
     PRIMARY_KEYS = COLUMNS
