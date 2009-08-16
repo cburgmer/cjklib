@@ -327,20 +327,7 @@ class CharacterLookup:
         else:
             self.db = dbconnector.DatabaseConnector.getDBConnector(databaseUrl)
         # character domain
-        domainTable = characterDomain + 'Set'
-        if characterDomain == 'Unicode' \
-            or self.db.engine.has_table(domainTable):
-            # check column
-            if characterDomain != 'Unicode':
-                self._characterDomainTable = self.db.tables[domainTable]
-                if 'ChineseCharacter' not in self._characterDomainTable.columns:
-                    raise ValueError(
-                        "Character domain table '%s' " % domainTable \
-                            + "has no column 'ChineseCharacter'")
-
-            self.characterDomain = characterDomain
-        else:
-            raise ValueError("Unknown character domain '%s'" % characterDomain)
+        self.setCharacterDomain(characterDomain)
 
         self._readingFactory = None
 
@@ -362,6 +349,37 @@ class CharacterLookup:
 
     #{ Character domains
 
+    def getCharacterDomain(self):
+        """
+        Returns the current I{character domain}.
+
+        @rtype: str
+        @return: the current I{character domain}
+        """
+        return self._characterDomain
+
+    def setCharacterDomain(self, characterDomain):
+        """
+        Sets the current I{character domain}.
+
+        @type characterDomain: str
+        @param characterDomain: the current I{character domain}
+        """
+        domainTable = characterDomain + 'Set'
+        if characterDomain == 'Unicode' \
+            or self.db.engine.has_table(domainTable):
+            # check column
+            if characterDomain != 'Unicode':
+                self._characterDomainTable = self.db.tables[domainTable]
+                if 'ChineseCharacter' not in self._characterDomainTable.columns:
+                    raise ValueError(
+                        "Character domain table '%s' " % domainTable \
+                            + "has no column 'ChineseCharacter'")
+
+            self._characterDomain = characterDomain
+        else:
+            raise ValueError("Unknown character domain '%s'" % characterDomain)
+
     def filterDomainCharacters(self, charList):
         """
         Filters a given list of characters to match only those inside the
@@ -373,7 +391,7 @@ class CharacterLookup:
         @return: list of characters inside the current I{character domain}
         """
         # constrain to selected character domain
-        if self.characterDomain == 'Unicode':
+        if self.getCharacterDomain() == 'Unicode':
             return charList
         else:
             filteredCharList = set(self.db.selectScalars(select(
@@ -456,7 +474,7 @@ class CharacterLookup:
         table = self.db.tables[tableName]
 
         # constrain to selected character domain
-        if self.characterDomain == 'Unicode':
+        if self.getCharacterDomain() == 'Unicode':
             fromObj = []
         else:
             fromObj = [table.join(self._characterDomainTable,
@@ -482,6 +500,8 @@ class CharacterLookup:
             reading exists.
         @raise ConversionError: if conversion from the internal source reading
             to the given target reading fails.
+        @todo Impl: Add option to return converted entities even if conversion
+            fails for some entities. Represent those with C{None}.
         """
         # check for available mapping from Chinese characters to a compatible
         # reading
@@ -656,7 +676,7 @@ class CharacterLookup:
 
         table = self.db.tables['CharacterVariant']
         # constrain to selected character domain
-        if self.characterDomain == 'Unicode':
+        if self.getCharacterDomain() == 'Unicode':
             fromObj = []
         else:
             fromObj = [table.join(self._characterDomainTable, table.c.Variant \
@@ -685,7 +705,7 @@ class CharacterLookup:
         """
         table = self.db.tables['CharacterVariant']
         # constrain to selected character domain
-        if self.characterDomain == 'Unicode':
+        if self.getCharacterDomain() == 'Unicode':
             fromObj = []
         else:
             fromObj = [table.join(self._characterDomainTable, table.c.Variant \
@@ -824,7 +844,7 @@ class CharacterLookup:
         """
         table = self.db.tables['StrokeCount']
         # constrain to selected character domain
-        if self.characterDomain == 'Unicode':
+        if self.getCharacterDomain() == 'Unicode':
             fromObj = []
         else:
             fromObj = [table.join(self._characterDomainTable,
@@ -1592,7 +1612,7 @@ class CharacterLookup:
         # get entries from database
         table = self.db.tables['CharacterResidualStrokeCount']
         # constrain to selected character domain
-        if self.characterDomain == 'Unicode':
+        if self.getCharacterDomain() == 'Unicode':
             fromObj = []
         else:
             fromObj = [table.join(self._characterDomainTable,
@@ -1629,7 +1649,7 @@ class CharacterLookup:
         """
         table = self.db.tables['CharacterKangxiRadical']
         # constrain to selected character domain
-        if self.characterDomain == 'Unicode':
+        if self.getCharacterDomain() == 'Unicode':
             fromObj = []
         else:
             fromObj = [table.join(self._characterDomainTable,
@@ -1655,7 +1675,7 @@ class CharacterLookup:
         """
         table = self.db.tables['CharacterResidualStrokeCount']
         # constrain to selected character domain
-        if self.characterDomain == 'Unicode':
+        if self.getCharacterDomain() == 'Unicode':
             fromObj = []
         else:
             fromObj = [table.join(self._characterDomainTable,
@@ -1687,7 +1707,7 @@ class CharacterLookup:
                 == kangxiTable.c.ChineseCharacter,
                 residualTable.c.RadicalIndex == kangxiTable.c.RadicalIndex))]
         # constrain to selected character domain
-        if self.characterDomain != 'Unicode':
+        if self.getCharacterDomain() != 'Unicode':
             fromObj[0] = fromObj[0].join(self._characterDomainTable,
                 residualTable.c.ChineseCharacter \
                     == self._characterDomainTable.c.ChineseCharacter)
@@ -1714,7 +1734,7 @@ class CharacterLookup:
         """
         table = self.db.tables['CharacterResidualStrokeCount']
         # constrain to selected character domain
-        if self.characterDomain == 'Unicode':
+        if self.getCharacterDomain() == 'Unicode':
             fromObj = []
         else:
             fromObj = [table.join(self._characterDomainTable,
@@ -2153,7 +2173,7 @@ class CharacterLookup:
                         == joinTables[0].c.ChineseCharacter,
                     table.c.ZVariant == joinTables[0].c.ZVariant))
         # constrain to selected character domain
-        if self.characterDomain != 'Unicode':
+        if self.getCharacterDomain() != 'Unicode':
             fromObject = fromObject.join(self._characterDomainTable,
                 joinTables[-1].c.ChineseCharacter \
                     == self._characterDomainTable.c.ChineseCharacter)
@@ -2226,7 +2246,7 @@ class CharacterLookup:
         # get entries from database
         table = self.db.tables['CharacterDecomposition']
         # constrain to selected character domain
-        if self.characterDomain == 'Unicode':
+        if self.getCharacterDomain() == 'Unicode':
             fromObj = []
         else:
             fromObj = [table.join(self._characterDomainTable,
