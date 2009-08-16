@@ -814,20 +814,19 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
     Chinese character and another column using the Unihan database.
     """
     DEPENDS = ['Unihan']
+
     COLUMN_SOURCE = None
     """
     Unihan table column providing content for the table. Needs to be overwritten
     in subclass.
     """
-    COLUMN_TARGET = None
+    COLUMN_TARGETS = None
     """
-    Column name for new data in created table. Needs to be overwritten in
+    Column names for new data in created table. Needs to be overwritten in
     subclass.
     """
-    COLUMN_TARGET_TYPE = Text()
-    """
-    Type of column for new data in created table.
-    """
+    COLUMN_TARGETS_TYPES = {}
+    """Types of column for new data in created table."""
     GENERATOR_CLASS = None
     """
     Class defining the iterator for creating the table's data. The constructor
@@ -849,11 +848,11 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
         """
         super(UnihanDerivedBuilder, self).__init__(**options)
         # create name mappings
-        self.COLUMNS = ['ChineseCharacter', self.COLUMN_TARGET]
-        self.PRIMARY_KEYS = self.COLUMNS
+        self.COLUMNS = ['ChineseCharacter']
+        self.COLUMNS.extend(self.COLUMN_TARGETS)
         # set column types
-        self.COLUMN_TYPES = {'ChineseCharacter': String(1),
-            self.COLUMN_TARGET: self.COLUMN_TARGET_TYPE}
+        self.COLUMN_TYPES = {'ChineseCharacter': String(1)}
+        self.COLUMN_TYPES.update(self.COLUMN_TARGETS_TYPES)
 
     @classmethod
     def getDefaultOptions(cls):
@@ -923,8 +922,9 @@ class UnihanStrokeCountBuilder(UnihanDerivedBuilder):
 
     PROVIDES = 'UnihanStrokeCount'
     COLUMN_SOURCE = 'kTotalStrokes'
-    COLUMN_TARGET = 'StrokeCount'
-    COLUMN_TARGET_TYPE = Integer()
+    COLUMN_TARGETS = ['StrokeCount']
+    COLUMN_TARGETS_TYPES = {'StrokeCount': Integer()}
+    PRIMARY_KEYS = ['ChineseCharacter', 'StrokeCount']
     GENERATOR_CLASS = StrokeCountExtractor
 
 
@@ -960,8 +960,9 @@ class CharacterRadicalBuilder(UnihanDerivedBuilder):
                     warn("unable to read radical information of character '" \
                         + character + "': '" + radicalStroke + "'")
 
-    COLUMN_TARGET = 'RadicalIndex'
-    COLUMN_TARGET_TYPE = Integer()
+    COLUMN_TARGETS = ['RadicalIndex']
+    COLUMN_TARGETS_TYPES = {'RadicalIndex': Integer()}
+    PRIMARY_KEYS = ['ChineseCharacter', 'RadicalIndex']
     GENERATOR_CLASS = RadicalExtractor
 
 
@@ -1236,10 +1237,10 @@ class CharacterReadingBuilder(UnihanDerivedBuilder):
                 for reading in set(readingList):
                     yield(character, reading.lower())
 
-    COLUMN_TARGET = 'Reading'
-    COLUMN_TARGET_TYPE = String(255)
+    COLUMN_TARGETS = ['Reading']
+    COLUMN_TARGETS_TYPES = {'Reading': String(255)}
+    PRIMARY_KEYS = ['ChineseCharacter', 'Reading']
     GENERATOR_CLASS = SimpleReadingSplitter
-    DEPENDS = ['Unihan']
 
 
 class CharacterUnihanPinyinBuilder(CharacterReadingBuilder):
@@ -1282,22 +1283,48 @@ class CharacterVietnameseBuilder(CharacterReadingBuilder):
     COLUMN_SOURCE = 'kVietnamese'
 
 
-class CharacterXHPCReadingBuilder(CharacterReadingBuilder):
+class CharacterXHPCReadingBuilder(UnihanDerivedBuilder):
     """
     Builds the Xiandai Hanyu Pinlu Cidian Pinyin mapping table using the Unihan
     database.
     """
-    class XHPCReadingSplitter(CharacterReadingBuilder.SimpleReadingSplitter):
+    class XHPCReadingSplitter():
         """
         Generates the Xiandai Hanyu Pinlu Cidian Pinyin syllables from the
         Unihan table.
         """
-        SPLIT_REGEX = re.compile(ur"([a-zü]+[1-5])\([0-9]+\)")
+        SPLIT_REGEX = re.compile(ur"([a-zü]+[1-5])\(([0-9]+)\)")
 
-    GENERATOR_CLASS = XHPCReadingSplitter
+        def __init__(self, readingEntries, quiet=False):
+            """
+            Initialises the XHPCReadingSplitter.
+
+            @type readingEntries: list of tuple
+            @param readingEntries: character reading entries from the Unihan
+                database
+            @type quiet: bool
+            @param quiet: if true no status information will be printed
+            """
+            self.readingEntries = readingEntries
+            self.quiet = quiet
+
+        def generator(self):
+            """Provides one entry per reading entity and character."""
+            for character, readings in self.readingEntries:
+                readingList = self.SPLIT_REGEX.findall(readings)
+                readingDict = dict(readingList)
+                if not self.quiet and len(readingDict) < len(readingList):
+                    warn('reading information of character ' + character \
+                        + ' is inconsistent: ' + ', '.join(readingList))
+                for reading, frequency in readingDict.items():
+                    yield(character, reading.lower(), frequency)
 
     PROVIDES = 'CharacterXHPCPinyin'
     COLUMN_SOURCE = 'kHanyuPinlu'
+    COLUMN_TARGETS = ['Reading', 'Frequency']
+    COLUMN_TARGETS_TYPES = {'Reading': String(255), 'Frequency': Integer()}
+    PRIMARY_KEYS = ['ChineseCharacter', 'Reading']
+    GENERATOR_CLASS = XHPCReadingSplitter
 
 
 class CharacterDiacriticPinyinBuilder(CharacterReadingBuilder):
@@ -1307,8 +1334,7 @@ class CharacterDiacriticPinyinBuilder(CharacterReadingBuilder):
     """
     class ReadingSplitter:
         """
-        Generates the Xiandai Hanyu Cidian Pinyin syllables from the Unihan
-        table.
+        Generates Pinyin syllables from Unihan entries in diacritic form.
         """
         SPLIT_REGEX = re.compile(r"[0-9,.*]+:(\S+)")
 
