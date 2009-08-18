@@ -2269,11 +2269,6 @@ class JyutpingYaleConverter(RomanisationConverter):
         >>> f.convert(u'gwong2zau1waa2', 'Jyutping', 'CantoneseYale',
         ...     yaleFirstTone='1stToneFalling')
         u'gw\xf3ngj\xe0uw\xe1'
-
-    @todo Fix: Extend dialect C{'internal'} for CantoneseYale, so that letter
-        case is transfered over one character syllables with low tone (adding
-        a second letter 'h'). See test case
-        L{cjklib.test.readingconverter.ReadingConverterConsistencyTest.testLetterCaseConversion()}.
     """
     CONVERSION_DIRECTIONS = [('Jyutping', 'CantoneseYale'),
         ('CantoneseYale', 'Jyutping')]

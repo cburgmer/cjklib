@@ -4266,8 +4266,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             '6thTone': (u'', 'h')},
         'internal': {'1stToneLevel': ('0', ''),
             '1stToneFalling': ('1', ''), '2ndTone': ('2', ''),
-            '3rdTone': ('3', ''), '4thTone': ('4', ''), '5thTone': ('5', ''),
-            '6thTone': ('6', ''), None: ('', '')}}
+            '3rdTone': ('3', ''), '4thTone': ('4', 'h'), '5thTone': ('5', 'h'),
+            '6thTone': ('6', 'h'), None: ('', '')}}
     """
     Mapping of tone name to representation per tone mark type. Representations
     includes a diacritic mark and optional the letter 'h' marking a low tone.
@@ -4558,7 +4558,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         toneMark, hChar = self.TONE_MARK_MAPPING[self.toneMarkType][tone]
 
-        if self.toneMarkType == 'diacritics':
+        if hChar or self.toneMarkType == 'diacritics':
             # split entity into vowel (aeiou) and non-vowel part for placing
             #   marks, h only for initial
             matchObj = re.match('(?i)^([^aeiou]*?)([aeiou]*)([^haeiou]*)$',
@@ -4574,14 +4574,23 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                 # make 'h' upper case if entity is upper case
                 hChar = hChar.upper()
 
-            if vowels:
-                vowels = unicodedata.normalize("NFC", vowels[0] + toneMark \
-                    + vowels[1:] + hChar)
-            else:
-                nonVowelT = unicodedata.normalize("NFC", nonVowelT[0] \
-                    + toneMark + nonVowelT[1:] + hChar)
+            if self.toneMarkType == 'diacritics':
+                if vowels:
+                    vowels = unicodedata.normalize("NFC", vowels[0] + toneMark \
+                        + vowels[1:] + hChar)
+                else:
+                    nonVowelT = unicodedata.normalize("NFC", nonVowelT[0] \
+                        + toneMark + nonVowelT[1:] + hChar)
 
-            return nonVowelH + vowels + nonVowelT
+                return nonVowelH + vowels + nonVowelT
+            else:
+                if vowels:
+                    vowels += hChar
+                else:
+                    nonVowelT += hChar
+
+                return nonVowelH + vowels + nonVowelT + toneMark
+
         elif self.toneMarkType in ['numbers', 'internal']:
             return plainEntity + toneMark
 
