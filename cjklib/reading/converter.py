@@ -63,6 +63,52 @@ from cjklib.dbconnector import DatabaseConnector
 from cjklib.reading import operator as readingoperator
 import cjklib.reading
 
+# define our own titlecase methods, as the Python implementation is currently
+#   buggy (http://bugs.python.org/issue6412), see also
+#   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
+_firstNonCaseIgnorable = re.compile(ur"(?u)([.ₒ]?\W*)(\w)(.*)$")
+"""
+Regular expression matching the first alphabetic character. Include GR neutral
+tone forms.
+"""
+def titlecase(strng):
+    """
+    Returns the string (without "word borders") in titlecase.
+
+    This function is not designed to work for multi-entity strings in general
+    but rather for syllables with apostrophes (e.g. C{'Ch’ien1'}) and combining
+    diacritics (e.g. C{'Hm\\u0300h'}). It additionally needs to support cases
+    where a multi-entity string can derive from a single entity as in the case
+    for I{GR} (e.g. C{'Shern.me'} for C{'Sherm'}).
+
+    @type strng: str
+    @param strng:  a string
+    @rtype: str
+    @return: the given string in titlecase
+    @todo Impl: While this function is only needed as long Python doesn't ship
+        with a proper title casing algorithm as defined by Unicode, we need
+        a proper handling for I{Wade-Giles}, as I{Pinyin} I{Erhua} forms will
+        convert to two entities being separated by a hyphen, which does not fall
+        in to the Unicode title casing algorithm's definition of a
+        case-ignorable character.
+    """
+    matchObj = _firstNonCaseIgnorable.match(strng.lower())
+    if matchObj:
+        tonal, firstChar, rest = matchObj.groups()
+        return tonal + firstChar.upper() + rest
+
+def istitlecase(strng):
+    """
+    Checks if the given string is in titlecase.
+
+    @type strng: str
+    @param strng:  a string
+    @rtype: bool
+    @return: C{True} if the given string is in titlecase according to
+        L{titlecase()}.
+    """
+    return titlecase(strng) == strng
+
 class ReadingConverter(object):
     u"""
     Defines an abstract converter between two or more I{character reading}s.
@@ -540,8 +586,8 @@ class RomanisationConverter(DialectSupportReadingConverter):
                     #   care of final transformation (lower/both)
                     if entity.isupper():
                         toReadingEntity = toReadingEntity.upper()
-                    elif entity.istitle():
-                        toReadingEntity = toReadingEntity.title()
+                    elif istitlecase(entity):
+                        toReadingEntity = titlecase(toReadingEntity)
 
                     toSequence.append(toReadingEntity)
                 toEntitySequence.append(toSequence)
@@ -992,22 +1038,6 @@ class WadeGilesDialectConverter(EntityWiseReadingConverter):
     """
     CONVERSION_DIRECTIONS = [('WadeGiles', 'WadeGiles')]
 
-    @classmethod
-    def _titlecase(cls, string): # TODO
-        # see bug http://bugs.python.org/issue6412 and
-        #   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
-        # u'Ch’ien1'.title() == u'Ch’Ien1', so reimplement
-        # TODO '-' is not case-ignorable, so we need this either way:
-        #   u'Ju2-erh5'
-        if len(string) > 0:
-            string = string[0].upper() + string[1:].lower()
-        return string
-
-    @classmethod
-    def _istitlecase(cls, string):
-        return cls._titlecase(string) == string
-    """Adaptable string.istitle() method."""
-
     def convertBasicEntity(self, entity, fromReading, toReading):
         # split syllable into plain part and tonal information
         plainSyllable, tone \
@@ -1056,10 +1086,8 @@ class WadeGilesDialectConverter(EntityWiseReadingConverter):
         if self._getToOperator(toReading).case != 'lower':
             if entity.isupper():
                 plainSyllable = plainSyllable.upper()
-            elif self._istitlecase(entity):
-                plainSyllable = self._titlecase(plainSyllable)
-            #elif entity.istitle(): # TODO
-                #plainSyllable = plainSyllable.title()
+            elif istitlecase(entity):
+                plainSyllable = titlecase(plainSyllable)
 
         # get syllable with tone mark
         try:
@@ -1097,33 +1125,6 @@ class PinyinWadeGilesConverter(RomanisationConverter):
     #   information. Erhua furthermore is not supported.
     DEFAULT_READING_OPTIONS = {'Pinyin': {'erhua': 'ignore',
         'toneMarkType': 'numbers'}, 'WadeGiles': {}}
-
-    def convertEntitySequence(self, entitySequence, fromReading, toReading):
-        # TODO overwritten to use _titlecase and _istitlecase
-        toEntitySequence = []
-        for sequence in entitySequence:
-            if type(sequence) == type([]):
-                toSequence = []
-                for entity in sequence:
-                    toReadingEntity = self.convertBasicEntity(entity.lower(),
-                        fromReading, toReading)
-
-                    # transfer letter case, target reading dialect will take
-                    #   care of final transformation (lower/both)
-                    if entity.isupper():
-                        toReadingEntity = toReadingEntity.upper()
-                    elif WadeGilesDialectConverter._istitlecase(entity):
-                        toReadingEntity = WadeGilesDialectConverter._titlecase(
-                            toReadingEntity)
-                    #elif entity.istitle(): # TODO
-                        #toReadingEntity = toReadingEntity.title()
-
-                    toSequence.append(toReadingEntity)
-                toEntitySequence.append(toSequence)
-            else:
-                toEntitySequence.append(sequence)
-
-        return toEntitySequence
 
     def convertEntities(self, readingEntities, fromReading, toReading):
         # TODO create a nice way to let the converters handle non-reading
@@ -1182,20 +1183,6 @@ class GRDialectConverter(ReadingConverter):
     romanisation I{Gwoyeu Romatzyh}.
     """
     CONVERSION_DIRECTIONS = [('GR', 'GR')]
-
-    @classmethod
-    def _titlecase(cls, string): # TODO
-        # see bug http://bugs.python.org/issue6412 and
-        #   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
-        # "Shern.me".title() == "Shern.Me", so reimplement
-        matchObj = re.match(ur"(?u)([.ₒ]?)(\w)(.*)$", string.lower())
-        tonal, firstChar, rest = matchObj.groups()
-        return tonal + firstChar.upper() + rest
-
-    @classmethod
-    def _istitlecase(cls, string):
-        return cls._titlecase(string) == string
-    """Adaptable string.istitle() method."""
 
     def __init__(self, *args, **options):
         u"""
@@ -1334,10 +1321,8 @@ class GRDialectConverter(ReadingConverter):
                         # get proper letter case
                         if ''.join(originalEntities).isupper():
                             converted = [entity.upper() for entity in converted]
-                        elif self._istitlecase(''.join(originalEntities)): # TODO
-                            converted[0] = self._titlecase(converted[0])
-                        #elif ''.join(originalEntities).istitle():
-                            #converted[0] = converted[0].title()
+                        elif istitlecase(''.join(originalEntities)):
+                            converted[0] = titlecase(converted[0])
 
                         convertedEntities.extend(converted)
                         i += entityCount
@@ -1443,33 +1428,6 @@ class GRPinyinConverter(RomanisationConverter):
         options.update({'grOptionalNeutralToneMapping': 'original'})
 
         return options
-
-    def convertEntitySequence(self, entitySequence, fromReading, toReading):
-        # TODO overwritten to use _titlecase and _istitlecase
-        toEntitySequence = []
-        for sequence in entitySequence:
-            if type(sequence) == type([]):
-                toSequence = []
-                for entity in sequence:
-                    toReadingEntity = self.convertBasicEntity(entity.lower(),
-                        fromReading, toReading)
-
-                    # transfer letter case, target reading dialect will take
-                    #   care of final transformation (lower/both)
-                    if entity.isupper():
-                        toReadingEntity = toReadingEntity.upper()
-                    elif GRDialectConverter._istitlecase(entity):
-                        toReadingEntity = GRDialectConverter._titlecase(
-                            toReadingEntity)
-                    #elif entity.istitle(): # TODO
-                        #toReadingEntity = toReadingEntity.title()
-
-                    toSequence.append(toReadingEntity)
-                toEntitySequence.append(toSequence)
-            else:
-                toEntitySequence.append(sequence)
-
-        return toEntitySequence
 
     def convertBasicEntity(self, entity, fromReading, toReading):
         erlhuahForm = False
@@ -2198,20 +2156,6 @@ class CantoneseYaleDialectConverter(EntityWiseReadingConverter):
     """
     CONVERSION_DIRECTIONS = [('CantoneseYale', 'CantoneseYale')]
 
-    @classmethod
-    def _titlecase(cls, string): # TODO
-        # see bug http://bugs.python.org/issue6412 and
-        #   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
-        # u'Hm\u0300h'.title() == u'Hm\u0300H', so reimplement
-        if len(string) > 0:
-            string = string[0].upper() + string[1:].lower()
-        return string
-
-    @classmethod
-    def _istitlecase(cls, string):
-        return cls._titlecase(string) == string
-    """Adaptable string.istitle() method."""
-
     def convertBasicEntity(self, entity, fromReading, toReading):
         # split syllable into plain part and tonal information
         plainSyllable, tone \
@@ -2226,13 +2170,10 @@ class CantoneseYaleDialectConverter(EntityWiseReadingConverter):
             transEntity = self._getToOperator(toReading).getTonalEntity(
                 plainSyllable, tone)
 
-            # fix case, titlecase is not transfered for single char entities
-            #if entity.istitle() and plainSyllable.isupper() and len(entity) > 1: # TODO
-            if self._istitlecase(entity) and not entity.isupper() \
+            if istitlecase(entity) and not entity.isupper() \
                 and transEntity.isupper():
                 # don't change uppercase
-                #transEntity = transEntity.title() # TODO
-                transEntity = self._titlecase(transEntity)
+                transEntity = titlecase(transEntity)
             return transEntity
         except InvalidEntityError, e:
             # handle this as a conversion error as the converted syllable is not

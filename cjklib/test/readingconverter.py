@@ -33,6 +33,8 @@ from cjklib.reading import ReadingFactory, converter, operator
 from cjklib import exception
 from cjklib.test import NeedsDatabaseTest
 
+from cjklib.reading.converter import titlecase, istitlecase
+
 class ReadingConverterTest(NeedsDatabaseTest):
     """Base class for testing of L{ReadingConverter}s."""
     CONVERSION_DIRECTION = None
@@ -99,16 +101,6 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
 
     TO_DIALECTS = []
     """List of dialects of the target reading."""
-
-    @classmethod
-    def titlecase(cls, string):
-        return string.title()
-    """Adaptable string.title() method."""
-
-    @classmethod
-    def istitlecase(cls, string):
-        return cls.titlecase(string) == string
-    """Adaptable string.istitle() method."""
 
     def testReadingConverterUnique(self):
         """Test if only one ReadingConverter exists for each reading."""
@@ -253,16 +245,16 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
                         + ' (conversion %s to %s, options %s)' \
                             % (self.fromReading, self.toReading, options))
 
-                    toEntities = self.f.convert(self.titlecase(entity),
+                    toEntities = self.f.convert(titlecase(entity),
                         self.fromReading, self.toReading, **options)
 
                     # trade-off for one-char entities: upper-case goes for title
-                    self.assert_(self.istitlecase(toEntities) \
+                    self.assert_(istitlecase(toEntities) \
                             or (toEntities.isupper() \
                                 and (isOneCharEntity(toEntities) \
                                     or isOneCharEntity(entity))),
                         'Mismatch in title case for conversion %s to %s' \
-                            % (repr(self.titlecase(entity)), repr(toEntities)) \
+                            % (repr(titlecase(entity)), repr(toEntities)) \
                         + ' (conversion %s to %s, options %s)' \
                             % (self.fromReading, self.toReading, options))
                 except exception.ConversionError:
@@ -329,7 +321,7 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
                                     **targetDialect),
                                 "Conversion from %s to %s" \
                                     % (repr(entity), repr(toEntities)) \
-                                + " includes an in valid entity: %s" \
+                                + " includes an invalid entity: %s" \
                                     % repr(toEntity) \
                                 + ' (conversion %s (%s) to %s (%s)' \
                                     % (self.fromReading, repr(sourceDialect),
@@ -413,10 +405,6 @@ class CantoneseYaleDialectConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('CantoneseYale', 'CantoneseYale')
 
-    @classmethod
-    def titlecase(cls, string):
-        return converter.CantoneseYaleDialectConverter._titlecase(string)
-
 
 # TODO
 class CantoneseYaleDialectReferenceTest(ReadingConverterReferenceTest,
@@ -479,10 +467,6 @@ class JyutpingYaleConsistencyTest(ReadingConverterConsistencyTest,
 
     OPTIONS_LIST = [{'yaleFirstTone': '1stToneFalling'}]
 
-    @classmethod
-    def titlecase(cls, string):
-        return converter.CantoneseYaleDialectConverter._titlecase(string)
-
 
 # TODO
 class JyutpingYaleReferenceTest(ReadingConverterReferenceTest,
@@ -501,10 +485,6 @@ class JyutpingYaleReferenceTest(ReadingConverterReferenceTest,
 class YaleJyutpingConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('CantoneseYale', 'Jyutping')
-
-    @classmethod
-    def titlecase(cls, string):
-        return converter.CantoneseYaleDialectConverter._titlecase(string)
 
 
 # TODO
@@ -572,10 +552,6 @@ class WadeGilesDialectConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('WadeGiles', 'WadeGiles')
 
-    @classmethod
-    def titlecase(cls, string):
-        return converter.WadeGilesDialectConverter._titlecase(string)
-
 
 class WadeGilesDialectReferenceTest(ReadingConverterReferenceTest,
     unittest.TestCase):
@@ -622,10 +598,6 @@ class WadeGilesDialectReferenceTest(ReadingConverterReferenceTest,
 class WadeGilesPinyinConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('WadeGiles', 'Pinyin')
-
-    @classmethod
-    def titlecase(cls, string):
-        return converter.WadeGilesDialectConverter._titlecase(string)
 
 
 # TODO
@@ -1095,10 +1067,6 @@ class PinyinWadeGilesConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('Pinyin', 'WadeGiles')
 
-    @classmethod
-    def titlecase(cls, string):
-        return converter.WadeGilesDialectConverter._titlecase(string)
-
 
 # TODO
 class PinyinWadeGilesReferenceTest(ReadingConverterReferenceTest,
@@ -1119,13 +1087,6 @@ class GRDialectConsistencyTest(ReadingConverterConsistencyTest,
 
     OPTIONS_LIST = [{'keepGRApostrophes': True}, {'breakUpAbbreviated': 'on'},
         {'breakUpAbbreviated': 'off'}]
-
-    @classmethod
-    def titlecase(cls, string):
-        # see bug http://bugs.python.org/issue6412 and
-        #   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
-        # "Shern.me".title() == "Shern.Me", so reimplement
-        return converter.GRDialectConverter._titlecase(string)
 
     def testAbbreviationConsistency(self):
         """
@@ -1176,13 +1137,6 @@ class GRPinyinConsistencyTest(ReadingConverterConsistencyTest,
     CONVERSION_DIRECTION = ('GR', 'Pinyin')
 
     OPTIONS_LIST = [{'grOptionalNeutralToneMapping': 'neutral'}]
-
-    @classmethod
-    def titlecase(cls, string):
-        # see bug http://bugs.python.org/issue6412 and
-        #   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
-        # "Shern.me".title() == "Shern.Me", so reimplement
-        return converter.GRDialectConverter._titlecase(string)
 
     def cleanDecomposition(self, decomposition, reading, **options):
         cls = self.f.getReadingOperatorClass(reading)
@@ -1444,10 +1398,6 @@ class GRIPAConsistencyTest(ReadingConverterConsistencyTest, unittest.TestCase):
 class GRWadeGilesConsistencyTest(ReadingConverterConsistencyTest, unittest.TestCase):
     CONVERSION_DIRECTION = ('GR', 'WadeGiles')
 
-    @classmethod
-    def titlecase(cls, string):
-        return converter.GRDialectConverter._titlecase(string)
-
     def cleanDecomposition(self, decomposition, reading, **options):
         cls = self.f.getReadingOperatorClass(reading)
         if not hasattr(cls, 'removeHyphens'):
@@ -1479,10 +1429,6 @@ class GRWadeGilesConsistencyTest(ReadingConverterConsistencyTest, unittest.TestC
 class WadeGilesGRConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('WadeGiles', 'GR')
-
-    @classmethod
-    def titlecase(cls, string):
-        return converter.GRDialectConverter._titlecase(string)
 
 
 ## TODO
