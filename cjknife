@@ -26,7 +26,7 @@ The script's output depends on the following:
     - user locale settings are checked to guess appropriate values for the
         character locale and the default input and output readings
 
-@copyright: Copyright (C) 2006-2008 Christoph Burgmer.
+@copyright: Copyright (C) 2006-2009 Christoph Burgmer.
 """
 
 import sys
@@ -853,7 +853,7 @@ class CharacterInfo:
         infoDict['char'] = char
         infoDict['locale'] = self.locale
         infoDict['locale name'] = self.CHAR_LOCALE_NAME[self.locale]
-        infoDict['characterDomain'] = self.characterLookup.characterDomain
+        infoDict['characterDomain'] = self.characterLookup.getCharacterDomain()
         infoDict['codepoint hex'] = "0x%(decindex)x" % {'decindex': ord(char)}
         infoDict['codepoint dec'] = "%(decindex)s" % {'decindex': ord(char)}
 
