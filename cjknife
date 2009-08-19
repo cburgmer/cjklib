@@ -43,36 +43,13 @@ from cjklib.dbconnector import DatabaseConnector
 from cjklib import characterlookup
 from cjklib import reading
 from cjklib import exception
+from cjklib.util import getConfigSettings
 
 # work around http://bugs.python.org/issue2517
 if sys.version_info[0:2] == (2, 5):
     getExceptionString = lambda e: unicode(e.message)
 else:
     getExceptionString = lambda e: unicode(e)
-
-def getConfigSettings():
-    """
-    Gets the script config from cjklib config file.
-
-    @rtype: dict
-    @return: dictionary holding the settings
-    """
-    configSettings = {}
-    import ConfigParser
-    import os.path
-    config = ConfigParser.ConfigParser()
-    config.read([os.path.join('/', 'etc', 'cjklib.conf'),
-        os.path.join(os.path.expanduser('~'), '.cjklib.conf')])
-    try:
-        configSettings['dictionary'] = config.get("cjknife", "dictionary")
-        configSettings['locale'] = config.get("cjknife", "locale")
-        configSettings['reading'] = config.get("cjknife", "reading")
-    except ConfigParser.NoOptionError:
-        pass
-    except ConfigParser.NoSectionError:
-        pass
-    return configSettings
-
 
 class CharacterInfo:
     """
@@ -1150,22 +1127,22 @@ def main():
         for name in ALTERNATIVE_READING_NAMES[readingN]:
             readingLookup[name] = readingN
 
-    configSettings = getConfigSettings()
+    configSettings = getConfigSettings('cjknife')
     if 'dictionary' in configSettings and configSettings['dictionary']:
         dictionary = configSettings['dictionary']
     else:
         dictionary = None
-    if configSettings.has_key('reading'):
+    if 'reading' in configSettings and configSettings['reading']:
         sourceReading = configSettings['reading']
         targetReading = configSettings['reading']
     else:
         sourceReading = None
         targetReading = None
-    if configSettings.has_key('locale'):
+    if 'locale' in configSettings and configSettings['locale']:
         charLocale = configSettings['locale']
     else:
         charLocale = None
-    if configSettings.has_key('domain'):
+    if 'domain' in configSettings and configSettings['domain']:
         charDomain = configSettings['domain']
     else:
         charDomain = 'Unicode'

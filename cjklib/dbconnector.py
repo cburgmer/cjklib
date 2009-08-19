@@ -19,14 +19,13 @@
 Provides simple read access to a SQL database.
 """
 
-import os
-import os.path
-import ConfigParser
 import logging
 
 from sqlalchemy import MetaData, Table, engine_from_config
 from sqlalchemy.sql import text
 from sqlalchemy.engine import url
+
+from cjklib.util import getConfigSettings
 
 class DatabaseConnector:
     """
@@ -48,7 +47,7 @@ class DatabaseConnector:
         4. C{selectScalar()}: returns one single value
     """
     DEFAULT_URL_TEMPLATE = 'sqlite:///%s.db'
-    """Default database url."""
+    """Default database url template."""
 
     _dbconnectInst = None
     """
@@ -87,8 +86,9 @@ class DatabaseConnector:
             #   given read from config or assume default
             if not configuration:
                 # try to read from config
-                databaseSettings = DatabaseConnector.getConfigSettings(
-                    projectName)
+                databaseSettings = getConfigSettings('Connection', projectName)
+                databaseSettings.setdefault('url',
+                    cls.DEFAULT_URL_TEMPLATE % projectName)
             else:
                 databaseSettings = configuration.copy()
 
@@ -96,33 +96,6 @@ class DatabaseConnector:
             cls._dbconnectInstSettings = databaseSettings
 
         return cls._dbconnectInst
-
-    @classmethod
-    def getConfigSettings(cls, projectName='cjklib', section='Connection'):
-        """
-        Gets the SQL connection parameter from a config file.
-
-        @type projectName: str
-        @param projectName: name of project which will be used as name of the
-            config file
-        @type section: str
-        @param section: section of the config file
-        @rtype: dict
-        @return: configuration settings for the given project
-        """
-        try:
-            config = ConfigParser.SafeConfigParser()
-            config.read([os.path.join(os.path.expanduser('~'), '.' \
-                    + projectName + '.conf'),
-                os.path.join('/', 'etc', projectName + '.conf')])
-
-            configuration = dict(config.items(section))
-        except ConfigParser.NoSectionError:
-            configuration = {}
-
-        configuration.setdefault('url',
-            cls.DEFAULT_URL_TEMPLATE % projectName)
-        return configuration
 
     def __init__(self, configuration):
         """
@@ -141,14 +114,19 @@ class DatabaseConnector:
             # backwards compatibility to option databaseUrl
             configuration = {'url': configuration}
         self.databaseUrl = configuration['url']
+        """database url"""
         # connect to database
         self.engine = engine_from_config(configuration, prefix='')
+        """SQLAlchemy engine object"""
         # create connection
         self.connection = self.engine.connect()
+        """SQLAlchemy database connection object"""
         # parse table information
         self.metadata = MetaData(bind=self.connection, reflect=True)
+        """SQLAlchemy metadata object"""
         # short cut
         self.tables = self.metadata.tables
+        """dictionary of SQLAlchemy table objects"""
 
         self._registerViews()
 

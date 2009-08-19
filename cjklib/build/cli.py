@@ -24,22 +24,25 @@ import os
 import locale
 import copy
 from optparse import OptionParser, OptionGroup, Option, OptionValueError, Values
+import ConfigParser
 
 from cjklib import build
 from cjklib import exception
 from cjklib.dbconnector import DatabaseConnector
 import cjklib
+from cjklib.util import getConfigSettings
 
 class ExtendedOption(Option):
     """
     Add support for "bool" to optparse, and offer special handling of PATH
     strings.
     """
+    # taken from ConfigParser.RawConfigParser
+    _boolean_states = {'1': True, 'yes': True, 'true': True, 'on': True,
+                       '0': False, 'no': False, 'false': False, 'off': False}
     def check_bool(option, opt, value):
-        if value.lower() in ['1', 'true', 'yes', 'y']:
-            return True
-        elif value.lower() in ['0', 'false', 'no', 'n']:
-            return False
+        if value.lower() in _boolean_states:
+            return _boolean_states[value.lower()]
         else:
             raise OptionValueError(
                 "option %s: invalid bool value: %r" % (opt, value))
@@ -210,6 +213,50 @@ format --BuilderName-option or --TableName-option, e.g.
             'replace')
 
     @classmethod
+    def getBuilderConfigSettings(cls):
+        """
+        Gets the builder settings from the section C{Builder} from cjklib.conf.
+
+        @rtype: dict
+        @return: dictionary of builder options
+        """
+        configOptions = getConfigSettings('Builder')
+        # don't convert to lowercase
+        ConfigParser.RawConfigParser.optionxform = lambda self, x: x
+        config = ConfigParser.RawConfigParser(configOptions)
+
+        options = {}
+        for builder in build.DatabaseBuilder.getTableBuilderClasses():
+            if not builder.PROVIDES:
+                continue
+
+            for option in builder.getDefaultOptions():
+                try:
+                    metadata = builder.getOptionMetaData(option)
+                    optionType = metadata.get('type', None)
+                except KeyError:
+                    optionType = None
+
+                for opt in [option, '--%s-%s' % (builder.__name__, option),
+                    '--%s-%s' % (builder.PROVIDES, option)]:
+                    if config.has_option(None, opt):
+                        if optionType == 'bool':
+                            value = config.getboolean(ConfigParser.DEFAULTSECT,
+                                opt)
+                        elif optionType == 'int':
+                            value = config.getint(ConfigParser.DEFAULTSECT,
+                                opt)
+                        elif optionType == 'float':
+                            value = config.getfloat(ConfigParser.DEFAULTSECT,
+                                opt)
+                        else:
+                            value = config.get(ConfigParser.DEFAULTSECT, opt)
+
+                        options[opt] = value
+
+        return options
+
+    @classmethod
     def getDefaultOptions(cls):
         """
         Gets default options that always overwrite those specified in the build
@@ -226,10 +273,11 @@ format --BuilderName-option or --TableName-option, e.g.
         # prefer
         options['prefer'] = cls.DB_PREFER_BUILDERS
         # databaseUrl
-        config = DatabaseConnector.getConfigSettings('cjklib')
-        if 'databaseUrl' in config:
-            options['databaseUrl'] = config['databaseUrl']
-
+        config = getConfigSettings('Connection')
+        if 'url' in config:
+            options['databaseUrl'] = config['url']
+        # build specific options
+        options.update(cls.getBuilderConfigSettings())
         return options
 
     def buildParser(self):
@@ -246,7 +294,7 @@ There is NO WARRANTY, to the extent permitted by law.""" \
         parser = OptionParser(usage=usage, description=description,
             version=version, option_class=ExtendedOption)
 
-        defaultGlobals = self.getDefaultOptions()
+        defaults = self.getDefaultOptions()
         parser.add_option("-r", "--rebuild", action="store_true",
             dest="rebuildExisting", default=False,
             help="build tables even if they already exist")
@@ -254,12 +302,13 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             dest="rebuildDepending", default=True,
             help="don't rebuild build-depends tables that are not given")
         parser.add_option("-p", "--prefer", action="append", metavar="BUILDER",
-            dest="prefer", default=defaultGlobals.get("prefer", []),
-            help="builder preferred where several provide the same table")
+            dest="prefer", default=defaults.get("prefer", []),
+            help="builder preferred where several provide the same table" \
+                + " [default: %default]")
         parser.add_option("-q", "--quiet", action="store_true", dest="quiet",
             default=False, help="don't print anything on stdout")
         parser.add_option("--database", action="store", metavar="URL",
-            dest="databaseUrl", default=defaultGlobals.get("databaseUrl", None),
+            dest="databaseUrl", default=defaults.get("databaseUrl", None),
             help="database url [default: %default]")
 
         optionSet = set(['rebuildExisting', 'rebuildDepending', 'quiet',
@@ -292,7 +341,7 @@ There is NO WARRANTY, to the extent permitted by law.""" \
                 if 'help' not in options:
                     options['help'] = ''
 
-                default = defaultGlobals.get(option, defaultValue)
+                default = defaults.get(option, defaultValue)
                 if default == []:
                     options['help'] += ' [default: ""]'
                 elif default is not None:
@@ -301,7 +350,7 @@ There is NO WARRANTY, to the extent permitted by law.""" \
                 # global option, only need to add it once, DatabaseBuilder makes
                 #   sure option is consistent between builder
                 options['dest'] = option
-                options['default'] = defaultGlobals.get(option, None)
+                options['default'] = defaults.get(option, None)
                 if option not in optionSet:
                     globalBuilderGroup.add_option('--' + option, **options)
                     optionSet.add(option)
@@ -310,14 +359,12 @@ There is NO WARRANTY, to the extent permitted by law.""" \
                 #options['help'] = optparse.SUPPRESS_HELP
                 localBuilderOption = '--%s-%s' % (builder.__name__, option)
                 options['dest'] = localBuilderOption
-                options['default'] = defaultGlobals.get(localBuilderOption,
-                    None)
+                options['default'] = defaults.get(localBuilderOption, None)
                 localBuilderGroup.add_option(localBuilderOption, **options)
 
                 localTableOption = '--%s-%s' % (builder.PROVIDES, option)
                 options['dest'] = localTableOption
-                options['default'] = defaultGlobals.get(localTableOption,
-                    None)
+                options['default'] = defaults.get(localTableOption, None)
                 localBuilderGroup.add_option(localTableOption, **options)
 
         parser.add_option_group(globalBuilderGroup)
