@@ -98,13 +98,11 @@ class DatabaseBuilder:
         if 'dataPath' not in options:
             # look for data underneath the build module
             buildModule = __import__("cjklib.build")
-            self.dataPath = [os.path.join(buildModule.__path__[0], 'data')]
-        else:
-            if type(options['dataPath']) == type([]):
-                self.dataPath = options['dataPath']
-            else:
-                # wrap as list
-                self.dataPath = [options['dataPath']]
+            options['dataPath'] \
+                = [os.path.join(buildModule.__path__[0], 'data')]
+        elif type(options['dataPath']) in (type(''), type(u'')):
+            # wrap as list
+            options['dataPath'] = [options['dataPath']]
 
         self.quiet = options.get('quiet', False)
         self.rebuildDepending = options.pop('rebuildDepending', True)
@@ -123,38 +121,15 @@ class DatabaseBuilder:
             additionalBuilders=options.pop('additionalBuilders', []))
 
         # build lookup
-        self.tableBuilderLookup = {}
+        self._tableBuilderLookup = {}
         for tableBuilder in tableBuilderClasses:
-            if self.tableBuilderLookup.has_key(tableBuilder.PROVIDES):
+            if tableBuilder.PROVIDES in self._tableBuilderLookup:
                 raise Exception("Table '%s' provided by several builders" \
                     % tableBuilder.PROVIDES)
-            self.tableBuilderLookup[tableBuilder.PROVIDES] = tableBuilder
+            self._tableBuilderLookup[tableBuilder.PROVIDES] = tableBuilder
 
         # options for TableBuilders
-        options['dataPath'] = self.dataPath
         self.options = options
-
-    def setDataPath(self, dataPath):
-        """
-        Changes the data path.
-
-        @type dataPath: list of str
-        @param dataPath: list of paths to the data file(s)
-        """
-        if type(dataPath) == type([]):
-            self.dataPath = dataPath
-        else:
-            # wrap as list
-            self.dataPath = [dataPath]
-
-    def addBuilderOptions(self, options):
-        """
-        Adds options to the set of table builder options.
-
-        @type options: dict
-        @param options: option dict
-        """
-        self.options.update(options)
 
     def getBuilderOptions(self, builderClass, ignoreUnknown=False):
         """
@@ -259,7 +234,7 @@ class DatabaseBuilder:
         # remove tables that don't need to be rebuilt
         filteredTables = []
         for table in tables:
-            if table not in self.tableBuilderLookup:
+            if table not in self._tableBuilderLookup:
                 raise exception.UnsupportedError("Table '%s' not provided" \
                     % table)
 
@@ -381,10 +356,10 @@ class DatabaseBuilder:
 
         tableBuilderClasses = []
         for table in set(tables):
-            if not self.tableBuilderLookup.has_key(table):
+            if table not in self._tableBuilderLookup:
                 raise exception.UnsupportedError("Table '%s' not provided"
                     % table)
-            tableBuilderClasses.append(self.tableBuilderLookup[table])
+            tableBuilderClasses.append(self._tableBuilderLookup[table])
 
         for builder in tableBuilderClasses:
             if self.db.engine.has_table(builder.PROVIDES):
@@ -443,14 +418,14 @@ class DatabaseBuilder:
             dependedTablesNames.add(table)
 
             # add dependent tables if needed (recursively)
-            if not self.tableBuilderLookup.has_key(table):
+            if table not in self._tableBuilderLookup:
                 # either we have no builder or the builder was removed in
                 # favour of another builder that shares at least one table
                 # with the removed one
                 raise exception.UnsupportedError("table '" + table \
                     + "' not provided, might be related to conflicting " \
                     + "builders")
-            builderClass = self.tableBuilderLookup[table]
+            builderClass = self._tableBuilderLookup[table]
             for dependantTable in builderClass.DEPENDS:
                 solveDependencyRecursive(dependantTable)
 
@@ -459,7 +434,7 @@ class DatabaseBuilder:
         skippedTables = set()
 
         for table in tableNames:
-            builderClass = self.tableBuilderLookup[table]
+            builderClass = self._tableBuilderLookup[table]
             for depededTable in builderClass.DEPENDS:
                 solveDependencyRecursive(depededTable)
 
@@ -488,7 +463,7 @@ class DatabaseBuilder:
         while dependencyTables:
             dependencyTable = dependencyTables.pop()
             for table in residualTables:
-                builderClass = self.tableBuilderLookup[table]
+                builderClass = self._tableBuilderLookup[table]
                 if  dependencyTable in builderClass.DEPENDS:
                     # found a table that depends on the given table
                     dependingTablesNames.add(table)
@@ -529,14 +504,14 @@ class DatabaseBuilder:
         # get dependencies and save order
         tableBuilderClasses = []
         for table in set(tableNames):
-            if not self.tableBuilderLookup.has_key(table):
+            if table not in self._tableBuilderLookup:
                 # either we have no builder or the builder was removed in favour
                 # of another builder that shares at least one table with the
                 # removed one
                 raise exception.UnsupportedError("table '" + table \
                     + "' not provided, might be related to conflicting " \
                     + "builders")
-            tableBuilderClasses.append(self.tableBuilderLookup[table])
+            tableBuilderClasses.append(self._tableBuilderLookup[table])
         return self.getBuildDependencyOrder(tableBuilderClasses)
 
     @staticmethod
@@ -705,7 +680,7 @@ class DatabaseBuilder:
         @rtype: list of str
         @return: names of tables
         """
-        return set(self.tableBuilderLookup.keys())
+        return set(self._tableBuilderLookup.keys())
 
     def isOptimizable(self):
         """
