@@ -20,6 +20,7 @@ Provides the central Chinese character based functions.
 @todo Fix:  Move examples and scripts to use new layout of CharacterLookup.
     Don't mention a ValueError any more, as locale is specified at instantiation
     time.
+@todo Fix: Make C{G} the Simplified Chinese locale?
 """
 
 # import math
@@ -272,11 +273,11 @@ class CharacterLookup:
         - Z-variants:
             U{http://www.unicode.org/reports/tr38/tr38-5.html#N10211}
 
-    @todo Fix:  Incorporate stroke lookup (bigram) techniques
-    @todo Fix:  How to handle character forms (either decomposition or stroke
+    @todo Impl: Incorporate stroke lookup (bigram) techniques
+    @todo Impl: How to handle character forms (either decomposition or stroke
         order), that can only be found as a component in other characters? We
         already mark them by flagging it with an 'S'.
-    @todo Lang: Add option to component decomposition methods to stop on Kangxi
+    @todo Impl: Add option to component decomposition methods to stop on Kangxi
         radical forms without breaking further down beyond those.
     @todo Impl: Further I{character domains} for Japanese, Cantonese, Korean,
         Vietnamese
@@ -321,11 +322,13 @@ class CharacterLookup:
             raise ValueError('Locale not one out of TCJKV: ' + repr(locale))
         else:
             self.locale = locale
+            """I{character locale}"""
         # get connector to database
         if dbConnectInst:
             self.db = dbConnectInst
         else:
             self.db = dbconnector.DatabaseConnector.getDBConnector(databaseUrl)
+            """L{DatabaseConnector} instance"""
         # character domain
         self.setCharacterDomain(characterDomain)
 
@@ -333,7 +336,9 @@ class CharacterLookup:
 
         # test for existing tables that can be used to speed up look up
         self.hasComponentLookup = self.db.engine.has_table('ComponentLookup')
+        """C{True} if table C{ComponentLookup} exists"""
         self.hasStrokeCount = self.db.engine.has_table('StrokeCount')
+        """C{True} if table C{StrokeCount} exists"""
 
     def _getReadingFactory(self):
         """
@@ -441,6 +446,11 @@ class CharacterLookup:
         """
         Gets all know characters for the given reading.
 
+        Cjklib uses the mappings defined in L{CHARARACTER_READING_MAPPING}, but
+        offers lookup for additional readings by converting those to a reading
+        for which a mapping exists. See L{cjklib.reading} for limitations that
+        arise from reading conversion.
+
         @type readingString: str
         @param readingString: reading string for lookup
         @type readingN: str
@@ -488,6 +498,11 @@ class CharacterLookup:
     def getReadingForCharacter(self, char, readingN, **options):
         """
         Gets all know readings for the character in the given target reading.
+
+        Cjklib uses the mappings defined in L{CHARARACTER_READING_MAPPING}, but
+        offers lookup for additional readings by converting those to a reading
+        for which a mapping exists. See L{cjklib.reading} for limitations that
+        arise from reading conversion.
 
         @type char: str
         @param char: Chinese character for lookup

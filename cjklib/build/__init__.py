@@ -83,12 +83,12 @@ class DatabaseBuilder:
         @keyword dataPath: optional list of paths to the data file(s)
         @keyword quiet: if C{True} no status information will be printed to
             stderr
-        @keyword rebuildDepending: if true existing tables that depend on
+        @keyword rebuildDepending: if C{True} existing tables that depend on
             updated tables will be dropped and built from scratch
-        @keyword rebuildExisting: if true existing tables will be dropped and
+        @keyword rebuildExisting: if C{True} existing tables will be dropped and
             built from scratch
-        @keyword noFail: if true build process won't terminate even if one table
-            fails to build
+        @keyword noFail: if C{True} build process won't terminate even if one
+            table fails to build
         @keyword prefer: list of L{TableBuilder} names to prefer in conflicting
             cases
         @keyword additionalBuilders: list of externally provided TableBuilders
@@ -105,15 +105,20 @@ class DatabaseBuilder:
             options['dataPath'] = [options['dataPath']]
 
         self.quiet = options.get('quiet', False)
+        """Controls status information printed to stderr"""
         self.rebuildDepending = options.pop('rebuildDepending', True)
+        """Controls if tables that depend on updated tables will be rebuilt."""
         self.rebuildExisting = options.pop('rebuildExisting', True)
+        """Controls if existing tables will be rebuilt."""
         self.noFail = options.pop('noFail', False)
+        """Controls if build process terminate on failed tables."""
         # get connector to database
         databaseUrl = options.pop('databaseUrl', None)
         if 'dbConnectInst' in options:
             self.db = options.pop('dbConnectInst')
         else:
             self.db = dbconnector.DatabaseConnector.getDBConnector(databaseUrl)
+            """L{DatabaseConnector} instance"""
 
         # get TableBuilder classes
         tableBuilderClasses = DatabaseBuilder.getTableBuilderClasses(
@@ -130,6 +135,7 @@ class DatabaseBuilder:
 
         # options for TableBuilders
         self.options = options
+        """Table builder options dictionary"""
 
     def getBuilderOptions(self, builderClass, ignoreUnknown=False):
         """
@@ -224,6 +230,8 @@ class DatabaseBuilder:
 
         @type tables: list
         @param tables: list of tables to build
+        @raise IOError: if a table builder fails to read its data; only if
+            L{noFail} is set to C{False}
         """
         if type(tables) != type([]):
             tables = [tables]

@@ -34,7 +34,7 @@ build steps will take some minutes, depending on the tables created.
 
 The build process is started by running:
 
-# buildcjkdb.py build GROUP
+# buildcjkdb build GROUP
 
 with GROUP being the name of a group of tables to be installed.
 
@@ -72,13 +72,13 @@ work.
 
 Currently only characters from the Basic Multilingual Plane (BMP) of Unicode
 are supported, due to missing support in MySQL (see below). To enable full
-support buildcjkdb needs to be told to use the appropriate building methods.
+support set wideBuild to True in cjklib.conf.
 
 SQLite offers a full-text search with extension FTS3 which needs to be
-compiled in to used. cjknife uses the full-text capabilities for the
+compiled in to used. cjknife can use the full-text capabilities for the
 dictionary search and performs a full table scan in fuzzy search if this
-extension is not available. No full-text support is currently given for
-MySQL.
+extension is not available. To enable it set enableFTS3 to True in
+cjklib.conf. No full-text support is currently given for MySQL.
 
 MySQL
 -----

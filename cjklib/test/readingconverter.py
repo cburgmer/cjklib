@@ -1074,8 +1074,8 @@ class PinyinWadeGilesReferenceTest(ReadingConverterReferenceTest,
     CONVERSION_DIRECTION = ('Pinyin', 'WadeGiles')
 
     CONVERSION_REFERENCES = [
-        ({'sourceOptions': {}, 'targetOptions': {}}, [
-            (u"tiān'ānmén", u't’ien1an1-men2'),
+        ({'sourceOptions': {}, 'targetOptions': {'toneMarkType': 'numbers'}}, [
+            (u"tiān'ānmén", u't’ien1-an1-mên2'),
             (u'he', exception.AmbiguousConversionError),
             ]),
         ]
@@ -1181,11 +1181,12 @@ class GRPinyinReferenceTest(ReadingConverterReferenceTest,
             (u'tzemm.me', u'zènme'), (u'jemm', u'zhènme'),
             (u'jemm.me', u'zhènme'), (u'nemm', u'néme'), (u'nemm.me', u'néme'),
             (u'.ne.me', u'neme'), (u'woom', u'wǒmen'),
-            (u"liibay’i", u'lǐbàiyī'), (u"san’g ren", u'sānge rén'),
+            (u"liibay’i", u'lǐbàiyī'), (u"san’g ren", u'sāngè rén'),
             (u"shyr’ell", u"shí'èr"),
             # TODO implement
             #(u'shie.x', u'xièxie'), (u'duey .le vx', u'duì le duì le'),
-            #(u'j-h-eh', u'zhè'), (u'woom', u'wǒmen'),
+            #(u'deengiv', u'děngyīděng'), (u'feyshinvx', u'fèixīnfèixīn'),
+            #(u'j-h-eh', u'zhè'),
             ]),
         ]
 

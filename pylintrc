@@ -48,11 +48,14 @@ indent-string='    '
 #   pylint doesn't decode files properly (Unicode), fix seems difficult
 # W0142: *Used * or ** magic*
 #   a lot of modules with variable options count
+# R0201: *Method could be a function*
+#   Class hierarchy with some methods overloaded not using any instance vars
+#
 # W0402: *Uses of a deprecated module %r*
 #   string module, see http://www.logilab.org/email/2261
 #
 # See further options in source files, using pattern "# pylint: disable-msg=.+"
-disable-msg=W0201,C0111,W0105,W0223,C0301,W0142
+disable-msg=W0201,C0111,W0105,W0223,C0301,W0142,R0201
 
 [REPORTS]
 
@@ -65,6 +68,14 @@ include-ids=yes
 
 # Tells wether to display a full report or only the messages
 reports=no
+
+[DESIGN]
+
+# Maximum number of attributes for a class (see R0902).
+max-attributes=10
+
+# Maximum number of public methods for a class (see R0904).
+max-public-methods=30
 
 [MISCELLANEOUS]
 

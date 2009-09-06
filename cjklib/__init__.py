@@ -104,7 +104,7 @@ Apart from this dependency it needs a database back-end for most of its parts
 and library SQLAlchemy.
 Currently tested are:
     - SQLite, tested on SQLite 3
-    - MySQL, tested on MySQL 5.0 (works only with characters from the Basic
+    - MySQL, tested on MySQL 5.1 (works only with characters from the Basic
         Multilingual Plane in Unicode, BMP)
 
 @author: Christoph Burgmer <cburgmer@ira.uka.de>
@@ -116,8 +116,7 @@ Currently tested are:
 
     cjklib comes with absolutely no warranty; for details see B{License}.
 
-    Parts of the data used by this library are copyrighted by the following
-    organisations:
+    Parts of the data used by this library have their own copyright:
         - Copyright © 1991-2007 Unicode, Inc. All rights reserved. Distributed
             under the Terms of Use in U{http://www.unicode.org/copyright.html}.
 
@@ -136,16 +135,6 @@ Currently tested are:
             File or in the Software as well as in the documentation associated
             with the Data File(s) or Software that the data or software has been
             modified.
-
-        - The Jyutping phrase box, Linguistic Society of Hong Kong.
-
-            The copyright of the Jyutping phrase box belongs to the Linguistic
-            Society of Hong Kong. We would like to thank the Jyutping Group of
-            the Linguistic Society of Hong Kong for permission to use the
-            electronic file in our research and/or product development. Note
-            that the inclusion of the phrase box in the Unihan database requires
-            that any products developed using the kCantonese field needs to
-            include this acknowledgement.
 
 @license: The library and all parts are distributed under the terms of the LGPL
 Version 3, 29 June 2007 (U{http://www.gnu.org/licenses/lgpl.html}) if not

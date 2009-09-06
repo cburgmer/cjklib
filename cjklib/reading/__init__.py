@@ -151,8 +151,36 @@ uses by default.
 A special notion of X{dialect converters} is used for L{ReadingConverter}s that
 convert between two different representations of the same reading. These allow
 flexible switching between reading dialects.
+
+Limitations of reading conversion
+=================================
+While reading conversion allows for flexible handling of any reading, there are
+corner cases and limitations that arise from the difference in the readings'
+designs.
+The following list tries to name limitations for some conversions, it is not
+meant to be exhaustive though. The best way to be really sure about what can be
+mapped and what not, it to actually try it out. Missing mappings for some
+syllables will not be listed here.
+
+    - I{Jyutping} to I{Cantonese Yale}: Jyutping was designed for Cantonese as
+      spoken in Hong Kong. While the high falling tone is lost there, it still
+      exists in the area of Guangzhou. The first tone of Jyutping will either
+      map to the high level tone (default) or the high falling tone.
+    - I{Pinyin} to I{Wade-Giles}: Wade-Giles distinguishes between finals I{o}
+      and I{ê} while Pinyin only writes I{e} (ê for the syllable itself). A
+      mapping is thus ambiguous.
+    - I{GR} to I{Pinyin}: GR transcribes I{Erhua} sound such that the
+      etymological syllable gets lost. A mapping to Pinyin is thus ambiguous.
+    - I{Pinyin} to I{GR}: GR transcribes the etymological tone for a fifth tone,
+      while Pinyin does not. A mapping cannot fill in the missing information.
+    - I{IPA}: IPA for Mandarin and Cantonese needs to transcribe tonal changes
+      and other co-articulation features, which most of the romanisations don't
+      cover. A mapping is often either done as approximation, or is not possible
+      at all.
+
 @todo Fix:  Be independant on locale chosen, see
-    U{http://docs.python.org/library/locale.html#background-details-hints-tips-and-caveats}.
+    U{http://docs.python.org/library/locale.html#background-details-hints-tips-and-caveats}. Maybe only set that as a goal for Python 3 (and maybe 2.7) as
+    C{from __future__ import unicode_literals} is pretty buggy in 2.6.
 """
 
 __all__ = ['operator', 'converter', 'ReadingFactory']

@@ -831,8 +831,8 @@ class CharacterInfo:
         infoDict['locale'] = self.locale
         infoDict['locale name'] = self.CHAR_LOCALE_NAME[self.locale]
         infoDict['characterDomain'] = self.characterLookup.getCharacterDomain()
-        infoDict['codepoint hex'] = "0x%(decindex)x" % {'decindex': ord(char)}
-        infoDict['codepoint dec'] = "%(decindex)s" % {'decindex': ord(char)}
+        infoDict['codepoint hex'] = 'U+%04X' % ord(char)
+        infoDict['codepoint dec'] = str(ord(char))
 
         # radical
         if self.characterLookup.isRadicalChar(char):
@@ -1398,8 +1398,9 @@ def main():
                 print "Error: can't compose target entities:", \
                     getExceptionString(m).encode(output_encoding, "replace")
                 sys.exit(1)
-            except exception.AmbiguousConversionError:
-                print "Error: input reading is ambiguous, can't convert"
+            except exception.AmbiguousConversionError, m:
+                print "Error: input reading is ambiguous, can't convert:", \
+                    getExceptionString(m).encode(output_encoding, "replace")
                 sys.exit(1)
             except exception.ConversionError, m:
                 print "Error: can't convert input string:", \
