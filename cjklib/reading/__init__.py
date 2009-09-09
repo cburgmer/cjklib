@@ -856,7 +856,9 @@ class ReadingFactory(object):
 
     def isReadingEntity(self, entity, readingN, **options):
         """
-        Checks if the given string is an entity of the given reading.
+        Returns C{True} if the given entity is a valid I{reading entity}
+        recognised by the reading operator, i.e. it will be returned by
+        L{decompose()}.
 
         @type entity: str
         @param entity: entity to check
@@ -864,11 +866,28 @@ class ReadingFactory(object):
         @param readingN: name of reading
         @param options: additional options for handling the input
         @rtype: bool
-        @return: true if string is an entity of the reading, false otherwise.
+        @return: C{True} if string is an entity of the reading, false otherwise.
         @raise UnsupportedError: if the given reading is not supported.
         """
         readingOp = self._getReadingOperatorInstance(readingN, **options)
         return readingOp.isReadingEntity(entity)
+
+    def isFormattingEntity(self, entity, readingN, **options):
+        """
+        Returns C{True} if the given entity is a valid I{formatting entity}
+        recognised by the reading operator.
+
+        @type entity: str
+        @param entity: entity to check
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: bool
+        @return: C{True} if string is a formatting entity of the reading.
+        @raise UnsupportedError: if the given reading is not supported.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        return readingOp.isFormattingEntity(entity)
 
     #}
     #{ RomanisationOperator methods
@@ -963,7 +982,7 @@ class ReadingFactory(object):
         @param readingN: name of reading
         @param options: additional options for handling the input
         @rtype: set of str
-        @return: set of supported syllables
+        @return: set of supported I{reading entities}
         @raise UnsupportedError: if the given reading is not supported or the
             reading doesn't support the specified method.
         """
@@ -971,6 +990,25 @@ class ReadingFactory(object):
         if not hasattr(readingOp, 'getReadingEntities'):
             raise UnsupportedError("method 'getReadingEntities' not supported")
         return readingOp.getReadingEntities()
+
+    def getFormattingEntities(self, readingN, **options):
+        """
+        Gets a set of entities used by the reading to format
+        I{reading entities}.
+
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: set of str
+        @return: set of supported formatting entities
+        @raise UnsupportedError: if the given reading is not supported or the
+            reading doesn't support the specified method.
+        """
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        if not hasattr(readingOp, 'getFormattingEntities'):
+            raise UnsupportedError(
+                "method 'getFormattingEntities' not supported")
+        return readingOp.getFormattingEntities()
 
     #}
     #{ TonalFixedEntityOperator methods

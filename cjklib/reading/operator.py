@@ -69,9 +69,13 @@ class ReadingOperator(object):
     breaks down a text into the basic entities of that reading (additional non
     reading substrings are accepted though). L{compose()} joins these entities
     together again and applies formating rules needed by the reading.
-    Additionally the method L{isReadingEntity()} is provided to check which of
-    the strings returned by L{decompose()} are supported entities for the given
-    reading.
+
+    Additionally methods L{isReadingEntity()} and L{isFormattingEntity()} are
+    provided to check which of the strings returned by L{decompose()} are
+    supported entities for the given reading. While a X{reading entity}
+    expresses an entity of the language (in most cases a X{syllable}), a
+    X{formatting entity} merely exists for the convenience of the written form,
+    e.g. punctuation marks or syllable separators.
 
     The methods L{getDefaultOptions()} will return the reading default dialect.
 
@@ -156,8 +160,8 @@ class ReadingOperator(object):
 
     def isReadingEntity(self, entity):
         """
-        Returns true if the given entity is recognised by the reading
-        operator, i.e. it is a valid entity of the reading returned by
+        Returns C{True} if the given entity is a valid I{reading entity}
+        recognised by the reading operator, i.e. it will be returned by
         L{decompose()}.
 
         The base class' implementation will raise a NotImplementedError.
@@ -165,9 +169,23 @@ class ReadingOperator(object):
         @type entity: str
         @param entity: entity to check
         @rtype: bool
-        @return: true if string is an entity of the reading, false otherwise.
+        @return: C{True} if string is an entity of the reading, false otherwise.
         """
         raise NotImplementedError
+
+    def isFormattingEntity(self, entity):
+        """
+        Returns C{True} if the given entity is a valid I{formatting entity}
+        recognised by the reading operator.
+
+        The base class' implementation will always return False.
+
+        @type entity: str
+        @param entity: entity to check
+        @rtype: bool
+        @return: C{True} if string is a formatting entity of the reading.
+        """
+        return False
 
 
 class RomanisationOperator(ReadingOperator):
@@ -305,7 +323,7 @@ class RomanisationOperator(ReadingOperator):
                 #   unique decomposition
                 nonMergeableParts = []
                 for decomposition in segment:
-                    if not self._hasMergeableSyllables(decomposition):
+                    if not self._hasMergeableEntities(decomposition):
                         nonMergeableParts.append(decomposition)
                 if len(nonMergeableParts) == 1:
                     strictDecomposition.extend(nonMergeableParts[0])
@@ -431,24 +449,26 @@ class RomanisationOperator(ReadingOperator):
         """
         segmentationParts = []
         substringIndex = 1
-        while substringIndex <= len(readingString) and \
-            self._hasSyllableSubstring(readingString[0:substringIndex].lower()):
-            syllable = readingString[0:substringIndex]
-            if self.isReadingEntity(syllable):
+        while substringIndex <= len(readingString) \
+            and self._hasEntitySubstring(
+                readingString[0:substringIndex].lower()):
+
+            entity = readingString[0:substringIndex]
+            if self.isReadingEntity(entity) or self.isFormattingEntity(entity):
                 remaining = readingString[substringIndex:]
                 if remaining != '':
                     remainingParts = self._recursiveSegmentation(remaining)
                     if remainingParts != []:
-                        segmentationParts.append((syllable, remainingParts))
+                        segmentationParts.append((entity, remainingParts))
                 else:
-                    segmentationParts.append((syllable, None))
+                    segmentationParts.append((entity, None))
             substringIndex = substringIndex + 1
         return segmentationParts
 
-    def _hasMergeableSyllables(self, decomposition):
+    def _hasMergeableEntities(self, decomposition):
         """
-        Checks if the given decomposition has two or more following syllables
-        which together make up a new syllable.
+        Checks if the given decomposition has two or more following entities
+        which together make up a new entity.
 
         Segmentation can give several results with some possible syllables being
         even further subdivided (e.g. I{tian} to I{ti'an} in Pinyin). These
@@ -464,7 +484,7 @@ class RomanisationOperator(ReadingOperator):
             endIndex = startIndex + 2
             subDecomp = "".join(decomposition[startIndex:endIndex]).lower()
             while endIndex <= len(decomposition) and \
-                self._hasSyllableSubstring(subDecomp):
+                self._hasEntitySubstring(subDecomp):
                 if self.isReadingEntity(subDecomp):
                     return True
                 endIndex = endIndex + 1
@@ -489,23 +509,24 @@ class RomanisationOperator(ReadingOperator):
         """
         return False
 
-    def _hasSyllableSubstring(self, readingString):
+    def _hasEntitySubstring(self, readingString):
         """
-        Checks if the given string is a syllable supported by this romanisation
+        Checks if the given string is a entity supported by this romanisation
         or a substring of one.
 
         @type readingString: str
-        @param readingString: romanisation syllable or substring
+        @param readingString: reading string
         @rtype: bool
-        @return: true if this string is a substring of a syllable, false
-            otherwise
+        @return: C{True} if this string is I{reading entity},
+            I{formatting entity} or substring
         """
         if not hasattr(self, '_substringSet'):
             # build index as called for the first time
             self._substringSet = set()
-            for syllable in self.getReadingEntities():
-                for i in range(len(syllable)):
-                    self._substringSet.add(syllable[0:i+1])
+            entities = self.getReadingEntities() | self.getFormattingEntities()
+            for entity in entities:
+                for i in range(len(entity)):
+                    self._substringSet.add(entity[0:i+1])
         return readingString in self._substringSet
 
     def isReadingEntity(self, entity):
@@ -514,8 +535,8 @@ class RomanisationOperator(ReadingOperator):
         operator, i.e. it is a valid entity of the reading returned by the
         segmentation method.
 
-        Case of characters will be handled depending on the setting for option
-        C{'case'}.
+        Letter case of characters will be handled depending on the setting for
+        option C{'case'}.
 
         @type entity: str
         @param entity: entity to check
@@ -540,9 +561,43 @@ class RomanisationOperator(ReadingOperator):
         The base class' implementation will raise a NotImplementedError.
 
         @rtype: set of str
-        @return: set of supported syllables
+        @return: set of supported I{reading entities}
         """
         raise NotImplementedError
+
+    def isFormattingEntity(self, entity):
+        """
+        Returns C{True} if the given entity is a valid I{formatting entity}
+        recognised by the romanisation operator.
+
+        Letter case of characters will be handled depending on the setting for
+        option C{'case'}.
+
+        @type entity: str
+        @param entity: entity to check
+        @rtype: bool
+        @return: C{True} if string is a formatting entity of the reading.
+        """
+        # check capitalisation
+        if self.case == 'lower' and entity.lower() != entity:
+            return False
+
+        if not hasattr(self, '_formattingTable'):
+            # set used syllables
+            self._formattingTable = self.getFormattingEntities()
+        return entity.lower() in self._formattingTable
+
+    def getFormattingEntities(self):
+        """
+        Gets a set of entities used by the reading to format
+        I{reading entities}.
+
+        The base class' implementation will return an empty set.
+
+        @rtype: set of str
+        @return: set of supported I{formatting entities}
+        """
+        return set()
 
     @staticmethod
     def _crossProduct(singleLists):
@@ -723,7 +778,7 @@ class TonalFixedEntityOperator(ReadingOperator):
     def getPlainReadingEntities(self):
         """
         Gets the list of plain entities supported by this reading. Different to
-        L{getReadingEntities()} the entities will carry no tone mark.
+        L{getReadingEntities()} these entities will carry no tone mark.
 
         The base class' implementation will raise a NotImplementedError.
 
@@ -1754,7 +1809,7 @@ class PinyinOperator(TonalRomanisationOperator):
 
         return True
 
-    def _hasSyllableSubstring(self, readingString):
+    def _hasEntitySubstring(self, readingString):
         # reimplement to allow for misplaced tone marks
         def stripDiacritic(strng):
             """Strip one tonal diacritic mark off string."""
@@ -1763,23 +1818,21 @@ class PinyinOperator(TonalRomanisationOperator):
 
             return unicodedata.normalize("NFC", unicode(strng))
 
-        if not hasattr(self, '_substringSet'):
-            # build index as called for the first time
-            if self.toneMarkType == 'diacritics':
-                # we remove diacritics, so plain entities suffice
-                entities = self.getPlainReadingEntities()
-            else:
-                entities = self.getReadingEntities()
-
-            self._substringSet = set()
-            for syllable in entities:
-                for i in range(len(syllable)):
-                    self._substringSet.add(syllable[0:i+1])
-
         if self.toneMarkType == 'diacritics':
+            if not hasattr(self, '_substringSet'):
+                # Build index as called for the first time.  We remove
+                #   diacritics, so plain entities suffice
+                entities = self.getPlainReadingEntities()
+
+                self._substringSet = set()
+                for syllable in entities:
+                    for i in range(len(syllable)):
+                        self._substringSet.add(syllable[0:i+1])
+
             return stripDiacritic(readingString) in self._substringSet
         else:
-            return readingString in self._substringSet
+            return super(PinyinOperator, self)._hasEntitySubstring(
+                readingString)
 
     def getTonalEntity(self, plainEntity, tone):
         # get normalised Unicode string, e.g. C{'e\u0302'} to C{'ê'}
@@ -2012,6 +2065,9 @@ class PinyinOperator(TonalRomanisationOperator):
                 and tone in self.getTones()
         except InvalidEntityError:
             return False
+
+    def getFormattingEntities(self):
+        return set([self.pinyinApostrophe])
 
     def getOnsetRhyme(self, plainSyllable):
         """
@@ -2729,6 +2785,9 @@ class WadeGilesOperator(TonalRomanisationOperator):
         else:
             return 'lost'
 
+    def getFormattingEntities(self):
+        return set(['-'])
+
     def getOnsetRhyme(self, plainSyllable):
         """
         Splits the given plain syllable into onset (initial) and rhyme (final).
@@ -3022,29 +3081,6 @@ class GROperator(TonalRomanisationOperator):
             precedingEntity = entity
 
         return True
-
-    def _recursiveSegmentation(self, readingString):
-        # overwrite method to deal with the apostrophe that can be both a part
-        #   of a syllable and a separator between syllables
-        segmentationParts = []
-        substringIndex = 1
-        while substringIndex <= len(readingString) and \
-            (self._hasSyllableSubstring(
-                readingString[0:substringIndex].lower()) \
-                or readingString[0:substringIndex] \
-                    == self.grSyllableSeparatorApostrophe):
-            syllable = readingString[0:substringIndex]
-            if self.isReadingEntity(syllable) \
-                or syllable == self.grSyllableSeparatorApostrophe:
-                remaining = readingString[substringIndex:]
-                if remaining != '':
-                    remainingParts = self._recursiveSegmentation(remaining)
-                    if remainingParts != []:
-                        segmentationParts.append((syllable, remainingParts))
-                else:
-                    segmentationParts.append((syllable, None))
-            substringIndex = substringIndex + 1
-        return segmentationParts
 
     def removeApostrophes(self, readingEntities):
         """
@@ -3623,8 +3659,11 @@ class GROperator(TonalRomanisationOperator):
 
     def isReadingEntity(self, entity):
         # overwrite default method, use lookup dictionary, otherwise we would
-        #   end up in an recursive call
+        #   end up in a recursive call
         return RomanisationOperator.isReadingEntity(self, entity)
+
+    def getFormattingEntities(self):
+        return set([self.grSyllableSeparatorApostrophe])
 
 
 class MandarinIPAOperator(TonalIPAOperator):
@@ -3756,6 +3795,10 @@ class MandarinBrailleOperator(ReadingOperator):
         ...     for char in input]
         ['P13', 'P16', 'SPACE', 'P1345', 'P24', 'SPACE', 'P145', 'P3456', \
 'SPACE', 'P24', 'P1', 'P125', 'P1246', 'P56', 'P2']
+
+    @todo Impl: Punctuation marks in isFormattingEntity() and
+        getFormattingEntities(). Then change
+        PinyinBrailleConverter.convertEntitySequence() to use these methods.
     """
     READING_NAME = "MandarinBraille"
 
@@ -4508,7 +4551,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         return "".join(readingEntities)
 
-    def _hasSyllableSubstring(self, readingString):
+    def _hasEntitySubstring(self, readingString):
         # reimplement to allow for misplaced tone marks
         def stripDiacritic(strng):
             """Strip one tonal diacritic mark off string."""
@@ -4523,26 +4566,24 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
             return unicodedata.normalize("NFC", strng)
 
-        if not hasattr(self, '_substringSet'):
-            # build index as called for the first time
-            if self.toneMarkType == 'diacritics':
-                # we remove diacritics, so plain entities suffice
+        if self.toneMarkType == 'diacritics':
+            if not hasattr(self, '_substringSet'):
+                # Build index as called for the first time.  We remove
+                #   diacritics, so plain entities suffice.
                 entities = self.getPlainReadingEntities()
-                # extend with low tone indicator 'h'
+                # Extend with low tone indicator 'h'.
                 for entity in entities.copy():
                     entities.add(self.getTonalEntity(entity, '6thTone'))
-            else:
-                entities = self.getReadingEntities()
 
-            self._substringSet = set()
-            for syllable in entities:
-                for i in range(len(syllable)):
-                    self._substringSet.add(syllable[0:i+1])
+                self._substringSet = set()
+                for syllable in entities:
+                    for i in range(len(syllable)):
+                        self._substringSet.add(syllable[0:i+1])
 
-        if self.toneMarkType == 'diacritics':
             return stripDiacritic(readingString) in self._substringSet
         else:
-            return readingString in self._substringSet
+            return super(CantoneseYaleOperator, self)._hasEntitySubstring(
+                readingString)
 
     def getTonalEntity(self, plainEntity, tone):
         """

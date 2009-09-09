@@ -17,6 +17,8 @@
 
 """
 Provides the library's unit tests for the L{reading.operator} classes.
+@todo Fix:  Rename classes like CanoneseIPAOperatorConsistencyTestCase to
+    CanoneseIPAOperatorConsistencyTest.
 """
 
 # pylint: disable-msg=E1101
@@ -129,7 +131,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                 seen = True
 
     def testInstantiation(self):
-        """Test if given dialects can be instantiated"""
+        """Test if given dialects can be instantiated."""
         self.assert_(self.readingOperatorClass != None,
             "No reading operator class found" \
                 + ' (reading %s)' % self.READING_NAME)
@@ -261,7 +263,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
 
     def testValidReadingEntitiesAccepted(self):
         """
-        Test if all reading entities returned by C{getReadingEntities()} are
+        Test if all I{reading entities} returned by C{getReadingEntities()} are
         accepted by C{isReadingEntity()}.
         """
         if not hasattr(self.readingOperatorClass, "getReadingEntities"):
@@ -277,6 +279,29 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
             for entity in entities:
                 self.assert_(
                     self.f.isReadingEntity(entity, self.READING_NAME,
+                        **dialect),
+                    "Entity %s not accepted" % repr(entity) \
+                        + ' (reading %s, dialect %s)' \
+                            % (self.READING_NAME, dialect))
+
+    def testValidFormattingEntitiesAccepted(self):
+        """
+        Test if all I{formatting entities} returned by
+        C{getFormattingEntities()} are accepted by C{isFormattingEntity()}.
+        """
+        if not hasattr(self.readingOperatorClass, "getFormattingEntities"):
+            return
+
+        forms = []
+        forms.extend(self.DIALECTS)
+        if {} not in forms:
+            forms.append({})
+        for dialect in forms:
+            entities = self.f.getFormattingEntities(self.READING_NAME,
+                **dialect)
+            for entity in entities:
+                self.assert_(
+                    self.f.isFormattingEntity(entity, self.READING_NAME,
                         **dialect),
                     "Entity %s not accepted" % repr(entity) \
                         + ' (reading %s, dialect %s)' \
@@ -308,7 +333,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
     def testOnsetRhyme(self):
         """Test if all plain entities are accepted by C{getOnsetRhyme()}."""
         if not hasattr(self.readingOperatorClass, "getPlainReadingEntities") \
-            or not hasattr(self.readingOperatorClass, "testOnsetRhyme"):
+            or not hasattr(self.readingOperatorClass, "getOnsetRhyme"):
             return
 
         forms = []

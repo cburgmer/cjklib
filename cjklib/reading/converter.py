@@ -66,13 +66,13 @@ import cjklib.reading
 # define our own titlecase methods, as the Python implementation is currently
 #   buggy (http://bugs.python.org/issue6412), see also
 #   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
-_firstNonCaseIgnorable = re.compile(ur"(?u)([.ₒ]?\W*)(\w)(.*)$")
+_FIRST_NON_CASE_IGNORABLE = re.compile(ur"(?u)([.ₒ]?\W*)(\w)(.*)$")
 """
 Regular expression matching the first alphabetic character. Include GR neutral
 tone forms.
 """
 def titlecase(strng):
-    """
+    u"""
     Returns the string (without "word borders") in titlecase.
 
     This function is not designed to work for multi-entity strings in general
@@ -92,7 +92,7 @@ def titlecase(strng):
         in to the Unicode title casing algorithm's definition of a
         case-ignorable character.
     """
-    matchObj = _firstNonCaseIgnorable.match(strng.lower())
+    matchObj = _FIRST_NON_CASE_IGNORABLE.match(strng.lower())
     if matchObj:
         tonal, firstChar, rest = matchObj.groups()
         return tonal + firstChar.upper() + rest
@@ -402,7 +402,9 @@ class DialectSupportReadingConverter(ReadingConverter):
             else:
                 readingEntitySequence = []
 
-            if self._getFromOperator(fromReading).isReadingEntity(entity):
+            if self._getFromOperator(fromReading).isReadingEntity(entity) \
+                or self._getFromOperator(fromReading).isFormattingEntity(
+                    entity):
                 # add reading entity to preceding ones
                 readingEntitySequence.append(entity)
                 entitySequence.append(readingEntitySequence)
@@ -572,24 +574,28 @@ class RomanisationConverter(DialectSupportReadingConverter):
     L{convertBasicEntity()} has to be implemented, as to make the translation of
     a syllable from one romanisation to another possible.
     """
-
     def convertEntitySequence(self, entitySequence, fromReading, toReading):
         toEntitySequence = []
         for sequence in entitySequence:
             if type(sequence) == type([]):
                 toSequence = []
                 for entity in sequence:
-                    toReadingEntity = self.convertBasicEntity(entity.lower(),
-                        fromReading, toReading)
+                    if self._f.isReadingEntity(entity, fromReading,
+                        **self.DEFAULT_READING_OPTIONS[fromReading]):
+                        toReadingEntity = self.convertBasicEntity(
+                            entity.lower(), fromReading, toReading)
 
-                    # transfer letter case, target reading dialect will take
-                    #   care of final transformation (lower/both)
-                    if entity.isupper():
-                        toReadingEntity = toReadingEntity.upper()
-                    elif istitlecase(entity):
-                        toReadingEntity = titlecase(toReadingEntity)
+                        # transfer letter case, target reading dialect will take
+                        #   care of final transformation (lower/both)
+                        if entity.isupper():
+                            toReadingEntity = toReadingEntity.upper()
+                        elif istitlecase(entity):
+                            toReadingEntity = titlecase(toReadingEntity)
 
-                    toSequence.append(toReadingEntity)
+                        toSequence.append(toReadingEntity)
+                    else:
+                        # formatting entity
+                        toSequence.append(entity)
                 toEntitySequence.append(toSequence)
             else:
                 toEntitySequence.append(sequence)
@@ -1121,16 +1127,14 @@ class PinyinWadeGilesConverter(RomanisationConverter):
     are found.
     """
     CONVERSION_DIRECTIONS = [('Pinyin', 'WadeGiles'), ('WadeGiles', 'Pinyin')]
-    # use the tone mark type 'numbers' from Pinyin to support missing tonal
+    # Use the tone mark type 'numbers' from Pinyin to support missing tonal
     #   information. Erhua furthermore is not supported.
     DEFAULT_READING_OPTIONS = {'Pinyin': {'erhua': 'ignore',
         'toneMarkType': 'numbers'}, 'WadeGiles': {}}
 
     def convertEntities(self, readingEntities, fromReading, toReading):
-        # TODO create a nice way to let the converters handle non-reading
-        #   entities gracefully
-        # for conversion from Wade-Giles remove the hyphens that will not be
-        #   transfered to Pinyin
+        # For conversion from Wade-Giles remove the hyphens that will not be
+        #   transfered to Pinyin.
         if fromReading == 'WadeGiles':
             readingEntities = self._getFromOperator(fromReading).removeHyphens(
                 readingEntities)
@@ -1235,9 +1239,8 @@ class GRDialectConverter(ReadingConverter):
                 + fromReading + "' to '" + toReading + "' not supported")
 
         # abbreviated forms
-        breakUpAbbreviated = self.breakUpAbbreviated
-        if breakUpAbbreviated == 'on' \
-            or (breakUpAbbreviated == 'auto' \
+        if self.breakUpAbbreviated == 'on' \
+            or (self.breakUpAbbreviated == 'auto' \
                 and not self._getToOperator(toReading).abbreviations):
             readingEntities = self.convertAbbreviatedEntities(readingEntities)
 
@@ -1643,7 +1646,7 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
             raise ValueError("Non-callable object %s" \
                     % repr(self.sandhiFunction)
                 + " for keyword 'sandhiFunction'")
-        
+
         # set the sandhiFunction for handling general phonological changes
         if self.coarticulationFunction \
             and not hasattr(self.coarticulationFunction, '__call__'):
@@ -1665,6 +1668,10 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
             if type(sequence) == type([]):
                 ipaTupelList = []
                 for idx, entity in enumerate(sequence):
+                    if self._f.isFormattingEntity(entity, fromReading,
+                        **self.DEFAULT_READING_OPTIONS[fromReading]):
+                        # ignore formatting entities
+                        continue
                     # split syllable into plain part and tonal information
                     plainSyllable, tone = self._f.splitEntityTone(entity,
                         fromReading,
@@ -1971,9 +1978,13 @@ class PinyinBrailleConverter(DialectSupportReadingConverter):
             for sequence in entitySequence:
                 if type(sequence) == type([]):
                     for entity in sequence:
-                        toReadingEntity = self.convertBasicEntity(entity,
-                            fromReading, toReading)
-                        toReadingEntities.append(toReadingEntity)
+                        if self._f.isReadingEntity(entity, fromReading,
+                            **self.DEFAULT_READING_OPTIONS[fromReading]):
+                            toReadingEntity = self.convertBasicEntity(entity,
+                                fromReading, toReading)
+                            toReadingEntities.append(toReadingEntity)
+                        else:
+                            toReadingEntities.append(entity)
                 else:
                     # find punctuation marks
                     for subEntity in self._pinyinPunctuationRegex.findall(
