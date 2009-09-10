@@ -74,23 +74,20 @@ class DatabaseConnector:
         """
         # allow single string and interpret as url
         if type(configuration) in (type(''), type(u'')):
-            configuration = {'url': configuration}
+            configuration = {'url': configuration}            
+        elif not configuration:
+            # try to read from config
+            configuration = getConfigSettings('Connection', projectName)
+            configuration.setdefault('url',
+                cls.DEFAULT_URL_TEMPLATE % projectName)
 
         # if settings changed, remove old instance
-        if cls._dbconnectInstSettings and configuration \
-            and cls._dbconnectInstSettings != configuration:
+        if not cls._dbconnectInstSettings \
+            or cls._dbconnectInstSettings != configuration:
             cls._dbconnectInst = None
 
         if not cls._dbconnectInst:
-            # get database settings and connect to database, if no settings
-            #   given read from config or assume default
-            if not configuration:
-                # try to read from config
-                databaseSettings = getConfigSettings('Connection', projectName)
-                databaseSettings.setdefault('url',
-                    cls.DEFAULT_URL_TEMPLATE % projectName)
-            else:
-                databaseSettings = configuration.copy()
+            databaseSettings = configuration.copy()
 
             cls._dbconnectInst = DatabaseConnector(databaseSettings)
             cls._dbconnectInstSettings = databaseSettings
