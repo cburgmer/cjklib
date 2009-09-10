@@ -562,13 +562,15 @@ class RomanisationConverter(DialectSupportReadingConverter):
     step thus involves three single conversion steps using a default form. This
     default form can be defined in L{DEFAULT_READING_OPTIONS}.
 
-    Upper- or lowercase will be transfered between syllables, no special
-    formatting according to anyhow defined standards will be guaranteed.
-    Upper-/lowercase will be identified according to three classes: either the
-    whole syllable is uppercase, only the initial letter is uppercase
-    (titlecase) or otherwise the whole syllable is assumed being lowercase. For
-    entities of single latin characters uppercase has precedence over titlecase,
-    e.g. I{E5} will convert to I{ÉH} in Cantonese Yale, not to I{Éh}.
+    Letter case will be transfered between syllables, no special formatting
+    according to anyhow defined standards will be guaranteed.
+    Letter case will be identified according to three classes: uppercase (all
+    case-sensible characters are uppercase), titlecase (all case-sensible
+    characters are lowercase except the first case-sensible character),
+    lowercase (all case-sensible characters are lowercase). For entities of
+    single latin characters uppercase has precedence over titlecase, e.g. I{E5}
+    will convert to I{ÉH} in Cantonese Yale, not to I{Éh}. In general letter
+    case should be handled outside of cjklib if special formatting is required.
 
     The class itself can't be used directly, it has to be subclassed and
     L{convertBasicEntity()} has to be implemented, as to make the translation of
@@ -1242,6 +1244,9 @@ class GRDialectConverter(ReadingConverter):
         if self.breakUpAbbreviated == 'on' \
             or (self.breakUpAbbreviated == 'auto' \
                 and not self._getToOperator(toReading).abbreviations):
+            # remove x, v
+            readingEntities = self.convertRepetitionMarker(readingEntities)
+            # substitute abbreviations
             readingEntities = self.convertAbbreviatedEntities(readingEntities)
 
         if self.keepGRApostrophes:
@@ -1277,6 +1282,108 @@ class GRDialectConverter(ReadingConverter):
 
         return readingEntities
 
+    def convertRepetitionMarker(self, readingEntities):
+        """
+        Converts the I{repetition markers} I{x} and I{v} to the full form they
+        represent.
+
+        @type readingEntities: list of str
+        @param readingEntities: reading entities
+        @rtype: list of str
+        @return: reading entities with subsituted I{repetition markers}
+        @raise ConversionError: if repetition markers I{x}, I{v} don't follow a
+            reading entity
+        """
+        def findReadingEntity(readingEntities, idx):
+            while idx >= 0:
+                if grOperator.isReadingEntity(readingEntities[idx]):
+                    return idx
+                idx -= 1
+
+            return -1
+
+        def getRepetitionEntity(repetitionEntity, realEntity):
+            if realEntity in repeatLast or realEntity in repeatSecondLast:
+                raise ConversionError(
+                "Cluster of more than two repetition markers")
+            try:
+                plainRealEntity, realTone = grOperator.splitEntityTone(
+                    realEntity)
+                baseTone = grOperator.getBaseTone(realTone)
+            except UnsupportedError, e:
+                raise ConversionError(
+                    "Unabled to get ethymological tone if  '%s': %s"
+                    % (realEntity, e))
+
+            toneMapping = {1: '1st', 2: '2nd', 3: '3rd', 4: '4th'}
+
+            if repetitionEntity.startswith('.'):
+                tone = '5thToneEtymological%s' % toneMapping[baseTone]
+            elif repetitionEntity.startswith(u'ₒ'):
+                tone = '%sToneOptional5th' % toneMapping[baseTone]
+            else:
+                tone = realTone
+            return grOperator.getTonalEntity(plainRealEntity, tone)
+
+        repeatedEntities = []
+        grOperator = self._getFromOperator('GR')
+
+        # Convert repetition markers, go backwards as 'vx' needs the 'x' to
+        #   be concious about the preceding 'v'.
+        repeatLast = ['x', '.x', u'ₒx']
+        repeatSecondLast = ['v', '.v', u'ₒv']
+        for idx in range(len(readingEntities)-1, -1, -1):
+            # test for 'x'
+            if readingEntities[idx] in repeatLast:
+                targetEntityIdx = findReadingEntity(readingEntities, idx-1)
+                if targetEntityIdx < 0:
+                    raise ConversionError(
+                        "Target syllable not found for repetition marker"
+                        "'x' at '%d'" % idx)
+
+                # Check for special case preceding 'v'.
+                vMarkerIdx = None
+                if readingEntities[targetEntityIdx] in repeatSecondLast:
+                    vMarkerIdx = targetEntityIdx
+                    targetEntityIdx = findReadingEntity(readingEntities,
+                        targetEntityIdx-1)
+                    if targetEntityIdx < 0:
+                        raise ConversionError(
+                            "Target syllable not found for repetition markers"
+                            "'vx' at '%d'" % idx)
+
+                # fix tone and append
+                repeatedEntities.insert(0, getRepetitionEntity(
+                    readingEntities[idx], readingEntities[targetEntityIdx]))
+
+                # For exact marker 'vx' (without whitespace or other
+                #   non-reading characters in-between) include all
+                #   non-reading entities between target syllables
+                if vMarkerIdx != None and vMarkerIdx + 1 == idx:
+                    vTargetEntityIdx = findReadingEntity(readingEntities,
+                        targetEntityIdx-1)
+                    for i in range(targetEntityIdx-1, vTargetEntityIdx, -1):
+                        repeatedEntities.insert(0, readingEntities[i])
+
+            # test for 'v'
+            elif readingEntities[idx] in repeatSecondLast:
+                # Look for second last entity
+                targetEntityIdx = findReadingEntity(readingEntities, idx-1)
+                targetEntityIdx = findReadingEntity(readingEntities,
+                    targetEntityIdx-1)
+                if targetEntityIdx < 0:
+                    raise ConversionError(
+                        "Target syllable not found for repetition marker"
+                        "'v' at '%d'" % idx)
+
+                # fix tone and append
+                repeatedEntities.insert(0, getRepetitionEntity(
+                    readingEntities[idx], readingEntities[targetEntityIdx]))
+            else:
+                repeatedEntities.insert(0, readingEntities[idx])
+
+        return repeatedEntities
+
     def convertAbbreviatedEntities(self, readingEntities):
         """
         Converts the abbreviated GR spellings to the full form. Non-abbreviated
@@ -1285,10 +1392,13 @@ class GRDialectConverter(ReadingConverter):
         Multi-syllable forms may not be separated by whitespaces or other
         entities.
 
+        To also convert I{repetition markers} run L{convertRepetitionMarker()}
+        first.
+
         @type readingEntities: list of str
         @param readingEntities: reading entities
-        @rtype: str
-        @return: original entity
+        @rtype: list of str
+        @return: full entities
         @raise AmbiguousConversionError: if conversion is ambiguous.
         """
         convertedEntities = []

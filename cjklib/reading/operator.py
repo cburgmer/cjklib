@@ -560,6 +560,8 @@ class RomanisationOperator(ReadingOperator):
         The list is used in the segmentation process to find entity boundaries.
         The base class' implementation will raise a NotImplementedError.
 
+        Returned entities are in lowercase.
+
         @rtype: set of str
         @return: set of supported I{reading entities}
         """
@@ -849,6 +851,8 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
 
         The list is used in the segmentation process to find entity boundaries.
 
+        Returned entities are in lowercase.
+
         @rtype: list of str
         @return: list of supported syllables
         """
@@ -902,7 +906,7 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         - None, no support for tone marks
 
     @todo Lang: Shed more light on representations of tones in IPA.
-    @todo Fix:  Get all diacritics used in IPA as tones for L{TONE_MARK_REGEX}.
+    @todo Impl: Get all diacritics used in IPA as tones for L{TONE_MARK_REGEX}.
     @todo Fix:  What about CompositionError? All romanisations raise it, but
         they have a distinct set of characters that belong to the reading.
     """
@@ -1646,7 +1650,7 @@ class PinyinOperator(TonalRomanisationOperator):
         # NFD combining diacritics
         for char in list(u'üêŋẑĉŝ') + list(self.yVowel):
             characters.update(unicodedata.normalize('NFD', unicode(char)))
-        # add NFC vowels, strip of combining diacritical marks
+        # add NFC vowels, strip off combining diacritical marks
         for char in self._getDiacriticVowels():
             characters.update(list(char))
         # tones
@@ -2830,12 +2834,9 @@ class GROperator(TonalRomanisationOperator):
         - conversion of abbreviated forms to full forms,
         - placement of apostrophes before 0-initial syllables,
         - support for different apostrophe characters,
-        - support for I{r-coloured} syllables (I{Erlhuah}) and
+        - support for I{r-coloured} syllables (I{Erlhuah}),
+        - syllable repetition markers (x, v, vx) and
         - guessing of input form (I{reading dialect}).
-
-    Limitations:
-        - syllable repetition markers as reported by some will currently not be
-          parsed.
 
     Tones
     =====
@@ -2868,7 +2869,7 @@ class GROperator(TonalRomanisationOperator):
 
     Abbreviations
     =============
-    Yuen Ren Chao includes several abbreviated forms in his books (references
+    Yuen Ren Chao includes several X{abbreviated form}s in his books (references
     see below). For example 個/个 which would be fully transcribed as I{.geh} or
     I{ₒgeh} is abbreviated as I{g}. These forms can be accessed by
     L{getAbbreviatedForms()} and L{getAbbreviatedFormData()}, and their usage
@@ -2879,6 +2880,15 @@ class GROperator(TonalRomanisationOperator):
         >>> f = ReadingFactory()
         >>> f.convert('Hairtz', 'GR', 'GR', breakUpAbbreviated='on')
         u'Hair.tzy'
+
+    Repetition markers
+    ------------------
+    Special I{abbreviated forms} are given in form of X{repetition marker}s.
+    These take the form I{x} and I{v} or a combination I{vx} for repetition of
+    the last syllable/the second last syllable or both, e.g. I{shie.x} for
+    I{shie.shie}, I{deengiv} for I{deengideeng} and I{duey .le vx} for
+    I{duey .le duey .le}. Both forms can be preceded by a neutral tone mark,
+    e.g. I{.x} or I{ₒv}.
 
     Sources
     =======
@@ -2899,8 +2909,6 @@ class GROperator(TonalRomanisationOperator):
         'Mandarin Primer', Vocabulary and Index, pp. 301.
     @todo Impl: Implement Erhua forms as stated in W. Simon: A Beginner's
         Chinese-English Dictionary.
-    @todo Impl: Implement repetition markers as stated in W. Simon: A Beginner's
-        Chinese-English Dictionary, I{x} for preceding, I{vx} for two preceding.
     @todo Impl: Implement a GRIPAConverter once IPA values are obtained for
         the PinyinIPAConverter. GRIPAConverter can work around missing Erhua
         conversion to Pinyin.
@@ -2964,7 +2972,8 @@ class GROperator(TonalRomanisationOperator):
         """
         super(GROperator, self).__init__(**options)
 
-        self._readingEntityRegex = re.compile(u"([\.ₒ]?(?:"
+        self._readingEntityRegex = re.compile(u"( |" \
+            + re.escape(self.grSyllableSeparatorApostrophe) + u"|[\.ₒ]?(?:" \
             + re.escape(self.grRhotacisedFinalApostrophe) + "|[A-Za-z])+)")
 
     @classmethod
@@ -3488,8 +3497,9 @@ class GROperator(TonalRomanisationOperator):
         """
         Gets a list of abbreviated GR entities. This returns single entities
         from L{getAbbreviatedForms()} and only returns those that don't also
-        exist as full forms. This is meant to extend the list of regular
-        entities. Returned entities are in lowercase.
+        exist as full forms. Includes repetition markers I{x} and I{v}.
+
+        Returned entities are in lowercase.
 
         @rtype: list
         @return: list of abbreviated GR forms
@@ -3498,6 +3508,7 @@ class GROperator(TonalRomanisationOperator):
         for entities in self.getAbbreviatedForms():
             abbreviatedEntites.update(entities)
         abbreviatedEntites = abbreviatedEntites - self.getFullReadingEntities()
+        abbreviatedEntites.update(['x', 'v', '.x', '.v', u'ₒx', u'ₒv'])
         return abbreviatedEntites
 
     def isAbbreviatedEntity(self, entity):
@@ -3663,7 +3674,9 @@ class GROperator(TonalRomanisationOperator):
         return RomanisationOperator.isReadingEntity(self, entity)
 
     def getFormattingEntities(self):
-        return set([self.grSyllableSeparatorApostrophe])
+        # Include space as repetition markers can be separated by whitespace
+        #   from their target syllable.
+        return set([self.grSyllableSeparatorApostrophe, ' '])
 
 
 class MandarinIPAOperator(TonalIPAOperator):
@@ -4506,7 +4519,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
     def getReadingCharacters(self):
         characters = set(string.ascii_lowercase)
-        # add NFC vowels, strip of combining diacritical marks
+        # add NFC vowels, strip off combining diacritical marks
         characters.update([c for c in self._getDiacriticVowels() \
             if len(c) == 1])
         characters.update([u'\u0304', u'\u0301', u'\u0300'])

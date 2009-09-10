@@ -2175,6 +2175,7 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"jemm", True),
             (u"JEMM", True),
             (u"tzeem.me", False),
+            (u".v", True),
             ]),
         ({'abbreviations': False}, [
             (u"shau", True),
@@ -2189,6 +2190,7 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
             (u"jemm", False),
             (u"JEMM", False),
             (u"tzeem.me", False),
+            (u".v", False),
             ]),
         ]
 
@@ -2198,6 +2200,7 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
         ({}, [
             (u"sh", True),
             (u"SH", True),
+            (u"x", True),
             ]),
         ]
 
