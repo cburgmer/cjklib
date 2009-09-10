@@ -17,8 +17,6 @@
 
 """
 Provides the library's unit tests for the L{reading.operator} classes.
-@todo Fix:  Rename classes like CanoneseIPAOperatorConsistencyTestCase to
-    CanoneseIPAOperatorConsistencyTest.
 """
 
 # pylint: disable-msg=E1101
@@ -677,7 +675,7 @@ class ReadingOperatorReferenceTest(ReadingOperatorTest):
                     + ' (reading %s)' % self.READING_NAME)
 
 
-class CanoneseIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class CanoneseIPAOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'CantoneseIPA'
 
@@ -780,7 +778,7 @@ class CanoneseIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     #READING_ENTITY_REFERENCES = []
 
 
-class CanoneseYaleOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class CanoneseYaleOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'CantoneseYale'
 
@@ -927,7 +925,7 @@ class CantoneseYaleOperatorReferenceTest(ReadingOperatorReferenceTest,
         ]
 
 
-class JyutpingOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class JyutpingOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'Jyutping'
 
@@ -977,7 +975,7 @@ class JyutpingOperatorReferenceTest(ReadingOperatorReferenceTest,
         ]
 
 
-class HangulOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class HangulOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'Hangul'
 
@@ -1004,7 +1002,7 @@ class HangulOperatorReferenceTest(ReadingOperatorReferenceTest,
     READING_ENTITY_REFERENCES = []
 
 
-class HiraganaOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class HiraganaOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'Hiragana'
 
@@ -1021,7 +1019,7 @@ class HiraganaOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     #READING_ENTITY_REFERENCES = []
 
 
-class KatakanaOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class KatakanaOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'Katakana'
 
@@ -1038,7 +1036,7 @@ class KatakanaOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     #READING_ENTITY_REFERENCES = []
 
 
-class KanaOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class KanaOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'Kana'
 
@@ -1055,7 +1053,7 @@ class KanaOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     #READING_ENTITY_REFERENCES = []
 
 
-class PinyinOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class PinyinOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'Pinyin'
 
@@ -1745,7 +1743,7 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
                         % (self.READING_NAME, dialect))
 
 
-class WadeGilesOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class WadeGilesOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'WadeGiles'
 
@@ -1993,7 +1991,7 @@ class WadeGilesOperatorReferenceTest(ReadingOperatorReferenceTest,
             # either zero or five to enable tone "None" for all syllables
         ]
 
-class GROperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class GROperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'GR'
 
@@ -2554,7 +2552,7 @@ u:nr            iuel    yuel    euel    iuell           hiuel   iuel
             'Not all GR entities have test cases: %s' % repr(grEntities))
 
 
-class MandarinBrailleOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class MandarinBrailleOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'MandarinBraille'
 
@@ -2575,7 +2573,7 @@ class MandarinBrailleOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
     #READING_ENTITY_REFERENCES = []
 
 
-class MandarinIPAOperatorConsistencyTestCase(ReadingOperatorConsistencyTest,
+class MandarinIPAOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'MandarinIPA'
 
