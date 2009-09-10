@@ -64,7 +64,7 @@ characterQueue = set(db.selectRows(union(
 characterDecomposition = {}
 """Mapping of character to its decomposition(s)."""
 
-cjk = characterlookup.CharacterLookup()
+cjk = characterlookup.CharacterLookup('T')
 
 # get mappings
 for char, zVariant in characterQueue.copy():

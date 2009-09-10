@@ -37,20 +37,6 @@ from cjklib import exception
 # get local language and output encoding
 language, default_encoding = locale.getdefaultlocale()
 
-_cjk = None
-def getCJK():
-    """
-    Creates an instance of the L{CharacterLookup} object if needed and returns
-    it.
-
-    @rtype: object
-    @return: an instance of the L{CharacterLookup} object
-    """
-    global _cjk
-    if not _cjk:
-        _cjk = characterlookup.CharacterLookup()
-    return _cjk
-
 def main():
     # get cjklib database table
     databaseTable = {}

@@ -40,6 +40,20 @@ language, default_encoding = locale.getdefaultlocale()
 
 CHISE_FILES = ['IDS-UCS-Basic.txt', 'IDS-UCS-Compat.txt', 'IDS-UCS-Ext-A.txt']
 
+_cjk = {}
+def getCJK(locale):
+    """
+    Creates an instance of the L{CharacterLookup} object if needed and returns
+    it.
+
+    @rtype: object
+    @return: an instance of the L{CharacterLookup} object
+    """
+    global _cjk
+    if locale not in _cjk:
+        _cjk[locale] = CharacterLookup(locale)
+    return _cjk[locale]
+
 def readExcludeEntries(fileName):
     return [] # TODO implement
 
@@ -225,8 +239,6 @@ def main():
     for pathEntry in dataPathList:
         dataPath.extend(pathEntry.split(':'))
 
-    cjk = CharacterLookup()
-
     cjklibEntries = getCjklibEntries()
     charsWithEntries = set([char for char, decomp in cjklibEntries])
 
@@ -254,11 +266,12 @@ def main():
         for c in decomposition:
             if c == u'？' or CharacterLookup.isIDSOperator(c):
                 augmentedDecomposition.append([c])
-            elif cjk.isRadicalChar(c):
+            elif getCJK('T').isRadicalChar(c):
                 charSet = set([c])
                 for l in 'TCJKV':
                     try:
-                        equivForm = cjk.getRadicalFormEquivalentCharacter(c, l)
+                        equivForm = getCJK(l)\
+                            .getRadicalFormEquivalentCharacter(c)
                         charSet.add(equivForm)
                     except ValueError:
                         pass
@@ -273,7 +286,7 @@ def main():
                 for l in 'TCJKV':
                     try:
                         charSet.update(
-                            cjk.getCharacterEquivalentRadicalForms(c, l))
+                            getCJK(l).getCharacterEquivalentRadicalForms(c))
                     except ValueError:
                         pass
                 if charSet:

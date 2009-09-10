@@ -56,8 +56,8 @@ from cjklib.reading import ReadingFactory
 from cjklib import characterlookup
 from cjklib import exception
 
-DICTIONARY_READING = {'HanDeDict': ('Pinyin', {'toneMarkType': 'Numbers'}),
-    'CEDICT': ('Pinyin', {'toneMarkType': 'Numbers'})}
+DICTIONARY_READING = {'HanDeDict': ('Pinyin', {'toneMarkType': 'numbers'}),
+    'CEDICT': ('Pinyin', {'toneMarkType': 'numbers'})}
 """
 A lookup table for supported dictionaries containing the database table name and
 reading type.
@@ -80,7 +80,7 @@ def getCJK():
     """
     global _cjk
     if not _cjk:
-        _cjk = characterlookup.CharacterLookup()
+        _cjk = characterlookup.CharacterLookup('T')
     return _cjk
 
 def getPlainSyllableSet(entityList, reading):

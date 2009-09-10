@@ -17,9 +17,6 @@
 
 """
 Provides the central Chinese character based functions.
-@todo Fix:  Move examples and scripts to use new layout of CharacterLookup.
-    Don't mention a ValueError any more, as locale is specified at instantiation
-    time.
 @todo Fix: Make C{G} the Simplified Chinese locale?
 """
 
@@ -633,7 +630,7 @@ class CharacterLookup:
         @param locale: I{character locale} (one out of TCJKV)
         @rtype: str
         @return: search locale used for SQL select
-        @raise ValueError: if invalid I{character locale} specified
+        @raise ValueError: if an invalid I{character locale} is specified
         @todo Fix: This probably requires a full table scan
         """
         locale = locale.upper()
@@ -763,7 +760,7 @@ class CharacterLookup:
         @rtype: int
         @return: Z-variant
         @raise NoInformationError: if no Z-variant information is available
-        @raise ValueError: if invalid I{character locale} specified
+        @raise ValueError: if an invalid I{character locale} is specified
         """
         table = self.db.tables['LocaleCharacterVariant']
         zVariant = self.db.selectScalar(select([table.c.ZVariant],
@@ -818,7 +815,6 @@ class CharacterLookup:
         @rtype: int
         @return: stroke count of given character
         @raise NoInformationError: if no stroke count information available
-        @raise ValueError: if an invalid I{character locale} is specified
         @attention: The quality of the returned data depends on the sources used
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
@@ -1035,7 +1031,6 @@ class CharacterLookup:
         #@param locale: I{character locale} (one out of TCJKV)
         #@rtype: list of tuple
         #@return: list of character, Z-variant pairs having the same stroke types
-        #@raise ValueError: if an invalid I{character locale} is specified
         #"""
         #return self.db.select('StrokeBitField',
             #['ChineseCharacter', 'ZVariant'],
@@ -1057,7 +1052,6 @@ class CharacterLookup:
         #@param locale: I{character locale} (one out of TCJKV)
         #@rtype: list of tuple
         #@return: list of character, Z-variant pairs
-        #@raise ValueError: if an invalid I{character locale} is specified
         #@bug:  Table 'strokebitfield' doesn't seem to include entries from
             #'strokeorder' but only from character decomposition table:
 
@@ -1127,7 +1121,6 @@ class CharacterLookup:
         #@param bigramVariance: variance of stroke bigrams
         #@rtype: list of tuple
         #@return: list of character, Z-variant pairs
-        #@raise ValueError: if an invalid I{character locale} is specified
         #"""
         #strokeList = strokeOrder.replace(' ', '-').split('-')
         #strokeCount = len(strokeList)
@@ -1168,7 +1161,7 @@ class CharacterLookup:
         @param abbrev: abbreviated stroke name
         @rtype: str
         @return: Unicode stroke character
-        @raise ValueError: if invalid stroke abbreviation is specified
+        @raise ValueError: if an invalid stroke abbreviation is specified
         """
         # build stroke lookup table for the first time
         if not self._strokeLookup:
@@ -1191,7 +1184,7 @@ class CharacterLookup:
         @param name: Chinese name of stroke
         @rtype: str
         @return: Unicode stroke char
-        @raise ValueError: if invalid stroke name is specified
+        @raise ValueError: if an invalid stroke name is specified
         """
         table = self.db.tables['Strokes']
         stroke = self.db.selectScalar(select([table.c.Stroke],
@@ -1259,7 +1252,6 @@ class CharacterLookup:
             @return: string of stroke abbreviations separated by spaces and
                 hyphens.
             @raise NoInformationError: if no stroke order information available
-            @raise ValueError: if an invalid I{character locale} is specified
             """
             table = self.db.tables['StrokeOrder']
             result = self.db.selectScalar(select([table.c.StrokeOrder],
@@ -1432,7 +1424,6 @@ class CharacterLookup:
             the character (using a I{IDS operator}), the position of the radical
             wrt. layout (0, 1 or 2) and the residual stroke count.
         @raise NoInformationError: if no stroke count information available
-        @raise ValueError: if an invalid I{character locale} is specified
         """
         radicalIndex = self.getCharacterKangxiRadicalIndex(char)
         entries = self.getCharacterRadicalResidualStrokeCount(char,
@@ -1467,7 +1458,6 @@ class CharacterLookup:
             the character (using a I{IDS operator}), the position of the radical
             wrt. layout (0, 1 or 2) and the residual stroke count.
         @raise NoInformationError: if no stroke count information available
-        @raise ValueError: if an invalid I{character locale} is specified
         @todo Lang: Clarify on characters classified under a given radical
             but without any proper radical glyph found as component.
         @todo Lang: Clarify on different radical zVariants for the same radical
@@ -1563,7 +1553,6 @@ class CharacterLookup:
         @rtype: int
         @return: residual stroke count
         @raise NoInformationError: if no stroke count information available
-        @raise ValueError: if an invalid I{character locale} is specified
         @attention: The quality of the returned data depends on the sources used
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
@@ -1593,7 +1582,6 @@ class CharacterLookup:
         @rtype: int
         @return: residual stroke count
         @raise NoInformationError: if no stroke count information available
-        @raise ValueError: if an invalid I{character locale} is specified
         @attention: The quality of the returned data depends on the sources used
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
@@ -1774,8 +1762,7 @@ class CharacterLookup:
         @param radicalIdx: Kangxi radical index
         @rtype: str
         @return: I{Unicode radical form}
-        @raise ValueError: if an invalid I{character locale} or radical index is
-            specified
+        @raise ValueError: if an invalid radical index is specified
         @todo Lang: Check if radicals for which multiple radical forms exists
             include a simplified form or other variation (e.g. ⻆, ⻝, ⺐).
             There are radicals for which a Chinese simplified character
@@ -1806,7 +1793,6 @@ class CharacterLookup:
         @param radicalIdx: Kangxi radical index
         @rtype: list of str
         @return: list of I{Unicode radical variant}s
-        @raise ValueError: if an invalid I{character locale} is specified
         @todo Lang: Narrow locales, not all variant forms are valid under all
             locales.
         """
@@ -1827,8 +1813,7 @@ class CharacterLookup:
         @param radicalForm: radical form
         @rtype: int
         @return: Kangxi radical index
-        @raise ValueError: if invalid I{character locale} or radical form is
-            specified
+        @raise ValueError: if an invalid radical form is specified
         """
         # check in radical table
         locale = self._locale(self.locale)
@@ -1880,7 +1865,6 @@ class CharacterLookup:
         @return: list of Chinese characters representing the radical for the
             given index, including Unicode radical and variant forms and their
             equivalent real character forms
-        @raise ValueError: if invalid I{character locale} specified
         """
         kangxiTable = self.db.tables['KangxiRadical']
         equivalentTable = self.db.tables['RadicalEquivalentCharacter']
@@ -1914,7 +1898,6 @@ class CharacterLookup:
         @rtype: bool
         @return: C{True} if given form is a radical or I{equivalent character},
             C{False} otherwise
-        @raise ValueError: if an invalid I{character locale} is specified
         """
         try:
             self.getKangxiRadicalIndex(form)
@@ -1962,8 +1945,7 @@ class CharacterLookup:
         @return: I{equivalent character} form
         @raise UnsupportedError: if there is no supported
             I{equivalent character} form
-        @raise ValueError: if invalid I{character locale} or radical form is
-            specified
+        @raise ValueError: if an invalid radical form is specified
         """
         if not self.isRadicalChar(radicalForm):
             raise ValueError(radicalForm + " is no valid radical form")
@@ -1994,8 +1976,7 @@ class CharacterLookup:
             or I{Unicode radical variant}
         @rtype: list of str
         @return: I{equivalent character} forms
-        @raise ValueError: if invalid I{character locale} or equivalent
-            character is specified
+        @raise ValueError: if an invalid equivalent character is specified
         """
         table = self.db.tables['RadicalEquivalentCharacter']
         result = self.db.selectScalars(select([table.c.Form],
@@ -2077,7 +2058,6 @@ class CharacterLookup:
             I{Unicode radical forms} and I{Unicode radical variants}
         @rtype: list of tuple
         @return: list of pairs of matching characters and their Z-variants
-        @raise ValueError: if an invalid I{character locale} is specified
         @todo Impl: Table of same character glyphs, including special radical
             forms (e.g. 言 and 訁).
         @todo Data: Adopt locale dependant Z-variants for parent characters
@@ -2147,7 +2127,6 @@ class CharacterLookup:
             will be returned
         @rtype: list of tuple
         @return: list of pairs of matching characters and their Z-variants
-        @raise ValueError: if an invalid I{character locale} is specified
         """
         if not componentConstruct:
             return []
@@ -2229,7 +2208,6 @@ class CharacterLookup:
             L{getDefaultZVariant()} will be used.
         @rtype: list
         @return: list of first layer decompositions
-        @raise ValueError: if an invalid I{character locale} is specified
         """
         if zVariant == None:
             try:
@@ -2338,7 +2316,6 @@ class CharacterLookup:
             L{getDefaultZVariant()} will be used.
         @rtype: list
         @return: list of decomposition trees
-        @raise ValueError: if an invalid I{character locale} is specified
         """
         if zVariant == None:
             try:
@@ -2387,7 +2364,6 @@ class CharacterLookup:
         @rtype: bool
         @return: C{True} if C{component} is a component of the given character,
             C{False} otherwise
-        @raise ValueError: if an invalid I{character locale} is specified
         @todo Impl: Implement means to check if the component is really not
             found, or if our data is just insufficient.
         """
