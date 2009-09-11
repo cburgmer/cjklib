@@ -62,52 +62,7 @@ from cjklib.exception import (ConversionError, AmbiguousConversionError,
 from cjklib.dbconnector import DatabaseConnector
 from cjklib.reading import operator as readingoperator
 import cjklib.reading
-
-# define our own titlecase methods, as the Python implementation is currently
-#   buggy (http://bugs.python.org/issue6412), see also
-#   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
-_FIRST_NON_CASE_IGNORABLE = re.compile(ur"(?u)([.ₒ]?\W*)(\w)(.*)$")
-"""
-Regular expression matching the first alphabetic character. Include GR neutral
-tone forms.
-"""
-def titlecase(strng):
-    u"""
-    Returns the string (without "word borders") in titlecase.
-
-    This function is not designed to work for multi-entity strings in general
-    but rather for syllables with apostrophes (e.g. C{'Ch’ien1'}) and combining
-    diacritics (e.g. C{'Hm\\u0300h'}). It additionally needs to support cases
-    where a multi-entity string can derive from a single entity as in the case
-    for I{GR} (e.g. C{'Shern.me'} for C{'Sherm'}).
-
-    @type strng: str
-    @param strng:  a string
-    @rtype: str
-    @return: the given string in titlecase
-    @todo Impl: While this function is only needed as long Python doesn't ship
-        with a proper title casing algorithm as defined by Unicode, we need
-        a proper handling for I{Wade-Giles}, as I{Pinyin} I{Erhua} forms will
-        convert to two entities being separated by a hyphen, which does not fall
-        in to the Unicode title casing algorithm's definition of a
-        case-ignorable character.
-    """
-    matchObj = _FIRST_NON_CASE_IGNORABLE.match(strng.lower())
-    if matchObj:
-        tonal, firstChar, rest = matchObj.groups()
-        return tonal + firstChar.upper() + rest
-
-def istitlecase(strng):
-    """
-    Checks if the given string is in titlecase.
-
-    @type strng: str
-    @param strng:  a string
-    @rtype: bool
-    @return: C{True} if the given string is in titlecase according to
-        L{titlecase()}.
-    """
-    return titlecase(strng) == strng
+from cjklib.util import titlecase, istitlecase
 
 class ReadingConverter(object):
     u"""
@@ -768,11 +723,6 @@ class PinyinDialectConverter(ReadingConverter):
             # do nothing
             self._convertErhuaFunc = lambda x: x
 
-        # shortenedLetters lookup
-        self._initialShortendDict = {'zh': u'ẑ', 'ch': u'ĉ', 'sh': u'ŝ'}
-        self._reverseShortendDict = dict([(short, letter) \
-            for letter, short in self._initialShortendDict.items()])
-
     @classmethod
     def getDefaultOptions(cls):
         options = super(PinyinDialectConverter, cls).getDefaultOptions()
@@ -811,6 +761,11 @@ class PinyinDialectConverter(ReadingConverter):
             readingEntities = self._getFromOperator(fromReading)\
                 .removeApostrophes(readingEntities)
 
+        targetOptions = {}
+        for option in ['shortenedLetters', 'yVowel']:
+            targetOptions[option] = getattr(self._getToOperator(toReading),
+                option)
+
         # split syllables into plain syllable and tone part
         entityTuples = []
         for entity in readingEntities:
@@ -841,55 +796,8 @@ class PinyinDialectConverter(ReadingConverter):
                     raise AmbiguousConversionError("Target reading does not " \
                         "support missing tone information")
 
-                # convert shortenedLetters
-                if self._getFromOperator('Pinyin').shortenedLetters \
-                    and not self._getToOperator('Pinyin').shortenedLetters:
-
-                    plainSyllable = plainSyllable.replace(u'ŋ', 'ng')
-                    # upper- / titlecase
-                    if plainSyllable.istitle():
-                        # only for full forms 'ng', 'ngr'
-                        plainSyllable = plainSyllable.replace(u'Ŋ', 'Ng')
-                    else:
-                        plainSyllable = plainSyllable.replace(u'Ŋ', 'NG')
-                    if plainSyllable[0].lower() in self._reverseShortendDict:
-                        shortend = plainSyllable[0].lower()
-                        full = self._reverseShortendDict[shortend]
-                        plainSyllable = plainSyllable.replace(shortend, full)
-                        # upper- vs. titlecase
-                        if plainSyllable.isupper():
-                            plainSyllable = plainSyllable.replace(
-                                shortend.upper(), full.upper())
-                        elif plainSyllable.istitle():
-                            plainSyllable = plainSyllable.replace(
-                                shortend.upper(), full.title())
-
-                elif not self._getFromOperator('Pinyin').shortenedLetters \
-                    and self._getToOperator('Pinyin').shortenedLetters:
-
-                    # final ng
-                    matchObj = re.search('(?i)ng', plainSyllable)
-                    if matchObj:
-                        ngForm = matchObj.group(0)
-                        shortend = u'ŋ'
-                        # letter case
-                        if plainSyllable.isupper() \
-                            or (plainSyllable.istitle() \
-                                and plainSyllable.startswith(ngForm)):
-                            shortend = shortend.upper()
-
-                        plainSyllable = plainSyllable.replace(ngForm, shortend)
-
-                    # initials zh, ch, sh
-                    matchObj = re.match('(?i)[zcs]h', plainSyllable)
-                    if matchObj:
-                        form = matchObj.group(0)
-                        shortend = self._initialShortendDict[form.lower()]
-                        # letter case
-                        if plainSyllable.isupper() or plainSyllable.istitle():
-                            shortend = shortend.upper()
-
-                        plainSyllable = plainSyllable.replace(form, shortend)
+                plainSyllable = self._getFromOperator(fromReading)\
+                    .convertPlainEntity(plainSyllable, targetOptions)
 
                 # fix Erhua form if needed
                 if plainSyllable.lower() == 'r' \
@@ -902,14 +810,7 @@ class PinyinDialectConverter(ReadingConverter):
                     else:
                         plainSyllable = 'er'
 
-                # check for special vowel for ü on input
-                fromYVowel = self._getFromOperator('Pinyin').yVowel
-                toYVowel = self._getToOperator('Pinyin').yVowel
-                if fromYVowel != toYVowel:
-                    plainSyllable = plainSyllable.replace(fromYVowel, toYVowel)\
-                        .replace(fromYVowel.upper(), toYVowel.upper())
-
-                # capitalisation
+                # letter case
                 if self._getToOperator(toReading).case == 'lower':
                     plainSyllable = plainSyllable.lower()
 
@@ -1049,53 +950,20 @@ class WadeGilesDialectConverter(EntityWiseReadingConverter):
     def convertBasicEntity(self, entity, fromReading, toReading):
         # split syllable into plain part and tonal information
         plainSyllable, tone \
-            = self._getFromOperator(fromReading).splitEntityTone(entity.lower())
+            = self._getFromOperator(fromReading).splitEntityTone(entity)
 
-        # forms with possibly lost diacritics
-        for option in ['diacriticE', 'zeroFinal', 'umlautU']:
-            fromSubstr = getattr(self._getFromOperator(fromReading), option)
-            toSubstr = getattr(self._getToOperator(toReading), option)
-            if fromSubstr != toSubstr:
-                operatorInst = self._getFromOperator(fromReading)
-                if fromSubstr == operatorInst.ALLOWED_VOWEL_SUBST[option] \
-                    and fromSubstr in plainSyllable:
+        targetOptions = {}
+        for option in ['diacriticE', 'zeroFinal', 'umlautU',
+            'wadeGilesApostrophe', 'useInitialSz']:
+            targetOptions[option] = getattr(self._getToOperator(toReading),
+                option)
 
-                    # check state of syllable
-                    res = operatorInst.checkPlainEntity(plainSyllable, option)
-                    if res == 'ambiguous':
-                        lostForm = entity.replace(fromSubstr, toSubstr)\
-                            .replace(fromSubstr.upper(), toSubstr.upper())
-                        raise AmbiguousConversionError(
-                            "conversion for entity '%s' is ambiguous: %s, %s" \
-                                % (entity, entity, lostForm))
-                    elif res == 'lost':
-                        # this form lost its diacritics
-                        plainSyllable = plainSyllable.replace(fromSubstr,
-                            toSubstr)
-                else:
-                    plainSyllable = plainSyllable.replace(fromSubstr, toSubstr)
-
-        # other special forms
-        for option in ['wadeGilesApostrophe']:
-            fromSubstr = getattr(self._getFromOperator(fromReading), option)
-            toSubstr = getattr(self._getToOperator(toReading), option)
-            if fromSubstr != toSubstr:
-                plainSyllable = plainSyllable.replace(fromSubstr, toSubstr)
-
-        # useInitialSz
-        if plainSyllable.startswith('sz') or plainSyllable.startswith('ss'):
-            if self._getToOperator(toReading).useInitialSz:
-                initial = 'sz'
-            else:
-                initial = 'ss'
-            plainSyllable = initial + plainSyllable[2:]
+        plainSyllable = self._getFromOperator(fromReading).convertPlainEntity(
+            plainSyllable, targetOptions)
 
         # fix letter case
-        if self._getToOperator(toReading).case != 'lower':
-            if entity.isupper():
-                plainSyllable = plainSyllable.upper()
-            elif istitlecase(entity):
-                plainSyllable = titlecase(plainSyllable)
+        if self._getToOperator(toReading).case == 'lower':
+            plainSyllable = plainSyllable.lower()
 
         # get syllable with tone mark
         try:

@@ -58,8 +58,10 @@ from sqlalchemy import select
 from sqlalchemy.sql import or_
 
 from cjklib.exception import (DecompositionError, AmbiguousDecompositionError,
-    InvalidEntityError, CompositionError, UnsupportedError)
+    InvalidEntityError, CompositionError, UnsupportedError,
+    AmbiguousConversionError)
 from cjklib.dbconnector import DatabaseConnector
+from cjklib.util import titlecase, istitlecase
 
 class ReadingOperator(object):
     """
@@ -2073,6 +2075,87 @@ class PinyinOperator(TonalRomanisationOperator):
     def getFormattingEntities(self):
         return set([self.pinyinApostrophe])
 
+    def convertPlainEntity(self, plainEntity, targetOptions=None):
+        """
+        Converts the alternative syllable representation from the current
+        dialect to the given target, or by default to the standard
+        representation. Erhua forms will not be converted.
+
+        Use the L{PinyinDialectConverter} for conversions in general.
+
+        @type plainEntity: str
+        @param plainEntity: plain syllable in the current reading
+        @type targetOptions: dict
+        @param targetOptions: target reading options
+        @rtype: str
+        @return: converted entity
+        """
+        # shortenedLetters lookup
+        if not hasattr(self, '_initialShortendDict'):
+            self._initialShortendDict = {'zh': u'ẑ', 'ch': u'ĉ', 'sh': u'ŝ'}
+            self._reverseShortendDict = dict([(short, letter) \
+                for letter, short in self._initialShortendDict.items()])
+
+        targetOptions = targetOptions or {}
+        defaultTargetOptions = PinyinOperator.getDefaultOptions()
+        # convert shortenedLetters
+        toShortenedLetters = targetOptions.get('shortenedLetters',
+            defaultTargetOptions['shortenedLetters'])
+        if self.shortenedLetters and not toShortenedLetters:
+
+            plainEntity = plainEntity.replace(u'ŋ', 'ng')
+            # upper- / titlecase
+            if plainEntity.istitle():
+                # only for full forms 'ng', 'ngr'
+                plainEntity = plainEntity.replace(u'Ŋ', 'Ng')
+            else:
+                plainEntity = plainEntity.replace(u'Ŋ', 'NG')
+            if plainEntity[0].lower() in self._reverseShortendDict:
+                shortend = plainEntity[0].lower()
+                full = self._reverseShortendDict[shortend]
+                plainEntity = plainEntity.replace(shortend, full)
+                # upper- vs. titlecase
+                if plainEntity.isupper():
+                    plainEntity = plainEntity.replace(
+                        shortend.upper(), full.upper())
+                elif plainEntity.istitle():
+                    plainEntity = plainEntity.replace(
+                        shortend.upper(), full.title())
+
+        elif not self.shortenedLetters and toShortenedLetters:
+
+            # final ng
+            matchObj = re.search('(?i)ng', plainEntity)
+            if matchObj:
+                ngForm = matchObj.group(0)
+                shortend = u'ŋ'
+                # letter case
+                if plainEntity.isupper() \
+                    or (plainEntity.istitle() \
+                        and plainEntity.startswith(ngForm)):
+                    shortend = shortend.upper()
+
+                plainEntity = plainEntity.replace(ngForm, shortend)
+
+            # initials zh, ch, sh
+            matchObj = re.match('(?i)[zcs]h', plainEntity)
+            if matchObj:
+                form = matchObj.group(0)
+                shortend = self._initialShortendDict[form.lower()]
+                # letter case
+                if plainEntity.isupper() or plainEntity.istitle():
+                    shortend = shortend.upper()
+
+                plainEntity = plainEntity.replace(form, shortend)
+
+        # check for special vowel for ü on input
+        toYVowel = targetOptions.get('yVowel', defaultTargetOptions['yVowel'])
+        if self.yVowel != toYVowel:
+            plainEntity = plainEntity.replace(self.yVowel, toYVowel)\
+                .replace(self.yVowel.upper(), toYVowel.upper())
+
+        return plainEntity
+
     def getOnsetRhyme(self, plainSyllable):
         """
         Splits the given plain syllable into onset (initial) and rhyme (final).
@@ -2098,14 +2181,14 @@ class PinyinOperator(TonalRomanisationOperator):
         @raise InvalidEntityError: if the entity is invalid.
         @raise UnsupportedError: for entity I{r} when Erhua is handled as
             separate entity.
-        @todo Fix: doesn't work for all dialects
         """
         erhuaForm = False
+        standardPlainSyllable = plainSyllable.lower()
         if self.erhua == 'oneSyllable' \
-            and plainSyllable.lower().endswith('r') \
-            and plainSyllable.lower() != 'er':
+            and standardPlainSyllable.endswith('r') \
+            and standardPlainSyllable != 'er':
 
-            plainSyllable = plainSyllable[:-1]
+            standardPlainSyllable = standardPlainSyllable[:-1]
             erhuaForm = True
 
         elif plainSyllable.lower() == 'r' \
@@ -2113,10 +2196,12 @@ class PinyinOperator(TonalRomanisationOperator):
 
             raise UnsupportedError("Not supported for '%s'" % plainSyllable)
 
+        standardPlainSyllable = self.convertPlainEntity(standardPlainSyllable)
+
         table = self.db.tables['PinyinInitialFinal']
         entry = self.db.selectRow(
             select([table.c.PinyinInitial, table.c.PinyinFinal],
-                table.c.Pinyin == plainSyllable.lower()))
+                table.c.Pinyin == standardPlainSyllable))
         if not entry:
             raise InvalidEntityError("'%s' not a valid plain Pinyin syllable'"
                 % plainSyllable)
@@ -2750,8 +2835,8 @@ class WadeGilesOperator(TonalRomanisationOperator):
             or C{'umlautU'}
         @rtype: str
         @return: C{'strict'} if the given form is a strict Wade-Giles form with
-            vowel u, C{'lost'} if the given form is a mangled vowel ü form,
-            C{'ambiguous'} if two forms exist with vowels u and ü each.
+            vowel u, C{'lost'} if the given form is a mangled vowel form,
+            C{'ambiguous'} if two forms exist with vowels (i.e. u and ü) each
         @raise ValueError: if plain entity doesn't include the ambiguous vowel
             in question
         """
@@ -2781,16 +2866,89 @@ class WadeGilesOperator(TonalRomanisationOperator):
         result = self.db.selectScalars(select([table.c.WadeGiles],
                 table.c.WadeGiles.in_([plainForm,
                     plainForm.replace(vowel, originalVowel)])))
-        assert(len(result) > 0 and len(result) <= 2)
+        assert(len(result) <= 2)
         if len(result) == 2:
             return 'ambiguous'
-        if vowel in result[0]:
+        if not result or vowel in result[0]:
             return 'strict'
         else:
             return 'lost'
 
     def getFormattingEntities(self):
         return set(['-'])
+
+    def convertPlainEntity(self, plainEntity, targetOptions=None):
+        """
+        Converts the alternative syllable representation from the current
+        dialect to the given target, or by default to the standard
+        representation.
+
+        Use the L{WadeGilesDialectConverter} for conversions in general.
+
+        @type plainEntity: str
+        @param plainEntity: plain syllable in the current reading in lower
+            case letters
+        @type targetOptions: dict
+        @param targetOptions: target reading options
+        @rtype: str
+        @return: converted entity
+        @raise AmbiguousConversionError: if conversion is ambiguous.
+        """
+        convertedEntity = plainEntity.lower()
+        targetOptions = targetOptions or {}
+        defaultTargetOptions = WadeGilesOperator.getDefaultOptions()
+        # forms with possibly lost diacritics
+        for option in ['diacriticE', 'zeroFinal', 'umlautU']:
+            fromSubstr = getattr(self, option)
+            toSubstr = targetOptions.get(option, defaultTargetOptions[option])
+            if fromSubstr != toSubstr:
+                if fromSubstr == WadeGilesOperator.ALLOWED_VOWEL_SUBST[option] \
+                    and fromSubstr in convertedEntity:
+                    # A normally diacritical vowel lost its diacritic and now
+                    #   overlaps with a standard vowel. We need to check the
+                    #   full syllable to find out which case we have.
+                    res = self.checkPlainEntity(convertedEntity, option)
+                    # the 'u' for 'ü' can be ambiguous
+                    if res == 'ambiguous':
+                        lostForm = convertedEntity.replace(fromSubstr, toSubstr)
+                        raise AmbiguousConversionError(
+                            "conversion for entity '%s' is ambiguous: %s, %s" \
+                                % (convertedEntity, convertedEntity, lostForm))
+                    elif res == 'lost':
+                        # this form lost its diacritics
+                        convertedEntity = convertedEntity.replace(fromSubstr,
+                            toSubstr)
+                else:
+                    # All other characters may not overlap, so we can safely
+                    #  substitute
+                    convertedEntity = convertedEntity.replace(fromSubstr,
+                        toSubstr)
+
+        # other special forms
+        for option in ['wadeGilesApostrophe']:
+            fromSubstr = getattr(self, option)
+            toSubstr = targetOptions.get(option, defaultTargetOptions[option])
+            if fromSubstr != toSubstr:
+                convertedEntity = convertedEntity.replace(fromSubstr, toSubstr)
+
+        # useInitialSz
+        targetUseInitialSz = targetOptions.get('useInitialSz',
+            defaultTargetOptions['useInitialSz'])
+        if self.useInitialSz and convertedEntity.startswith('sz') \
+            or not self.useInitialSz and convertedEntity.startswith('ss'):
+            if targetUseInitialSz:
+                initial = 'sz'
+            else:
+                initial = 'ss'
+            convertedEntity = initial + convertedEntity[2:]
+
+        # fix letter case
+        if plainEntity.isupper():
+            convertedEntity = convertedEntity.upper()
+        elif istitlecase(plainEntity):
+            convertedEntity = titlecase(convertedEntity)
+
+        return convertedEntity
 
     def getOnsetRhyme(self, plainSyllable):
         """
@@ -2800,7 +2958,9 @@ class WadeGilesOperator(TonalRomanisationOperator):
         initial will be returned, while the final will be extended with vowel
         I{i} or I{u}.
 
-        Old forms are not supported and will raise an L{UnsupportedError}.
+        Old forms are not supported and will raise an L{UnsupportedError}. For
+        the dialect with missing diacritics on the I{ü} an L{UnsupportedError}
+        is also raised, as it is unclear which syllable is meant.
 
         Returned strings will be lowercase.
 
@@ -2810,15 +2970,21 @@ class WadeGilesOperator(TonalRomanisationOperator):
         @return: tuple of entity onset and rhyme
         @raise InvalidEntityError: if the entity is invalid.
         @raise UnsupportedError: if the given entity is not supported
-        @todo Fix: doesn't work for all dialects
         """
         if not self.isPlainReadingEntity(plainSyllable):
             raise InvalidEntityError(
                 "'%s' not a valid plain Wade-Giles syllable'" % plainSyllable)
+
+        try:
+            standardPlainSyllable = self.convertPlainEntity(
+                plainSyllable.lower())
+        except AmbiguousConversionError, e:
+            raise UnsupportedError(*e.args)
+
         table = self.db.tables['WadeGilesInitialFinal']
         entry = self.db.selectRow(
             select([table.c.WadeGilesInitial, table.c.WadeGilesFinal],
-                table.c.WadeGiles == plainSyllable.lower()))
+                table.c.WadeGiles == standardPlainSyllable))
         if not entry:
             raise UnsupportedError("Not supported for '%s'" % plainSyllable)
 

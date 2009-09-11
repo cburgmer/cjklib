@@ -33,7 +33,7 @@ from cjklib.reading import ReadingFactory, converter, operator
 from cjklib import exception
 from cjklib.test import NeedsDatabaseTest
 
-from cjklib.reading.converter import titlecase, istitlecase
+from cjklib.util import titlecase, istitlecase
 
 class ReadingConverterTest(NeedsDatabaseTest):
     """Base class for testing of L{ReadingConverter}s."""
