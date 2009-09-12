@@ -52,7 +52,6 @@ import string
 import unicodedata
 import copy
 import types
-from functools import partial
 
 from sqlalchemy import select
 from sqlalchemy.sql import or_
@@ -1247,7 +1246,7 @@ class PinyinOperator(TonalRomanisationOperator):
     Example
     -------
 
-        >>> def noToneApostropheRule(precedingEntity, followingEntity):
+        >>> def noToneApostropheRule(opInst, precedingEntity, followingEntity):
         ...     return precedingEntity and precedingEntity[0].isalpha() \
         ...         and not precedingEntity[-1].isdigit() \
         ...         and followingEntity[0].isalpha()
@@ -1495,7 +1494,7 @@ class PinyinOperator(TonalRomanisationOperator):
             'pinyinDiacritics': (u'\u0304', u'\u0301', u'\u030c', u'\u0300'),
             'yVowel': u'ü', 'shortenedLetters': False, 'pinyinApostrophe': "'",
             'erhua': 'twoSyllables',
-            'pinyinApostropheFunction': cls.aeoApostropheRule})
+            'pinyinApostropheFunction': PinyinOperator.aeoApostropheRule})
 
         return options
 
@@ -1687,12 +1686,8 @@ class PinyinOperator(TonalRomanisationOperator):
         newReadingEntities = []
         precedingEntity = None
 
-        apostropheFunction = self.pinyinApostropheFunction
-        if type(apostropheFunction) == types.MethodType:
-            apostropheFunction = partial(apostropheFunction, self)
-
         for entity in readingEntities:
-            if apostropheFunction(precedingEntity, entity):
+            if self.pinyinApostropheFunction(self, precedingEntity, entity):
                 newReadingEntities.append(self.pinyinApostrophe)
             elif precedingEntity and entity:
                 # check if composition won't combine reading and non-reading e.
@@ -1743,7 +1738,8 @@ class PinyinOperator(TonalRomanisationOperator):
                 readingEntities[1:]))
             return newReadingEntities
 
-    def aeoApostropheRule(self, precedingEntity, followingEntity):
+    @staticmethod
+    def aeoApostropheRule(operatorInst, precedingEntity, followingEntity):
         """
         Checks if the given entities need to be separated by an apostrophe.
 
@@ -1754,6 +1750,8 @@ class PinyinOperator(TonalRomanisationOperator):
 
         This function serves as the default apostrophe rule.
 
+        @type operatorInst: instance
+        @param operatorInst: instance of the Pinyin operator
         @type precedingEntity: str
         @param precedingEntity: the preceding syllable or any other content
         @type followingEntity: str
@@ -1764,15 +1762,15 @@ class PinyinOperator(TonalRomanisationOperator):
         # if both following entities are syllables they have to be separated if
         # the following syllable's first character is one of the vowels a, e, o,
         # or the syllable is n or ng
-        if precedingEntity and self.isReadingEntity(precedingEntity) \
-            and self.isReadingEntity(followingEntity):
+        if precedingEntity and operatorInst.isReadingEntity(precedingEntity) \
+            and operatorInst.isReadingEntity(followingEntity):
 
-            plainSyllable, _ = self.splitEntityTone(followingEntity)
+            plainSyllable, _ = operatorInst.splitEntityTone(followingEntity)
 
             # take care of corner case Erhua form e'r, that needs to be
             #   distinguished from er
             if plainSyllable.lower() == 'r':
-                precedingPlainSyllable, _ = self.splitEntityTone(
+                precedingPlainSyllable, _ = operatorInst.splitEntityTone(
                     precedingEntity)
                 return precedingPlainSyllable.lower() == 'e'
 
@@ -1797,15 +1795,10 @@ class PinyinOperator(TonalRomanisationOperator):
         """
         precedingEntity = None
 
-        if type(self.pinyinApostropheFunction) == types.MethodType:
-            apostropheFunction = partial(self.pinyinApostropheFunction, self)
-        else:
-            apostropheFunction = self.pinyinApostropheFunction
-
         for entity in readingEntities:
             if self.isReadingEntity(entity):
                 # Pinyin syllable
-                if apostropheFunction(precedingEntity, entity):
+                if self.pinyinApostropheFunction(self, precedingEntity, entity):
                     return False
 
                 precedingEntity = entity

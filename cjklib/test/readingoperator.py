@@ -1057,10 +1057,11 @@ class PinyinOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'Pinyin'
 
-    def noToneApostropheRule(precedingEntity, followingEntity):
+    def _noToneApostropheRule(operatorInst, precedingEntity, followingEntity):
         return precedingEntity and precedingEntity[0].isalpha() \
             and not precedingEntity[-1].isdigit() \
             and followingEntity[0].isalpha()
+    noToneApostropheRule = staticmethod(_noToneApostropheRule)
 
     DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
          [{}, {'toneMarkType': 'numbers'},
@@ -1073,7 +1074,7 @@ class PinyinOperatorConsistencyTest(ReadingOperatorConsistencyTest,
             {'pinyinDiacritics': (u'\u0304', u'\u0301', u'\u0302', u'\u0300')},
             {'strictDiacriticPlacement': True}],
         [{}, {'pinyinApostrophe': u'’'}],
-        [{}, {'pinyinApostropheFunction': noToneApostropheRule}],
+        [{}, {'pinyinApostropheFunction': _noToneApostropheRule}],
         [{}, {'erhua': 'oneSyllable'}, {'erhua': 'ignore'}],
         [{}, {'strictSegmentation': True}],
         [{}, {'case': 'lower'}],

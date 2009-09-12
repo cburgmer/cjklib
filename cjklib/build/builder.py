@@ -1288,7 +1288,7 @@ class CharacterXHPCReadingBuilder(UnihanDerivedBuilder):
     Builds the Xiandai Hanyu Pinlu Cidian Pinyin mapping table using the Unihan
     database.
     """
-    class XHPCReadingSplitter():
+    class XHPCReadingSplitter:
         """
         Generates the Xiandai Hanyu Pinlu Cidian Pinyin syllables from the
         Unihan table.

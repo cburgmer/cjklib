@@ -52,7 +52,6 @@ See L{PinyinDialectConverter} for more examples.
 import re
 import copy
 import types
-from functools import partial
 
 from sqlalchemy import select
 from sqlalchemy.sql import and_
@@ -1635,7 +1634,7 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
     @classmethod
     def getDefaultOptions(cls):
         options = super(PinyinIPAConverter, cls).getDefaultOptions()
-        options.update({'coarticulationFunction': None, 
+        options.update({'coarticulationFunction': None,
             'sandhiFunction': PinyinIPAConverter.lowThirdAndNeutralToneRule})
 
         return options
@@ -1657,15 +1656,9 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
 
                     transEntry = None
                     if self.coarticulationFunction:
-                        if type(self.coarticulationFunction) \
-                            == types.MethodType:
-                            coarticulationFunction = partial(
-                                self.coarticulationFunction, self)
-                        else:
-                            coarticulationFunction = self.coarticulationFunction
-
-                        transEntry = coarticulationFunction(sequence[:idx],
-                            plainSyllable, tone, sequence[idx+1:])
+                        transEntry = self.coarticulationFunction(self,
+                            sequence[:idx], plainSyllable, tone,
+                                sequence[idx+1:])
 
                     if not transEntry:
                         # standard conversion
@@ -1675,14 +1668,8 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
 
                 # handle sandhi
                 if self._getToOperator(toReading).toneMarkType != 'None':
-                    sandhiFunction = self.sandhiFunction
                     if self.sandhiFunction:
-                        if type(self.sandhiFunction) == types.MethodType:
-                            sandhiFunction = partial(self.sandhiFunction, self)
-                        else:
-                            sandhiFunction = self.sandhiFunction
-
-                        ipaTupelList = sandhiFunction(ipaTupelList)
+                        ipaTupelList = self.sandhiFunction(self, ipaTupelList)
 
                 # get tonal forms
                 toSequence = []
@@ -1727,7 +1714,8 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
 
         return transSyllables[0], transTone
 
-    def lowThirdAndNeutralToneRule(self, entityTuples):
+    @staticmethod
+    def lowThirdAndNeutralToneRule(converterInst, entityTuples):
         """
         Converts C{'3rdToneRegular'} to C{'3rdToneLow'} for syllables followed
         by others and C{'5thTone'} to the respective forms when following
@@ -1736,6 +1724,8 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
         This function serves as the default rule and can be overwritten by
         giving a function as option C{sandhiFunction} on instantiation.
 
+        @type converterInst: instance
+        @param converterInst: instance of the PinyinIPA converter
         @type entityTuples: list of tuple/str
         @param entityTuples: a list of tuples and strings. An IPA entity is
             given as a tuple with the plain syllable and its tone, other content
@@ -1756,7 +1746,8 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
                 plainSyllable, tone = entry
 
                 if tone == '5thTone' and precedingTone:
-                    tone = self.NEUTRAL_TONE_MAPPING[precedingTone]
+                    tone \
+                        = PinyinIPAConverter.NEUTRAL_TONE_MAPPING[precedingTone]
                 elif tone == '3rdToneRegular' and idx + 1 != len(entityTuples):
                     tone = '3rdToneLow'
                 entry = (plainSyllable, tone)
@@ -1769,7 +1760,8 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
 
         return convertedEntities
 
-    def finalECoarticulation(self, leftContext, plainSyllable, tone,
+    @staticmethod
+    def finalECoarticulation(converterInst, leftContext, plainSyllable, tone,
         rightContext):
         u"""
         Example function for handling coarticulation of final I{e} for the
@@ -1791,6 +1783,8 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
         Běijīng Yǔyán Dàxué Chūbǎnshè (北京语言大学出版社), 2003,
         ISBN 7-5619-0622-6.
 
+        @type converterInst: instance
+        @param converterInst: instance of the PinyinIPA converter
         @type leftContext: list of tuple/str
         @param leftContext: syllables preceding the syllable in question in the
             source reading
@@ -1805,13 +1799,13 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
         @return: IPA representation
         """
         if tone == 5:
-            _, final = self._getToOperator('Pinyin').getOnsetRhyme(
+            _, final = converterInst._getToOperator('Pinyin').getOnsetRhyme(
                 plainSyllable)
             if final == 'e':
                 # lookup in database
-                table = self.db.tables['PinyinIPAMapping']
-                transSyllables = self.db.selectScalars(select([table.c.IPA],
-                    and_(table.c.Pinyin == plainSyllable,
+                table = converterInst.db.tables['PinyinIPAMapping']
+                transSyllables = converterInst.db.selectScalars(
+                    select([table.c.IPA], and_(table.c.Pinyin == plainSyllable,
                         table.c.Feature == '5thTone')))
                 if not transSyllables:
                     raise ConversionError("conversion for entity '" \
@@ -1821,7 +1815,8 @@ class PinyinIPAConverter(DialectSupportReadingConverter):
                         + plainSyllable + "' and tone '" + str(tone) \
                         + "' ambiguous")
 
-                return transSyllables[0], self.TONEMARK_MAPPING[tone]
+                return transSyllables[0], \
+                    PinyinIPAConverter.TONEMARK_MAPPING[tone]
 
 
 class PinyinBrailleConverter(DialectSupportReadingConverter):
