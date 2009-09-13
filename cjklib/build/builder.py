@@ -584,7 +584,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
 
             # check for multiple file names (Unicode >= 5.2)
             pathList = []
-            if path.endswith(('Unihan.zip', 'Unihan.txt')):
+            if path.endswith('Unihan.zip') or path.endswith('Unihan.txt'):
                 pathList = [path]
             else:
                 dirname = os.path.dirname(path)
@@ -1479,6 +1479,10 @@ class CSVFileLoader(TableBuilder):
         delimiter = ','
         lineterminator = '\n'
         quotechar = "'"
+        # the following are needed for Python 2.4
+        escapechar = "\\"
+        doublequote = True
+        skipinitialspace = False
 
     # TODO unicode_csv_reader(), utf_8_encoder(), byte_string_dialect() used
     #  to work around missing Unicode support in csv module
@@ -1500,7 +1504,8 @@ class CSVFileLoader(TableBuilder):
     def byte_string_dialect(dialect):
         class ByteStringDialect(csv.Dialect):
             def __init__(self, dialect):
-                for attr in ["delimiter", "quotechar", "escapechar", "lineterminator"]:
+                for attr in ["delimiter", "quotechar", "escapechar",
+                    "lineterminator"]:
                     old = getattr(dialect, attr)
                     if old is not None:
                         setattr(self, attr, str(old))
@@ -1541,6 +1546,9 @@ class CSVFileLoader(TableBuilder):
             return csv.reader(fileHandle)
         try:
             self.fileDialect = csv.Sniffer().sniff(line, ['\t', ','])
+            # fix for Python 2.4
+            if len(self.fileDialect.delimiter) == 0:
+                raise csv.Error()
         except csv.Error:
             self.fileDialect = CSVFileLoader.DefaultDialect()
 

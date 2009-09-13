@@ -77,7 +77,7 @@ class ReadingConverterTest(NeedsDatabaseTest):
         # get all non-abstract classes that inherit from ReadingConverter
         readingConverterClasses = dict([(clss.__name__, clss) \
             for clss in converter.__dict__.values() \
-            if type(clss) == types.TypeType \
+            if type(clss) in [types.TypeType, types.ClassType] \
             and issubclass(clss, converter.ReadingConverter) \
             and clss.CONVERSION_DIRECTIONS])
 
@@ -363,7 +363,7 @@ class ReadingConverterTestCaseCheck(NeedsDatabaseTest, unittest.TestCase):
         testModule = __import__("cjklib.test.readingconverter")
         testClasses = [clss for clss \
             in testModule.test.readingconverter.__dict__.values() \
-            if type(clss) == types.TypeType \
+            if type(clss) in [types.TypeType, types.ClassType] \
             and issubclass(clss, ReadingConverterConsistencyTest) \
             and clss.CONVERSION_DIRECTION]
 
@@ -388,7 +388,7 @@ class ReadingConverterReferenceTest(ReadingConverterTest):
             for reference, target in references:
                 args = [reference, self.fromReading, self.toReading]
 
-                if type(target) == types.TypeType \
+                if type(target) in [types.TypeType, types.ClassType] \
                     and issubclass(target, Exception):
                     self.assertRaises(target, self.f.convert, *args, **options)
                 else:

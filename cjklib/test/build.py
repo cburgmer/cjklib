@@ -32,7 +32,7 @@ from sqlalchemy import Table
 from cjklib.build import DatabaseBuilder, builder
 
 
-class TableBuilderTest():
+class TableBuilderTest:
     """Base class for testing of L{TableBuilder}s."""
     BUILDER = None
     """Builder class object."""

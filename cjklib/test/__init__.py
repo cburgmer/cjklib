@@ -25,7 +25,7 @@ __all__ = ['readingoperator', 'readingconverter', 'characterlookup']
 from cjklib.util import getConfigSettings
 from cjklib.dbconnector import DatabaseConnector
 
-class NeedsDatabaseTest():
+class NeedsDatabaseTest:
     """Base class for unit test with database access"""
 
     def setUp(self):

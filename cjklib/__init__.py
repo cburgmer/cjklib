@@ -108,7 +108,7 @@ Currently tested are:
         Multilingual Plane in Unicode, BMP)
 
 @author: Christoph Burgmer <cburgmer@ira.uka.de>
-@requires: Python 2.5+, SQLAlchemy 0.5+ and either SQLite 3+ or MySQL 5+ and
+@requires: Python 2.4+, SQLAlchemy 0.5+ and either SQLite 3+ or MySQL 5+ and
     MySQL-Python
 @version: 0.1alpha
 

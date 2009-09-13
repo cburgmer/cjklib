@@ -1340,7 +1340,8 @@ class PinyinOperator(TonalRomanisationOperator):
     """
 
     PINYIN_SOUND_REGEX \
-        = re.compile(u'(?iu)^([^aeiuoü]*)([aeiuoü]*)([^aeiuoü]*)$')
+        = re.compile(u'^([^aeiuoü]*)([aeiuoü]*)([^aeiuoü]*)$',
+            re.IGNORECASE | re.UNICODE)
     """
     Regular Expression matching onset, nucleus and coda. Syllables 'n', 'ng',
     'r' (for Erhua) and 'ê' have to be handled separately.
@@ -1458,9 +1459,10 @@ class PinyinOperator(TonalRomanisationOperator):
         tonemarkVowelsNFD = sorted([unicodedata.normalize("NFD", vowel) \
             for vowel in tonemarkVowels], reverse=True)
         diacriticsSorted = sorted(self.pinyinDiacritics, reverse=True)
-        self._toneMarkRegex = re.compile(u'(?iu)((?:%s)+)(%s)' \
+        self._toneMarkRegex = re.compile(u'((?:%s)+)(%s)' \
             % ('|'.join([re.escape(vowel) for vowel in tonemarkVowelsNFD]),
-                '|'.join([re.escape(d) for d in diacriticsSorted])))
+                '|'.join([re.escape(d) for d in diacriticsSorted])),
+            re.IGNORECASE | re.UNICODE)
 
         # check alternative ü vowel
         self.yVowel = self.yVowel.lower()
@@ -1481,10 +1483,10 @@ class PinyinOperator(TonalRomanisationOperator):
 
         # set split regular expression, works for all 3 main dialects, get at
         #   least the whole alphabet to have a conservative recognition
-        self._readingEntityRegex = re.compile(u'(?iu)((?:' \
+        self._readingEntityRegex = re.compile(u'((?:' \
             + '|'.join([re.escape(v) for v in self._getDiacriticVowels()]) \
             + '|' + re.escape(self.yVowel) \
-            + u'|[a-zêüŋẑĉŝ])+[12345]?)')
+            + u'|[a-zêüŋẑĉŝ])+[12345]?)', re.IGNORECASE | re.UNICODE)
 
     @classmethod
     def getDefaultOptions(cls):
@@ -1548,9 +1550,9 @@ class PinyinOperator(TonalRomanisationOperator):
                     diacriticVowels.append(
                         unicodedata.normalize("NFC", vowel + mark))
         # split regex for all dialect forms
-        entities = re.findall(u'(?iu)((?:' + '|'.join(diacriticVowels) \
+        entities = re.findall(u'((?:' + '|'.join(diacriticVowels) \
             + '|'.join(cls.Y_VOWEL_LIST) + u'|[a-uw-zêŋẑĉŝ])+[12345]?)',
-            readingStr)
+            readingStr, re.IGNORECASE | re.UNICODE)
 
         # guess one of main dialects: tone mark type
         diacriticEntityCount = 0
@@ -1585,8 +1587,8 @@ class PinyinOperator(TonalRomanisationOperator):
         if toneMarkType == 'diacritics':
             readingStrNFD = unicodedata.normalize("NFD", readingStr)
             # remove non-tonal diacritics
-            readingStrNFDClear = re.sub(ur'(?iu)([ezcs]\u0302|u\u0308)', '',
-                readingStrNFD)
+            readingStrNFDClear = re.compile(ur'([ezcs]\u0302|u\u0308)',
+                re.IGNORECASE | re.UNICODE).sub('', readingStrNFD)
 
             for tone in cls.DIACRITICS_LIST:
                 if diacritics[tone-1] not in readingStrNFDClear:
@@ -2349,13 +2351,13 @@ class WadeGilesOperator(TonalRomanisationOperator):
     Other regular vowels are not allowed for substitution as of ambiguity.
     """
 
-    syllableRegex = re.compile(ur'(?iu)(' \
+    syllableRegex = re.compile(ur'(' \
         + u'(?:(?:ch|hs|sh|ts|tz|ss|sz|[pmftnlkhjyw])' \
         + u'(?:' + '|'.join([re.escape(a) for a in APOSTROPHE_LIST]) + ')?)?'
         + u'(?:' + '|'.join([re.escape(a) for a \
             in (ZERO_FINAL_LIST + DIACRICTIC_E_LIST + UMLAUT_U_LIST)]) \
         + u'|[aeiou])+' \
-        + u'(?:ng|n|rh|h)?[012345⁰¹²³⁴⁵]?)')
+        + u'(?:ng|n|rh|h)?[012345⁰¹²³⁴⁵]?)', re.IGNORECASE | re.UNICODE)
     """
     Regex to split a string into several syllables in a crude way.
     It consists of:
@@ -2427,12 +2429,12 @@ class WadeGilesOperator(TonalRomanisationOperator):
             raise ValueError("Invalid option %s for keyword 'missingToneMark'"
                 % repr(self.missingToneMark))
 
-        self._readingEntityRegex = re.compile(u"(?iu)((?:" \
+        self._readingEntityRegex = re.compile(u"((?:" \
             + re.escape(self.wadeGilesApostrophe) \
             + "|" + re.escape(self.diacriticE) \
             + "|" + re.escape(self.zeroFinal) \
             + "|" + re.escape(self.umlautU) \
-            + u"|[a-züêŭ])+[012345⁰¹²³⁴⁵]?)")
+            + u"|[a-züêŭ])+[012345⁰¹²³⁴⁵]?)", re.IGNORECASE | re.UNICODE)
 
     @classmethod
     def getDefaultOptions(cls):
@@ -2488,35 +2490,34 @@ class WadeGilesOperator(TonalRomanisationOperator):
                 useInitialSz = True
             # ŭ
             if not zeroFinal:
-                matchObj = re.match('(?iu)(?:tz|ss|sz)' \
+                matchObj = re.compile('(?:tz|ss|sz)' \
                     + u'(?:' + '|'.join([re.escape(a) for a \
                         in cls.APOSTROPHE_LIST]) + ')?' \
                     + u'(' + '|'.join([re.escape(a) for a \
                         in cls.ZERO_FINAL_LIST]) + ')',
-                    entity)
+                    re.IGNORECASE | re.UNICODE).match(entity)
                 if matchObj:
                     zeroFinal = matchObj.group(1)
 
             # ê
             if not diacriticE:
-                matchObj = re.match(ur'(?iu)' \
-                    + u'(?:(?:ch|hs|sh|ts|[pmftnlkhjyw])' \
+                matchObj = re.compile(u'(?:(?:ch|hs|sh|ts|[pmftnlkhjyw])' \
                     + u'(?:' + '|'.join([re.escape(a) for a \
                         in cls.APOSTROPHE_LIST]) + ')?)?'
                     + u'(' + '|'.join([re.escape(a) for a \
                         in cls.DIACRICTIC_E_LIST]) + ')' \
-                    + u'(?:ng|n|rh)?', entity)
+                    + u'(?:ng|n|rh)?', re.IGNORECASE | re.UNICODE).match(entity)
                 if matchObj:
                     diacriticE = matchObj.group(1)
 
             # ü
             if not umlautU:
-                matchObj = re.match(ur'(?iu)(?:ch|hs|[nly])' \
+                matchObj = re.compile(ur'(?:ch|hs|[nly])' \
                     + u'(?:' + '|'.join([re.escape(a) for a \
                         in cls.APOSTROPHE_LIST]) + ')?'
                     + u'(' + '|'.join([re.escape(a) for a \
                         in cls.UMLAUT_U_LIST]) + '|)[ae]?' \
-                    + u'(?:n|h)?', entity)
+                    + u'(?:n|h)?', re.IGNORECASE | re.UNICODE).match(entity)
                 if matchObj:
                     # check for special case 'u'
                     if matchObj.group(1) == 'u':
@@ -4580,16 +4581,16 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         # create tone regex
         if self.toneMarkType != 'none':
-            self._primaryToneRegex = re.compile(r"(?iu)^[a-z]+([" \
+            self._primaryToneRegex = re.compile(r"^[a-z]+([" \
                 + r"".join(set([re.escape(toneMark) for toneMark, _ \
                     in self.TONE_MARK_MAPPING[self.toneMarkType].values()])) \
-                + r"]?)")
+                + r"]?)", re.IGNORECASE | re.UNICODE)
             self._hCharRegex = re.compile(r"(?i)^.*(?:[aeiou]|m|ng)(h)")
 
         # set split regular expression, works for all tone marks
-        self._readingEntityRegex = re.compile(u'(?iu)((?:' \
+        self._readingEntityRegex = re.compile(u'((?:' \
             + '|'.join([re.escape(v) for v in self._getDiacriticVowels()]) \
-            + u'|[a-z])+[0123456]?)')
+            + u'|[a-z])+[0123456]?)', re.IGNORECASE | re.UNICODE)
 
     @classmethod
     def getDefaultOptions(cls):

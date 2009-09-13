@@ -558,7 +558,7 @@ class ReadingOperatorTestCaseCheck(NeedsDatabaseTest, unittest.TestCase):
         testModule = __import__("cjklib.test.readingoperator")
         testClasses = [clss for clss \
             in testModule.test.readingoperator.__dict__.values() \
-            if type(clss) == types.TypeType \
+            if type(clss) in [types.TypeType, types.ClassType] \
             and issubclass(clss, ReadingOperatorConsistencyTest) \
             and clss.READING_NAME]
 
@@ -600,7 +600,7 @@ class ReadingOperatorReferenceTest(ReadingOperatorTest):
         for dialect, references in self.DECOMPOSITION_REFERENCES:
             for reference, target in references:
                 args = [reference, self.READING_NAME]
-                if type(target) == types.TypeType \
+                if type(target) in [types.TypeType, types.ClassType] \
                     and issubclass(target, Exception):
                     self.assertRaises(target, self.f.decompose, *args,
                         **dialect)
@@ -625,7 +625,7 @@ class ReadingOperatorReferenceTest(ReadingOperatorTest):
         for dialect, references in self.COMPOSITION_REFERENCES:
             for reference, target in references:
                 args = [reference, self.READING_NAME]
-                if type(target) == types.TypeType \
+                if type(target) in [types.TypeType, types.ClassType] \
                     and issubclass(target, Exception):
                     self.assertRaises(target, self.f.compose, *args, **dialect)
                 else:
