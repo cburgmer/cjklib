@@ -26,7 +26,7 @@
 #     * ba for .ba (吧 and 罢)
 #     * bu for bu, bwu, buh (不)
 #     * de for .de (的)
-#     * g for ₒgeh (个)
+#     * g for ˳geh (个)
 #     * i for i, yi, yih (一)
 #     * ia for .ia (呀)
 #     * j for -.jy, -.je (着)
@@ -35,7 +35,7 @@
 #     * me for -.me (么) and .me (嚜)
 #     * men for -.men (们)
 #     * ne for .ne (呐)
-#     * sh for ₒshyh (是)
+#     * sh for ˳shyh (是)
 #     * tz for -.tzy (子)
 #   * Yuen Ren Chao: Mandarin Primer: an intensive course in spoken Chinese.
 #     Harvard University Press, Cambridge, 1948.
@@ -52,7 +52,7 @@
 # TODO:
 #   * Yuen Ren Chao: A Grammar of Spoken Chinese. University of California
 #     Press, Berkeley, 1968, ISBN 0-520-00219-9.
-#     * V bu V for V .bu ₒV ( pp. xxxi)
+#     * V bu V for V .bu ˳V ( pp. xxxi)
 #   * Yuen Ren Chao: Mandarin Primer: an intensive course in spoken Chinese.
 #     Harvard University Press, Cambridge, 1948.
 #     * .èh (p. 22, 124), .oh (p. 22, 130), è (p. 153) interjections
@@ -80,11 +80,11 @@
 們,.men,men,T
 們,.men,m,
 呐,.ne,ne,T
-是,ₒshyh,sh,
+是,˳shyh,sh,
 子,.tzy,tz,
 著,.jy,j,I
 著,.je,j,
-個,ₒgeh,g,
+個,˳geh,g,
 的,.de,de,T
 甚麼,shern .me,sherm .me,
 甚麼,shern .me,sherm,

@@ -3002,7 +3002,7 @@ class GROperator(TonalRomanisationOperator):
     =====
     Tones are transcribed rigorously as syllables in the neutral tone
     additionally carry the original (etymological) tone information. Y.R. Chao
-    also annotates the X{optional neutral tone} (e.g. I{buh jyₒdaw}) which can
+    also annotates the X{optional neutral tone} (e.g. I{buh jy˳daw}) which can
     be pronounced with either the neutral tone or the etymological one. Compared
     to other reading operators for Mandarin, special care has to be taken to
     cope with these special requirements.
@@ -3031,7 +3031,7 @@ class GROperator(TonalRomanisationOperator):
     =============
     Yuen Ren Chao includes several X{abbreviated form}s in his books (references
     see below). For example 個/个 which would be fully transcribed as I{.geh} or
-    I{ₒgeh} is abbreviated as I{g}. These forms can be accessed by
+    I{˳geh} is abbreviated as I{g}. These forms can be accessed by
     L{getAbbreviatedForms()} and L{getAbbreviatedFormData()}, and their usage
     can be contolled by option C{'abbreviations'}. Use the L{GRDialectConverter}
     to convert these abbreviations into their full forms:
@@ -3048,7 +3048,7 @@ class GROperator(TonalRomanisationOperator):
     the last syllable/the second last syllable or both, e.g. I{shie.x} for
     I{shie.shie}, I{deengiv} for I{deengideeng} and I{duey .le vx} for
     I{duey .le duey .le}. Both forms can be preceded by a neutral tone mark,
-    e.g. I{.x} or I{ₒv}.
+    e.g. I{.x} or I{˳v}.
 
     Sources
     =======
@@ -3060,11 +3060,12 @@ class GROperator(TonalRomanisationOperator):
     @see:
         - GR Junction by Richard Warmington:
             U{http://home.iprimus.com.au/richwarm/gr/gr.htm}
+        - A Guide to Gwoyeu Romatzyh Tonal Spelling of Chinese:
+            U{http://eall.hawaii.edu/chn/chn451/03-Luomazi/GR.html}
         - Article about Gwoyeu Romatzyh on the English Wikipedia:
             U{http://en.wikipedia.org/wiki/Gwoyeu_Romatzyh}
 
     @todo Impl: Initial, medial, head, ending (ending1, ending2=l?)
-    @todo Lang: Which character to use for optional neutral tone: C{'ₒ'} ?
     @todo Lang: Y.R. Chao uses particle and interjection ㄝ è. For more see
         'Mandarin Primer', Vocabulary and Index, pp. 301.
     @todo Impl: Implement Erhua forms as stated in W. Simon: A Beginner's
@@ -3107,6 +3108,12 @@ class GROperator(TonalRomanisationOperator):
     APOSTROPHE_LIST = ["'", u'’', u'´', u'‘', u'`', u'ʼ', u'ˈ', u'′', u'ʻ']
     """List of apostrophes used in guessing routine."""
 
+    OPTIONAL_NEUTRAL_TONE_MARKERS = [u'˳', u'｡', u'￮', u'₀', u'ₒ']
+    """
+    List of allowed optional neutral tone markers:
+    ˳ (U+02F3), ｡ (U+FF61), ￮ (U+FFEE), ₀ (U+2080), ₒ (U+2092)
+    """
+
     def __init__(self, **options):
         u"""
         Creates an instance of the GROperator.
@@ -3129,11 +3136,21 @@ class GROperator(TonalRomanisationOperator):
         @keyword grSyllableSeparatorApostrophe: an alternate apostrophe that is
             taken instead of the default one for separating 0-initial syllables
             from preceding ones.
+        @keyword optionalNeutralToneMarker: character to use for marking the
+            optional neutral tone. Only values given in
+            L{OPTIONAL_NEUTRAL_TONE_MARKERS} are allowed.
         """
         super(GROperator, self).__init__(**options)
 
+        if self.optionalNeutralToneMarker \
+            not in self.OPTIONAL_NEUTRAL_TONE_MARKERS:
+            raise ValueError(
+                "Invalid value %s for keyword 'optionalNeutralToneMarker'"
+                % repr(self.optionalNeutralToneMarker))
+
         self._readingEntityRegex = re.compile(u"( |" \
-            + re.escape(self.grSyllableSeparatorApostrophe) + u"|[\.ₒ]?(?:" \
+            + re.escape(self.grSyllableSeparatorApostrophe) \
+            + u"|[\.%s]?(?:" % self.optionalNeutralToneMarker \
             + re.escape(self.grRhotacisedFinalApostrophe) + "|[A-Za-z])+)")
 
     @classmethod
@@ -3141,7 +3158,8 @@ class GROperator(TonalRomanisationOperator):
         options = super(GROperator, cls).getDefaultOptions()
         options.update({'abbreviations': True,
             'grRhotacisedFinalApostrophe': u"’",
-            'grSyllableSeparatorApostrophe': u"’"})
+            'grSyllableSeparatorApostrophe': u"’",
+            'optionalNeutralToneMarker': u'˳'})
 
         return options
 
@@ -3163,8 +3181,6 @@ class GROperator(TonalRomanisationOperator):
             C{'grSyllableSeparatorApostrophe'} can be set independantly as
             the former one should only be found before an C{l} and the latter
             mostly before vowels.
-        @todo Impl: Guess optional neutral tone marker ｡ (U+FF61), ￮ (U+FFEE),
-            ₀ (U+2080), ₒ (U+2092), ˳ (U+02F3)
         """
         readingStr = unicodedata.normalize("NFC", unicode(readingString))
 
@@ -3175,12 +3191,22 @@ class GROperator(TonalRomanisationOperator):
                 apostrophe = a
                 break
 
+        # guess optional neutral tone marker
+        for marker in cls.OPTIONAL_NEUTRAL_TONE_MARKERS:
+            if marker in readingStr:
+                optionalNeutralToneMarker = marker
+                break
+        else:
+            optionalNeutralToneMarker \
+                = cls.getDefaultOptions()['optionalNeutralToneMarker']
+
         return {'grRhotacisedFinalApostrophe': apostrophe,
-            'grSyllableSeparatorApostrophe': apostrophe}
+            'grSyllableSeparatorApostrophe': apostrophe,
+            'optionalNeutralToneMarker': optionalNeutralToneMarker}
 
     def getReadingCharacters(self):
         characters = set(string.ascii_lowercase)
-        characters.update([u'.', u'ₒ'])
+        characters.update([u'.', self.optionalNeutralToneMarker])
         characters.add(self.grRhotacisedFinalApostrophe)
         return characters
 
@@ -3442,7 +3468,7 @@ class GROperator(TonalRomanisationOperator):
         if tone.startswith('5'):
             tonalEntity = '.' + tonalEntity
         elif tone.endswith('Optional5th'):
-            tonalEntity = u'ₒ' + tonalEntity
+            tonalEntity = self.optionalNeutralToneMarker + tonalEntity
 
         return tonalEntity
 
@@ -3555,7 +3581,7 @@ class GROperator(TonalRomanisationOperator):
         if tone.startswith('5'):
             tonalEntity = '.' + tonalEntity
         elif tone.endswith('Optional5th'):
-            tonalEntity = u'ₒ' + tonalEntity
+            tonalEntity = self.optionalNeutralToneMarker + tonalEntity
 
         return tonalEntity
 
@@ -3587,7 +3613,7 @@ class GROperator(TonalRomanisationOperator):
         if tonalEntity.startswith('.'):
             baseTone = '5th'
             baseTonalEntity = tonalEntity[1:]
-        elif tonalEntity.startswith(u'ₒ'):
+        elif tonalEntity.startswith(self.optionalNeutralToneMarker):
             baseTone = 'Optional5th'
             baseTonalEntity = tonalEntity[1:]
         else:
@@ -3668,7 +3694,9 @@ class GROperator(TonalRomanisationOperator):
         for entities in self.getAbbreviatedForms():
             abbreviatedEntites.update(entities)
         abbreviatedEntites = abbreviatedEntites - self.getFullReadingEntities()
-        abbreviatedEntites.update(['x', 'v', '.x', '.v', u'ₒx', u'ₒv'])
+        abbreviatedEntites.update(['x', 'v', '.x', '.v',
+            self.optionalNeutralToneMarker + u'x',
+            self.optionalNeutralToneMarker + u'v'])
         return abbreviatedEntites
 
     def isAbbreviatedEntity(self, entity):

@@ -55,7 +55,7 @@ def getConfigSettings(section, projectName='cjklib'):
 # define our own titlecase methods, as the Python implementation is currently
 #   buggy (http://bugs.python.org/issue6412), see also
 #   http://www.unicode.org/mail-arch/unicode-ml/y2009-m07/0066.html
-_FIRST_NON_CASE_IGNORABLE = re.compile(ur"(?u)([.ₒ]?\W*)(\w)(.*)$")
+_FIRST_NON_CASE_IGNORABLE = re.compile(ur"(?u)([.˳｡￮₀ₒ]?\W*)(\w)(.*)$")
 """
 Regular expression matching the first alphabetic character. Include GR neutral
 tone forms.

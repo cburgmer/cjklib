@@ -1186,7 +1186,8 @@ class GRDialectConverter(ReadingConverter):
 
             if repetitionEntity.startswith('.'):
                 tone = '5thToneEtymological%s' % toneMapping[baseTone]
-            elif repetitionEntity.startswith(u'ₒ'):
+            elif repetitionEntity.startswith(
+                grOperator.optionalNeutralToneMarker):
                 tone = '%sToneOptional5th' % toneMapping[baseTone]
             else:
                 tone = realTone
@@ -1197,8 +1198,9 @@ class GRDialectConverter(ReadingConverter):
 
         # Convert repetition markers, go backwards as 'vx' needs the 'x' to
         #   be concious about the preceding 'v'.
-        repeatLast = ['x', '.x', u'ₒx']
-        repeatSecondLast = ['v', '.v', u'ₒv']
+        repeatLast = ['x', '.x', grOperator.optionalNeutralToneMarker + u'x']
+        repeatSecondLast = ['v', '.v',
+            grOperator.optionalNeutralToneMarker + u'v']
         for idx in range(len(readingEntities)-1, -1, -1):
             # test for 'x'
             if readingEntities[idx] in repeatLast:

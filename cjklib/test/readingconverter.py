@@ -1121,7 +1121,7 @@ class GRDialectReferenceTest(ReadingConverterReferenceTest,
             (u'jie’l', u"jie'l")
             ]),
         ({'breakUpAbbreviated': 'on'}, [
-            (u"g", u'ₒgeh'),
+            (u"g", u'˳geh'),
             (u"j", u'.je'),
             (u"hairtz", u'hair.tzy'),
             (u"tz", u'.tzy'),
@@ -1173,7 +1173,7 @@ class GRPinyinReferenceTest(ReadingConverterReferenceTest,
         ({'sourceOptions': {}, 'targetOptions': {}}, [
             (u'sheau jie’l', u'xiǎo jiēr'),
             (u'jieel', exception.AmbiguousConversionError),
-            (u'buh jy.daw', u'bù zhīdao'), (u'buh jyₒdaw', u'bù zhīdào'),
+            (u'buh jy.daw', u'bù zhīdao'), (u'buh jy˳daw', u'bù zhīdào'),
             (u'woo de', u'wǒ dē'),
             (u'hairtz', u'háizi'), (u'ig', u'yīgè'), (u'sherm', u'shénme'),
             (u'sherm.me', u'shénme'), (u'tzeem.me', u'zěnme'),
