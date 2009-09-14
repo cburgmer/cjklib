@@ -2437,7 +2437,7 @@ u:nr            iuel    yuel    euel    iuell           hiuel   iuel
         grEntities = set(self.grOperator.getFullReadingEntities())
         # no neutral tone syllables
         for entity in grEntities.copy():
-            if entity[0] in ['.', u'\u2092']:
+            if entity[0] in ['.', self.grOperator.optionalNeutralToneMarker]:
                 grEntities.remove(entity)
 
         # remove syllables with entry '-' in GR Junction table
