@@ -1147,6 +1147,20 @@ class GRDialectConverter(ReadingConverter):
             readingEntities = [entity.replace(fromApostrophe, toApostrophe) \
                 for entity in readingEntities]
 
+        # convert optional neutral tone marker
+        fromMarker = self._getFromOperator(fromReading)\
+            .optionalNeutralToneMarker
+        toMarker = self._getToOperator(toReading).optionalNeutralToneMarker
+        if fromMarker != toMarker:
+            convReadingEntities = []
+            for entity in readingEntities:
+                if entity.startswith(fromMarker) \
+                    and self._getFromOperator(fromReading).isReadingEntity(
+                        entity):
+                    entity = entity.replace(fromMarker, toMarker, 1)
+                convReadingEntities.append(entity)
+            readingEntities = convReadingEntities
+
         return readingEntities
 
     def convertRepetitionMarker(self, readingEntities):

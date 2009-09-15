@@ -2001,6 +2001,7 @@ class GROperatorConsistencyTest(ReadingOperatorConsistencyTest,
         [{}, {'abbreviations': False}],
         [{}, {'grRhotacisedFinalApostrophe': "'"}],
         [{}, {'grSyllableSeparatorApostrophe': "'"}],
+        [{}, {'optionalNeutralToneMarker': u'₀'}],
         [{}, {'case': 'lower'}],
         )
 

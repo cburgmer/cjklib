@@ -1118,7 +1118,8 @@ class GRDialectReferenceTest(ReadingConverterReferenceTest,
         ({'sourceOptions': {'grSyllableSeparatorApostrophe': "'"},
             'targetOptions': {'grRhotacisedFinalApostrophe': "'"}}, [
             (u"tian'anmen", u'tian’anmen'),
-            (u'jie’l', u"jie'l")
+            (u'jie’l', u"jie'l"),
+            (u'x', u'x'),
             ]),
         ({'breakUpAbbreviated': 'on'}, [
             (u"g", u'˳geh'),
@@ -1127,7 +1128,11 @@ class GRDialectReferenceTest(ReadingConverterReferenceTest,
             (u"tz", u'.tzy'),
             (u"sherm.me", u'shern.me'),
             (u"bu", u'bu'),
-            (u'buh jy.daw', u"buh jy.daw")
+            (u'buh jy.daw', u"buh jy.daw"),
+            (u'x', exception.ConversionError),
+            ]),
+        ({'sourceOptions': {'optionalNeutralToneMarker': u'ₒ'}}, [
+            (u"ₒgeh", u'˳geh'),
             ]),
         ]
 
