@@ -631,7 +631,6 @@ class CharacterLookup:
         @rtype: str
         @return: search locale used for SQL select
         @raise ValueError: if an invalid I{character locale} is specified
-        @todo Fix: This probably requires a full table scan
         """
         locale = locale.upper()
         if not locale in set('TCJKV'):

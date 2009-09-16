@@ -282,22 +282,6 @@ class EntryGeneratorBuilder(TableBuilder):
         for index in self.buildIndexObjects(self.PROVIDES, self.INDEX_KEYS):
             index.create()
 
-
-class ListGenerator:
-    """A simple generator for a given list of elements."""
-    def __init__(self, entryList):
-        """
-        Initialises the ListGenerator.
-
-        @type entryList: list of str
-        @param entryList: user defined entry
-        """
-        self.entryList = entryList
-
-    def generator(self):
-        for entry in self.entryList:
-            yield entry
-
 #}
 #{ Unihan character information
 
@@ -1167,7 +1151,7 @@ class UnihanCharacterSetBuilder(EntryGeneratorBuilder):
         tableEntries = self.db.selectRows(
             select([table.c.ChineseCharacter],
                 table.c[self.COLUMN_SOURCE] != None))
-        return ListGenerator(tableEntries).generator()
+        return iter(tableEntries)
 
     def build(self):
         if not self.quiet:
@@ -1432,7 +1416,7 @@ class CharacterPinyinAdditionalBuilder(EntryGeneratorBuilder):
         tableEntries = [
             (u'〇', 'ling2'), # as mentioned in kHanyuPinlu, kXHC1983
             ]
-        return ListGenerator(tableEntries).generator()
+        return iter(tableEntries)
 
 
 class CharacterPinyinBuilder(EntryGeneratorBuilder):
@@ -1456,7 +1440,7 @@ class CharacterPinyinBuilder(EntryGeneratorBuilder):
                 select([table.c[column] for column in self.COLUMNS]))
 
         tableEntries = self.db.selectRows(union(*selectQueries))
-        return ListGenerator(tableEntries).generator()
+        return iter(tableEntries)
 
 #}
 #{ CSV file based
@@ -1920,7 +1904,7 @@ class ZVariantBuilder(EntryGeneratorBuilder):
                     unihanTable.c.kRSKangXi != None)))
         characterSet.update([(char, 0) for char in unihanCharacters])
 
-        return ListGenerator(characterSet).generator()
+        return iter(characterSet)
 
 
 class StrokeCountBuilder(EntryGeneratorBuilder):
