@@ -98,7 +98,7 @@ class CharacterInfo:
     """List of character variants and their names."""
 
     def __init__(self, charLocale=None, characterDomain='Unicode',
-        readingN=None, dictionary=None):
+        readingN=None, dictionary=None, dictionaryDatabaseUrl=None):
         """
         Initialises the CharacterInfo object.
 
@@ -111,6 +111,9 @@ class CharacterInfo:
         @param readingN: name of reading
         @type dictionary: str
         @param dictionary: name of dictionary
+        @type dictionaryDatabaseUrl: str
+        @param dictionaryDatabaseUrl: database connection setting in the format
+            C{driver://user:pass@host/database}.
         """
         if charLocale:
             self.locale = charLocale
@@ -131,7 +134,10 @@ class CharacterInfo:
         self.characterLookupTraditional = characterlookup.CharacterLookup('T',
             characterDomain)
         self.readingFactory = reading.ReadingFactory()
-        self.db = DatabaseConnector.getDBConnector()
+        if dictionaryDatabaseUrl:
+            self.dictDB = DatabaseConnector({'url': dictionaryDatabaseUrl})
+        else:
+            self.dictDB = DatabaseConnector.getDBConnector()
 
         self.availableDictionaries = None
 
@@ -158,9 +164,9 @@ class CharacterInfo:
 
         if self.dictionary:
             # check for FTS3 table (only SQLite)
-            self.dictionaryHasFTS3 = self.db.engine.has_table(
+            self.dictionaryHasFTS3 = self.dictDB.engine.has_table(
                 self.dictionary + '_Text')
-            self.dictionaryObject = Table(self.dictionary, self.db.metadata,
+            self.dictionaryObject = Table(self.dictionary, self.dictDB.metadata,
                 autoload=True)
             if self.DICTIONARY_INFO[self.dictionary]['type'] == 'CEDICT':
                 if self.locale == 'C':
@@ -225,7 +231,7 @@ class CharacterInfo:
         if self.availableDictionaries == None:
             self.availableDictionaries = []
             for dictName in self.DICTIONARY_INFO:
-                if self.db.engine.has_table(dictName):
+                if self.dictDB.engine.has_table(dictName):
                     self.availableDictionaries.append(dictName)
         return self.availableDictionaries
 
@@ -655,7 +661,7 @@ class CharacterInfo:
                 distinct=True))
 
         # translation string
-        wordsTable = Table(self.dictionary + '_Words', self.db.metadata,
+        wordsTable = Table(self.dictionary + '_Words', self.dictDB.metadata,
             autoload=True)
         if dictType == 'EDICT':
             table = self.dictionaryObject.join(wordsTable,
@@ -673,7 +679,7 @@ class CharacterInfo:
             wordsTable.c.Word == searchString.lower(),
             from_obj=table, distinct=True))
 
-        result = self.db.selectRows(
+        result = self.dictDB.selectRows(
             union(*selectQueries).limit(limit).order_by(
                 self.dictionaryObject.c.Reading))
 
@@ -763,7 +769,7 @@ class CharacterInfo:
                     '%' + ' '.join(translationTokens) + '%'),
                 distinct=True))
 
-        result = self.db.selectRows(
+        result = self.dictDB.selectRows(
             union(*selectQueries).limit(limit).order_by(
                 self.dictionaryObject.c.Reading))
 
@@ -1128,6 +1134,10 @@ def main():
             readingLookup[name] = readingN
 
     configSettings = getConfigSettings('cjknife')
+    if 'url' in configSettings and configSettings['url']:
+        url = configSettings['url']
+    else:
+        url = None
     if 'dictionary' in configSettings and configSettings['dictionary']:
         dictionary = configSettings['dictionary']
     else:
@@ -1217,7 +1227,7 @@ def main():
 
     try:
         charInfo = CharacterInfo(charLocale=charLocale, readingN=targetReading,
-            dictionary=dictionary)
+            dictionary=dictionary, dictionaryDatabaseUrl=url)
         charLocale = charInfo.locale
         dictionary = charInfo.dictionary
         if not charInfo.setCharacterDomain(charDomain):
