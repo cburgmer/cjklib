@@ -17,6 +17,7 @@
 
 """
 Provides the library's unit tests for L{characterlookup.CharacterLookup}.
+@todo Fix:  Rename *TestCase to *Test
 """
 
 # pylint: disable-msg=E1101
@@ -174,6 +175,67 @@ class CharacterLookupMetaTestCase(CharacterLookupTest,
         cjk = characterlookup.CharacterLookup('T', dbConnectInst=mydb)
         self.assert_(domain not in cjk.getAvailableCharacterDomains())
         self.db.metadata.remove(tableObj)
+
+
+class CharacterLookupCharacterDomainTestCase(CharacterLookupTest,
+    unittest.TestCase):
+
+    def testCharacterDomainInUnicode(self):
+        """
+        Tests if all character domains are included in the maximum Unicode
+        domain.
+        """
+        for domain in self.characterLookup.getAvailableCharacterDomains():
+            characterLookupDomain = characterlookup.CharacterLookup('T',
+                domain, dbConnectInst=self.db)
+            domainChars = [c for c \
+                in characterLookupDomain.getDomainCharacterIterator()]
+            self.assert_(domainChars \
+                == self.characterLookup.filterDomainCharacters(domainChars))
+
+    # TODO slow
+    #def testDomainCharsAccepted(self):
+        #"""Test if all characters in the character domain are accepted."""
+        #for domain in self.characterLookup.getAvailableCharacterDomains():
+            #characterLookupDomain = characterlookup.CharacterLookup('T',
+                #domain, dbConnectInst=self.db)
+            #for char in characterLookupDomain.getDomainCharacterIterator():
+                #self.assert_(characterLookupDomain.isCharacterInDomain(char))
+
+    def testFilterIdentityOnSelf(self):
+        """
+        Test if filterDomainCharacters operates as identity on characters from
+        domain.
+        """
+        for domain in self.characterLookup.getAvailableCharacterDomains():
+            characterLookupDomain = characterlookup.CharacterLookup('T',
+                domain, dbConnectInst=self.db)
+            domainChars = [c for c \
+                in characterLookupDomain.getDomainCharacterIterator()]
+            self.assert_(domainChars \
+                == characterLookupDomain.filterDomainCharacters(domainChars))
+
+
+class CharacterLookupStrokesTestCase(CharacterLookupTest,
+    unittest.TestCase):
+
+    def testUnicodeNamesMatchAbbreviations(self):
+        """
+        Tests if the stroke form names by Unicode match the abbreviations
+        defined here.
+        """
+        import unicodedata
+        for strokeCP in range(int('31C0', 16), int('31EF', 16)+1):
+            stroke = unichr(strokeCP)
+            try:
+                abbrev = unicodedata.name(stroke).replace('CJK STROKE ', '')
+            except ValueError:
+                continue
+            try:
+                self.assertEquals(stroke,
+                    self.characterLookup.getStrokeForAbbrev(abbrev))
+            except ValueError:
+                self.fail("Abbreviation '%s' not supported" % abbrev)
 
 
 class CharacterLookupReadingMethodsTestCase(CharacterLookupTest,

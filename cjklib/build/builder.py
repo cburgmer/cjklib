@@ -1186,6 +1186,55 @@ class BIG5SetBuilder(UnihanCharacterSetBuilder):
     PROVIDES = 'BIG5Set'
     COLUMN_SOURCE = 'kBigFive'
 
+
+class GlyphInformationSetBuilder(EntryGeneratorBuilder):
+    """
+    Virtual table (view) holding all characters with information about their
+    glyph, i.e. stroke order or character decomposition.
+
+    @todo Impl: For implementation as view, we need the concept of runtime
+        dependency. All DEPENDS are actually BUILD_DEPENDS, while the DEPENDS
+        here will be a runtime dependency.
+    """
+    PROVIDES = 'GlyphInformationSet'
+    DEPENDS = ['StrokeOrder', 'CharacterDecomposition']
+
+    COLUMNS = ['ChineseCharacter']
+    PRIMARY_KEYS = ['ChineseCharacter']
+    COLUMN_TYPES = {'ChineseCharacter': String(1)}
+
+    def getGenerator(self):
+        characterSet = self.db.selectRows(
+            union(*[select([self.db.tables[tableName].c.ChineseCharacter]) \
+                for tableName in self.DEPENDS]))
+        return iter(characterSet)
+
+    # TODO Implementation as view
+    #def build(self):
+        ## view to mask FTS3 table construct as simple table
+        #view = Table(self.PROVIDES, self.db.metadata)
+        #preparer = self.db.engine.dialect.identifier_preparer
+
+        #unionConstruct = unicode(
+            #union(*[select([self.db.tables[tableName].c.ChineseCharacter]) \
+                #for tableName in self.DEPENDS]))
+        #createViewStatement = text("""CREATE VIEW %s AS %s""" \
+                #% (preparer.format_table(view), unionConstruct))
+        #self.db.execute(createViewStatement)
+        ## register view so processes depending on this succeed, see special
+        ##   view handling in DatabaseBuilder.__init__, workaround for SQLalchemy
+        ## TODO Bug in SQLalchemy that doesn't reflect table on reload?
+        ##   http://www.sqlalchemy.org/trac/ticket/1410
+        ##t = Table(tableName, self.db.metadata, autoload=True, useexisting=True)
+        #self.db.engine.reflecttable(view)
+
+    #def remove(self):
+        #view = Table(self.PROVIDES, self.db.metadata)
+        #preparer = self.db.engine.dialect.identifier_preparer
+        #dropViewStatement = text("DROP VIEW %s" % preparer.format_table(view))
+        #self.db.execute(dropViewStatement)
+        #self.db.metadata.remove(view)
+
 #}
 #{ Unihan reading information
 
@@ -1865,7 +1914,6 @@ class MandarinBraileFinalBuilder(CSVFileLoader):
     TABLE_CSV_FILE_MAPPING = 'pinyinbraillefinalmapping.csv'
     TABLE_DECLARATION_FILE_MAPPING = 'pinyinbraillefinalmapping.sql'
 
-
 #}
 #{ Library dependant
 
@@ -1913,21 +1961,18 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
     """
     class StrokeCountGenerator:
         """Generates the character stroke count mapping."""
-        def __init__(self, dbConnectInst, characterSet, quiet=False):
+        def __init__(self, dbConnectInst, quiet=False):
             """
             Initialises the StrokeCountGenerator.
 
             @type dbConnectInst: instance
             @param dbConnectInst: instance of a L{DatabaseConnector}.
-            @type characterSet: set
-            @param characterSet: set of characters to generate the table for
             @type quiet: bool
             @param quiet: if true no status information will be printed to
                 stderr
             """
-            self.characterSet = characterSet
             self.quiet = quiet
-            # create instance, locale is not important, we supply own zVariant
+            # create instance, locale is not important, we get all Z-variants
             self.cjk = characterlookup.CharacterLookup('T',
                 dbConnectInst=dbConnectInst)
             # make sure a currently existing table is not used
@@ -1935,14 +1980,14 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
 
         def generator(self):
             """Provides one entry per character, z-Variant and locale subset."""
-            for char, zVariant in self.characterSet:
+            # Cjklib's stroke count method uses the stroke order information as
+            #   long as this table doesn't exist.
+            strokeCountDict = self.cjk.getStrokeCountDict()
+            for char, zVariant in strokeCountDict.keys():
                 try:
-                    # cjklib's stroke count method uses the stroke order
-                    #   information as long as this table doesn't exist
-                    strokeCount = self.cjk.getStrokeCount(char,
-                        zVariant=zVariant)
-                    yield {'ChineseCharacter': char, 'StrokeCount': strokeCount,
-                        'ZVariant': zVariant}
+                    strokeCount = strokeCountDict[(char, zVariant)]
+                    yield({'ChineseCharacter': char, 'StrokeCount': strokeCount,
+                        'ZVariant': zVariant})
                 except exception.NoInformationError:
                     pass
                 except IndexError:
@@ -1959,17 +2004,8 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
         'ZVariant': Integer()}
 
     def getGenerator(self):
-        decompositionTable = self.db.tables['CharacterDecomposition']
-        strokeOrderTable = self.db.tables['StrokeOrder']
-
-        characterSet = set(self.db.selectRows(
-            select([decompositionTable.c.ChineseCharacter,
-                decompositionTable.c.ZVariant], distinct=True)))
-        characterSet.update(self.db.selectRows(
-            select([strokeOrderTable.c.ChineseCharacter,
-                strokeOrderTable.c.ZVariant])))
-        return StrokeCountBuilder.StrokeCountGenerator(self.db, characterSet,
-            self.quiet).generator()
+        return StrokeCountBuilder.StrokeCountGenerator(self.db, self.quiet)\
+            .generator()
 
 
 class CombinedStrokeCountBuilder(StrokeCountBuilder):
@@ -2148,20 +2184,15 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
     COLUMN_SOURCE = 'kTotalStrokes'
 
     def getGenerator(self):
+        preferredBuilder = \
+            CombinedStrokeCountBuilder.StrokeCountGenerator(self.db,
+                self.quiet).generator()
+
+        # get main builder
         decompositionTable = self.db.tables['CharacterDecomposition']
         strokeOrderTable = self.db.tables['StrokeOrder']
         unihanTable = self.db.tables['Unihan']
 
-        characterSet = set(self.db.selectRows(
-            select([decompositionTable.c.ChineseCharacter,
-                decompositionTable.c.ZVariant], distinct=True)))
-        characterSet.update(self.db.selectRows(
-            select([strokeOrderTable.c.ChineseCharacter,
-                strokeOrderTable.c.ZVariant])))
-        preferredBuilder = \
-            CombinedStrokeCountBuilder.StrokeCountGenerator(self.db,
-                characterSet, self.quiet).generator()
-        # get main builder
         tableEntries = self.db.selectRows(
             select([unihanTable.c.ChineseCharacter,
                 unihanTable.c[self.COLUMN_SOURCE]],
@@ -2170,6 +2201,12 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
         # get characters to build combined stroke count for. Some characters
         #   from the CharacterDecomposition table might not have a stroke count
         #   entry in Unihan though their components do have.
+        characterSet = set(self.db.selectRows(
+            select([decompositionTable.c.ChineseCharacter,
+                decompositionTable.c.ZVariant], distinct=True)))
+        characterSet.update(self.db.selectRows(
+            select([strokeOrderTable.c.ChineseCharacter,
+                strokeOrderTable.c.ZVariant])))
         characterSet.update([(char, 0) for char, _ in tableEntries])
 
         return CombinedStrokeCountBuilder.CombinedStrokeCountGenerator(self.db,

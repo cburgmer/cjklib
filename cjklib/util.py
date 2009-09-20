@@ -97,3 +97,32 @@ def istitlecase(strng):
         L{titlecase()}.
     """
     return titlecase(strng) == strng
+
+class CharacterRangeIterator:
+    """Iterates over a given set of codepoint ranges given in hex."""
+    def __init__(self, ranges):
+        self.ranges = ranges[:]
+        self._curRange = self._popRange()
+    def _popRange(self):
+        if self.ranges:
+            charRange = self.ranges[0]
+            del self.ranges[0]
+            if type(charRange) == type(()):
+                rangeFrom, rangeTo = charRange
+            else:
+                rangeFrom, rangeTo = (charRange, charRange)
+            return (int(rangeFrom, 16), int(rangeTo, 16))
+        else:
+            return []
+    def __iter__(self):
+        return self
+    def next(self):
+        if not self._curRange:
+            raise StopIteration
+
+        curIndex, toIndex = self._curRange
+        if curIndex < toIndex:
+            self._curRange = (curIndex + 1, toIndex)
+        else:
+            self._curRange = self._popRange()
+        return unichr(curIndex)

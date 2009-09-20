@@ -20,13 +20,14 @@ Provides the central Chinese character based functions.
 @todo Fix: Make C{G} the Simplified Chinese locale?
 """
 
-# import math
+import math
 from sqlalchemy import select, union
 from sqlalchemy.sql import and_, or_
 
 from cjklib import reading
 from cjklib import exception
 from cjklib import dbconnector
+from cjklib import util
 
 class CharacterLookup:
     u"""
@@ -215,27 +216,33 @@ class CharacterLookup:
     there is only one possible stroke order for each character. Further more
     there is a fixed set of possible strokes and these strokes carry names.
 
-    As with character decomposition the I{stroke order} and I{stroke count} is
-    highly dependant on the appearance of the character, so both I{Z-variant}
-    and I{character locale} need to be known.
+    As with I{character decomposition} the I{stroke order} and I{stroke count}
+    depends on the actual rendering of the character, the I{glyph}, so a
+    I{Z-variant} needs to be given. If omitted it will be deduced from the
+    current I{character locale}.
 
-    Further more the order of strokes can be useful for lookup of characters,
-    and so CharacterLookup provides different methods for getting the stroke
-    count, stroke order, lookup of stroke names and lookup of characters by
-    stroke types and stroke order.
+    The set of strokes as defined by Unicode in block 31C0-31EF is supported.
+    Simplifying subsets might be supported in the future.
 
-    Most methods work with an abbreviation of stroke names using the first
-    letters of each syllable of the Chinese name in Pinyin.
+    TODO: About the different classifications of strokes
 
-    The I{stroke order} is not always quite clear and even academics fight about
-    which order should be considered the correct one, a discussion that
-    shouldn't be taking lightly. This circumstance should be considered
-    when working with I{stroke order}s.
+    Stroke names and abbreviated names
+    ----------------------------------
+    Additionally to the encoded stroke forms, X{stroke name}s and
+    X{abbreviated stroke name}s can be used to conveniently refer to strokes.
+    Currently supported are Mandarin names (following Unicode), and
+    X{abbreviated stroke name}s are built by taking the first character of the
+    I{Pinyin} spelling of each syllable, e.g. C{HZZZG} for C{橫折折折鉤} (i.e.
+    C{㇡}, U+31E1).
+
+    Inconsistencies
+    ---------------
+    The I{stroke order} of some characters is disputed in academic fields. A
+    current workaround would be adding another glyph definition, showing the
+    alternative order.
 
     TODO: About plans of cjklib how to support different views on the stroke
     order
-
-    TODO: About the different classifications of strokes
 
     Readings
     ========
@@ -291,6 +298,16 @@ class CharacterLookup:
 
     On conversion the first matching reading will be selected, so supplying
     several equivalent readings has limited use.
+    """
+
+    HAN_SCRIPT_RANGES = [('2E80', '2E99'), ('2E9B', '2EF3'), ('2F00', '2FD5'),
+        '3005', '3007', ('3021', '3029'), ('3038', '303A'), '303B',
+        ('3400', '4DB5'), ('4E00', '9FCB'), ('F900', 'FA2D'), ('FA30', 'FA6D'),
+        ('FA70', 'FAD9'), ('20000', '2A6D6'), ('2A700', '2B734'),
+        ('2F800', '2FA1D')]
+    """
+    List of character codepoint ranges for the Han script.
+    @see: Scripts.txt from Unicoce
     """
 
     def __init__(self, locale, characterDomain="Unicode", databaseUrl=None,
@@ -382,6 +399,19 @@ class CharacterLookup:
         else:
             raise ValueError("Unknown character domain '%s'" % characterDomain)
 
+    def getDomainCharacterIterator(self):
+        """
+        Returns an iterator over the full set of domain characters.
+
+        @rtype: iterator
+        @return: iterator of characters inside the current I{character domain}
+        """
+        if self.getCharacterDomain() == 'Unicode':
+            return util.CharacterRangeIterator(self.HAN_SCRIPT_RANGES)
+        else:
+            return iter(self.db.selectScalars(select(
+                [self._characterDomainTable.c.ChineseCharacter])))
+
     def filterDomainCharacters(self, charList):
         """
         Filters a given list of characters to match only those inside the
@@ -394,17 +424,26 @@ class CharacterLookup:
         """
         # constrain to selected character domain
         if self.getCharacterDomain() == 'Unicode':
-            return charList
+            charSet = set(charList)
+            filteredCharList = set()
+            for char in self.getDomainCharacterIterator():
+                if char in charSet:
+                    filteredCharList.add(char)
         else:
-            filteredCharList = set(self.db.selectScalars(select(
-                [self._characterDomainTable.c.ChineseCharacter],
-                self._characterDomainTable.c.ChineseCharacter.in_(charList))))
-            # sort
-            sortedFiltered = []
-            for char in charList:
-                if char in filteredCharList:
-                    sortedFiltered.append(char)
-            return sortedFiltered
+            filteredCharList = set()
+            # break down into small chunks
+            for i in range(int(math.ceil(len(charList) / 500.0))):
+                charListPart = charList[i*500:(i+1)*500]
+                filteredCharList.update(self.db.selectScalars(select(
+                    [self._characterDomainTable.c.ChineseCharacter],
+                    self._characterDomainTable.c.ChineseCharacter.in_(
+                        charListPart))))
+        # sort
+        sortedFiltered = []
+        for char in charList:
+            if char in filteredCharList:
+                sortedFiltered.append(char)
+        return sortedFiltered
 
     def isCharacterInDomain(self, char):
         """
@@ -832,8 +871,8 @@ class CharacterLookup:
                     "Character has no stroke count information")
             return result
         else:
-            # use incomplete way with using the stroke order (there might be
-            #   less stroke order entries than stroke count entries)
+            # Plan B, use stroke order (there might be less stroke order entries
+            #   than stroke count entries)
             try:
                 return len(self.getStrokeOrder(char, zVariant=zVariant))
             except exception.NoInformationError:
@@ -842,8 +881,8 @@ class CharacterLookup:
 
     def getStrokeCountDict(self):
         """
-        Gets the stroke count table from the database for all characters in the
-        chosen I{character domain}.
+        Returns a stroke count dictionary for all characters in the chosen
+        I{character domain}.
 
         @rtype: dict
         @return: dictionary of key pair character, Z-variant and value stroke
@@ -852,20 +891,29 @@ class CharacterLookup:
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
         """
-        table = self.db.tables['StrokeCount']
-        # constrain to selected character domain
-        if self.getCharacterDomain() == 'Unicode':
-            fromObj = []
-        else:
-            fromObj = [table.join(self._characterDomainTable,
-                table.c.ChineseCharacter \
-                    == self._characterDomainTable.c.ChineseCharacter)]
+        # if table exists use it
+        if self.hasStrokeCount:
+            table = self.db.tables['StrokeCount']
+            # constrain to selected character domain
+            if self.getCharacterDomain() == 'Unicode':
+                fromObj = []
+            else:
+                fromObj = [table.join(self._characterDomainTable,
+                    table.c.ChineseCharacter \
+                        == self._characterDomainTable.c.ChineseCharacter)]
 
-        result = self.db.selectRows(select(
-            [table.c.ChineseCharacter, table.c.ZVariant, table.c.StrokeCount],
-            from_obj=fromObj))
-        return dict([((char, zVariant), strokeCount) \
-            for char, zVariant, strokeCount in result])
+            result = self.db.selectRows(select(
+                [table.c.ChineseCharacter, table.c.ZVariant, table.c.StrokeCount],
+                from_obj=fromObj))
+            return dict([((char, zVariant), strokeCount) \
+                for char, zVariant, strokeCount in result])
+        else:
+            # Plan B, use stroke order (there might be less stroke order entries
+            #   than stroke count entries)
+            scDict = {}
+            for key, strokeOrder in self.getStrokeOrderAbbrevDict().items():
+                scDict[key] = len(strokeOrder.replace(' ', '-').split('-'))
+            return scDict
 
     #_strokeIndexLookup = {}
     #"""A dictionary containing the stroke indices for a set index length."""
@@ -1154,7 +1202,8 @@ class CharacterLookup:
     """A dictionary containing stroke forms for stroke abbreviations."""
     def getStrokeForAbbrev(self, abbrev):
         """
-        Gets the stroke form for the given abbreviated name (e.g. 'HZ').
+        Gets the stroke form for the given I{abbreviated stroke name} (e.g.
+        C{'HZ'}).
 
         @type abbrev: str
         @param abbrev: abbreviated stroke name
@@ -1177,7 +1226,7 @@ class CharacterLookup:
 
     def getStrokeForName(self, name):
         u"""
-        Gets the stroke form for the given name (e.g. '横折').
+        Gets the stroke form for the given I{stroke name} (e.g. C{'横折'}).
 
         @type name: str
         @param name: Chinese name of stroke
@@ -1219,7 +1268,7 @@ class CharacterLookup:
     def getStrokeOrderAbbrev(self, char, zVariant=None):
         """
         Gets the stroke order sequence for the given character as a string of
-        stroke abbreviated names separated by spaces and hyphens.
+        I{abbreviated stroke names} separated by spaces and hyphens.
 
         The stroke order is constructed using the character decomposition into
         components.
@@ -1238,30 +1287,83 @@ class CharacterLookup:
             given. The user then could prefer several sources that in the order
             given would be queried.
         """
-        def getStrokeOrderEntry(char, zVariant):
-            """
-            Gets the stroke order sequence for the given character from the
-            database's stroke order lookup table.
+        if zVariant == None:
+            zVariant = self.getDefaultZVariant(char)
+        strokeOrder = self._buildStrokeOrder(char, zVariant)
+        if not strokeOrder:
+            raise exception.NoInformationError(
+                "Character has no stroke order information")
+        else:
+            return strokeOrder
 
-            @type char: str
-            @param char: Chinese character
-            @type zVariant: int
-            @param zVariant: I{Z-variant} of the first character
-            @rtype: str
-            @return: string of stroke abbreviations separated by spaces and
-                hyphens.
-            @raise NoInformationError: if no stroke order information available
-            """
-            table = self.db.tables['StrokeOrder']
-            result = self.db.selectScalar(select([table.c.StrokeOrder],
-                and_(table.c.ChineseCharacter == char,
-                    table.c.ZVariant == zVariant), distinct=True))
-            if not result:
-                raise exception.NoInformationError(
-                    "Character has no stroke order information")
-            return result
+    def getStrokeOrderAbbrevDict(self):
+        """
+        Returns a stroke order dictionary for all characters in the chosen
+        I{character domain}.
 
-        def getFromDecomposition(decompositionTreeList):
+        @rtype: dict
+        @return: dictionary of key pair character, Z-variant and value stroke
+            order
+        """
+        tables = [self.db.tables[tableName] \
+            for tableName in ['StrokeOrder', 'CharacterDecomposition']]
+        # constrain to selected character domain
+        if self.getCharacterDomain() != 'Unicode':
+            tables = [table.join(self._characterDomainTable,
+                table.c.ChineseCharacter \
+                    == self._characterDomainTable.c.ChineseCharacter) \
+                for table in tables]
+
+        # get all character/Z-variant pairs for which we have glyph information
+        chars = self.db.selectRows(
+            union(*[select([table.c.ChineseCharacter, table.c.ZVariant]) \
+                for table in tables]))
+
+        strokeOrderDict = {}
+        cache = {}
+        for char, zVariant in chars:
+            strokeOrder = self._buildStrokeOrder(char, zVariant, cache)
+            if strokeOrder:
+                strokeOrderDict[(char, zVariant)] = strokeOrder
+
+        return strokeOrderDict
+
+    def _getStrokeOrderEntry(self, char, zVariant):
+        """
+        Gets the stroke order sequence for the given character from the
+        database's stroke order lookup table.
+
+        @type char: str
+        @param char: Chinese character
+        @type zVariant: int
+        @param zVariant: I{Z-variant} of the first character
+        @rtype: str
+        @return: string of stroke abbreviations separated by spaces and
+            hyphens.
+        """
+        table = self.db.tables['StrokeOrder']
+        return self.db.selectScalar(select([table.c.StrokeOrder],
+            and_(table.c.ChineseCharacter == char,
+                table.c.ZVariant == zVariant), distinct=True))
+
+    def _buildStrokeOrder(self, char, zVariant, cache=None):
+        """
+        Gets the stroke order sequence for the given character as a string of
+        I{abbreviated stroke names} separated by spaces and hyphens.
+
+        The stroke order is constructed using the character decomposition into
+        components.
+
+        @type char: str
+        @param char: Chinese character
+        @type zVariant: int
+        @param zVariant: I{Z-variant} of the character.
+        @type cache: dict
+        @param cache: optional dict of cached stroke order entries
+        @rtype: str
+        @return: string of stroke abbreviations separated by spaces and hyphens.
+        """
+        def getFromDecomposition(char, zVariant):
             """
             Gets stroke order from the tree of a single partition entry.
 
@@ -1271,9 +1373,7 @@ class CharacterLookup:
             @rtype: str
             @return: string of stroke abbreviations separated by spaces and
                 hyphens.
-            @raise NoInformationError: if no stroke order information available
             """
-
             def getFromEntry(subTree, index=0):
                 """
                 Goes through a single layer of a tree recursively.
@@ -1283,11 +1383,8 @@ class CharacterLookup:
                     from
                 @type index: int
                 @param index: index of current layer
-                @rtype: str
-                @return: string of stroke abbreviations separated by spaces and
-                    hyphens.
-                @raise NoInformationError: if no stroke order information
-                    available
+                @rtype: list of str
+                @return: list of stroke abbreviations of the single components
                 """
                 strokeOrder = []
                 if type(subTree[index]) != type(()):
@@ -1297,8 +1394,7 @@ class CharacterLookup:
                         # check for IDS operators we can't make any order
                         # assumption about
                         if character in [u'⿴', u'⿻']:
-                            raise exception.NoInformationError(
-                                "Character has no stroke order information")
+                            return None, index
                         else:
                             if character in [u'⿺', u'⿶']:
                                 # IDS operators with order right one first
@@ -1310,62 +1406,52 @@ class CharacterLookup:
                             subStrokeOrder = []
                             for _ in range(0, 2):
                                 so, index = getFromEntry(subTree, index+1)
+                                if not so:
+                                    return None, index
                                 subStrokeOrder.append(so)
                             # Append in proper order
                             for seq in subSequence:
-                                strokeOrder.append(subStrokeOrder[seq])
+                                strokeOrder.extend(subStrokeOrder[seq])
                     elif self.isTrinaryIDSOperator(character):
                         # Get stroke order for three components
                         for _ in range(0, 3):
                             so, index = getFromEntry(subTree, index+1)
-                            strokeOrder.append(so)
+                            if not so:
+                                return None, index
+                            strokeOrder.extend(so)
+                    else:
+                        assert False, 'not an IDS character'
                 else:
                     # no IDS operator but character
-                    char, charZVariant, componentTree = subTree[index]
+                    char, charZVariant = subTree[index]
                     # if the character is unknown or there is none raise
                     if char == u'？':
-                        raise exception.NoInformationError(
-                            "Character has no stroke order information")
+                        return None, index
                     else:
-                        # check if we have a stroke order entry first
-                        so = getStrokeOrderEntry(char, charZVariant)
+                        # recursion
+                        so = self._buildStrokeOrder(char, charZVariant, cache)
                         if not so:
-                            # no entry, so get from partition
-                            so = getFromDecomposition(componentTree)
+                            return None, index
                         strokeOrder.append(so)
-                return (' '.join(strokeOrder), index)
 
-            # Try to find a partition without unknown components, if more than
-            # one partition is given (take the one with maximum entry length).
-            # This ensures we will have a full stroke order if at least one
-            # partition is complete. This is important as the database will
-            # never be complete.
-            strokeOrder = ''
-            for decomposition in decompositionTreeList:
-                try:
-                    so, _ = getFromEntry(decomposition)
-                    if len(so) >= len(strokeOrder):
-                        strokeOrder = so
-                except exception.NoInformationError:
-                    pass
-            if not strokeOrder:
-                raise exception.NoInformationError(
-                    "Character has no stroke order information")
-            return strokeOrder
+                return (strokeOrder, index)
 
-        if zVariant == None:
-            zVariant = self.getDefaultZVariant(char)
-        # if there is an entry for the whole character return it
-        try:
-            strokeOrder = getStrokeOrderEntry(char, zVariant)
-            return strokeOrder
-        except exception.NoInformationError:
-            pass
-        # try to decompose character into components and build stroke order
-        decompositionTreeList = self.getDecompositionTreeList(char,
-            zVariant=zVariant)
-        strokeOrder = getFromDecomposition(decompositionTreeList)
-        return strokeOrder
+            # Try to find a partition without unknown components
+            for decomposition in self.getDecompositionEntries(char, zVariant):
+                so, _ = getFromEntry(decomposition)
+                if so:
+                    return ' '.join(so)
+
+        if cache is None:
+            cache = {}
+        if (char, zVariant) not in cache:
+            # if there is an entry for the whole character return it
+            order = self._getStrokeOrderEntry(char, zVariant)
+            if not order:
+                order = getFromDecomposition(char, zVariant)
+            cache[(char, zVariant)] = order
+
+        return cache[(char, zVariant)]
 
     #}
     #{ Character radical functions

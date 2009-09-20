@@ -123,7 +123,7 @@ format --BuilderName-option or --TableName-option, e.g.
         'ShapeLookupData': ['Strokes', 'StrokeOrder', 'CharacterDecomposition',
             'LocaleCharacterVariant', 'StrokeCount', 'ComponentLookup',
             'CharacterVariant', 'ZVariants'],
-        'CharacterDomains': ['UnihanCharacterSets'],
+        'CharacterDomains': ['UnihanCharacterSets', 'GlyphInformationSet'],
         'cjklibData': ['Readings', 'SupportedCharacterReadings',
             'KangxiRadicalData', 'ShapeLookupData', 'CharacterDomains'],
         # language based
