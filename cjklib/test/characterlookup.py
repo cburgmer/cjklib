@@ -17,7 +17,6 @@
 
 """
 Provides the library's unit tests for L{characterlookup.CharacterLookup}.
-@todo Fix:  Rename *TestCase to *Test
 """
 
 # pylint: disable-msg=E1101
@@ -52,8 +51,7 @@ class CharacterLookupTest(NeedsDatabaseTest):
             mockTableDefinition=None, mockNonTables=None):
 
             self._dbConnectInst = dbConnectInst
-            self._dbConnectInst.engine \
-                = CharacterLookupReadingMethodsTestCase.EngineMock(
+            self._dbConnectInst.engine = CharacterLookupTest.EngineMock(
                 self._dbConnectInst.engine, mockTables, mockNonTables)
 
             self.mockTables = mockTables or []
@@ -61,7 +59,7 @@ class CharacterLookupTest(NeedsDatabaseTest):
 
         def __getattr__(self, attr):
             if attr == 'tables':
-                return CharacterLookupReadingMethodsTestCase.CacheDict(
+                return CharacterLookupTest.CacheDict(
                     self.mockTableDefinition, self._dbConnectInst.tables)
             return getattr(self._dbConnectInst, attr)
 
@@ -97,8 +95,7 @@ class CharacterLookupTest(NeedsDatabaseTest):
         return re.sub('[CL]\{([^\}]*)}', r'\1', noWhitespaceDoc)
 
 
-class CharacterLookupMetaTestCase(CharacterLookupTest,
-    unittest.TestCase):
+class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
     def testInitialization(self):
         """Test initialisation."""
         # test if locales are accepted
@@ -177,7 +174,7 @@ class CharacterLookupMetaTestCase(CharacterLookupTest,
         self.db.metadata.remove(tableObj)
 
 
-class CharacterLookupCharacterDomainTestCase(CharacterLookupTest,
+class CharacterLookupCharacterDomainTest(CharacterLookupTest,
     unittest.TestCase):
 
     def testCharacterDomainInUnicode(self):
@@ -216,8 +213,7 @@ class CharacterLookupCharacterDomainTestCase(CharacterLookupTest,
                 == characterLookupDomain.filterDomainCharacters(domainChars))
 
 
-class CharacterLookupStrokesTestCase(CharacterLookupTest,
-    unittest.TestCase):
+class CharacterLookupStrokesTest(CharacterLookupTest, unittest.TestCase):
 
     def testUnicodeNamesMatchAbbreviations(self):
         """
@@ -238,8 +234,7 @@ class CharacterLookupStrokesTestCase(CharacterLookupTest,
                 self.fail("Abbreviation '%s' not supported" % abbrev)
 
 
-class CharacterLookupReadingMethodsTestCase(CharacterLookupTest,
-    unittest.TestCase):
+class CharacterLookupReadingMethodsTest(CharacterLookupTest, unittest.TestCase):
     """
     Runs consistency checks on the reading methods of the
     L{characterlookup.CharacterLookup} class.
@@ -327,7 +322,7 @@ class CharacterLookupReadingMethodsTestCase(CharacterLookupTest,
                         pass
 
 
-class CharacterLookupReferenceTestCase(CharacterLookupTest):
+class CharacterLookupReferenceTest(CharacterLookupTest):
     METHOD_NAME = None
 
     def shortDescription(self):
@@ -362,14 +357,14 @@ class CharacterLookupReferenceTestCase(CharacterLookupTest):
                             repr(result)))
 
 
-class CharacterLookupFilterDomainCharactersReferenceTestCase(
-    CharacterLookupReferenceTestCase, unittest.TestCase):
+class CharacterLookupFilterDomainCharactersReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
     METHOD_NAME = 'filterDomainCharacters'
 
     REFERENCE_LIST = [
         (('T', 'Unicode'), [
             (([u'说', u'説', u'說', u'丷', u'か', u'국'], ), {},
-                [u'说', u'説', u'說', u'丷', u'か', u'국']),
+                [u'说', u'説', u'說', u'丷']),
             ]),
         (('T', 'BIG5'), [
             (([u'说', u'説', u'說', u'丷', u'か', u'국'], ), {}, [u'說']),
@@ -380,8 +375,8 @@ class CharacterLookupFilterDomainCharactersReferenceTestCase(
         ]
 
 
-class CharacterLookupIsCharacterInDomainReferenceTestCase(
-    CharacterLookupReferenceTestCase, unittest.TestCase):
+class CharacterLookupIsCharacterInDomainReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
     METHOD_NAME = 'isCharacterInDomain'
 
     REFERENCE_LIST = [
@@ -390,8 +385,8 @@ class CharacterLookupIsCharacterInDomainReferenceTestCase(
             ((u'説', ), {}, True),
             ((u'說', ), {}, True),
             ((u'丷', ), {}, True),
-            ((u'か', ), {}, True),
-            ((u'국', ), {}, True),
+            ((u'か', ), {}, False),
+            ((u'국', ), {}, False),
             ]),
         (('T', 'BIG5'), [
             ((u'说', ), {}, False),
@@ -412,8 +407,8 @@ class CharacterLookupIsCharacterInDomainReferenceTestCase(
         ]
 
 
-class CharacterLookupGetReadingForCharacterReferenceTestCase(
-    CharacterLookupReferenceTestCase, unittest.TestCase):
+class CharacterLookupGetReadingForCharacterReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
     METHOD_NAME = 'getReadingForCharacter'
 
     REFERENCE_LIST = [
@@ -425,8 +420,8 @@ class CharacterLookupGetReadingForCharacterReferenceTestCase(
         ]
 
 
-class CharacterLookupGetCharactersForReadingReferenceTestCase(
-    CharacterLookupReferenceTestCase, unittest.TestCase):
+class CharacterLookupGetCharactersForReadingReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
     METHOD_NAME = 'getCharactersForReading'
 
     REFERENCE_LIST = [
