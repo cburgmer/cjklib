@@ -29,7 +29,7 @@ import unicodedata
 
 from cjklib.reading import ReadingFactory
 from cjklib import exception
-from cjklib.test import NeedsDatabaseTest
+from cjklib.test import NeedsDatabaseTest, attr
 
 class ReadingOperatorTest(NeedsDatabaseTest):
     """Base class for testing of L{ReadingOperator}s."""
@@ -52,7 +52,7 @@ class ReadingOperatorTest(NeedsDatabaseTest):
         # get whole doc string and remove superfluous white spaces
         noWhitespaceDoc = re.sub('\s+', ' ', methodName.__doc__.strip())
         # remove markup for epytext format
-        clearName = re.sub('[CL]\{([^\}]*)}', r'\1', noWhitespaceDoc)
+        clearName = re.sub('[CLI]\{([^\}]*)}', r'\1', noWhitespaceDoc)
         # add name of reading
         return clearName + ' (for %s)' % self.READING_NAME
 
@@ -223,6 +223,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
         # test instantiation of default options
         self.readingOperatorClass(**readingDialect)
 
+    @attr('quiteslow')
     def testReadingCharacters(self):
         """
         Test if set returned by C{getReadingCharacters()} is well-formed and
@@ -328,6 +329,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                         + ' (reading %s, dialect %s)' \
                             % (self.READING_NAME, dialect))
 
+    @attr('quiteslow')
     def testOnsetRhyme(self):
         """Test if all plain entities are accepted by C{getOnsetRhyme()}."""
         if not hasattr(self.readingOperatorClass, "getPlainReadingEntities") \
@@ -353,6 +355,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                 except exception.UnsupportedError:
                     pass
 
+    @attr('quiteslow')
     def testDecomposeIsIdentityForSingleEntity(self):
         """
         Test if all reading entities returned by C{getReadingEntities()} are
@@ -386,6 +389,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                             % (self.READING_NAME, dialect))
 
 
+    @attr('quiteslow')
     def testGetTonalEntityOfSplitEntityToneIsIdentity(self):
         """
         Test if the composition of C{getTonalEntity()} and C{splitEntityTone()}
@@ -422,6 +426,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                         + ' (reading %s, dialect %s)' \
                             % (self.READING_NAME, dialect))
 
+    @attr('quiteslow')
     def testSplitEntityToneReturnsValidInformation(self):
         """
         Test if C{splitEntityTone()} returns a valid plain entity and a valid
@@ -464,6 +469,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
 
     #TODO Jyutping (missing tone marks) and CantoneseYale don't create strict
       #compositions
+    @attr('slow')
     def testDecomposeKeepsSyllablePairs(self):
         """
         Test if all pairs of reading entities returned by
@@ -2068,6 +2074,7 @@ class GROperatorConsistencyTest(ReadingOperatorConsistencyTest,
                             + ' (reading %s, dialect %s)' \
                                 % (self.READING_NAME, dialect))
 
+    @attr('quiteslow')
     def testRhotacisedEntitesBackConversion(self):
         """
         Test if complement methods C{getBaseEntitiesForRhotacised()} and

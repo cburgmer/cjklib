@@ -31,7 +31,7 @@ import unittest
 
 from cjklib.reading import ReadingFactory, converter, operator
 from cjklib import exception
-from cjklib.test import NeedsDatabaseTest
+from cjklib.test import NeedsDatabaseTest, attr
 
 from cjklib.util import titlecase, istitlecase
 
@@ -58,7 +58,7 @@ class ReadingConverterTest(NeedsDatabaseTest):
         # get whole doc string and remove superfluous white spaces
         noWhitespaceDoc = re.sub('\s+', ' ', methodName.__doc__.strip())
         # remove markup for epytext format
-        clearName = re.sub('[CL]\{([^\}]*)}', r'\1', noWhitespaceDoc)
+        clearName = re.sub('[CLI]\{([^\}]*)}', r'\1', noWhitespaceDoc)
         # add information about conversion direction
         return clearName + ' (for %s to %s)' % self.CONVERSION_DIRECTION
 
@@ -180,6 +180,7 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
                         repr(getattr(defaultInstance, option))) \
                 + ' (conversion %s to %s)' % self.CONVERSION_DIRECTION)
 
+    @attr('quiteslow')
     def testLetterCaseConversion(self):
         """
         Check if letter case is transferred during conversion.
@@ -260,6 +261,7 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
                 except exception.ConversionError:
                     pass
 
+    @attr('quiteslow')
     def testConversionValid(self):
         """
         Check if converted entities are valid in the target reading.

@@ -28,7 +28,7 @@ import unittest
 from cjklib.reading import ReadingFactory
 from cjklib import characterlookup
 from cjklib import exception
-from cjklib.test import NeedsDatabaseTest
+from cjklib.test import NeedsDatabaseTest, attr
 
 class CharacterLookupTest(NeedsDatabaseTest):
     """Base class for testing the L{characterlookup.CharacterLookup} class."""
@@ -92,7 +92,7 @@ class CharacterLookupTest(NeedsDatabaseTest):
         # get whole doc string and remove superfluous white spaces
         noWhitespaceDoc = re.sub('\s+', ' ', methodName.__doc__.strip())
         # remove markup for epytext format
-        return re.sub('[CL]\{([^\}]*)}', r'\1', noWhitespaceDoc)
+        return re.sub('[CLI]\{([^\}]*)}', r'\1', noWhitespaceDoc)
 
 
 class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
@@ -190,14 +190,14 @@ class CharacterLookupCharacterDomainTest(CharacterLookupTest,
             self.assert_(domainChars \
                 == self.characterLookup.filterDomainCharacters(domainChars))
 
-    # TODO slow
-    #def testDomainCharsAccepted(self):
-        #"""Test if all characters in the character domain are accepted."""
-        #for domain in self.characterLookup.getAvailableCharacterDomains():
-            #characterLookupDomain = characterlookup.CharacterLookup('T',
-                #domain, dbConnectInst=self.db)
-            #for char in characterLookupDomain.getDomainCharacterIterator():
-                #self.assert_(characterLookupDomain.isCharacterInDomain(char))
+    @attr('slow')
+    def testDomainCharsAccepted(self):
+        """Test if all characters in the character domain are accepted."""
+        for domain in self.characterLookup.getAvailableCharacterDomains():
+            characterLookupDomain = characterlookup.CharacterLookup('T',
+                domain, dbConnectInst=self.db)
+            for char in characterLookupDomain.getDomainCharacterIterator():
+                self.assert_(characterLookupDomain.isCharacterInDomain(char))
 
     def testFilterIdentityOnSelf(self):
         """
@@ -280,6 +280,7 @@ class CharacterLookupReadingMethodsTest(CharacterLookupTest, unittest.TestCase):
                 self.characterLookup.hasMappingForCharacterToReading(reading) \
                 in [True, False])
 
+    @attr('slow')
     def testGetCharactersForReadingAcceptsAllEntities(self):
         """Test if C{getCharactersForReading} accepts all reading entities."""
         for reading in self.f.getSupportedReadings():

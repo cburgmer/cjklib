@@ -23,12 +23,15 @@ Additional software
 
 Test cases
 ------------
-Run
-  nosetests cjklib/test/*.py
-or to ommit current slow tests:
-  nosetests cjklib/test/*.py -e testDecomposeKeepsSyllablePairs
-    -e testGetCharactersForReadingAcceptsAllEntities
-to use the test cases included in cjklib/test/.
+Run test cases with
+  nosetests cjklib/test/*.py --with-id
+or to omit slow tests
+  nosetests cjklib/test/*.py --with-id -a '!slow'
+or
+  nosetests cjklib/test/*.py --with-id -a '!slow','!quiteslow'
+
+To rerun failed test cases, run
+  nosetests cjklib/test/*.py --with-id --failed
 
 To test the build methods you need to download external files first:
   cd test

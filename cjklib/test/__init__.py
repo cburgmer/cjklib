@@ -17,13 +17,19 @@
 
 """
 Provides unit tests.
-@todo Impl: Implement attributes to mark slow test routines.
 """
 
-__all__ = ['readingoperator', 'readingconverter', 'characterlookup']
+__all__ = ['readingoperator', 'readingconverter', 'characterlookup', 'attr']
 
 from cjklib.util import getConfigSettings
 from cjklib.dbconnector import DatabaseConnector
+
+try:
+    from nose.plugins.attrib import attr
+except ImportError:
+    # dummy decorator
+    def attr(attrName):
+        return lambda x: x
 
 class NeedsDatabaseTest:
     """Base class for unit test with database access"""
