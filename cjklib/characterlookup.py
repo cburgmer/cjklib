@@ -2169,6 +2169,8 @@ class CharacterLookup(object):
             visual relations between radical forms and equivalent characters.
             Alternatively restrict decomposition data to only include radical
             forms if appropriate, so there would be no need for conversion.
+        @todo Fix:  Radical equivalent forms should be included independent of
+            the chosen locale. E.g. u'⻔' for u'门'.
         """
         equivCharTable = []
         for component in componentList:
