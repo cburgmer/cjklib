@@ -29,7 +29,7 @@ from cjklib import exception
 from cjklib import dbconnector
 from cjklib import util
 
-class CharacterLookup:
+class CharacterLookup(object):
     u"""
     CharacterLookup provides access to lookup methods related to Han characters.
 
@@ -285,6 +285,13 @@ class CharacterLookup:
         radical forms without breaking further down beyond those.
     @todo Impl: Further I{character domains} for Japanese, Cantonese, Korean,
         Vietnamese
+    @todo Impl: There are more than 800 characters that have compatibility
+        mappings with its targets having same semantics. Those characters
+        do not need own data for stroke order and decomposition, but can share
+        with their targets.
+
+        >>> unicodedata.normalize('NFD', u'\ufa0d')
+        u'\u55c0'
     """
 
     CHARARACTER_READING_MAPPING = {'Hangul': ('CharacterHangul', {}),
@@ -388,6 +395,7 @@ class CharacterLookup:
         if characterDomain == 'Unicode' \
             or self.db.engine.has_table(domainTable):
             # check column
+            self._characterDomainTable = None
             if characterDomain != 'Unicode':
                 self._characterDomainTable = self.db.tables[domainTable]
                 if 'ChineseCharacter' not in self._characterDomainTable.columns:
@@ -398,6 +406,9 @@ class CharacterLookup:
             self._characterDomain = characterDomain
         else:
             raise ValueError("Unknown character domain '%s'" % characterDomain)
+
+    characterDomain = property(getCharacterDomain, setCharacterDomain, None,
+        """current I{character domain}""")
 
     def getDomainCharacterIterator(self):
         """

@@ -1739,10 +1739,9 @@ class PinyinOperatorReferenceTest(ReadingOperatorReferenceTest,
     def testStrictDecompositionReferences(self):
         """Test if the given decomposition references pass strictness test."""
         for dialect, references in self.STRICT_DECOMPOSITION_REFERENCES:
-            pinyinOperator = self.f.createReadingOperator(self.READING_NAME,
-                **dialect)
             for reference, target in references:
-                result = pinyinOperator.isStrictDecomposition(reference)
+                result = self.f.isStrictDecomposition(reference,
+                    self.READING_NAME, **dialect)
                 self.assertEquals(result, target,
                     "Target %s of %s not reached: %s" \
                         % (repr(target), repr(reference), repr(result)) \

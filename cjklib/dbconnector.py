@@ -74,7 +74,7 @@ class DatabaseConnector:
         """
         # allow single string and interpret as url
         if type(configuration) in (type(''), type(u'')):
-            configuration = {'url': configuration}            
+            configuration = {'url': configuration}
         elif not configuration:
             # try to read from config
             configuration = getConfigSettings('Connection', projectName)
