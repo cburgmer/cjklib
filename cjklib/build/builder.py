@@ -2804,7 +2804,6 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
     @todo Fix: Optimize insert, use transaction which disables autocommit and
         cosider passing data all at once, requiring proper handling of row
         indices.
-    @todo Fix: Probably disable FTS3 by default
     """
     class TableGenerator:
         """Generates the dictionary entries."""
@@ -2907,7 +2906,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
     @classmethod
     def getDefaultOptions(cls):
         options = super(EDICTFormatBuilder, cls).getDefaultOptions()
-        options.update({'enableFTS3': True, 'filePath': None,
+        options.update({'enableFTS3': False, 'filePath': None,
             'fileType': None})
 
         return options

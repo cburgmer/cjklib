@@ -357,7 +357,7 @@ class DatabaseBuilder:
 
         @type tables: list
         @param tables: list of tables to remove
-        @raise UnsupportedError: if a unsupportes table is provided.
+        @raise UnsupportedError: if an unsupported table is given.
         """
         if type(tables) != type([]):
             tables = [tables]
@@ -430,8 +430,8 @@ class DatabaseBuilder:
                 # either we have no builder or the builder was removed in
                 # favour of another builder that shares at least one table
                 # with the removed one
-                raise exception.UnsupportedError("table '" + table \
-                    + "' not provided, might be related to conflicting " \
+                raise exception.UnsupportedError("table '%s'" + table \
+                    + " not provided, might be related to conflicting " \
                     + "builders")
             builderClass = self._tableBuilderLookup[table]
             for dependantTable in builderClass.DEPENDS:
@@ -508,6 +508,7 @@ class DatabaseBuilder:
         @param tableNames: list of names of tables to build
         @rtype: list of classobj
         @return: L{TableBuilder}s in build order
+        @raise UnsupportedError: if an unsupported table is given.
         """
         # get dependencies and save order
         tableBuilderClasses = []
@@ -689,6 +690,28 @@ class DatabaseBuilder:
         @return: names of tables
         """
         return set(self._tableBuilderLookup.keys())
+
+    def getTableBuilder(self, tableName):
+        """
+        Gets the L{TableBuilder} used by this instance of the database builder
+        to build the given table.
+
+        @type tableName: str
+        @param tableName: name of table
+        @rtype: classobj
+        @return: L{TableBuilder} used to build the given table by this build
+            instance.
+        @raise UnsupportedError: if an unsupported table is given.
+        """
+        if tableName not in self._tableBuilderLookup:
+            # either we have no builder or the builder was removed in favour
+            # of another builder that shares at least one table with the
+            # removed one
+            raise exception.UnsupportedError("table '%s'" + tableName \
+                + " not provided, might be related to conflicting " \
+                + "builders")
+
+        return self._tableBuilderLookup[tableName]
 
     def isOptimizable(self):
         """
