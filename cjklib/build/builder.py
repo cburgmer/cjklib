@@ -33,7 +33,7 @@ from sqlalchemy import Table, Column, Integer, String, Text, Index
 from sqlalchemy import select, union
 from sqlalchemy.sql import text, func
 from sqlalchemy.sql import or_
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exceptions import IntegrityError, OperationalError
 
 from cjklib import characterlookup
 from cjklib import exception
@@ -2143,6 +2143,17 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                 key = (entry['ChineseCharacter'], entry['ZVariant'])
                 strokeCountDict[key] = entry['StrokeCount']
 
+            # warn about stroke count in preferred source that differs from
+            #   Unihan entry.
+            if not self.quiet:
+                soMismatch = self.checkAgainstUnihan(strokeCountDict,
+                    self.tableEntries)
+                warn("Specific stroke counts do not include stroke count" \
+                    " as given by Unihan: " \
+                    + ' '.join(['%s ([%s], %d)' \
+                        % (c, ' '.join([str(i) for i in s]), u) \
+                        for c, s, u in soMismatch]))
+
             # now get stroke counts from Unihan table
 
             # get Unihan table stroke count data
@@ -2179,6 +2190,31 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                     warn("ambiguous stroke count information (mixed sources) " \
                         "for character '" + char + "' for Z-variant(s) '" \
                         + ''.join([str(z) for z in warningZVariants]) + "'")
+
+        def checkAgainstUnihan(self, strokeCountDict, tableEntries):
+            """
+            Checks forms in strokeCountDict to match unihanStrokeCountDict
+            for one entry per character.
+            """
+            charStrokeCounts = {}
+            for key, strokeCount in strokeCountDict.items():
+                char, _ = key
+                if char not in charStrokeCounts:
+                    charStrokeCounts[char] = []
+                charStrokeCounts[char].append(strokeCount)
+
+            unihanStrokeCountDict = dict([(char, strokeCount) \
+                for char, strokeCount in self.tableEntries \
+                if char in charStrokeCounts])
+
+            soMismatch = []
+            for char in charStrokeCounts:
+                if char in unihanStrokeCountDict \
+                    and unihanStrokeCountDict[char] \
+                        not in charStrokeCounts[char]:
+                    soMismatch.append((char, charStrokeCounts[char],
+                        unihanStrokeCountDict[char]))
+            return soMismatch
 
     DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Strokes', 'Unihan']
     COLUMN_SOURCE = 'kTotalStrokes'

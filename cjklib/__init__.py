@@ -50,7 +50,7 @@ u'\u31d0', u'\u31d3', u'\u31df']
         u'lau\u02e8\u02e9.\u0282\u0285\u02e5\u02e5'
 
 @author: Christoph Burgmer <cburgmer@ira.uka.de>
-@requires: Python 2.4+, SQLAlchemy 0.5+ and either SQLite 3+ or MySQL 5+ and
+@requires: Python 2.4+, SQLAlchemy 0.4.8+ and either SQLite 3+ or MySQL 5+ and
     MySQL-Python
 @version: 0.1alpha
 
