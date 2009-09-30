@@ -16,8 +16,8 @@
 #
 # Chinese character stroke order table
 #
-# Z-Variant information is synchronised with tables StrokeOrder and
-# LocaleCharacterVariant.
+# Glyph information is synchronised with tables StrokeOrder and
+# LocaleCharacterGlyph.
 # Field 'StrokeOrder' uses abbreviated stroke names as found in table 'Strokes'
 # with strokes separated by a space or by a hyphen allowing for grouping of
 # parts.
@@ -27,13 +27,15 @@
 #   * 'S': The character variant described is only found as a subpart in another
 #          character
 #
-# ChineseCharacter, StrokeOrder, ZVariant, Flags
+# ChineseCharacter, StrokeOrder, Glyph, Flags
 "⻏",HP-WG-S,0,
 "⻏",HPWG-S,1,
 "⻝",SP-N-D-HZ-H-H-ST-P-D,1,
 "⻝",SP-N-D-HZ-H-H-ST-P-N,0,
 "⾷",SP-N-D-HZ-H-H-ST-P-D,1,
 "⾷",SP-N-D-HZ-H-H-ST-P-N,0,
+"食",SP-N-D-HZ-H-H-ST-P-D,1,
+"食",SP-N-D-HZ-H-H-ST-P-N,0,
 "⻊","S-HZ-H S-H-H-T",0,
 "⻃",H-S-HZ-S-S-H,0,
 "⺿","H-S S-H",0,
@@ -170,14 +172,11 @@
 "兀","H-SP-SWG",0,
 "允","PZ-N SP-SWG",0,
 "元","H-H-SP-SWG",0,
-"兕","S-HZW-S-SZ-H-SP-SWG",0,
 "光","S-D-P-H-SP-SWG",0,
 "兇","P-N SZ-S-SP-SWG",0,
 "兆","SP-D-T-SWG-P-D",0,
 "先","P-H-S-H-SP-SWG",0,
 "克","H-S-S-HZ-H-SP-SWG",0,
-"免","P-HP-S-HZ-H-SP-SWG",0,
-"兔","P-HP-S-HZ-H-SP-SWG-D",0,
 "兒","P-S-H-HZ-H-H-SP-SWG",0,
 "兗","D-H-P-D S-HZ-H-SP-SWG",0,
 "兜","P-S-HZ-H-H P-ST HZ-H SP-SWG",0,
@@ -201,6 +200,7 @@
 "凵","SZ-S",0,
 "凶","SZ-S P-N",0,
 "凹","S-HZZ-S-HZ-H",0,
+"兕","S-HZZ-S-HZ-H SP-SWG",0,
 "凸","S-H-S-HZZZ-H",0,
 "出","S-SZ-S-SZ-S",0,
 "刁","HZG T",0,
@@ -214,3 +214,11 @@
 "讠","D HZT",0,
 "丷","D P",0,
 "⺌","S-D-P",0,
+"自","P-S-HZ-H-H-H",0,
+"里","S-HZ-H-H-H-S-H",0,
+"充","D-H-PZ-N SP-SWG",1,
+"充","H-PZ-N SP-SWG",0,
+"免","P-HP-S-HZ-S-H-SP-SWG",0,
+"免","P-HP-S-HZ-H-SP-SWG",1,
+"兔","P-HP-S-HZ-S-H-SP-SWG-D",0,
+"兔","P-HP-S-HZ-H-SP-SWG-D",1,

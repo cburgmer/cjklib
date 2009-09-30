@@ -98,6 +98,31 @@ def istitlecase(strng):
     """
     return titlecase(strng) == strng
 
+def cross(*args):
+    """
+    Builds a cross product of the given lists.
+
+    Example:
+        >>> cross(['A', 'B'], [1, 2, 3])
+        [['A', 1], ['A', 2], ['A', 3], ['B', 1], ['B', 2], ['B', 3]]
+    """
+    ans = [[]]
+    for arg in args:
+        ans = [x+[y] for x in ans for y in arg]
+    return ans
+
+def crossDict(*args):
+    """Builds a cross product of the given dicts."""
+    def joinDict(a, b):
+        a = a.copy()
+        a.update(y)
+        return a
+
+    ans = [{}]
+    for arg in args:
+        ans = [joinDict(x, y) for x in ans for y in arg]
+    return ans
+
 class CharacterRangeIterator:
     """Iterates over a given set of codepoint ranges given in hex."""
     def __init__(self, ranges):

@@ -34,6 +34,7 @@ from sqlalchemy import select
 from cjklib.dbconnector import DatabaseConnector
 from cjklib.characterlookup import CharacterLookup
 from cjklib import exception
+from cjklib.util import cross
 
 # get local language and output encoding
 language, default_encoding = locale.getdefaultlocale()
@@ -118,45 +119,6 @@ def findFile(pathList, fileNames):
                 return filePath
     raise IOError("No file found under path(s)'" + "', '".join(pathList) \
         + "' for file names '" + "', '".join(fileNames) + "'")
-
-def crossProduct(singleLists):
-    """
-    Calculates the cross product (aka Cartesian product) of sets given as lists.
-
-    Example:
-        >>> ro._crossProduct([['A', 'B'], [1, 2, 3]])
-        [['A', 1], ['A', 2], ['A', 3], ['B', 1], ['B', 2], ['B', 3]]
-
-    @type singleLists: list of lists
-    @param singleLists: a list of list entries containing various elements
-    @rtype: list of lists
-    @return: the cross product of the given sets
-    """
-    # get repeat index for whole set
-    lastRepeat = 1
-    repeatSet = []
-    for elem in singleLists:
-        repeatSet.append(lastRepeat)
-        lastRepeat = lastRepeat * len(elem)
-    repeatEntry = []
-    # get dimension of Cartesian product and dimensions of parts
-    newListLength = 1
-    for i in range(0, len(singleLists)):
-        elem = singleLists[len(singleLists) - i - 1]
-        repeatEntry.append(newListLength)
-        newListLength = newListLength * len(elem)
-    repeatEntry.reverse()
-    # create product
-    newList = [[] for i in range(0, newListLength)]
-    lastSetLen = 1
-    for i, listElem in enumerate(singleLists):
-        for j in range(0, repeatSet[i]):
-            for k, elem in enumerate(listElem):
-                for l in range(0, repeatEntry[i]):
-                    newList[j * lastSetLen + k*repeatEntry[i] \
-                        + l].append(elem)
-        lastSetLen = repeatEntry[i]
-    return newList
 
 def isValidDecomposition(decomposition):
     def parseIDS(decomposition, index):
@@ -295,7 +257,7 @@ def main():
                     augmentedDecomposition.append([c])
 
         # check for already existing forms
-        for decompList in crossProduct(augmentedDecomposition):
+        for decompList in cross(*augmentedDecomposition):
             decomp = ''.join(decompList)
 
             if (char, decomp) in cjklibEntries:

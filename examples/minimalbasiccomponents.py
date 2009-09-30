@@ -50,12 +50,12 @@ charsetTable = db.tables[characterSet]
 
 characterQueue = set(db.selectRows(union(
     select([decompositionTable.c.ChineseCharacter,
-            decompositionTable.c.ZVariant],
+            decompositionTable.c.Glyph],
         decompositionTable.c.ChineseCharacter.in_(
             select([charsetTable.c.ChineseCharacter])),
         distinct=True),
     select([strokeOrderTable.c.ChineseCharacter,
-            strokeOrderTable.c.ZVariant],
+            strokeOrderTable.c.Glyph],
         strokeOrderTable.c.ChineseCharacter.in_(
             select([charsetTable.c.ChineseCharacter])),
         distinct=True))))
@@ -67,12 +67,12 @@ characterDecomposition = {}
 cjk = characterlookup.CharacterLookup('T')
 
 # get mappings
-for char, zVariant in characterQueue.copy():
-    decompositions = cjk.getDecompositionEntries(char, zVariant=zVariant)
+for char, glyph in characterQueue.copy():
+    decompositions = cjk.getDecompositionEntries(char, glyph=glyph)
     if decompositions:
-        characterDecomposition[(char, zVariant)] = decompositions
+        characterDecomposition[(char, glyph)] = decompositions
     else:
-        characterQueue.remove((char, zVariant))
+        characterQueue.remove((char, glyph))
         minimalBasicComponents.add(char)
 
 # process queue
@@ -86,7 +86,7 @@ while characterQueue:
                     # skip IDS operators
                     continue
 
-                subChar, subCharZVariant = subCharEntry
+                subChar, subCharGlyph = subCharEntry
                 if subChar == u'？':
                     continue
 
@@ -99,7 +99,7 @@ while characterQueue:
                         # check if this character wasn't included in the queue
                         #   because it doesn't belong to the characterSet
                         decompositions = cjk.getDecompositionEntries(subChar,
-                            zVariant=subCharZVariant)
+                            glyph=subCharGlyph)
                         if decompositions:
                             # add this sub character and return "not yet
                             #   decomposed"

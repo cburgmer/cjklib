@@ -30,6 +30,7 @@ import unicodedata
 from cjklib.reading import ReadingFactory
 from cjklib import exception
 from cjklib.test import NeedsDatabaseTest, attr
+from cjklib.util import crossDict
 
 class ReadingOperatorTest(NeedsDatabaseTest):
     """Base class for testing of L{ReadingOperator}s."""
@@ -68,54 +69,6 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
     Dialects tested additionally to the standard one.
     Given as list of dictionaries holding the dialect's options.
     """
-
-    @staticmethod
-    def _crossProduct(*singleLists):
-        """
-        Calculates the cross product (aka Cartesian product) of dict objects.
-        For given objects A and B the result will be A, B, and A|B (keys from B
-        overwriting those of A if ambiguous).
-        Incompatible dicts can be given together as a list so that those will
-        not be combined, e.g. [A B] and C will return A, B, C, A|C and B|C.
-
-        Example:
-            >>> ReadingOperatorConsistencyTest._crossProduct(
-                [{}, {'case': 'lower'}, {'case': 'both'}],
-                [{}, {'strictSegmentation': True}])
-            [{'case': lower'}, {'case': both'}, {'strictSegmentation': True}, \
-{'case': lower', 'strictSegmentation': True}, \
-{'case': both', 'strictSegmentation': True}]
-
-        @param singleLists: dict objects to be combined by cross product
-        @rtype: list of dict
-        @return: cross product of given lower
-        """
-        # get repeat index for whole set
-        lastRepeat = 1
-        repeatSet = []
-        for elem in singleLists:
-            repeatSet.append(lastRepeat)
-            lastRepeat = lastRepeat * len(elem)
-        repeatEntry = []
-        # get dimension of Cartesian product and dimensions of parts
-        newListLength = 1
-        for i in range(0, len(singleLists)):
-            elem = singleLists[len(singleLists) - i - 1]
-            repeatEntry.append(newListLength)
-            newListLength = newListLength * len(elem)
-        repeatEntry.reverse()
-        # create product
-        newList = [{} for i in range(0, newListLength)]
-        lastSetLen = 1
-        for i, listElem in enumerate(singleLists):
-            for j in range(0, repeatSet[i]):
-                for k, elem in enumerate(listElem):
-                    for l in range(0, repeatEntry[i]):
-                        newList[j * lastSetLen + k*repeatEntry[i] \
-                            + l].update(elem)
-            lastSetLen = repeatEntry[i]
-
-        return newList
 
     def testReadingNameUnique(self):
         """Test if only one ReadingOperator exists for each reading."""
@@ -685,7 +638,7 @@ class CanoneseIPAOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'CantoneseIPA'
 
-    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+    DIALECTS = crossDict(
         [{}, {'toneMarkType': 'numbers'}, {'toneMarkType': 'chaoDigits'},
             {'toneMarkType': 'numbers', 'missingToneMark': 'ignore'},
             {'toneMarkType': 'numbers', 'firstToneName': 'HighFalling'},
@@ -788,7 +741,7 @@ class CanoneseYaleOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'CantoneseYale'
 
-    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+    DIALECTS = crossDict(
         [{}, {'strictDiacriticPlacement': True}, {'toneMarkType': 'numbers'},
             {'toneMarkType': 'numbers', 'missingToneMark': 'ignore'},
             {'toneMarkType': 'numbers', 'yaleFirstTone': '1stToneFalling'},
@@ -935,7 +888,7 @@ class JyutpingOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'Jyutping'
 
-    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+    DIALECTS = crossDict(
         [{}, {'missingToneMark': 'ignore'}, {'toneMarkType': 'none'}],
         [{}, {'strictSegmentation': True}],
         [{}, {'case': 'lower'}],
@@ -1069,7 +1022,7 @@ class PinyinOperatorConsistencyTest(ReadingOperatorConsistencyTest,
             and followingEntity[0].isalpha()
     noToneApostropheRule = staticmethod(_noToneApostropheRule)
 
-    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+    DIALECTS = crossDict(
          [{}, {'toneMarkType': 'numbers'},
             {'toneMarkType': 'numbers', 'missingToneMark': 'fifth'},
             {'toneMarkType': 'numbers', 'missingToneMark': 'ignore'},
@@ -1753,7 +1706,7 @@ class WadeGilesOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'WadeGiles'
 
-    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+    DIALECTS = crossDict(
         [{}, {'diacriticE': 'e'}],
         [{}, {'zeroFinal': 'u'}],
         [{}, {'umlautU': 'u'}],
@@ -2001,7 +1954,7 @@ class GROperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'GR'
 
-    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+    DIALECTS = crossDict(
         [{}, {'strictSegmentation': True}],
         [{}, {'abbreviations': False}],
         [{}, {'grRhotacisedFinalApostrophe': "'"}],
@@ -2564,7 +2517,7 @@ class MandarinBrailleOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'MandarinBraille'
 
-    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+    DIALECTS = crossDict(
         [{}, {'toneMarkType': 'none'}, {'missingToneMark': 'fifth'}],
         )
 
@@ -2585,7 +2538,7 @@ class MandarinIPAOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     unittest.TestCase):
     READING_NAME = 'MandarinIPA'
 
-    DIALECTS = ReadingOperatorConsistencyTest._crossProduct(
+    DIALECTS = crossDict(
         [{}, {'toneMarkType': 'numbers'}, {'toneMarkType': 'chaoDigits'},
             {'toneMarkType': 'numbers', 'missingToneMark': 'ignore'},
             {'toneMarkType': 'chaoDigits', 'missingToneMark': 'ignore'},

@@ -14,12 +14,12 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 #
 #
-# Chinese character z-Variant to locale mapping.
+# Chinese character glyph to locale mapping.
 #
 # This table supplements tables CharacterDecomposition and StrokeOrder to map
-# each locale to exactly one z-Variant (glyph).
+# each locale to exactly one glyph.
 #
-# ChineseCharacter, ZVariant, Locale
+# ChineseCharacter, Glyph, Locale
 "⻏",0,T
 "⻏",1,CJK
 "⻝",1,CJK
@@ -33,3 +33,7 @@
 "角",0,TJK
 "角",1,C
 "福",0,TCJKV
+"充",0,T
+"充",1,CJ
+"免",0,TJ
+"免",1,C

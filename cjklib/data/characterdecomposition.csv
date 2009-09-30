@@ -26,15 +26,17 @@
 #    木 (last stroke is a 點 instead of a 捺), here indexed by the number 1. The
 #    right part is the subcharacter 衰.
 #
-# Z-Variant information is synchronised with tables StrokeOrder and
-# LocaleCharacterVariant.
+# Glyph information is synchronised with tables StrokeOrder and
+# LocaleCharacterGlyph.
 #
 # Column 'Flags' holds the following flags:
 #   * 'O': Checked, which means the entry has been through a quick check
 #   * 'S': The character variant described is only found as a subpart in another
 #          character
 #
-# ChineseCharacter, Decomposition, ZVariant, SubIndex, Flags
+# ChineseCharacter, Decomposition, Glyph, SubIndex, Flags
+"㖌","⿱仇⿰匕⼝",0,0,O
+"举","⿱兴？",0,0,O
 "⾌","⿱⺊⿸？七",0,0,O
 "⾊","⿱⺈巴",0,0,O
 "⽳","⿱丶⺳",0,1,O
@@ -48,7 +50,7 @@
 "⺯","⿱幺？",0,0,O
 "⻳","⿱⺈电",0,0,O
 "⼾","⿻？尸",0,0,O
-"⽎","⿱几又",0,0,O
+"⽎","⿱几[1]又",0,0,O
 "⾟","⿱立十",0,0,O
 "⾓","⿱⺈用",1,0,O
 "⽰","⿱二小",0,0,O
@@ -67,7 +69,7 @@
 "⿂","⿱⿱⺈田灬",0,0,O
 "⾄","⿱⿱一厶土",0,0,O
 "⽍","⿱一夕",0,0,O
-"⻛","⿵⺇？",0,0,O
+"⻛","⿵⺇乂",0,0,O
 "⽷","⿱幺小",0,0,O
 "彖","⿱彑？",0,0,O
 "彔","⿱彑氺",0,0,O
@@ -152,7 +154,7 @@
 "全","⿱入王",0,0,O
 "兰","⿱丷三",0,0,O
 "兽","⿱⿱丷田⿱一口",0,0,O
-"冈","⿵冂？",0,0,O
+"冈","⿵冂乂",0,0,O
 "冬","⿱夂⺀",0,0,O
 "冭","⿱大⺀",0,0,O
 "决","⿰⼎⿻？大",0,0,O
@@ -312,13 +314,13 @@
 "歹","⿱一夕",0,0,O
 "死","⿰歹匕",0,0,O
 "死","⿱一⿰夕匕",0,1,O
-"殳","⿱几又",0,0,O
+"殳","⿱几[1]又",0,0,O
 "氅","⿱敞毛",0,0,O
 "氓","⿰亡民",0,0,O
 "汆","⿱入水",0,0,O
 "沉","⿰氵⿱冖几",0,0,O
 "河","⿰氵可",0,0,O
-"沿","⿰⺡⿱几口",0,0,O
+"沿","⿰⺡⿱几[1]口",0,0,O
 "泳","⿰氵永",0,0,O
 "洞","⿰氵同",0,0,O
 "浞","⿰氵足",0,0,O
@@ -441,7 +443,7 @@
 "舀","⿱⺤⾅",0,0,O
 "舁","⿱臼廾",0,0,O
 "般","⿰舟殳",0,0,O
-"船","⿰舟⿱几口",0,0,O
+"船","⿰舟⿱几[1]口",0,0,O
 "艰","⿰又艮",0,0,O
 "色","⿱⺈巴",0,0,O
 "苑","⿱⺾夗",0,0,O
@@ -523,7 +525,7 @@
 "離","⿰离⾫",0,0,O
 "靓","⿰青见",0,0,O
 "靠","⿱告非",0,0,O
-"风","⿵⺇？",0,0,O
+"风","⿵⺇乂",0,0,O
 "饊","⿰⻟散",0,0,O
 "馑","⿰饣堇",0,0,O
 "馓","⿰⻠散",0,0,O

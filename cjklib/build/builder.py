@@ -1880,17 +1880,17 @@ class CharacterDecompositionBuilder(CSVFileLoader):
 
     TABLE_CSV_FILE_MAPPING = 'characterdecomposition.csv'
     TABLE_DECLARATION_FILE_MAPPING = 'characterdecomposition.sql'
-    INDEX_KEYS = [['ChineseCharacter', 'ZVariant']]
+    INDEX_KEYS = [['ChineseCharacter', 'Glyph']]
 
 
-class LocaleCharacterVariantBuilder(CSVFileLoader):
+class LocaleCharacterGlyphBuilder(CSVFileLoader):
     """
-    Builds a mapping between a character under a locale and its default variant.
+    Builds a mapping between a character under a locale and its default glyph.
     """
-    PROVIDES = 'LocaleCharacterVariant'
+    PROVIDES = 'LocaleCharacterGlyph'
 
-    TABLE_CSV_FILE_MAPPING = 'localecharactervariant.csv'
-    TABLE_DECLARATION_FILE_MAPPING = 'localecharactervariant.sql'
+    TABLE_CSV_FILE_MAPPING = 'localecharacterglyph.csv'
+    TABLE_DECLARATION_FILE_MAPPING = 'localecharacterglyph.sql'
 
 
 class MandarinBraileInitialBuilder(CSVFileLoader):
@@ -1917,19 +1917,19 @@ class MandarinBraileFinalBuilder(CSVFileLoader):
 #}
 #{ Library dependant
 
-class ZVariantBuilder(EntryGeneratorBuilder):
+class GlyphBuilder(EntryGeneratorBuilder):
     """
     Builds a list of glyph indices for characters.
-    @todo Impl: Check if all Z-variants in LocaleCharacterVariant are included.
+    @todo Impl: Check if all I{glyphs} in LocaleCharacterGlyph are included.
     """
-    PROVIDES = 'ZVariants'
+    PROVIDES = 'Glyphs'
     DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Unihan']
-    # TODO 'LocaleCharacterVariant'
+    # TODO 'LocaleCharacterGlyph'
 
-    COLUMNS = ['ChineseCharacter', 'ZVariant']
-    PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant']
+    COLUMNS = ['ChineseCharacter', 'Glyph']
+    PRIMARY_KEYS = ['ChineseCharacter', 'Glyph']
     INDEX_KEYS = [['ChineseCharacter']]
-    COLUMN_TYPES = {'ChineseCharacter': String(1), 'ZVariant': Integer()}
+    COLUMN_TYPES = {'ChineseCharacter': String(1), 'Glyph': Integer()}
 
     def getGenerator(self):
         decompositionTable = self.db.tables['CharacterDecomposition']
@@ -1938,14 +1938,14 @@ class ZVariantBuilder(EntryGeneratorBuilder):
 
         characterSet = set(self.db.selectRows(
             select([decompositionTable.c.ChineseCharacter,
-                decompositionTable.c.ZVariant], distinct=True)))
+                decompositionTable.c.Glyph], distinct=True)))
         characterSet.update(self.db.selectRows(
             select([strokeOrderTable.c.ChineseCharacter,
-                strokeOrderTable.c.ZVariant])))
+                strokeOrderTable.c.Glyph])))
         # TODO
-        #characterSet.update(self.db.select('LocaleCharacterVariant',
-            #['ChineseCharacter', 'ZVariant']))
-        # Add characters from Unihan as Z-variant 0
+        #characterSet.update(self.db.select('LocaleCharacterGlyph',
+            #['ChineseCharacter', 'Glyph']))
+        # Add characters from Unihan as glyph 0
         unihanCharacters = self.db.selectScalars(
             select([unihanTable.c.ChineseCharacter],
                 or_(unihanTable.c.kTotalStrokes != None,
@@ -1972,22 +1972,22 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
                 stderr
             """
             self.quiet = quiet
-            # create instance, locale is not important, we get all Z-variants
+            # create instance, locale is not important, we get all glyphs
             self.cjk = characterlookup.CharacterLookup('T',
                 dbConnectInst=dbConnectInst)
             # make sure a currently existing table is not used
             self.cjk.hasStrokeCount = False
 
         def generator(self):
-            """Provides one entry per character, z-Variant and locale subset."""
+            """Provides one entry per character, I{glyph} and locale subset."""
             # Cjklib's stroke count method uses the stroke order information as
             #   long as this table doesn't exist.
             strokeCountDict = self.cjk.getStrokeCountDict()
-            for char, zVariant in strokeCountDict.keys():
+            for char, glyph in strokeCountDict.keys():
                 try:
-                    strokeCount = strokeCountDict[(char, zVariant)]
+                    strokeCount = strokeCountDict[(char, glyph)]
                     yield({'ChineseCharacter': char, 'StrokeCount': strokeCount,
-                        'ZVariant': zVariant})
+                        'Glyph': glyph})
                 except exception.NoInformationError:
                     pass
                 except IndexError:
@@ -1998,10 +1998,10 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
     PROVIDES = 'StrokeCount'
     DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Strokes']
 
-    COLUMNS = ['ChineseCharacter', 'StrokeCount', 'ZVariant']
-    PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant']
+    COLUMNS = ['ChineseCharacter', 'StrokeCount', 'Glyph']
+    PRIMARY_KEYS = ['ChineseCharacter', 'Glyph']
     COLUMN_TYPES = {'ChineseCharacter': String(1), 'StrokeCount': Integer(),
-        'ZVariant': Integer()}
+        'Glyph': Integer()}
 
     def getGenerator(self):
         return StrokeCountBuilder.StrokeCountGenerator(self.db, self.quiet)\
@@ -2026,7 +2026,7 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             @type characterSet: set
             @param characterSet: set of characters to generate the table for
             @type tableEntries: list of list
-            @param tableEntries: list of characters with Z-variant
+            @param tableEntries: list of characters with glyph
             @type preferredBuilder: instance
             @param preferredBuilder: TableBuilder which forms are preferred over
                 entries from the Unihan table
@@ -2038,12 +2038,12 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             self.tableEntries = tableEntries
             self.preferredBuilder = preferredBuilder
             self.quiet = quiet
-            # create instance, locale is not important, we supply own zVariant
+            # create instance, locale is not important, we supply own glyph
             self.cjk = characterlookup.CharacterLookup('T',
                 dbConnectInst=dbConnectInst)
             self.db = dbConnectInst
 
-        def getStrokeCount(self, char, zVariant, strokeCountDict,
+        def getStrokeCount(self, char, glyph, strokeCountDict,
             unihanStrokeCountDict, decompositionDict):
             """
             Gets the stroke count of the given character by summing up the
@@ -2062,8 +2062,8 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
 
             @type char: str
             @param char: Chinese character
-            @type zVariant: int
-            @param zVariant: Z-variant of character
+            @type glyph: int
+            @param glyph: I{glyph} of character
             @rtype: int
             @return: stroke count
             @raise ValueError: if stroke count is ambiguous due to inconsistent
@@ -2074,22 +2074,22 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                 # we have an incomplete decomposition, can't build
                 raise exception.NoInformationError("incomplete decomposition")
 
-            if (char, zVariant) not in strokeCountDict:
+            if (char, glyph) not in strokeCountDict:
                 lastStrokeCount = None
-                if (char, zVariant) in decompositionDict:
+                if (char, glyph) in decompositionDict:
                     # try all decompositions of this character, all need to
                     #   return the same count for sake of consistency
-                    for decomposition in decompositionDict[(char, zVariant)]:
+                    for decomposition in decompositionDict[(char, glyph)]:
                         try:
                             accumulatedStrokeCount = 0
 
                             for entry in decomposition:
                                 if type(entry) == types.TupleType:
-                                    component, componentZVariant = entry
+                                    component, componentGlyph = entry
 
                                     accumulatedStrokeCount += \
                                         self.getStrokeCount(component,
-                                            componentZVariant, strokeCountDict,
+                                            componentGlyph, strokeCountDict,
                                             unihanStrokeCountDict,
                                             decompositionDict)
 
@@ -2100,7 +2100,7 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                                 raise ValueError("ambiguous stroke count " \
                                     + "information, due to various stroke " \
                                     + "count sources for " \
-                                    + repr((char, zVariant)))
+                                    + repr((char, glyph)))
                             else:
                                 # first run or equal to previous calculation
                                 lastStrokeCount = accumulatedStrokeCount
@@ -2109,38 +2109,38 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                             continue
 
                 if lastStrokeCount != None:
-                    strokeCountDict[(char, zVariant)] = lastStrokeCount
+                    strokeCountDict[(char, glyph)] = lastStrokeCount
                 else:
                     # couldn't get stroke counts from components, check fallback
                     #   resources
                     if (char, 0) in strokeCountDict:
-                        # own sources have info for fallback zVariant
-                        strokeCountDict[(char, zVariant)] \
+                        # own sources have info for fallback glyph
+                        strokeCountDict[(char, glyph)] \
                             = strokeCountDict[(char, 0)]
 
                     elif char in unihanStrokeCountDict:
                         # take Unihan info
-                        strokeCountDict[(char, zVariant)] \
+                        strokeCountDict[(char, glyph)] \
                             = unihanStrokeCountDict[char]
 
                     else:
-                        strokeCountDict[(char, zVariant)] = None
+                        strokeCountDict[(char, glyph)] = None
 
-            if strokeCountDict[(char, zVariant)] == None:
+            if strokeCountDict[(char, glyph)] == None:
                 raise exception.NoInformationError(
                     "missing stroke count information")
             else:
-                return strokeCountDict[(char, zVariant)]
+                return strokeCountDict[(char, glyph)]
 
         def generator(self):
-            """Provides one entry per character, z-Variant and locale subset."""
+            """Provides one entry per character, I{glyph} and locale subset."""
             # handle chars from own data first
             strokeCountDict = {}
             for entry in self.preferredBuilder:
                 yield entry
 
-                # save stroke count for later processing, prefer Z-variant 0
-                key = (entry['ChineseCharacter'], entry['ZVariant'])
+                # save stroke count for later processing, prefer glyph 0
+                key = (entry['ChineseCharacter'], entry['Glyph'])
                 strokeCountDict[key] = entry['StrokeCount']
 
             # warn about stroke count in preferred source that differs from
@@ -2171,25 +2171,25 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             # get character decompositions
             decompositionDict = self.cjk.getDecompositionEntriesDict()
 
-            for char, zVariant in self.characterSet:
-                warningZVariants = []
+            for char, glyph in self.characterSet:
+                warningGlyphs = []
                 try:
                     # build stroke count from mixed source
-                    strokeCount = self.getStrokeCount(char, zVariant,
+                    strokeCount = self.getStrokeCount(char, glyph,
                         strokeCountDict, unihanStrokeCountDict,
                         decompositionDict)
 
-                    yield {'ChineseCharacter': char, 'ZVariant': zVariant,
+                    yield {'ChineseCharacter': char, 'Glyph': glyph,
                         'StrokeCount': strokeCount}
                 except ValueError:
-                    warningZVariants.append(zVariant)
+                    warningGlyphs.append(glyph)
                 except exception.NoInformationError:
                     pass
 
-                if not self.quiet and warningZVariants:
+                if not self.quiet and warningGlyphs:
                     warn("ambiguous stroke count information (mixed sources) " \
-                        "for character '" + char + "' for Z-variant(s) '" \
-                        + ''.join([str(z) for z in warningZVariants]) + "'")
+                        "for character '%s' for glyphs(s) '" % char \
+                        + ''.join([str(z) for z in warningGlyphs]) + "'")
 
         def checkAgainstUnihan(self, strokeCountDict, tableEntries):
             """
@@ -2239,10 +2239,10 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
         #   entry in Unihan though their components do have.
         characterSet = set(self.db.selectRows(
             select([decompositionTable.c.ChineseCharacter,
-                decompositionTable.c.ZVariant], distinct=True)))
+                decompositionTable.c.Glyph], distinct=True)))
         characterSet.update(self.db.selectRows(
             select([strokeOrderTable.c.ChineseCharacter,
-                strokeOrderTable.c.ZVariant])))
+                strokeOrderTable.c.Glyph])))
         characterSet.update([(char, 0) for char, _ in tableEntries])
 
         return CombinedStrokeCountBuilder.CombinedStrokeCountGenerator(self.db,
@@ -2267,37 +2267,37 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
             @param characterSet: set of characters to generate the table for
             """
             self.characterSet = characterSet
-            # create instance, locale is not important, we supply own zVariant
+            # create instance, locale is not important, we supply own glyph
             self.cjk = characterlookup.CharacterLookup('T',
                 dbConnectInst=dbConnectInst)
 
-        def getComponents(self, char, zVariant, decompositionDict,
+        def getComponents(self, char, glyph, decompositionDict,
             componentDict):
             """
             Gets all character components for the given glyph.
 
             @type char: str
             @param char: Chinese character
-            @type zVariant: int
-            @param zVariant: Z-variant of character
+            @type glyph: int
+            @param glyph: I{glyph} of character
             @rtype: set
             @return: all components of the character
             """
-            if (char, zVariant) not in componentDict:
-                componentDict[(char, zVariant)] = set()
+            if (char, glyph) not in componentDict:
+                componentDict[(char, glyph)] = set()
 
-                if (char, zVariant) in decompositionDict:
-                    for decomposition in decompositionDict[(char, zVariant)]:
-                        componentDict[(char, zVariant)].update(
+                if (char, glyph) in decompositionDict:
+                    for decomposition in decompositionDict[(char, glyph)]:
+                        componentDict[(char, glyph)].update(
                             [entry for entry in decomposition \
                                 if type(entry) == types.TupleType])
 
             componentSet = set()
-            for component, componentZVariant in componentDict[(char, zVariant)]:
-                componentSet.add((component, componentZVariant))
+            for component, componentGlyph in componentDict[(char, glyph)]:
+                componentSet.add((component, componentGlyph))
                 # get sub-components
                 componentSet.update(self.getComponents(component,
-                    componentZVariant, decompositionDict, componentDict))
+                    componentGlyph, decompositionDict, componentDict))
 
             return componentSet
 
@@ -2305,28 +2305,28 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
             """Provides the component entries."""
             decompositionDict = self.cjk.getDecompositionEntriesDict()
             componentDict = {}
-            for char, zVariant in self.characterSet:
-                for component, componentZVariant \
-                    in self.getComponents(char, zVariant, decompositionDict,
+            for char, glyph in self.characterSet:
+                for component, componentGlyph \
+                    in self.getComponents(char, glyph, decompositionDict,
                         componentDict):
-                    yield {'ChineseCharacter': char, 'ZVariant': zVariant,
+                    yield {'ChineseCharacter': char, 'Glyph': glyph,
                         'Component': component,
-                        'ComponentZVariant': componentZVariant}
+                        'ComponentGlyph': componentGlyph}
 
     PROVIDES = 'ComponentLookup'
     DEPENDS = ['CharacterDecomposition']
 
-    COLUMNS = ['ChineseCharacter', 'ZVariant', 'Component', 'ComponentZVariant']
+    COLUMNS = ['ChineseCharacter', 'Glyph', 'Component', 'ComponentGlyph']
     PRIMARY_KEYS = COLUMNS
     INDEX_KEYS = [['Component']]
-    COLUMN_TYPES = {'ChineseCharacter': String(1), 'ZVariant': Integer(),
-        'Component': String(1), 'ComponentZVariant': Integer()}
+    COLUMN_TYPES = {'ChineseCharacter': String(1), 'Glyph': Integer(),
+        'Component': String(1), 'ComponentGlyph': Integer()}
 
     def getGenerator(self):
         decompositionTable = self.db.tables['CharacterDecomposition']
         characterSet = set(self.db.selectRows(
             select([decompositionTable.c.ChineseCharacter,
-                decompositionTable.c.ZVariant], distinct=True)))
+                decompositionTable.c.Glyph], distinct=True)))
         return CharacterComponentLookupBuilder.CharacterComponentGenerator(
             self.db, characterSet).generator()
 
@@ -2405,7 +2405,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
             """
             return formSet
 
-        def getEntries(self, char, zVariant, strokeCountDict, decompositionDict,
+        def getEntries(self, char, glyph, strokeCountDict, decompositionDict,
             entriesDict):
             u"""
             Gets all radical/residual stroke count combinations from the given
@@ -2466,19 +2466,19 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                     return (u'⿻', 0)
 
             # if no decomposition available then there is nothing to do
-            if (char, zVariant) not in decompositionDict:
+            if (char, glyph) not in decompositionDict:
                 return []
 
-            if (char, zVariant) not in entriesDict:
-                entriesDict[(char, zVariant)] = set()
+            if (char, glyph) not in entriesDict:
+                entriesDict[(char, glyph)] = set()
 
-                for decomposition in decompositionDict[(char, zVariant)]:
+                for decomposition in decompositionDict[(char, glyph)]:
                     componentRadicalForms = []
                     # if a radical is found in a subcharacter an entry is added
                     #   containing the radical form, its variant, the stroke
                     #   count of residual characters in this main character and
                     #   it's position in the main char (e.g. for 鸺 contains
-                    #   Form 鸟, Z-variant 0, residual stroke count 6, main
+                    #   Form 鸟, glyph 0, residual stroke count 6, main
                     #   layout ⿰ and position 1 (right side), as 亻 and 木
                     #   together form the residual components, and the
                     #   simplified structure of 鸺 applies to a left/right
@@ -2515,7 +2515,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                                     position, entry, componentPos))
                         else:
                             # Chinese character found
-                            componentChar, componentZVariant = entry
+                            componentChar, componentGlyph = entry
 
                             # create entries for this component
                             radicalIndex \
@@ -2527,7 +2527,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                                 componentRadicalForms.append(
                                     {'Component': entry,
                                     'Form': componentChar,
-                                    'Z-variant': componentZVariant,
+                                    'Glyph': componentGlyph,
                                     'ResidualStrokeCount': 0,
                                     'CharacterLayout': layout,
                                     'RadicalIndex': radicalIndex,
@@ -2536,7 +2536,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                             # get all radical forms for this entry from
                             #   sub-components
                             for radicalEntry in self.getEntries(componentChar,
-                                componentZVariant, strokeCountDict,
+                                componentGlyph, strokeCountDict,
                                 decompositionDict, entriesDict):
 
                                 # get layout for this character wrt parent char
@@ -2580,14 +2580,14 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                         else:
                             # all stroke counts available
                             del componentEntry['Component']
-                            entriesDict[(char, zVariant)].add(
+                            entriesDict[(char, glyph)].add(
                                 frozenset(componentEntry.items()))
 
                 # validity check # TODO only needed as long decomposition and
                 #   stroke order entries aren't checked for validity
                 seenEntriesDict = {}
-                for entry in [dict(d) for d in entriesDict[(char, zVariant)]]:
-                    keyEntry = (entry['Form'], entry['Z-variant'],
+                for entry in [dict(d) for d in entriesDict[(char, glyph)]]:
+                    keyEntry = (entry['Form'], entry['Glyph'],
                         entry['CharacterLayout'], entry['RadicalIndex'],
                         entry['RadicalPosition'])
                     if keyEntry in seenEntriesDict \
@@ -2604,7 +2604,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
 
             # filter forms, i.e. for multiple radical occurrences prefer one
             return self.filterForms(
-                [dict(d) for d in entriesDict[(char, zVariant)]])
+                [dict(d) for d in entriesDict[(char, glyph)]])
 
         def generator(self):
             """Provides the radical/stroke count entries."""
@@ -2612,16 +2612,16 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
             decompositionDict = self.cjkDict['T'].getDecompositionEntriesDict()
             entryDict = {}
 
-            for char, zVariant in self.characterSet:
+            for char, glyph in self.characterSet:
                 if self.cjkDict['T'].isRadicalChar(char):
                     # ignore Unicode radical forms
                     continue
 
-                for entry in self.getEntries(char, zVariant, strokeCountDict,
+                for entry in self.getEntries(char, glyph, strokeCountDict,
                     decompositionDict, entryDict):
 
-                    yield [char, zVariant, entry['RadicalIndex'], entry['Form'],
-                        entry['Z-variant'], entry['CharacterLayout'],
+                    yield [char, glyph, entry['RadicalIndex'], entry['Form'],
+                        entry['Glyph'], entry['CharacterLayout'],
                         entry['RadicalPosition'], entry['ResidualStrokeCount']]
 
     PROVIDES = 'CharacterRadicalResidualStrokeCount'
@@ -2629,14 +2629,14 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
         'KangxiRadicalIsolatedCharacter', 'RadicalEquivalentCharacter',
         'CharacterKangxiRadical', 'Strokes']
 
-    COLUMNS = ['ChineseCharacter', 'ZVariant', 'RadicalIndex', 'RadicalForm',
-        'RadicalZVariant', 'MainCharacterLayout', 'RadicalRelativePosition',
+    COLUMNS = ['ChineseCharacter', 'Glyph', 'RadicalIndex', 'RadicalForm',
+        'RadicalGlyph', 'MainCharacterLayout', 'RadicalRelativePosition',
         'ResidualStrokeCount']
-    PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant', 'RadicalForm',
-        'RadicalZVariant', 'MainCharacterLayout', 'RadicalRelativePosition']
+    PRIMARY_KEYS = ['ChineseCharacter', 'Glyph', 'RadicalForm',
+        'RadicalGlyph', 'MainCharacterLayout', 'RadicalRelativePosition']
     COLUMN_TYPES = {'ChineseCharacter': String(1), 'RadicalIndex': Integer(),
-        'RadicalForm': String(1), 'ZVariant': Integer(),
-        'RadicalZVariant': Integer(), 'MainCharacterLayout': String(1),
+        'RadicalForm': String(1), 'Glyph': Integer(),
+        'RadicalGlyph': Integer(), 'MainCharacterLayout': String(1),
         'RadicalRelativePosition': Integer(), 'ResidualStrokeCount': Integer()}
 
     def getGenerator(self):
@@ -2644,7 +2644,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
         decompositionTable = self.db.tables['CharacterDecomposition']
         characterSet = set(self.db.selectRows(
             select([decompositionTable.c.ChineseCharacter,
-                decompositionTable.c.ZVariant], distinct=True)))
+                decompositionTable.c.Glyph], distinct=True)))
         return CharacterRadicalStrokeCountBuilder\
             .CharacterRadicalStrokeCountGenerator(self.db, characterSet,
                 self.quiet).generator()
@@ -2671,11 +2671,11 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
             @param characterSet: set of characters to generate the table for
             """
             self.characterSet = characterSet
-            # create instance, locale is not important, we supply own zVariant
+            # create instance, locale is not important, we supply own glyph
             self.cjk = characterlookup.CharacterLookup('T',
                 dbConnectInst=dbConnectInst)
 
-        def getEntries(self, char, zVariant, radicalDict):
+        def getEntries(self, char, glyph, radicalDict):
             u"""
             Gets a list of radical residual entries. For multiple radical
             occurrences (e.g. 伦) only returns the residual stroke count for the
@@ -2683,8 +2683,8 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
 
             @type char: str
             @param char: Chinese character
-            @type zVariant: int
-            @param zVariant: I{Z-variant} of given character
+            @type glyph: int
+            @param glyph: I{glyph} of given character
             @rtype: list of tuple
             @return: list of residual stroke count entries
             @todo Lang: Implement, find a good algorithm to turn down unwanted
@@ -2717,36 +2717,36 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
             # filter entries to return only the main radical form
             # TODO provisional solution, take first entry per radical index
             filteredEntries = []
-            for radicalIdx in radicalDict[(char, zVariant)]:
+            for radicalIdx in radicalDict[(char, glyph)]:
                 _, _, _, _, residualStrokeCount \
-                    = radicalDict[(char, zVariant)][radicalIdx][0]
+                    = radicalDict[(char, glyph)][radicalIdx][0]
                 filteredEntries.append((radicalIdx, residualStrokeCount))
 
             return filteredEntries
 
         def generator(self):
-            """Provides one entry per character, z-Variant and locale subset."""
+            """Provides one entry per character, I{glyph} and locale subset."""
             radicalDict = self.cjk.getCharacterRadicalResidualStrokeCountDict()
-            for char, zVariant in self.characterSet:
+            for char, glyph in self.characterSet:
                 for radicalIndex, residualStrokeCount in self.getEntries(char,
-                    zVariant, radicalDict):
-                    yield [char, zVariant, radicalIndex, residualStrokeCount]
+                    glyph, radicalDict):
+                    yield [char, glyph, radicalIndex, residualStrokeCount]
 
     PROVIDES = 'CharacterResidualStrokeCount'
     DEPENDS = ['CharacterRadicalResidualStrokeCount']
 
-    COLUMNS = ['ChineseCharacter', 'ZVariant', 'RadicalIndex',
+    COLUMNS = ['ChineseCharacter', 'Glyph', 'RadicalIndex',
         'ResidualStrokeCount']
-    PRIMARY_KEYS = ['ChineseCharacter', 'ZVariant', 'RadicalIndex']
+    PRIMARY_KEYS = ['ChineseCharacter', 'Glyph', 'RadicalIndex']
     INDEX_KEYS = [['RadicalIndex']]
     COLUMN_TYPES = {'ChineseCharacter': String(1), 'RadicalIndex': Integer(),
-        'ZVariant': Integer(), 'ResidualStrokeCount': Integer()}
+        'Glyph': Integer(), 'ResidualStrokeCount': Integer()}
 
     def getGenerator(self):
         residualSCTable = self.db.tables['CharacterRadicalResidualStrokeCount']
         characterSet = set(self.db.selectRows(
             select([residualSCTable.c.ChineseCharacter,
-                residualSCTable.c.ZVariant], distinct=True)))
+                residualSCTable.c.Glyph], distinct=True)))
         return CharacterResidualStrokeCountBuilder.ResidualStrokeCountExtractor(
             self.db, characterSet).generator()
 
@@ -2769,7 +2769,7 @@ class CombinedCharacterResidualStrokeCountBuilder(
             Initialises the CombinedResidualStrokeCountExtractor.
 
             @type tableEntries: list of list
-            @param tableEntries: list of characters with Z-variant
+            @param tableEntries: list of characters with glyph
             @type preferredBuilder: instance
             @param preferredBuilder: TableBuilder which forms are preferred over
                 entries from the Unihan table
@@ -2781,7 +2781,7 @@ class CombinedCharacterResidualStrokeCountBuilder(
             self.quiet = quiet
 
         def generator(self):
-            """Provides one entry per character and z-Variant."""
+            """Provides one entry per character and I{glyph}."""
             # handle chars from own data first
             seenCharactersSet = set()
             for entry in self.preferredBuilder:
@@ -2790,7 +2790,7 @@ class CombinedCharacterResidualStrokeCountBuilder(
                 radicalIdx = entry[2]
                 seenCharactersSet.add((char, radicalIdx))
 
-            # now fill up with characters from Unihan, Z-variant missing though
+            # now fill up with characters from Unihan, glyph missing though
             for char, radicalStroke in self.tableEntries:
                 matchObj = self.RADICAL_REGEX.match(radicalStroke)
                 if matchObj:
@@ -2814,7 +2814,7 @@ class CombinedCharacterResidualStrokeCountBuilder(
         residualSCTable = self.db.tables['CharacterRadicalResidualStrokeCount']
         characterSet = set(self.db.selectRows(
             select([residualSCTable.c.ChineseCharacter,
-                residualSCTable.c.ZVariant], distinct=True)))
+                residualSCTable.c.Glyph], distinct=True)))
         preferredBuilder = CombinedCharacterResidualStrokeCountBuilder\
             .ResidualStrokeCountExtractor(self.db, characterSet).generator()
 

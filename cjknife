@@ -791,7 +791,7 @@ class CharacterInfo:
             radical and all radical forms are included in the search. E.g. 肉
             will include ⺼ as a possible component.
         @rtype: list of tuple
-        @return: list of pairs of matching characters and their Z-variants
+        @return: list of pairs of matching characters and their I{glyphs}
         @raise ValueError: if an invalid I{character locale} is specified
         @todo Impl: Once mapping of similar radical forms exist (e.g. 言 and 訁)
             include here.
@@ -922,7 +922,7 @@ class CharacterInfo:
 
         try:
             # character decomposition and stroke order
-            infoDict['default glyph'] = self.characterLookup.getDefaultZVariant(
+            infoDict['default glyph'] = self.characterLookup.getDefaultGlyph(
                 char)
         except exception.NoInformationError:
             pass
@@ -930,27 +930,27 @@ class CharacterInfo:
         try:
             infoDict['glyphs'] = {}
 
-            for zVariant in self.characterLookup.getCharacterZVariants(char):
-                infoDict['glyphs'][zVariant] = {}
+            for glyph in self.characterLookup.getCharacterGlyphs(char):
+                infoDict['glyphs'][glyph] = {}
                 # character decomposition
                 decomposition = self.characterLookup.getDecompositionTreeList(
-                    char, zVariant=zVariant)
+                    char, glyph=glyph)
 
                 if decomposition:
-                    infoDict['glyphs'][zVariant]['decomposition'] \
+                    infoDict['glyphs'][glyph]['decomposition'] \
                         = decomposition
 
                 # stroke order
                 try:
-                    infoDict['glyphs'][zVariant]['stroke count'] \
+                    infoDict['glyphs'][glyph]['stroke count'] \
                         =  self.characterLookup.getStrokeCount(char,
-                            zVariant=zVariant)
-                    infoDict['glyphs'][zVariant]['stroke order'] \
+                            glyph=glyph)
+                    infoDict['glyphs'][glyph]['stroke order'] \
                         =  self.characterLookup.getStrokeOrder(char,
-                            zVariant=zVariant)
-                    infoDict['glyphs'][zVariant]['stroke order abbrev'] \
+                            glyph=glyph)
+                    infoDict['glyphs'][glyph]['stroke order abbrev'] \
                         =  self.characterLookup.getStrokeOrderAbbrev(char,
-                            zVariant=zVariant)
+                            glyph=glyph)
                 except exception.NoInformationError:
                     pass
         except exception.NoInformationError:

@@ -17,7 +17,6 @@
 
 """
 Provides the central Chinese character based functions.
-@todo Fix: Make C{G} the Simplified Chinese locale?
 """
 
 import math
@@ -88,9 +87,9 @@ class CharacterLookup(object):
     simplified Chinese it has only 7, as the radical ⻌ has different stroke
     counts, depending on the locale.
 
-    X{Z-variant}s
-    =============
-    One feature of Chinese characters is the glyph form describing the visual
+    Glyphs
+    ======
+    One feature of Chinese characters is the X{glyph} form describing the visual
     representation. This feature doesn't need to be unique and so many
     characters can be found in different writing variants e.g. character 福
     (English: luck) which has numerous forms.
@@ -101,40 +100,32 @@ class CharacterLookup(object):
     In fact a code point represents an abstract character not defining any
     visual representation. Thus a distinct appearance description including
     strokes and stroke order cannot be simply assigned to a code point but one
-    needs to deal with the notion of I{Z-variants} representing distinct glyphs
-    to which a visual description can be applied.
+    needs to deal with the notion of I{glyphs}, each representing a distinct
+    appearance to which a visual description can be applied.
 
-    The name Z-variant is derived from the three-dimensional model representing
-    the space of characters relative to three axis, being the X axis
-    representing the semantic space, the Y axis representing the abstract shape
-    space and finally the Z axis for typeface differences (see "Principles of
-    Han Unification" in: The Unicode Standard 5.0, chapter 12). Character
-    presentations only differing in the Z dimension are generally unified.
-
-    cjklib tries to offer a simple approach to handle different Z-variants. As
+    Cjklib tries to offer a simple approach to handle different I{glyphs}. As
     character components, strokes and the stroke order depend on this variant,
-    methods dealing with this kind will ask for a I{Z-variant} value to be
+    methods dealing with this kind will ask for a I{glyph} value to be
     specified. In these cases the output of the method depends on the specified
-    variant.
+    shape.
 
-    Z-variants and character locales
-    --------------------------------
+    Glyphs and character locales
+    ----------------------------
     Varying stroke count, stroke order or decomposition into character
     components for different I{character locales} is implemented using different
-    I{Z-variant}s. For the example given above the entry 这 with 8 strokes is
-    given as one Z-variant and the form with 7 strokes is given as another
-    Z-variant.
+    I{glyph}s. For the example given above the entry 这 has two glyphs, one with
+    8 strokes, one with 7 strokes.
 
     In most cases one might only be interested in a single visual appearance,
-    the "standard" one. This visual appearance would be the one generally used
-    in the specific locale.
+    the "standard" one. This would be the one generally used in the specific
+    locale.
 
-    Instead of specifying a certain Z-variant most functions will allow for
+    Instead of specifying a certain glyph most functions will allow for
     passing of a character locale. Giving the locale will apply the default
-    Z-variant given by the mapping defined in the database which can be obtained
-    by calling L{getDefaultZVariant()}.
+    glyph given by the mapping defined in the database which can be obtained
+    by calling L{getDefaultGlyph()}.
 
-    More complex relations as which of several Z-variants for a given character
+    More complex relations as which of several glyphs for a given character
     are used in a given locale are not covered.
 
     Kangxi radical functions
@@ -173,8 +164,9 @@ class CharacterLookup(object):
     information of the character's components.
 
     Character decomposition is highly dependant on the appearance of the
-    character, so both I{Z-variant} and I{character locale} need to be clear
-    when looking at a decomposition into components.
+    character, so a I{glyph} needs to be given (will by default be taken from
+    the current I{character locale}) when looking at a decomposition into
+    components.
 
     More points render this task more complex: decomposition into one set of
     components is not distinct, some characters can be broken down into
@@ -194,10 +186,10 @@ class CharacterLookup(object):
     X{trinary IDS operator}s for decomposition into three components (e.g. ⿲
     for three components from left to right as in 辨: ⿲⾟刂⾟). Using
     I{IDS operator}s it is possible to give a basic structural information, that
-    in many cases is enough for example to derive a overall stroke order from
-    two single sets of stroke orders. Further more it is possible to look for
-    redundant information in different entries and thus helps to keep the
-    definition data clean.
+    for example is sufficient in many cases to derive an overall stroke order
+    from two single sets of stroke orders, namely that of the components.
+    Further more it is possible to look for redundant information in different
+    entries and thus helps to keep the definition data clean.
 
     This class provides methods for retrieving the basic partition entries,
     lookup of characters by components and decomposing as a tree from the
@@ -217,9 +209,9 @@ class CharacterLookup(object):
     there is a fixed set of possible strokes and these strokes carry names.
 
     As with I{character decomposition} the I{stroke order} and I{stroke count}
-    depends on the actual rendering of the character, the I{glyph}, so a
-    I{Z-variant} needs to be given. If omitted it will be deduced from the
-    current I{character locale}.
+    depends on the actual rendering of the character, the I{glyph}. If no
+    specific glyph is specified, it will be deduced from the current
+    I{character locale}.
 
     The set of strokes as defined by Unicode in block 31C0-31EF is supported.
     Simplifying subsets might be supported in the future.
@@ -320,7 +312,7 @@ class CharacterLookup(object):
     def __init__(self, locale, characterDomain="Unicode", databaseUrl=None,
         dbConnectInst=None):
         """
-        Initialises the CharacterLookup.
+        Initialises the CharacterLookup instance.
 
         If no parameters are given default values are assumed for the connection
         to the database. The database connection parameters can be given in
@@ -687,7 +679,7 @@ class CharacterLookup(object):
             raise ValueError("'" + locale + "' is not a valid character locale")
         return '%' + locale + '%'
 
-    #{ Character variant lookup
+    #{ Character glyph/variant lookup
 
     def getCharacterVariants(self, char, variantType):
         u"""
@@ -732,15 +724,14 @@ class CharacterLookup(object):
         """
         variantType = variantType.upper()
         if not variantType in set('CMPZST'):
-            raise ValueError("'" + variantType \
-                + "' is not a valid variant type")
+            raise ValueError("'%s' is not a valid variant type" % variantType)
 
         table = self.db.tables['CharacterVariant']
         # constrain to selected character domain
         if self.getCharacterDomain() == 'Unicode':
             fromObj = []
         else:
-            fromObj = [table.join(self._characterDomainTable, table.c.Variant \
+            fromObj = [table.join(self._characterDomainTable, table.c.Variant
                 == self._characterDomainTable.c.ChineseCharacter)]
 
         return self.db.selectScalars(select([table.c.Variant],
@@ -776,29 +767,29 @@ class CharacterLookup(object):
             table.c.ChineseCharacter == char,
             from_obj=fromObj).order_by(table.c.Variant))
 
-    def getDefaultZVariant(self, char):
+    def getDefaultGlyph(self, char):
         """
-        Gets the default Z-variant for the given character under the chosen
+        Gets the default I{glyph} for the given character under the chosen
         I{character locale}.
 
-        The Z-variant returned is an index to the internal database of different
+        The glyph returned is an index to the internal database of different
         character glyphs and represents the most common glyph used under the
         given locale.
 
         @type char: str
         @param char: Chinese character
         @rtype: int
-        @return: Z-variant
-        @raise NoInformationError: if no Z-variant information is available
+        @return: glyph index
+        @raise NoInformationError: if no glyph information is available
         """
-        return self.getLocaleDefaultZVariant(char, self.locale)
+        return self.getLocaleDefaultGlyph(char, self.locale)
 
-    def getLocaleDefaultZVariant(self, char, locale):
+    def getLocaleDefaultGlyph(self, char, locale):
         """
-        Gets the default Z-variant for the given character under the given
+        Gets the default I{glyph} for the given character under the given
         locale.
 
-        The Z-variant returned is an index to the internal database of different
+        The glyph returned is an index to the internal database of different
         character glyphs and represents the most common glyph used under the
         given locale.
 
@@ -807,60 +798,55 @@ class CharacterLookup(object):
         @type locale: str
         @param locale: I{character locale} (one out of TCJKV)
         @rtype: int
-        @return: Z-variant
-        @raise NoInformationError: if no Z-variant information is available
+        @return: glyph
+        @raise NoInformationError: if no glyph information is available
         @raise ValueError: if an invalid I{character locale} is specified
         """
-        table = self.db.tables['LocaleCharacterVariant']
-        zVariant = self.db.selectScalar(select([table.c.ZVariant],
+        table = self.db.tables['LocaleCharacterGlyph']
+        glyph = self.db.selectScalar(select([table.c.Glyph],
             and_(table.c.ChineseCharacter == char,
                 table.c.Locale.like(self._locale(locale))))\
-            .order_by(table.c.ZVariant))
+            .order_by(table.c.Glyph))
 
-        if zVariant != None:
-            return zVariant
+        if glyph != None:
+            return glyph
         else:
             # if no entry given, assume default
-            return self.getCharacterZVariants(char)[0]
+            return self.getCharacterGlyphs(char)[0]
 
-    def getCharacterZVariants(self, char):
+    def getCharacterGlyphs(self, char):
         """
-        Gets a list of character Z-variant indices (glyphs) supported by the
-        database.
-
-        A Z-variant index specifies a particular character glyph which is needed
-        by several glyph-dependant methods instead of the abstract character
-        defined by Unicode.
+        Gets a list of character I{glyph} indices supported by the database.
 
         @type char: str
         @param char: Chinese character
         @rtype: list of int
-        @return: list of supported Z-variants
-        @raise NoInformationError: if no Z-variant information is available
+        @return: list of supported glyphs
+        @raise NoInformationError: if no glyph information is available
         """
-        # return all known variant indices, order to be deterministic
-        table = self.db.tables['ZVariants']
-        result = self.db.selectScalars(select([table.c.ZVariant],
-            table.c.ChineseCharacter == char).order_by(table.c.ZVariant))
+        # return all known glyph indices, order to be deterministic
+        table = self.db.tables['Glyphs']
+        result = self.db.selectScalars(select([table.c.Glyph],
+            table.c.ChineseCharacter == char).order_by(table.c.Glyph))
         if not result:
             raise exception.NoInformationError(
-                "No Z-variant information available for '" + char + "'")
+                "No glyph information available for '%s'" % char)
 
         return result
 
     #}
     #{ Character stroke functions
 
-    def getStrokeCount(self, char, zVariant=None):
+    def getStrokeCount(self, char, glyph=None):
         """
         Gets the stroke count for the given character.
 
         @type char: str
         @param char: Chinese character
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character. This parameter is
-            optional and if omitted the default I{Z-variant} defined by
-            L{getDefaultZVariant()} will be used.
+        @type glyph: int
+        @param glyph: I{glyph} of the character. This parameter is optional and
+            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
+            be used.
         @rtype: int
         @return: stroke count of given character
         @raise NoInformationError: if no stroke count information available
@@ -868,15 +854,14 @@ class CharacterLookup(object):
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
         """
-        if zVariant == None:
-            zVariant = self.getDefaultZVariant(char)
+        if glyph == None:
+            glyph = self.getDefaultGlyph(char)
 
         # if table exists use it
         if self.hasStrokeCount:
             table = self.db.tables['StrokeCount']
             result = self.db.selectScalar(select([table.c.StrokeCount],
-                and_(table.c.ChineseCharacter == char,
-                    table.c.ZVariant == zVariant)))
+                and_(table.c.ChineseCharacter == char, table.c.Glyph == glyph)))
             if not result:
                 raise exception.NoInformationError(
                     "Character has no stroke count information")
@@ -885,7 +870,7 @@ class CharacterLookup(object):
             # Plan B, use stroke order (there might be less stroke order entries
             #   than stroke count entries)
             try:
-                return len(self.getStrokeOrder(char, zVariant=zVariant))
+                return len(self.getStrokeOrder(char, glyph=glyph))
             except exception.NoInformationError:
                 raise exception.NoInformationError(
                     "Character has no stroke count information")
@@ -896,8 +881,7 @@ class CharacterLookup(object):
         I{character domain}.
 
         @rtype: dict
-        @return: dictionary of key pair character, Z-variant and value stroke
-            count
+        @return: dictionary of key pair character, glyph and value stroke count
         @attention: The quality of the returned data depends on the sources used
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
@@ -914,10 +898,10 @@ class CharacterLookup(object):
                         == self._characterDomainTable.c.ChineseCharacter)]
 
             result = self.db.selectRows(select(
-                [table.c.ChineseCharacter, table.c.ZVariant, table.c.StrokeCount],
+                [table.c.ChineseCharacter, table.c.Glyph, table.c.StrokeCount],
                 from_obj=fromObj))
-            return dict([((char, zVariant), strokeCount) \
-                for char, zVariant, strokeCount in result])
+            return dict([((char, glyph), strokeCount) \
+                for char, glyph, strokeCount in result])
         else:
             # Plan B, use stroke order (there might be less stroke order entries
             #   than stroke count entries)
@@ -1088,10 +1072,10 @@ class CharacterLookup(object):
         #@type locale: str
         #@param locale: I{character locale} (one out of TCJKV)
         #@rtype: list of tuple
-        #@return: list of character, Z-variant pairs having the same stroke types
+        #@return: list of character, glyph pairs having the same stroke types
         #"""
         #return self.db.select('StrokeBitField',
-            #['ChineseCharacter', 'ZVariant'],
+            #['ChineseCharacter', 'Glyph'],
            # {'StrokeField': self._getStrokeBitField(strokeList),
             #'Locale': self._locale(locale)},
             #orderBy = ['ChineseCharacter'])
@@ -1109,7 +1093,7 @@ class CharacterLookup(object):
         #@type locale: str
         #@param locale: I{character locale} (one out of TCJKV)
         #@rtype: list of tuple
-        #@return: list of character, Z-variant pairs
+        #@return: list of character, glyph pairs
         #@bug:  Table 'strokebitfield' doesn't seem to include entries from
             #'strokeorder' but only from character decomposition table:
 
@@ -1124,22 +1108,22 @@ class CharacterLookup(object):
         #strokeList = strokeOrder.replace(' ', '-').split('-')
 
         #results = self.db.select(['StrokeBitField s', 'BigramBitField b',
-            #'StrokeCount c'], ['s.ChineseCharacter', 's.ZVariant'],
+            #'StrokeCount c'], ['s.ChineseCharacter', 's.Glyph'],
            # {'s.Locale': '=b.Locale', 's.Locale': '=c.Locale',
             #'s.ChineseCharacter': '=b.ChineseCharacter',
             #'s.ChineseCharacter': '=c.ChineseCharacter',
-            #'s.ZVariant': '=b.ZVariant', 's.ZVariant': '=c.ZVariant',
+            #'s.Glyph': '=b.Glyph', 's.Glyph': '=c.Glyph',
             #'s.Locale': self._locale(locale),
             #'s.StrokeField': self._getStrokeBitField(strokeList),
             #'b.BigramField': self._getBigramBitField(strokeList),
             #'c.StrokeCount': len(strokeList)})
         #resultList = []
         ## check exact match of stroke order for all possible matches
-        #for char, zVariant in results:
-            #so = self.getStrokeOrderAbbrev(char, locale, zVariant)
+        #for char, glyph in results:
+            #so = self.getStrokeOrderAbbrev(char, locale, glyph)
             #soList = so.replace(' ', '-').split('-')
             #if soList == strokeList:
-                #resultList.append((char, zVariant))
+                #resultList.append((char, glyph))
         #return resultList
 
     #def getCharactersForStrokeOrderFuzzy(self, strokeOrder, locale, minEstimate,
@@ -1178,18 +1162,18 @@ class CharacterLookup(object):
         #@type bigramVariance: int
         #@param bigramVariance: variance of stroke bigrams
         #@rtype: list of tuple
-        #@return: list of character, Z-variant pairs
+        #@return: list of character, glyph pairs
         #"""
         #strokeList = strokeOrder.replace(' ', '-').split('-')
         #strokeCount = len(strokeList)
         #strokeBitField = self._getStrokeBitField(strokeList)
         #bigramBitField = self._getBigramBitField(strokeList)
         #results = self.db.select(['StrokeBitField s', 'BigramBitField b',
-            #'StrokeCount c'], ['s.ChineseCharacter', 's.ZVariant'],
+            #'StrokeCount c'], ['s.ChineseCharacter', 's.Glyph'],
            # {'s.Locale': '=b.Locale', 's.Locale': '=c.Locale',
             #'s.ChineseCharacter': '=b.ChineseCharacter',
             #'s.ChineseCharacter': '=c.ChineseCharacter',
-            #'s.ZVariant': '=b.ZVariant', 's.ZVariant': '=c.ZVariant',
+            #'s.Glyph': '=b.Glyph', 's.Glyph': '=c.Glyph',
             #'s.Locale': self._locale(locale),
             #'bit_count(s.StrokeField ^ ' + str(strokeBitField) + ')':
             #'<=' + str(strokeVariance),
@@ -1199,14 +1183,14 @@ class CharacterLookup(object):
             #'c.StrokeCount': '<=' + str(strokeCount+strokeCountVariance)},
             #distinctValues=True)
         #resultList = []
-        #for char, zVariant in results:
-            #so = self.getStrokeOrderAbbrev(char, locale, zVariant)
+        #for char, glyph in results:
+            #so = self.getStrokeOrderAbbrev(char, locale, glyph)
             #soList = so.replace(' ', '-').split('-')
             #estimate = 1.0 / \
                 #(math.sqrt(1.0 + (8*float(self.getStrokeOrderDistance(
                     #strokeList, soList)) / strokeCount)))
             #if estimate >= minEstimate:
-                #resultList.append((char, zVariant, estimate))
+                #resultList.append((char, glyph, estimate))
         #return resultList
 
     _strokeLookup = None
@@ -1253,7 +1237,7 @@ class CharacterLookup(object):
         else:
             raise ValueError(name + " is no valid stroke name")
 
-    def getStrokeOrder(self, char, zVariant=None):
+    def getStrokeOrder(self, char, glyph=None):
         """
         Gets the stroke order sequence for the given character.
 
@@ -1262,21 +1246,21 @@ class CharacterLookup(object):
 
         @type char: str
         @param char: Chinese character
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character. This parameter is
-            optional and if omitted the default I{Z-variant} defined by
-            L{getDefaultZVariant()} will be used.
+        @type glyph: int
+        @param glyph: I{glyph} of the character. This parameter is optional and
+            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
+            be used.
         @rtype: list
         @return: list of Unicode strokes
         @raise NoInformationError: if no stroke order information available
         """
-        strokeOrderAbbrev = self.getStrokeOrderAbbrev(char, zVariant)
+        strokeOrderAbbrev = self.getStrokeOrderAbbrev(char, glyph)
         strokeOrder = []
         for stroke in strokeOrderAbbrev.replace(' ', '-').split('-'):
             strokeOrder.append(self.getStrokeForAbbrev(stroke))
         return strokeOrder
 
-    def getStrokeOrderAbbrev(self, char, zVariant=None):
+    def getStrokeOrderAbbrev(self, char, glyph=None):
         """
         Gets the stroke order sequence for the given character as a string of
         I{abbreviated stroke names} separated by spaces and hyphens.
@@ -1286,10 +1270,10 @@ class CharacterLookup(object):
 
         @type char: str
         @param char: Chinese character
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character. This parameter is
-            optional and if omitted the default I{Z-variant} defined by
-            L{getDefaultZVariant()} will be used.
+        @type glyph: int
+        @param glyph: I{glyph} of the character. This parameter is optional and
+            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
+            be used.
         @rtype: str
         @return: string of stroke abbreviations separated by spaces and hyphens.
         @raise NoInformationError: if no stroke order information available
@@ -1298,9 +1282,9 @@ class CharacterLookup(object):
             given. The user then could prefer several sources that in the order
             given would be queried.
         """
-        if zVariant == None:
-            zVariant = self.getDefaultZVariant(char)
-        strokeOrder = self._buildStrokeOrder(char, zVariant)
+        if glyph == None:
+            glyph = self.getDefaultGlyph(char)
+        strokeOrder = self._buildStrokeOrder(char, glyph)
         if not strokeOrder:
             raise exception.NoInformationError(
                 "Character has no stroke order information")
@@ -1313,7 +1297,7 @@ class CharacterLookup(object):
         I{character domain}.
 
         @rtype: dict
-        @return: dictionary of key pair character, Z-variant and value stroke
+        @return: dictionary of key pair character, I{glyph} and value stroke
             order
         """
         tables = [self.db.tables[tableName] \
@@ -1325,29 +1309,29 @@ class CharacterLookup(object):
                     == self._characterDomainTable.c.ChineseCharacter) \
                 for table in tables]
 
-        # get all character/Z-variant pairs for which we have glyph information
+        # get all character/glyph pairs for which we have glyph information
         chars = self.db.selectRows(
-            union(*[select([table.c.ChineseCharacter, table.c.ZVariant]) \
+            union(*[select([table.c.ChineseCharacter, table.c.Glyph]) \
                 for table in tables]))
 
         strokeOrderDict = {}
         cache = {}
-        for char, zVariant in chars:
-            strokeOrder = self._buildStrokeOrder(char, zVariant, cache)
+        for char, glyph in chars:
+            strokeOrder = self._buildStrokeOrder(char, glyph, cache)
             if strokeOrder:
-                strokeOrderDict[(char, zVariant)] = strokeOrder
+                strokeOrderDict[(char, glyph)] = strokeOrder
 
         return strokeOrderDict
 
-    def _getStrokeOrderEntry(self, char, zVariant):
+    def _getStrokeOrderEntry(self, char, glyph):
         """
         Gets the stroke order sequence for the given character from the
         database's stroke order lookup table.
 
         @type char: str
         @param char: Chinese character
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character
+        @type glyph: int
+        @param glyph: I{glyph} of the character
         @rtype: str
         @return: string of stroke abbreviations separated by spaces and
             hyphens.
@@ -1355,9 +1339,9 @@ class CharacterLookup(object):
         table = self.db.tables['StrokeOrder']
         return self.db.selectScalar(select([table.c.StrokeOrder],
             and_(table.c.ChineseCharacter == char,
-                table.c.ZVariant == zVariant), distinct=True))
+                table.c.Glyph == glyph), distinct=True))
 
-    def _buildStrokeOrder(self, char, zVariant, cache=None):
+    def _buildStrokeOrder(self, char, glyph, cache=None):
         """
         Gets the stroke order sequence for the given character as a string of
         I{abbreviated stroke names} separated by spaces and hyphens.
@@ -1367,14 +1351,14 @@ class CharacterLookup(object):
 
         @type char: str
         @param char: Chinese character
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the character.
+        @type glyph: int
+        @param glyph: I{glyph} of the character.
         @type cache: dict
         @param cache: optional dict of cached stroke order entries
         @rtype: str
         @return: string of stroke abbreviations separated by spaces and hyphens.
         """
-        def getFromDecomposition(char, zVariant):
+        def getFromDecomposition(char, glyph):
             """
             Gets stroke order from the tree of a single partition entry.
 
@@ -1434,13 +1418,13 @@ class CharacterLookup(object):
                         assert False, 'not an IDS character'
                 else:
                     # no IDS operator but character
-                    char, charZVariant = subTree[index]
+                    char, charGlyph = subTree[index]
                     # if the character is unknown or there is none raise
                     if char == u'？':
                         return None, index
                     else:
                         # recursion
-                        so = self._buildStrokeOrder(char, charZVariant, cache)
+                        so = self._buildStrokeOrder(char, charGlyph, cache)
                         if not so:
                             return None, index
                         strokeOrder.append(so)
@@ -1448,21 +1432,21 @@ class CharacterLookup(object):
                 return (strokeOrder, index)
 
             # Try to find a partition without unknown components
-            for decomposition in self.getDecompositionEntries(char, zVariant):
+            for decomposition in self.getDecompositionEntries(char, glyph):
                 so, _ = getFromEntry(decomposition)
                 if so:
                     return ' '.join(so)
 
         if cache is None:
             cache = {}
-        if (char, zVariant) not in cache:
+        if (char, glyph) not in cache:
             # if there is an entry for the whole character return it
-            order = self._getStrokeOrderEntry(char, zVariant)
+            order = self._getStrokeOrderEntry(char, glyph)
             if not order:
-                order = getFromDecomposition(char, zVariant)
-            cache[(char, zVariant)] = order
+                order = getFromDecomposition(char, glyph)
+            cache[(char, glyph)] = order
 
-        return cache[(char, zVariant)]
+        return cache[(char, glyph)]
 
     #}
     #{ Character radical functions
@@ -1487,19 +1471,19 @@ class CharacterLookup(object):
                 "Character has no Kangxi radical information")
         return result
 
-    def getCharacterKangxiRadicalResidualStrokeCount(self, char, zVariant=None):
+    def getCharacterKangxiRadicalResidualStrokeCount(self, char, glyph=None):
         u"""
         Gets the Kangxi radical form (either a I{Unicode radical form} or a
         I{Unicode radical variant}) found as a component in the character and
         the stroke count of the residual character components.
 
         The representation of the included radical or radical variant form
-        depends on the respective character variant and thus the form's
-        Z-variant is returned. Some characters include the given radical more
-        than once and in some cases the representation is different between
-        those same forms thus in the general case several matches can be
-        returned each entry with a different radical form Z-variant. In these
-        cases the entries are sorted by their Z-variant.
+        depends on the respective character shape and thus the form's I{glyph}
+        is returned. Some characters include the given radical more than once
+        and in some cases the representation is different between those same
+        forms thus in the general case several matches can be returned, each
+        entry with a different radical form I{glyph}. In these cases the entries
+        are sorted by their glyph index.
 
         There are characters which include both, the radical form and a variant
         form of the radical (e.g. 伦: 人 and 亻). In these cases both are
@@ -1511,19 +1495,19 @@ class CharacterLookup(object):
 
         @type char: str
         @param char: Chinese character
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character. This parameter is
-            optional and if omitted the default I{Z-variant} defined by
-            L{getDefaultZVariant()} will be used.
+        @type glyph: int
+        @param glyph: I{glyph} of the character. This parameter is optional and
+            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
+            be used.
         @rtype: list of tuple
-        @return: list of radical/variant form, its Z-variant, the main layout of
+        @return: list of radical/variant form, its I{glyph}, the main layout of
             the character (using a I{IDS operator}), the position of the radical
             wrt. layout (0, 1 or 2) and the residual stroke count.
         @raise NoInformationError: if no stroke count information available
         """
         radicalIndex = self.getCharacterKangxiRadicalIndex(char)
         entries = self.getCharacterRadicalResidualStrokeCount(char,
-            radicalIndex, zVariant)
+            radicalIndex, glyph)
         if entries:
             return entries
         else:
@@ -1531,7 +1515,7 @@ class CharacterLookup(object):
                 "Character has no radical form information")
 
     def getCharacterRadicalResidualStrokeCount(self, char, radicalIndex,
-        zVariant=None):
+        glyph=None):
         u"""
         Gets the radical form (either a I{Unicode radical form} or a
         I{Unicode radical variant}) found as a component in the character and
@@ -1545,18 +1529,18 @@ class CharacterLookup(object):
         @param char: Chinese character
         @type radicalIndex: int
         @param radicalIndex: radical index
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character. This parameter is
-            optional and if omitted the default I{Z-variant} defined by
-            L{getDefaultZVariant()} will be used.
+        @type glyph: int
+        @param glyph: I{glyph} of the character. This parameter is optional and
+            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
+            be used.
         @rtype: list of tuple
-        @return: list of radical/variant form, its Z-variant, the main layout of
+        @return: list of radical/variant form, its I{glyph}, the main layout of
             the character (using a I{IDS operator}), the position of the radical
             wrt. layout (0, 1 or 2) and the residual stroke count.
         @raise NoInformationError: if no stroke count information available
         @todo Lang: Clarify on characters classified under a given radical
             but without any proper radical glyph found as component.
-        @todo Lang: Clarify on different radical zVariants for the same radical
+        @todo Lang: Clarify on different radical glyphs for the same radical
             form. At best this method should return one and only one radical
             form (glyph).
         @todo Impl: Give the I{Unicode radical form} and not the equivalent
@@ -1567,15 +1551,15 @@ class CharacterLookup(object):
             or I{Unicode radical variant}, then this form is returned. In either
             case the radical form can be an ordinary character.
         """
-        if zVariant == None:
-            zVariant = self.getDefaultZVariant(char)
+        if glyph == None:
+            glyph = self.getDefaultGlyph(char)
         table = self.db.tables['CharacterRadicalResidualStrokeCount']
         entries = self.db.selectRows(select([table.c.RadicalForm,
-                table.c.RadicalZVariant, table.c.MainCharacterLayout,
+                table.c.RadicalGlyph, table.c.MainCharacterLayout,
                 table.c.RadicalRelativePosition, table.c.ResidualStrokeCount],
-            and_(table.c.ChineseCharacter == char, table.c.ZVariant == zVariant,
+            and_(table.c.ChineseCharacter == char, table.c.Glyph == glyph,
             table.c.RadicalIndex == radicalIndex)).order_by(
-                table.c.ResidualStrokeCount, table.c.RadicalZVariant,
+                table.c.ResidualStrokeCount, table.c.RadicalGlyph,
                 table.c.RadicalForm, table.c.MainCharacterLayout,
                 table.c.RadicalRelativePosition))
         # add key columns to sort order to make return value deterministic
@@ -1595,9 +1579,9 @@ class CharacterLookup(object):
         A typical entry looks like
         C{(u'众', 0): {9: [(u'人', 0, u'⿱', 0, 4), (u'人', 0, u'⿻', 0, 4)]}},
         and can be accessed as C{radicalDict[(u'众', 0)][9]} with the Chinese
-        character, its Z-variant and Kangxi radical index. The values are given
-        in the order I{radical form}, I{radical Z-variant}, I{character layout},
-        I{relative position of the radical} and finally the
+        character, its I{glyph} and Kangxi radical index. The values are given
+        in the order I{radical form}, radical I{glyph}, I{character layout},
+        relative position of the radical and finally the
         I{residual stroke count}.
 
         @rtype: dict
@@ -1607,30 +1591,30 @@ class CharacterLookup(object):
         # get entries from database
         table = self.db.tables['CharacterRadicalResidualStrokeCount']
         entries = self.db.selectRows(select([table.c.ChineseCharacter,
-                table.c.ZVariant, table.c.RadicalIndex, table.c.RadicalForm,
-                table.c.RadicalZVariant, table.c.MainCharacterLayout,
+                table.c.Glyph, table.c.RadicalIndex, table.c.RadicalForm,
+                table.c.RadicalGlyph, table.c.MainCharacterLayout,
                 table.c.RadicalRelativePosition, table.c.ResidualStrokeCount])\
-            .order_by(table.c.ResidualStrokeCount, table.c.RadicalZVariant,
+            .order_by(table.c.ResidualStrokeCount, table.c.RadicalGlyph,
                 table.c.RadicalForm, table.c.MainCharacterLayout,
                 table.c.RadicalRelativePosition))
         for entry in entries:
-            char, zVariant, radicalIndex, radicalForm, radicalZVariant, \
+            char, glyph, radicalIndex, radicalForm, radicalGlyph, \
                 mainCharacterLayout, radicalReladtivePosition, \
                 residualStrokeCount = entry
 
-            if (char, zVariant) not in radicalDict:
-                radicalDict[(char, zVariant)] = {}
+            if (char, glyph) not in radicalDict:
+                radicalDict[(char, glyph)] = {}
 
-            if radicalIndex  not in radicalDict[(char, zVariant)]:
-                radicalDict[(char, zVariant)][radicalIndex] = []
+            if radicalIndex  not in radicalDict[(char, glyph)]:
+                radicalDict[(char, glyph)][radicalIndex] = []
 
-            radicalDict[(char, zVariant)][radicalIndex].append(
-                (radicalForm, radicalZVariant, mainCharacterLayout, \
+            radicalDict[(char, glyph)][radicalIndex].append(
+                (radicalForm, radicalGlyph, mainCharacterLayout, \
                     radicalReladtivePosition, residualStrokeCount))
 
         return radicalDict
 
-    def getCharacterKangxiResidualStrokeCount(self, char, zVariant=None):
+    def getCharacterKangxiResidualStrokeCount(self, char, glyph=None):
         u"""
         Gets the stroke count of the residual character components when leaving
         aside the radical form.
@@ -1642,10 +1626,10 @@ class CharacterLookup(object):
 
         @type char: str
         @param char: Chinese character
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character. This parameter is
-            optional and if omitted the default I{Z-variant} defined by
-            L{getDefaultZVariant()} will be used.
+        @type glyph: int
+        @param glyph: I{glyph} of the character. This parameter is optional and
+            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
+            be used.
         @rtype: int
         @return: residual stroke count
         @raise NoInformationError: if no stroke count information available
@@ -1654,11 +1638,9 @@ class CharacterLookup(object):
             stroke order information without being bound to a specific glyph.
         """
         radicalIndex = self.getCharacterKangxiRadicalIndex(char)
-        return self.getCharacterResidualStrokeCount(char, radicalIndex,
-            zVariant)
+        return self.getCharacterResidualStrokeCount(char, radicalIndex, glyph)
 
-    def getCharacterResidualStrokeCount(self, char, radicalIndex,
-        zVariant=None):
+    def getCharacterResidualStrokeCount(self, char, radicalIndex, glyph=None):
         u"""
         Gets the stroke count of the residual character components when leaving
         aside the radical form.
@@ -1671,10 +1653,10 @@ class CharacterLookup(object):
         @param char: Chinese character
         @type radicalIndex: int
         @param radicalIndex: radical index
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character. This parameter is
-            optional and if omitted the default I{Z-variant} defined by
-            L{getDefaultZVariant()} will be used.
+        @type glyph: int
+        @param glyph: I{glyph} of the character. This parameter is optional and
+            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
+            be used.
         @rtype: int
         @return: residual stroke count
         @raise NoInformationError: if no stroke count information available
@@ -1682,11 +1664,11 @@ class CharacterLookup(object):
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
         """
-        if zVariant == None:
-            zVariant = self.getDefaultZVariant(char)
+        if glyph == None:
+            glyph = self.getDefaultGlyph(char)
         table = self.db.tables['CharacterResidualStrokeCount']
         entry = self.db.selectScalar(select([table.c.ResidualStrokeCount],
-            and_(table.c.ChineseCharacter == char, table.c.ZVariant == zVariant,
+            and_(table.c.ChineseCharacter == char, table.c.Glyph == glyph,
                 table.c.RadicalIndex == radicalIndex)))
         if entry != None:
             return entry
@@ -1701,7 +1683,7 @@ class CharacterLookup(object):
 
         A typical entry looks like C{(u'众', 0): {9: [4]}},
         and can be accessed as C{residualCountDict[(u'众', 0)][9]} with the
-        Chinese character, its Z-variant and Kangxi radical index which then
+        Chinese character, its I{glyph} and Kangxi radical index which then
         gives the I{residual stroke count}.
 
         @rtype: dict
@@ -1719,15 +1701,15 @@ class CharacterLookup(object):
                     == self._characterDomainTable.c.ChineseCharacter)]
 
         entries = self.db.selectRows(select([table.c.ChineseCharacter,
-            table.c.ZVariant, table.c.RadicalIndex,
+            table.c.Glyph, table.c.RadicalIndex,
             table.c.ResidualStrokeCount], from_obj=fromObj))
         for entry in entries:
-            char, zVariant, radicalIndex, residualStrokeCount = entry
+            char, glyph, radicalIndex, residualStrokeCount = entry
 
-            if (char, zVariant) not in residualCountDict:
-                residualCountDict[(char, zVariant)] = {}
+            if (char, glyph) not in residualCountDict:
+                residualCountDict[(char, glyph)] = {}
 
-            residualCountDict[(char, zVariant)][radicalIndex] \
+            residualCountDict[(char, glyph)][radicalIndex] \
                 = residualStrokeCount
 
         return residualCountDict
@@ -1940,7 +1922,7 @@ class CharacterLookup(object):
                         table.c.Locale.like(locale))))
                 if result:
                     return result
-        raise ValueError(radicalForm +  "is no valid Kangxi radical," \
+        raise ValueError("%s is no valid Kangxi radical," % radicalForm \
             + " variant form or equivalent character")
 
     def getKangxiRadicalRepresentativeCharacters(self, radicalIdx):
@@ -2153,10 +2135,10 @@ class CharacterLookup(object):
         @param resultIncludeRadicalForms: if C{True} the result will include
             I{Unicode radical forms} and I{Unicode radical variants}
         @rtype: list of tuple
-        @return: list of pairs of matching characters and their Z-variants
+        @return: list of pairs of matching characters and their I{glyphs}
         @todo Impl: Table of same character glyphs, including special radical
             forms (e.g. 言 and 訁).
-        @todo Data: Adopt locale dependant Z-variants for parent characters
+        @todo Data: Adopt locale dependant I{glyph} for parent characters
             (e.g. 鬼 in 隗 愧 嵬).
         @todo Data: Use radical forms and radical variant forms instead of
             equivalent characters in decomposition data. Mapping looses
@@ -2204,7 +2186,7 @@ class CharacterLookup(object):
             resultIncludeRadicalForms=resultIncludeRadicalForms)
 
     def getCharactersForEquivalentComponents(self, componentConstruct,
-        resultIncludeRadicalForms=False, includeAllZVariants=False):
+        resultIncludeRadicalForms=False, includeAllGlyphs=False):
         u"""
         Gets all characters that contain at least one component per list entry,
         sorted by stroke count if available.
@@ -2219,22 +2201,22 @@ class CharacterLookup(object):
         @type resultIncludeRadicalForms: bool
         @param resultIncludeRadicalForms: if C{True} the result will include
             I{Unicode radical forms} and I{Unicode radical variants}
-        @type includeAllZVariants: bool
-        @param includeAllZVariants: if C{True} all matches will be returned, if
-            C{False} only those with z-Variant matching the locale's default one
+        @type includeAllGlyphs: bool
+        @param includeAllGlyphs: if C{True} all matches will be returned, if
+            C{False} only those with glyphs matching the locale's default one
             will be returned
         @rtype: list of tuple
-        @return: list of pairs of matching characters and their Z-variants
+        @return: list of pairs of matching characters and their I{glyphs}
         """
         if not componentConstruct:
             return []
 
         # create where clauses
         lookupTable = self.db.tables['ComponentLookup']
-        localeTable = self.db.tables['LocaleCharacterVariant']
+        localeTable = self.db.tables['LocaleCharacterGlyph']
         strokeCountTable = self.db.tables['StrokeCount']
 
-        joinTables = []         # join over all tables by char and z-Variant
+        joinTables = []         # join over all tables by char and glyph
         filters = []            # filter for locale and component
 
         # generate filter for each component
@@ -2245,9 +2227,9 @@ class CharacterLookup(object):
             filters.append(or_(lookupTableAlias.c.Component.in_(characterList),
                 lookupTableAlias.c.ChineseCharacter.in_(characterList)))
 
-        # join with LocaleCharacterVariant and allow only forms matching the
-        #   given locale, unless includeAllZVariants is True
-        if not includeAllZVariants:
+        # join with LocaleCharacterGlyph and allow only forms matching the
+        #   given locale, unless includeAllGlyphs is True
+        if not includeAllGlyphs:
             joinTables.append(localeTable)
             filters.append(or_(localeTable.c.Locale == None,
                 localeTable.c.Locale.like(self._locale(self.locale))))
@@ -2263,7 +2245,7 @@ class CharacterLookup(object):
                 onclause=and_(
                     table.c.ChineseCharacter \
                         == joinTables[0].c.ChineseCharacter,
-                    table.c.ZVariant == joinTables[0].c.ZVariant))
+                    table.c.Glyph == joinTables[0].c.Glyph))
         # constrain to selected character domain
         if self.getCharacterDomain() != 'Unicode':
             fromObject = fromObject.join(self._characterDomainTable,
@@ -2271,7 +2253,7 @@ class CharacterLookup(object):
                     == self._characterDomainTable.c.ChineseCharacter)
 
         sel = select([joinTables[0].c.ChineseCharacter,
-            joinTables[0].c.ZVariant], and_(*filters), from_obj=[fromObject],
+            joinTables[0].c.Glyph], and_(*filters), from_obj=[fromObject],
             distinct=True)
         if self.hasStrokeCount:
             sel = sel.order_by(strokeCountTable.c.StrokeCount)
@@ -2280,12 +2262,12 @@ class CharacterLookup(object):
 
         if not resultIncludeRadicalForms:
             # exclude radical characters found in decomposition
-            result = [(char, zVariant) for char, zVariant in result \
+            result = [(char, glyph) for char, glyph in result \
                 if not self.isRadicalChar(char)]
 
         return result
 
-    def getDecompositionEntries(self, char, zVariant=None):
+    def getDecompositionEntries(self, char, glyph=None):
         """
         Gets the decomposition of the given character into components from the
         database. The resulting decomposition is only the first layer in a tree
@@ -2296,20 +2278,20 @@ class CharacterLookup(object):
         decomposition is returned.
 
         Each entry in the result list consists of a list of characters (with its
-        Z-variant) and IDS operators.
+        I{glyph}) and IDS operators.
 
         @type char: str
         @param char: Chinese character that is to be decomposed into components
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character. This parameter is
-            optional and if omitted the default I{Z-variant} defined by
-            L{getDefaultZVariant()} will be used.
+        @type glyph: int
+        @param glyph: I{glyph} of the character. This parameter is optional and
+            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
+            be used.
         @rtype: list
         @return: list of first layer decompositions
         """
-        if zVariant == None:
+        if glyph == None:
             try:
-                zVariant = self.getDefaultZVariant(char)
+                glyph = self.getDefaultGlyph(char)
             except exception.NoInformationError:
                 # no decomposition available
                 return []
@@ -2318,9 +2300,9 @@ class CharacterLookup(object):
         table = self.db.tables['CharacterDecomposition']
         result = self.db.selectScalars(select([table.c.Decomposition],
             and_(table.c.ChineseCharacter == char,
-                table.c.ZVariant == zVariant)).order_by(table.c.SubIndex))
+                table.c.Glyph == glyph)).order_by(table.c.SubIndex))
 
-        # extract character Z-variant information (example entry: '⿱卜[1]尸')
+        # extract character glyph information (example entry: '⿱卜[1]尸')
         return [self._getDecompositionFromString(decomposition) \
             for decomposition in result]
 
@@ -2330,7 +2312,7 @@ class CharacterLookup(object):
         chosen I{character domain}.
 
         @rtype: dict
-        @return: dictionary with key pair character, Z-variant and the first
+        @return: dictionary with key pair character, I{glyph} and the first
             layer decomposition as value
         """
         decompDict = {}
@@ -2345,20 +2327,20 @@ class CharacterLookup(object):
                     == self._characterDomainTable.c.ChineseCharacter)]
 
         entries = self.db.selectRows(select([table.c.ChineseCharacter,
-            table.c.ZVariant, table.c.Decomposition], from_obj=fromObj)\
+            table.c.Glyph, table.c.Decomposition], from_obj=fromObj)\
                 .order_by(table.c.SubIndex))
-        for char, zVariant, decomposition in entries:
-            if (char, zVariant) not in decompDict:
-                decompDict[(char, zVariant)] = []
+        for char, glyph, decomposition in entries:
+            if (char, glyph) not in decompDict:
+                decompDict[(char, glyph)] = []
 
-            decompDict[(char, zVariant)].append(
+            decompDict[(char, glyph)].append(
                 self._getDecompositionFromString(decomposition))
 
         return decompDict
 
     def _getDecompositionFromString(self, decomposition):
         """
-        Gets a tuple representation with character/Z-variant of the given
+        Gets a tuple representation with character/I{glyph} of the given
         character's decomposition into components.
 
         Example: Entry C{⿱尚[1]儿} will be returned as
@@ -2366,9 +2348,9 @@ class CharacterLookup(object):
 
         @type decomposition: str
         @param decomposition: character decomposition with IDS operator,
-            compontens and optional Z-variant index
+            compontens and optional I{glyph} index
         @rtype: list
-        @return: decomposition with character/Z-variant tuples
+        @return: decomposition with character/I{glyph} tuples
         """
         componentsList = []
         index = 0
@@ -2382,17 +2364,17 @@ class CharacterLookup(object):
                     and decomposition[index+1] == '[':
 
                     endIndex = decomposition.index(']', index+1)
-                    # extract Z-variant information
-                    charZVariant = int(decomposition[index+2:endIndex])
+                    # extract glyph information
+                    charGlyph = int(decomposition[index+2:endIndex])
                     index = endIndex
                 else:
-                    # take default Z-variant if none specified
-                    charZVariant = 0
-                componentsList.append((char, charZVariant))
+                    # take default glyph if none specified
+                    charGlyph = 0
+                componentsList.append((char, charGlyph))
             index = index + 1
         return componentsList
 
-    def getDecompositionTreeList(self, char, zVariant=None):
+    def getDecompositionTreeList(self, char, glyph=None):
         """
         Gets the decomposition of the given character into components as a list
         of decomposition trees.
@@ -2401,49 +2383,48 @@ class CharacterLookup(object):
         decomposition is returned.
 
         Each entry in the result list consists of a list of characters (with its
-        Z-variant and list of further decomposition) and IDS operators. If a
+        glyph and list of further decomposition) and IDS operators. If a
         character can be further subdivided, its containing list is non empty
         and includes yet another list of trees for the decomposition of the
         component.
 
         @type char: str
         @param char: Chinese character that is to be decomposed into components
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character. This parameter is
-            optional and if omitted the default I{Z-variant} defined by
-            L{getDefaultZVariant()} will be used.
+        @type glyph: int
+        @param glyph: I{glyph} of the character. This parameter is optional and
+            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
+            be used.
         @rtype: list
         @return: list of decomposition trees
         """
-        if zVariant == None:
+        if glyph == None:
             try:
-                zVariant = self.getDefaultZVariant(char)
+                glyph = self.getDefaultGlyph(char)
             except exception.NoInformationError:
                 # no decomposition available
                 return []
 
         decompositionTreeList = []
         # get tree for each decomposition
-        for componentsList in self.getDecompositionEntries(char,
-            zVariant=zVariant):
+        for componentsList in self.getDecompositionEntries(char, glyph=glyph):
             decompositionTree = []
             for component in componentsList:
                 if type(component) != type(()):
                     # IDS operator
                     decompositionTree.append(component)
                 else:
-                    # Chinese character with zVariant info
-                    character, characterZVariant = component
+                    # Chinese character with glyph info
+                    character, characterGlyph = component
                     # get partition of component recursively
                     componentTree = self.getDecompositionTreeList(character,
-                        zVariant=characterZVariant)
-                    decompositionTree.append((character, characterZVariant,
+                        glyph=characterGlyph)
+                    decompositionTree.append((character, characterGlyph,
                         componentTree))
             decompositionTreeList.append(decompositionTree)
         return decompositionTreeList
 
-    def isComponentInCharacter(self, component, char, zVariant=None,
-        componentZVariant=None):
+    def isComponentInCharacter(self, component, char, glyph=None,
+        componentGlyph=None):
         """
         Checks if the given character contains the second character as a
         component.
@@ -2452,22 +2433,22 @@ class CharacterLookup(object):
         @param component: character questioned to be a component
         @type char: str
         @param char: Chinese character
-        @type zVariant: int
-        @param zVariant: I{Z-variant} of the first character. This parameter is
-            optional and if omitted the default I{Z-variant} defined by
-            L{getDefaultZVariant()} will be used.
-        @type componentZVariant: int
-        @param componentZVariant: Z-variant of the component; if left out every
-            Z-variant matches for that character.
+        @type glyph: int
+        @param glyph: I{glyph} of the character. This parameter is optional and
+            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
+            be used.
+        @type componentGlyph: int
+        @param componentGlyph: I{glyph} of the component; if left out every
+            glyph matches for that character.
         @rtype: bool
         @return: C{True} if C{component} is a component of the given character,
             C{False} otherwise
         @todo Impl: Implement means to check if the component is really not
             found, or if our data is just insufficient.
         """
-        if zVariant == None:
+        if glyph == None:
             try:
-                zVariant = self.getDefaultZVariant(char)
+                glyph = self.getDefaultGlyph(char)
             except exception.NoInformationError:
                 # TODO no way to check if our data is insufficent
                 return False
@@ -2475,32 +2456,32 @@ class CharacterLookup(object):
         # if table exists use it to speed up look up
         if self.hasComponentLookup:
             table = self.db.tables['ComponentLookup']
-            zVariants = self.db.selectScalars(
-                select([table.c.ComponentZVariant],
+            glyphs = self.db.selectScalars(
+                select([table.c.ComponentGlyph],
                     and_(table.c.ChineseCharacter == char,
-                        table.c.ZVariant == zVariant,
+                        table.c.Glyph == glyph,
                         table.c.Component == component)))
-            return len(zVariants) > 0 and (componentZVariant == None \
-                or componentZVariant in zVariants)
+            return len(glyphs) > 0 and (componentGlyph == None \
+                or componentGlyph in glyphs)
         else:
             # use slow way with going through the decomposition tree
             # get decomposition for the first character from table
             for componentsList in self.getDecompositionEntries(char,
-                zVariant=zVariant):
+                glyph=glyph):
                 # got through decomposition and check for components
                 for charComponent in componentsList:
                     if type(charComponent) == type(()):
-                        character, characterZVariant = charComponent
+                        character, characterGlyph = charComponent
                         if character != u'？':
-                            # check if character and Z-variant match
+                            # check if character and glyph match
                             if character == component \
-                                and (componentZVariant == None or
-                                    characterZVariant == componentZVariant):
+                                and (componentGlyph == None or
+                                    characterGlyph == componentGlyph):
                                 return True
                             # else recursively step into decomposition of
                             #   current component
                             if self.isComponentInCharacter(character, component,
-                                zVariant=characterZVariant,
-                                componentZVariant=componentZVariant):
+                                glyph=characterGlyph,
+                                componentGlyph=componentGlyph):
                                 return True
             return False

@@ -60,7 +60,7 @@ from cjklib.exception import (DecompositionError, AmbiguousDecompositionError,
     InvalidEntityError, CompositionError, UnsupportedError,
     AmbiguousConversionError)
 from cjklib.dbconnector import DatabaseConnector
-from cjklib.util import titlecase, istitlecase
+from cjklib.util import titlecase, istitlecase, cross
 
 class ReadingOperator(object):
     """
@@ -389,7 +389,7 @@ class RomanisationOperator(ReadingOperator):
         """
         decompositionParts = self.getDecompositionTree(readingString)
         # merge segmentations to decomposition
-        decompCrossProd = self._crossProduct(decompositionParts)
+        decompCrossProd = cross(*decompositionParts)
 
         decompositionList = []
         for line in decompCrossProd:
@@ -601,47 +601,6 @@ class RomanisationOperator(ReadingOperator):
         @return: set of supported I{formatting entities}
         """
         return set()
-
-    @staticmethod
-    def _crossProduct(singleLists):
-        """
-        Calculates the cross product (aka Cartesian product) of sets given as
-        lists.
-
-        Example:
-            >>> RomanisationOperator._crossProduct([['A', 'B'], [1, 2, 3]])
-            [['A', 1], ['A', 2], ['A', 3], ['B', 1], ['B', 2], ['B', 3]]
-
-        @type singleLists: list of list
-        @param singleLists: a list of list entries containing various elements
-        @rtype: list of list
-        @return: the cross product of the given sets
-        """
-        # get repeat index for whole set
-        lastRepeat = 1
-        repeatSet = []
-        for elem in singleLists:
-            repeatSet.append(lastRepeat)
-            lastRepeat = lastRepeat * len(elem)
-        repeatEntry = []
-        # get dimension of Cartesian product and dimensions of parts
-        newListLength = 1
-        for i in range(0, len(singleLists)):
-            elem = singleLists[len(singleLists) - i - 1]
-            repeatEntry.append(newListLength)
-            newListLength = newListLength * len(elem)
-        repeatEntry.reverse()
-        # create product
-        newList = [[] for i in range(0, newListLength)]
-        lastSetLen = 1
-        for i, listElem in enumerate(singleLists):
-            for j in range(0, repeatSet[i]):
-                for k, elem in enumerate(listElem):
-                    for l in range(0, repeatEntry[i]):
-                        newList[j * lastSetLen + k*repeatEntry[i] \
-                            + l].append(elem)
-            lastSetLen = repeatEntry[i]
-        return newList
 
     @staticmethod
     def _treeToList(tupleTree):
