@@ -27,7 +27,6 @@ import re
 import os.path
 import copy
 import xml.sax
-import csv
 
 from sqlalchemy import Table, Column, Integer, String, Text, Index
 from sqlalchemy import select, union
@@ -38,6 +37,7 @@ from sqlalchemy.exceptions import IntegrityError, OperationalError
 from cjklib import characterlookup
 from cjklib import exception
 from cjklib.build import warn
+from cjklib.util import UnicodeCSVFileIterator
 
 # pylint: disable-msg=E1101
 #  member variables are set by setattr()
@@ -1506,89 +1506,6 @@ class CSVFileLoader(TableBuilder):
     INDEX_KEYS = []
     """Index keys (not unique) of the created table"""
 
-    class DefaultDialect(csv.Dialect):
-        """Defines a default dialect for the case sniffing fails."""
-        quoting = csv.QUOTE_NONE
-        delimiter = ','
-        lineterminator = '\n'
-        quotechar = "'"
-        # the following are needed for Python 2.4
-        escapechar = "\\"
-        doublequote = True
-        skipinitialspace = False
-
-    # TODO unicode_csv_reader(), utf_8_encoder(), byte_string_dialect() used
-    #  to work around missing Unicode support in csv module
-    @staticmethod
-    def unicode_csv_reader(unicode_csv_data, dialect, **kwargs):
-        # csv.py doesn't do Unicode; encode temporarily as UTF-8:
-        csv_reader = csv.reader(CSVFileLoader.utf_8_encoder(unicode_csv_data),
-            dialect=CSVFileLoader.byte_string_dialect(dialect), **kwargs)
-        for row in csv_reader:
-            # decode UTF-8 back to Unicode, cell by cell:
-            yield [unicode(cell, 'utf-8') for cell in row]
-
-    @staticmethod
-    def utf_8_encoder(unicode_csv_data):
-        for line in unicode_csv_data:
-            yield line.encode('utf-8')
-
-    @staticmethod
-    def byte_string_dialect(dialect):
-        class ByteStringDialect(csv.Dialect):
-            def __init__(self, dialect):
-                for attr in ["delimiter", "quotechar", "escapechar",
-                    "lineterminator"]:
-                    old = getattr(dialect, attr)
-                    if old is not None:
-                        setattr(self, attr, str(old))
-
-                for attr in ["doublequote", "skipinitialspace", "quoting"]:
-                    setattr(self, attr, getattr(dialect, attr))
-
-                csv.Dialect.__init__(self)
-
-        return ByteStringDialect(dialect)
-
-    def getCSVReader(self, fileHandle):
-        """
-        Returns a csv reader object for a given file name.
-
-        The file can start with the character '#' to mark comments. These will
-        be ignored. The first line after the leading comments will be used to
-        guess the csv file's format.
-
-        @type fileHandle: file
-        @param fileHandle: file handle of the CSV file
-        @rtype: instance
-        @return: CSV reader object returning one entry per line
-        """
-        def prependLineGenerator(line, data):
-            """
-            The first line red for guessing format has to be reinserted.
-            """
-            yield line
-            for nextLine in data:
-                yield nextLine
-
-        line = '#'
-        try:
-            while line.strip().startswith('#'):
-                line = fileHandle.next()
-        except StopIteration:
-            return csv.reader(fileHandle)
-        try:
-            self.fileDialect = csv.Sniffer().sniff(line, ['\t', ','])
-            # fix for Python 2.4
-            if len(self.fileDialect.delimiter) == 0:
-                raise csv.Error()
-        except csv.Error:
-            self.fileDialect = CSVFileLoader.DefaultDialect()
-
-        content = prependLineGenerator(line, fileHandle)
-        #return csv.reader(content, dialect=self.fileDialect) # TODO
-        return CSVFileLoader.unicode_csv_reader(content, self.fileDialect)
-
     def build(self):
         import codecs
 
@@ -1613,7 +1530,7 @@ class CSVFileLoader(TableBuilder):
         fileHandle = codecs.open(contentFile, 'r', 'utf-8')
 
         entries = []
-        for line in self.getCSVReader(fileHandle):
+        for line in UnicodeCSVFileIterator(fileHandle):
             if len(line) == 1 and not line[0].strip():
                 continue
             entryDict = dict([(column.name, line[i]) \

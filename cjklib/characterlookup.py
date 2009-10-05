@@ -2303,7 +2303,7 @@ class CharacterLookup(object):
                 table.c.Glyph == glyph)).order_by(table.c.SubIndex))
 
         # extract character glyph information (example entry: '⿱卜[1]尸')
-        return [self._getDecompositionFromString(decomposition) \
+        return [CharacterLookup.decompositionFromString(decomposition) \
             for decomposition in result]
 
     def getDecompositionEntriesDict(self):
@@ -2334,11 +2334,12 @@ class CharacterLookup(object):
                 decompDict[(char, glyph)] = []
 
             decompDict[(char, glyph)].append(
-                self._getDecompositionFromString(decomposition))
+                CharacterLookup.decompositionFromString(decomposition))
 
         return decompDict
 
-    def _getDecompositionFromString(self, decomposition):
+    @staticmethod
+    def decompositionFromString(decomposition):
         """
         Gets a tuple representation with character/I{glyph} of the given
         character's decomposition into components.
@@ -2348,7 +2349,7 @@ class CharacterLookup(object):
 
         @type decomposition: str
         @param decomposition: character decomposition with IDS operator,
-            compontens and optional I{glyph} index
+            components and optional I{glyph} index
         @rtype: list
         @return: decomposition with character/I{glyph} tuples
         """
@@ -2356,15 +2357,22 @@ class CharacterLookup(object):
         index = 0
         while index < len(decomposition):
             char = decomposition[index]
-            if self.isIDSOperator(char):
+            if CharacterLookup.isIDSOperator(char):
                 componentsList.append(char)
             else:
                 # is Chinese character
-                if index+1 < len(decomposition)\
+                if char == '#':
+                    # pseudo character, find digit end
+                    offset = 2
+                    while index+offset < len(decomposition) \
+                        and decomposition[index+offset].isdigit():
+                        offset += 1
+                    char = int(decomposition[index:index+offset])
+                    charGlyph = 0
+                elif index+1 < len(decomposition)\
                     and decomposition[index+1] == '[':
-
-                    endIndex = decomposition.index(']', index+1)
                     # extract glyph information
+                    endIndex = decomposition.index(']', index+1)
                     charGlyph = int(decomposition[index+2:endIndex])
                     index = endIndex
                 else:
@@ -2373,6 +2381,39 @@ class CharacterLookup(object):
                 componentsList.append((char, charGlyph))
             index = index + 1
         return componentsList
+
+    @staticmethod
+    def decompositionToString(decomposition, pureIds=False):
+        """
+        Gets a string representation of the given character decomposition.
+
+        Example: C{[u'⿱', (u'尚', 1), (u'儿', 0)]} will yield C{⿱尚[1]儿}.
+
+        @type decomposition: list
+        @param decomposition: decomposition with character/I{glyph} tuples
+        @type pureIds: bool
+        @param pureIds: if C{True} a pure I{Ideographic Description Sequence}
+            will be returned and no glyph information will be included.
+        @rtype: str
+        @return: character decomposition with IDS operator, components and
+            optional I{glyph} index
+        """
+        entities = []
+        for index in range(len(decomposition)):
+            if type(decomposition[index]) == type(()):
+                component, glyph = decomposition[index]
+                if type(component) == type(0):
+                    # pseudo character
+                    component = '#%d' % component
+                if glyph == 0 or glyph is None or pureIds:
+                    entities.append(component)
+                else:
+                    assert type(glyph) == type(0)
+                    entities.append("%s[%d]" % (component, glyph))
+            else:
+                entities.append(decomposition[index])
+
+        return ''.join(entities)
 
     def getDecompositionTreeList(self, char, glyph=None):
         """
