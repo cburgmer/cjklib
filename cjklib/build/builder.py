@@ -2014,10 +2014,9 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                                 and lastStrokeCount != accumulatedStrokeCount:
                                 # different stroke counts taken from different
                                 #   decompositions, can't build at all
-                                raise ValueError("ambiguous stroke count " \
-                                    + "information, due to various stroke " \
-                                    + "count sources for " \
-                                    + repr((char, glyph)))
+                                raise ValueError("ambiguous stroke count "
+                                    "information, due to various stroke "
+                                    "count sources for " + repr((char, glyph)))
                             else:
                                 # first run or equal to previous calculation
                                 lastStrokeCount = accumulatedStrokeCount
@@ -2088,8 +2087,8 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             # get character decompositions
             decompositionDict = self.cjk.getDecompositionEntriesDict()
 
+            warningGlyphs = []
             for char, glyph in self.characterSet:
-                warningGlyphs = []
                 try:
                     # build stroke count from mixed source
                     strokeCount = self.getStrokeCount(char, glyph,
@@ -2099,14 +2098,14 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                     yield {'ChineseCharacter': char, 'Glyph': glyph,
                         'StrokeCount': strokeCount}
                 except ValueError:
-                    warningGlyphs.append(glyph)
+                    warningGlyphs.append((char, glyph))
                 except exception.NoInformationError:
                     pass
 
-                if not self.quiet and warningGlyphs:
-                    warn("ambiguous stroke count information (mixed sources) " \
-                        "for character '%s' for glyphs(s) '" % char \
-                        + ''.join([str(z) for z in warningGlyphs]) + "'")
+            if not self.quiet and warningGlyphs:
+                warn("ambiguous stroke count information (mixed sources) for "
+                    + ', '.join(["'%s' (%d)" % (char, glyph) for char, glyph \
+                        in warningGlyphs]))
 
         def checkAgainstUnihan(self, strokeCountDict, tableEntries):
             """
@@ -2333,9 +2332,6 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                 character
             @raise ValueError: if IDS is malformed or ambiguous residual stroke
                 count is calculated
-            @todo Fix:  Remove validity check, only needed as long
-                decomposition entries aren't checked against stroke order
-                entries.
             """
             def getCharLayout(mainCharacterLayout, mainLayoutPosition,
                 subCharLayout, subLayoutPosition):
@@ -2500,8 +2496,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                             entriesDict[(char, glyph)].add(
                                 frozenset(componentEntry.items()))
 
-                # validity check # TODO only needed as long decomposition and
-                #   stroke order entries aren't checked for validity
+                # validity check
                 seenEntriesDict = {}
                 for entry in [dict(d) for d in entriesDict[(char, glyph)]]:
                     keyEntry = (entry['Form'], entry['Glyph'],
@@ -2534,12 +2529,18 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                     # ignore Unicode radical forms
                     continue
 
-                for entry in self.getEntries(char, glyph, strokeCountDict,
-                    decompositionDict, entryDict):
-
-                    yield [char, glyph, entry['RadicalIndex'], entry['Form'],
-                        entry['Glyph'], entry['CharacterLayout'],
-                        entry['RadicalPosition'], entry['ResidualStrokeCount']]
+                try:
+                    entries = self.getEntries(char, glyph, strokeCountDict,
+                        decompositionDict, entryDict)
+                    for entry in entries:
+                        yield [char, glyph, entry['RadicalIndex'],
+                            entry['Form'], entry['Glyph'],
+                            entry['CharacterLayout'], entry['RadicalPosition'],
+                            entry['ResidualStrokeCount']]
+                except ValueError:
+                    if not self.quiet:
+                        warn("Inconsistent stroke count for '%s' (%d)"
+                            % (char, glyph))
 
     PROVIDES = 'CharacterRadicalResidualStrokeCount'
     DEPENDS = ['CharacterDecomposition', 'StrokeCount', 'KangxiRadical',
