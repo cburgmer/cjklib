@@ -433,3 +433,347 @@ class CharacterLookupGetCharactersForReadingReferenceTest(
             ((u'm\u0300h', 'CantoneseYale'), {}, [u'唔', u'嘸']),
             ]),
         ]
+
+
+class CharacterLookupGetCharacterVariantsReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getCharacterVariants'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'台', 'T'), {}, [u'\u53f0', u'\u6aaf', u'\u81fa', u'\u98b1']),
+            ]),
+        (('T', ), [
+            ((u'台', 'S'), {}, [u'\u53f0']),
+            ]),
+        ]
+
+
+class CharacterLookupGetAllCharacterVariantsReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getAllCharacterVariants'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'他', ), {}, [(u'\u5979', u'M'), (u'\u7260', u'M')]),
+            ]),
+        ]
+
+
+class CharacterLookupGetDefaultGlyphReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getDefaultGlyph'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'台', ), {}, 0),
+            ]),
+        ]
+
+
+class CharacterLookupGetCharacterGlyphsReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getCharacterGlyphs'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'口', ), {}, [0]),
+            ]),
+        ]
+
+
+class CharacterLookupGetStrokeCountReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getStrokeCount'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'口', ), {}, 3),
+            ]),
+        ]
+
+
+class CharacterLookupGetStrokeForAbbrevReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getStrokeForAbbrev'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'HZG', ), {}, u'㇆'),
+            ]),
+        ]
+
+
+class CharacterLookupGetStrokeForNameReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getStrokeForName'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'提', ), {}, u'㇀'),
+            ]),
+        ]
+
+
+class CharacterLookupGetStrokeOrderReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getStrokeOrder'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'口', ), {}, [u'㇑', u'㇕', u'㇐']),
+            ]),
+        ]
+
+
+class CharacterLookupGetStrokeOrderAbbrevReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getStrokeOrderAbbrev'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'口', ), {}, 'S-HZ-H'),
+            ]),
+        ]
+
+
+class CharacterLookupGetCharacterKangxiRadicalIndexReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getCharacterKangxiRadicalIndex'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'他', ), {}, 9),
+            ]),
+        ]
+
+
+class CharacterLookupGetCharacterKangxiRadicalResidualStrokeCountReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getCharacterKangxiRadicalResidualStrokeCount'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'他', ), {}, [(u'\u4ebb', 0, u'\u2ff0', 0, 3)]),
+            ]),
+        ]
+
+
+class CharacterLookupGetCharacterRadicalResidualStrokeCountReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getCharacterRadicalResidualStrokeCount'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'他', 9), {}, [(u'\u4ebb', 0, u'\u2ff0', 0, 3)]),
+            ]),
+        ]
+
+
+class CharacterLookupGetCharacterKangxiResidualStrokeCountReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getCharacterKangxiResidualStrokeCount'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'他', ), {}, 3),
+            ]),
+        ]
+
+
+class CharacterLookupGetCharacterResidualStrokeCountReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getCharacterResidualStrokeCount'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'他', 9), {}, 3),
+            ]),
+        ]
+
+
+class CharacterLookupGetCharactersForKangxiRadicalIndexReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getCharactersForKangxiRadicalIndex'
+
+    REFERENCE_LIST = [
+        (('C', 'GB2312'), [
+            ((214, ), {}, [u'\u9fa0']),
+            ]),
+        ]
+
+
+class CharacterLookupGetCharactersForRadicalIndexReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getCharactersForRadicalIndex'
+
+    REFERENCE_LIST = [
+        (('C', 'GB2312'), [
+            ((214, ), {}, [u'\u7039', u'\u9fa0']),
+            ]),
+        ]
+
+
+class CharacterLookupGetResidualStrokeCountForKangxiRadicalIndexReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getResidualStrokeCountForKangxiRadicalIndex'
+
+    REFERENCE_LIST = [
+        (('C', 'GB2312'), [
+            ((214, ), {}, [(u'\u9fa0', 0)]),
+            ]),
+        ]
+
+
+class CharacterLookupGetResidualStrokeCountForRadicalIndexReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getResidualStrokeCountForRadicalIndex'
+
+    REFERENCE_LIST = [
+        (('C', 'GB2312'), [
+            ((214, ), {}, [(u'\u7039', 3), (u'\u9fa0', 0)]),
+            ]),
+        ]
+
+
+class CharacterLookupGetKangxiRadicalFormReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getKangxiRadicalForm'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((214, ), {}, u'\u2fd5'),
+            ]),
+        ]
+
+
+class CharacterLookupGetKangxiRadicalVariantFormsReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getKangxiRadicalVariantForms'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((149, ), {}, []),
+            ]),
+        (('C', ), [
+            ((149, ), {}, [u'\u2ec8']),
+            ]),
+        ]
+
+
+class CharacterLookupGetKangxiRadicalIndexReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getKangxiRadicalIndex'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'⿕', ), {}, 214),
+            ]),
+        ]
+
+
+class CharacterLookupGetKangxiRadicalIndexReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getKangxiRadicalIndex'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'⿕', ), {}, 214),
+            ]),
+        ]
+
+
+class CharacterLookupGetKangxiRadicalRepresentativeCharactersReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getKangxiRadicalRepresentativeCharacters'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((149, ), {}, [u'\u2f94', u'\u8a00', u'\u8a01']),
+            ]),
+        (('C', ), [
+            ((149, ), {}, [u'\u2ec8', u'\u2f94', u'\u8a00', u'\u8a01',
+                u'\u8ba0']),
+            ]),
+        ]
+
+
+class CharacterLookupIsKangxiRadicalFormOrEquivalentReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'isKangxiRadicalFormOrEquivalent'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'讠', ), {}, False),
+            ]),
+        (('C', ), [
+            ((u'讠', ), {}, True),
+            ]),
+        ]
+
+
+class CharacterLookupIsRadicalCharReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'isRadicalChar'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'⿕', ), {}, True), ((u'龠', ), {}, False),
+            ]),
+        ]
+
+
+class CharacterLookupGetRadicalFormEquivalentCharacterReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getRadicalFormEquivalentCharacter'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'⿕', ), {}, u'龠'),
+            ]),
+        ]
+
+
+class CharacterLookupGetCharacterEquivalentRadicalFormsReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getCharacterEquivalentRadicalForms'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'网', ), {}, [u'\u2f79', u'\u2eb3', u'\u2eb4']),
+            ]),
+        ]
+
+
+class CharacterLookupGetCharactersForComponentsReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getCharactersForComponents'
+
+    REFERENCE_LIST = [
+        (('C', 'GB2312'), [
+            (([u'⿕', u'氵'], ), {}, [(u'\u7039', 0)]),
+            ]),
+        ]
+
+
+class CharacterLookupGetDecompositionEntriesReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'getDecompositionEntries'
+
+    REFERENCE_LIST = [
+        (('C', 'GB2312'), [
+            ((u'瀹', ), {}, [[u'\u2ff0', (u'\u6c35', 0), (u'\u9fa0', 0)]]),
+            ]),
+        ]
+
+
+class CharacterLookupIsComponentInCharacterReferenceTest(
+    CharacterLookupReferenceTest, unittest.TestCase):
+    METHOD_NAME = 'isComponentInCharacter'
+
+    REFERENCE_LIST = [
+        (('T', ), [
+            ((u'女', u'好'), {}, True),
+            ((u'女', u'他'), {}, False),
+            ]),
+        ]
