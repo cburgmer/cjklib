@@ -10,6 +10,7 @@ include buildcjkdb
 include test/*.py
 include examples/*.py
 include scripts/*.py
+include scripts/*.csv
 include README
 include COPYING
 include DEVELOPMENT

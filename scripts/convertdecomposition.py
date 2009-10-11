@@ -536,7 +536,7 @@ class DecompositionConverter(object):
 
             if not CharacterLookup.isIDSOperator(decomposition[index]):
                 # simple chars should be IDS operators
-                return ValueError()
+                raise ValueError()
 
             if CharacterLookup.isBinaryIDSOperator(decomposition[index]):
                 index = index + 1
