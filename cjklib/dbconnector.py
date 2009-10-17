@@ -79,7 +79,7 @@ class DatabaseConnector:
             if 'url' not in configuration:
                 from pkg_resources import Requirement, resource_filename
                 dbFile = resource_filename(Requirement.parse(projectName),
-                    '%s.db' % projectName)
+                    '%s/%s.db' % projectName)
                 configuration['url'] = 'sqlite:///%s' % dbFile
 
         # if settings changed, remove old instance
