@@ -268,8 +268,10 @@ format --BuilderName-option or --TableName-option, e.g.
         # dataPath
         options['dataPath'] = ['.']
         buildModule = __import__("cjklib.build")
-        buildModulePath = os.path.dirname(os.path.abspath(buildModule.__file__))
-        options['dataPath'].append(os.path.join(buildModulePath, 'data'))
+
+        from pkg_resources import Requirement, resource_filename
+        options['dataPath'].append(
+            resource_filename(Requirement.parse("cjklib"), "cjklib/data"))
         # prefer
         options['prefer'] = cls.DB_PREFER_BUILDERS
         # databaseUrl
@@ -479,3 +481,8 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             parser.error("unknown command '%s'" % command)
 
         return False
+
+
+if __name__ == "__main__":
+    if not CommandLineBuilder().run():
+        sys.exit(1)

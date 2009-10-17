@@ -46,9 +46,6 @@ class DatabaseConnector:
         3. C{selectRow()}: returns only one entry
         4. C{selectScalar()}: returns one single value
     """
-    DEFAULT_URL_TEMPLATE = 'sqlite:///%s.db'
-    """Default database url template."""
-
     _dbconnectInst = None
     """
     Instance of a L{DatabaseConnector} used for all connections to SQL server.
@@ -78,8 +75,12 @@ class DatabaseConnector:
         elif not configuration:
             # try to read from config
             configuration = getConfigSettings('Connection', projectName)
-            configuration.setdefault('url',
-                cls.DEFAULT_URL_TEMPLATE % projectName)
+
+            if 'url' not in configuration:
+                from pkg_resources import Requirement, resource_filename
+                dbFile = resource_filename(Requirement.parse(projectName),
+                    '%s.db' % projectName)
+                configuration['url'] = 'sqlite:///%s' % dbFile
 
         # if settings changed, remove old instance
         if not cls._dbconnectInstSettings \

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from distutils.core import setup
+from setuptools import setup
 import re
 import glob
 import cjklib
@@ -20,21 +20,34 @@ setup(name='cjklib',
     url=URL,
     packages=['cjklib', 'cjklib.reading', 'cjklib.build', 'cjklib.test'],
     package_dir={'cjklib': 'cjklib'},
-    package_data={'cjklib': ['data/*.csv', 'data/*.sql']},
-    scripts=['cjknife', 'buildcjkdb'],
-    data_files=[('/etc', ['cjklib.conf']),
-        ('/var/lib/cjklib', ['cjklib.db']),
-        ('share/doc/python-cjklib/test', glob.glob("test/*.py")),
-        ('share/doc/python-cjklib/examples', glob.glob("examples/*.py")),
-        ('share/doc/python-cjklib/scripts', glob.glob("scripts/*.py")),
-        ('share/doc/python-cjklib/', ['README', 'changelog', 'COPYING',
-            'DEVELOPMENT', 'THANKS', 'TODO'])],
+    package_data={'cjklib': ['data/*.csv', 'data/*.sql', 'cjklib.conf',
+        'cjklib.db']},
+    scripts=['cjknife'],
+    data_files=[#('/etc', ['cjklib.conf']),
+        #('/var/lib/cjklib', ['cjklib.db']),
+        #('share/doc/python-cjklib/test', glob.glob("test/*.py")),
+        #('share/doc/python-cjklib/examples', glob.glob("examples/*.py")),
+        #('share/doc/python-cjklib/scripts', glob.glob("scripts/*.py")),
+        #('share/doc/python-cjklib/', ['README', 'changelog', 'COPYING',
+            #'DEVELOPMENT', 'THANKS', 'TODO'])],
+    entry_points={
+        'console_scripts': [
+            'buildcjkdb = build.cli.CommandLineBuilder:main',
+        ],
+    },
+    install_requires="SQLAlchemy >= 0.4.8",
     license=LICENSE,
     classifiers=['Topic :: Text Processing :: Linguistic',
         'Environment :: Console',
         'Intended Audience :: Developers',
         'Intended Audience :: Education',
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)',])
+        'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)',
+        'Natural Language :: Chinese (Simplified)',
+        'Natural Language :: Chinese (Traditional)',
+        'Natural Language :: Japanese',
+        'Natural Language :: Korean',
+        'Natural Language :: Vietnamese',
+        ])
