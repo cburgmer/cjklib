@@ -3,14 +3,12 @@ Cjklib is a library providing Han character related methods for CJKV languages
 
 Introduction
 ============
-Cjklib provides language routines for handling Han characters (characters based
+Cjklib provides language routines related to Han characters (characters based
 on Chinese characters named Hanzi, Kanji, Hanja and chu Han respectively) used
-in writing of the Chinese, Japanese, infrequently the Korean and formerly the
-Vietnamese language and languages.
-
-Methods include character lookup functionality by reading, stroke count, stroke
-order, radicals and character components furthermore reading/romanization
-conversion.
+in writing of the Chinese, the Japanese, infrequently the Korean and formerly
+the Vietnamese language(s). Functionality is included for character
+pronunciations, radicals, glyph components, stroke decomposition and variant
+information.
 
 Installing
 ==========
@@ -39,9 +37,8 @@ $ buildcjkdb build fullCEDICT --dataPath=PathToCedictFile
 
 Database
 ========
-Packaged versions of the library will ship with a prebuild SQLite database file.
-If you want to, you can rebuild the database. The build steps will take some
-minutes, depending on the tables created.
+Packaged versions of the library will ship with a pre-build SQLite database
+file. If you want to, you can rebuild the database.
 
 First download the newest Unihan file:
 $ wget ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
@@ -54,9 +51,6 @@ for the Mandarin Chinese language.
 
 SQLite
 ------
-SQLite support should work out of the box. SQLite 3 is currently known to
-work.
-
 Currently only characters from the Basic Multilingual Plane (BMP) of Unicode
 are supported, due to missing support in MySQL (see below). To enable full
 support set wideBuild to True in cjklib.conf.

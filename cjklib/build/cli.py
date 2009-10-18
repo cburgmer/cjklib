@@ -483,6 +483,9 @@ There is NO WARRANTY, to the extent permitted by law.""" \
         return False
 
 
-if __name__ == "__main__":
+def main():
     if not CommandLineBuilder().run():
         sys.exit(1)
+
+if __name__ == "__main__":
+    main()

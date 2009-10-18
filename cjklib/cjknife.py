@@ -26,7 +26,7 @@ The script's output depends on the following:
     - user locale settings are checked to guess appropriate values for the
         character locale and the default input and output readings
 
-@copyright: Copyright (C) 2006-2009 Christoph Burgmer.
+@copyright: Copyright (C) 2006-2009 cjklib developers
 """
 
 import sys

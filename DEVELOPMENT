@@ -6,6 +6,8 @@ following lines to your ~/.bashrc:
 cjklibroot=~/cjklib/trunk
 export PYTHONPATH=$PYTHONPATH:$cjklibroot
 
+You might want to copy cjklib.conf to /etc and modify it.
+
 Additional software
 ===================
 * epydoc from http://epydoc.sourceforge.net is used to generate the API
@@ -16,6 +18,8 @@ Additional software
   module satisfies the Python coding standard and can find simple
   programming errors. Use the config pylintrc to adapt pylint to settings of
   cjklib.
+* stdeb from http://github.com/astraw/stdeb, Python to Debian source package
+  conversion utility.
 
 Test cases
 ==========
@@ -87,8 +91,11 @@ $ svn checkout http://cjklib.googlecode.com/svn/trunk/ cjklib-read-only
 $ cd cjklib-read-only
 
 Create the database:
-$ python -m cjklib.build.cli build cjklibData \
+$ wget ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
+$ python -m cjklib.build.cli build cjklibData --wideBuild=True \
     --database=sqlite:///cjklib/cjklib.db
+$ python -c \
+    "from cjklib.build import DatabaseBuilder; DatabaseBuilder().optimize()"
 
 Continue with the following distribution specific sections.
 
@@ -112,7 +119,5 @@ $ dput -U ppa:cburgmer/ppa cjklib.2~karmic-1_source.changes
 Debian
 ------
 Create a binary package:
-$ python -c "import stdeb; execfile('setup.py')" sdist_dsc \
+$ python -c "import stdeb; execfile('setup.py')" bdist_deb \
     --debian-version 1 --extra-cfg-file=cjklib.egg-info/debian_stdeb.cfg
-$ cd deb_dist/cjklib-0.2~unstable/
-$ dpkg-buildpackage
