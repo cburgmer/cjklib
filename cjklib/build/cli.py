@@ -41,8 +41,8 @@ class ExtendedOption(Option):
     _boolean_states = {'1': True, 'yes': True, 'true': True, 'on': True,
                        '0': False, 'no': False, 'false': False, 'off': False}
     def check_bool(option, opt, value):
-        if value.lower() in _boolean_states:
-            return _boolean_states[value.lower()]
+        if value.lower() in ExtendedOption._boolean_states:
+            return ExtendedOption._boolean_states[value.lower()]
         else:
             raise OptionValueError(
                 "option %s: invalid bool value: %r" % (opt, value))
