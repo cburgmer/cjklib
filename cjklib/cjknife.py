@@ -669,8 +669,8 @@ class CharacterInfo:
                     wordsTable.c.Reading == self.dictionaryObject.c.Reading))
         elif dictType == 'CEDICT':
             table = self.dictionaryObject.join(wordsTable,
-                and_(wordsTable.c.HeadwordTraditional \
-                        == self.dictionaryObject.c.Headword,
+                and_(wordsTable.c.Headword \
+                        == self.dictionaryObject.c.HeadwordTraditional,
                     wordsTable.c.Reading == self.dictionaryObject.c.Reading))
 
         selectQueries.append(select([self.headwordColumn,
