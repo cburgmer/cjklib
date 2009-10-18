@@ -4,6 +4,7 @@ include cjklib/*.py
 include cjklib/reading/*.py
 include cjklib/build/*.py
 include cjklib/test/*.py
+include cjklib/cjklib.db
 include setup.py
 include cjknife
 include test/*.py
@@ -19,4 +20,3 @@ include changelog
 include cjklib.conf
 include epydoc_config
 include pylintrc
-include cjklib.db

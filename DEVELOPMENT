@@ -1,17 +1,13 @@
-Introduction
-------------
-Short documentation about steps helping in development.
-
 Path
-----
+====
 Make sure you always use the newest version of cjklib by appending the
 following lines to your ~/.bashrc:
 
-cjklibroot=/home/christoph/dokumente/projekte/cjklib/trunk
+cjklibroot=~/cjklib/trunk
 export PYTHONPATH=$PYTHONPATH:$cjklibroot
 
 Additional software
--------------------
+===================
 * epydoc from http://epydoc.sourceforge.net is used to generate the API
   documentation.
 * nosetests from http://somethingaboutorange.com/mrl/projects/nose is used
@@ -22,25 +18,25 @@ Additional software
   cjklib.
 
 Test cases
-------------
+==========
 Run test cases with
-  nosetests cjklib/test/*.py --with-id
+$ nosetests cjklib/test/*.py --with-id
 or to omit slow tests
-  nosetests cjklib/test/*.py --with-id -a '!slow'
+$ nosetests cjklib/test/*.py --with-id -a '!slow'
 or
-  nosetests cjklib/test/*.py --with-id -a '!slow','!quiteslow'
+$ nosetests cjklib/test/*.py --with-id -a '!slow','!quiteslow'
 
 To rerun failed test cases, run
-  nosetests cjklib/test/*.py --with-id --failed
+$ nosetests cjklib/test/*.py --with-id --failed
 
 To test the build methods you need to download external files first:
-  cd test
-  python download.py
+$ cd test
+$ python download.py
 Currently only SQLite in-memory database testing is enabled. You might want
 to enable MySQL, see cjklib/test/build.py for details.
 
 To check documentation included in doc strings ("doctest"), on BASH do:
-  nosetests --with-doctest cjklib.characterlookup cjklib.reading
+$ nosetests --with-doctest cjklib.characterlookup cjklib.reading \
     cjklib.reading.operator cjklib.reading.converter
 
 You need to patch doctest.py as it is currently not capable of reporting
@@ -49,34 +45,74 @@ lead to results in Unicode being reported as wrong:
 http://bugs.python.org/issue3955.
 
 Coverage
-------------
+========
 Run
-  nosetests cjklib/test/* --with-coverage --cover-package=cjklib
+$ nosetests cjklib/test/* --with-coverage --cover-package=cjklib \
     --cover-html --cover-html-dir=coverage
 
 HTML files showing the source code's coverage can then be accessed from
 coverage/index.html.
 
 Profiling
-------------
+=========
 Profiling is mostly used to learn about the runtime behaviour of a program
 and find inefficient parts of the code. It also allows epydoc to generate call
 graphs for inclusion in the API documentation:
-  python -m profile -o unittest.pstat /usr/bin/nosetests cjklib/test/*.py
+  $  -m profile -o unittest.pstat /usr/bin/nosetests cjklib/test/*.py
 
 generates the file unittest.pstat that is used for further processing.
 
 Profiling offered by nosetest seems not to work together with epydoc:
-  nosetests cjklib/test/* --with-profile --profile-stats-file=unittest.pstat
+$ nosetests cjklib/test/* --with-profile --profile-stats-file=unittest.pstat
 
 Documentation
-------------
+=============
 Epydoc is used to generate the API documentation:
-  epydoc -v --config epydoc_config
+$ epydoc -v --config epydoc_config
 
 Source code checking
-------------
+====================
 pylint can be used to check for bugs and code with poor quality:
-  pylint --rcfile=pylintrc cjklib
+$ pylint --rcfile=pylintrc cjklib
 While some useless warnings and errors are already surpressed, others might
 crop up. Use your own judging on evaluation.
+
+Packaging
+=========
+Quick step to provide own packages.
+
+First get a clean checkout:
+$ cd /tmp
+$ svn checkout http://cjklib.googlecode.com/svn/trunk/ cjklib-read-only
+$ cd cjklib-read-only
+
+Create the database:
+$ python -m cjklib.build.cli build cjklibData \
+    --database=sqlite:///cjklib/cjklib.db
+
+Continue with the following distribution specific sections.
+
+Source
+------
+python setup.py sdist
+
+Ubuntu
+------
+Swap "karmic" for "jaunty" if building for the latter, swap "cburgmer" for
+your own launchpad account.
+
+Create a source package and upload it to a launchpad ppa:
+$ python -c "import stdeb; execfile('setup.py')" sdist_dsc \
+    --debian-version 1 --extra-cfg-file=cjklib.egg-info/karmic_stdeb.cfg
+$ cd deb_dist/eclectus-0.2~karmic/
+$ dpkg-buildpackage -S
+$ cd ..
+$ dput -U ppa:cburgmer/ppa cjklib.2~karmic-1_source.changes
+
+Debian
+------
+Create a binary package:
+$ python -c "import stdeb; execfile('setup.py')" sdist_dsc \
+    --debian-version 1 --extra-cfg-file=cjklib.egg-info/debian_stdeb.cfg
+$ cd deb_dist/cjklib-0.2~unstable/
+$ dpkg-buildpackage

@@ -1,72 +1,59 @@
-cjklib is a library providing Han character related methods for CJKV languages
+Cjklib is a library providing Han character related methods for CJKV languages
 (Chinese, Japanese, Korean and Vietnamese).
 
 Introduction
-------------
-cjklib provides language routines for handling Han characters (characters based
+============
+Cjklib provides language routines for handling Han characters (characters based
 on Chinese characters named Hanzi, Kanji, Hanja and chu Han respectively) used
 in writing of the Chinese, Japanese, infrequently the Korean and formerly the
 Vietnamese language and languages.
 
 Methods include character lookup functionality by reading, stroke count, stroke
-order, radicals and character sub parts furthermore reading/romanization
+order, radicals and character components furthermore reading/romanization
 conversion.
 
-Documentation
--------------
-The API includes a lot of documentation and the homepage provides an
-increasing set of pages.
-
 Installing
-----------
-If you are installing from the source package, its content has to be extracted
-from the archive first. Then the files needed can be installed on the system by
-running:
+==========
+If you are installing from the source package you need to deploy the library on
+your system:
 
-# python setup.py install
+$ python setup.py install
 
-This step isn't needed when installing from a binary package (.deb, .rpm).
-Furthermore it is possible to run cjknife and buildcjkdb from the source
-directory.
-
-In either case the database needs to be created according to one's needs. The
-build steps will take some minutes, depending on the tables created.
-
-The build process is started by running:
-
-# buildcjkdb build GROUP
-
-with GROUP being the name of a group of tables to be installed.
-
-To use the full set of functions download the Unihan file
-ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
-and run
-
-# buildcjkdb build cjklibData
-
-from the directory containing the Unihan table and the pre-packaged data (the
-source package's directory should suffice) to build all tables needed by the
-cjklib package. Alternatively use e.g. 'fullMandarin' for data needed by the
-library's functions for the Mandarin Chinese language.
-
-A list of groups can be printed with 'buildcjkdb list'. See 'buildcjkdb -h'
-for all parameters of the build script.
+Documentation
+=============
+The API under http://cburgmer.nfshost.com/cjklib/ includes a lot of
+documentation. Also see the project page.
 
 Usage
------
-The main components of this package are accessible through the library. But
-there is a small command line tool cjknife that offers some of the library's
-functions. See "cjknife --help" for an overview.
+=====
+The main components of this package are accessible through the Python library.
+But there is a small command line tool 'cjknife' that offers some of the
+library's functions. See "cjknife --help" for an overview.
 
-This tool also offers simple access to dictionaries which have to be built
-before use. Currently supported are EDICT, CEDICT, HanDeDict, CFDICT,
+This tool also offers simple access to dictionaries which though have to be
+built before use. Currently supported are EDICT, CEDICT, HanDeDict, CFDICT,
 CEDICTGR.
 
-To create the needed tables and indices for the CEDICT dictionary run
-# buildcjkdb build fullCEDICT --dataPath=PathToCedictFile
+To create the needed tables and indices for e.g. the CEDICT dictionary run
+$ buildcjkdb build fullCEDICT --dataPath=PathToCedictFile
+
+Database
+========
+Packaged versions of the library will ship with a prebuild SQLite database file.
+If you want to, you can rebuild the database. The build steps will take some
+minutes, depending on the tables created.
+
+First download the newest Unihan file:
+$ wget ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
+
+Then start the build process:
+$ buildcjkdb build cjklibData
+
+Alternatively use e.g. 'fullMandarin' for data needed by the library's functions
+for the Mandarin Chinese language.
 
 SQLite
------
+------
 SQLite support should work out of the box. SQLite 3 is currently known to
 work.
 
@@ -75,7 +62,7 @@ are supported, due to missing support in MySQL (see below). To enable full
 support set wideBuild to True in cjklib.conf.
 
 SQLite offers a full-text search with extension FTS3 which needs to be
-compiled in to used. cjknife can use the full-text capabilities for the
+compiled in to used. Cjknife can use the full-text capabilities for the
 dictionary search and performs a full table scan in fuzzy search if this
 extension is not available. To enable it set enableFTS3 to True in
 cjklib.conf. No full-text support is currently given for MySQL.
@@ -90,7 +77,7 @@ CREATE DATABASE cjklib DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 You might need to set access rights, too (substitute user_name and
 host_name):
 
-GRANT ALL ON cjklib_unittest.* TO 'user_name'@'host_name';
+GRANT ALL ON cjklib.* TO 'user_name'@'host_name';
 
 Now you need to change cjklib.conf to tell cjklib to use MySQL.
 
@@ -99,9 +86,9 @@ characters outside the Basic Multilingual Plane (BMP) can't be encoded. Building
 the Unihan database thus might result in Warnings, Characters above 0x20000
 can't be built at all.
 
-See above for full-text support.
-
 Contributing
-------------
-If you are interested in contributing to cjklib or have any comments, join
+============
+If you are interested in contributing to cjklib, join
 cjklib-devel@googlegroups.com (http://groups.google.com/group/cjklib-devel).
+
+Please report bugs to http://code.google.com/p/cjklib/issues/list.
