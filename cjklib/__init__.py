@@ -52,7 +52,7 @@ u'\u31d0', u'\u31d3', u'\u31df']
 @author: Christoph Burgmer <cburgmer@ira.uka.de>
 @requires: Python 2.4+, SQLAlchemy 0.4.8+ and either SQLite 3+ or MySQL 5+ and
     MySQL-Python
-@version: 0.1alpha
+@version: 0.2
 
 @copyright: Copyright (C) 2006-2009 cjklib developers
 
@@ -82,7 +82,7 @@ u'\u31d0', u'\u31d3', u'\u31df']
 Version 3, 29 June 2007 (U{http://www.gnu.org/licenses/lgpl.html}) if not
 otherwise noted.
 """
-__version__ = '0.1alpha'
+__version__ = '0.2'
 """The version of cjklib"""
 
 __author__ = 'Christoph Burgmer <cburgmer@ira.uka.de>'
