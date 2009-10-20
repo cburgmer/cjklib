@@ -3,6 +3,8 @@ Changes
 SVN
 ===
 - stroke order corrections
+- fix stroke order calculation for scheme ⿷ that affects characters with
+  radical 匚
 
 0.2 release
 ===========

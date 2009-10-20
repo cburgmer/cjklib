@@ -1388,7 +1388,7 @@ class CharacterLookup(object):
                     if self.isBinaryIDSOperator(character):
                         # check for IDS operators we can't make any order
                         # assumption about
-                        if character in [u'⿴', u'⿻']:
+                        if character in [u'⿴', u'⿻', u'⿷']:
                             return None, index
                         else:
                             if character in [u'⿺', u'⿶']:
