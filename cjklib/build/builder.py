@@ -27,6 +27,7 @@ import re
 import os.path
 import copy
 import xml.sax
+import itertools
 
 from sqlalchemy import Table, Column, Integer, String, Text, Index
 from sqlalchemy import select, union
@@ -491,17 +492,26 @@ class UnihanBuilder(EntryGeneratorBuilder):
     PROVIDES = 'Unihan'
     CHARACTER_COLUMN = 'ChineseCharacter'
     """Name of column for Chinese character key."""
-    COLUMN_TYPES = {CHARACTER_COLUMN: String(1), 'kCantonese': Text(),
-        'kFrequency': Integer(), 'kHangul': Text(), 'kHanyuPinlu': Text(),
-        'kJapaneseKun': Text(), 'kJapaneseOn': Text(), 'kKorean': Text(),
-        'kMandarin': Text(), 'kRSJapanese': Text(), 'kRSKanWa': Text(),
-        'kRSKangXi': Text(), 'kRSKorean': Text(),
-        'kSimplifiedVariant': Text(), 'kTotalStrokes': Integer(),
-        'kTraditionalVariant': Text(), 'kVietnamese': Text(),
-        'kZVariant': Text(), 'kGB0': String(4), 'kBigFive': String(4),
-        'kXHC1983': Text(), 'kHanyuPinyin': Text(), 'kIICore': Text(),
-        'kSemanticVariant': Text(), 'kSpecializedSemanticVariant': Text(),
-        'kCompatibilityVariant': Text()}
+    COLUMN_TYPES = {CHARACTER_COLUMN: String(1),
+        # pronunciation
+        'kCantonese': Text(), 'kHangul': Text(), 'kKorean': Text(),
+        'kJapaneseKun': Text(), 'kJapaneseOn': Text(), 'kVietnamese': Text(),
+        'kMandarin': Text(), 'kHanyuPinlu': Text(), 'kXHC1983': Text(),
+        'kHanyuPinyin': Text(),
+        # character frequency
+        'kFrequency': Integer(),
+        # stroke count & radicals
+        'kTotalStrokes': Integer(),
+        'kRSJapanese': Text(), 'kRSKanWa': Text(), 'kRSKangXi': Text(),
+        'kRSKorean': Text(),
+        # encoding mappings
+        'kGB0': String(4), 'kBigFive': String(4), 'kHKSCS': String(4),
+        'kIICore': Text(),
+        # variant mappings
+        'kZVariant': Text(), 'kSimplifiedVariant': Text(),
+        'kTraditionalVariant': Text(), 'kSemanticVariant': Text(),
+        'kSpecializedSemanticVariant': Text(), 'kCompatibilityVariant': Text(),
+        }
 
     PRIMARY_KEYS = [CHARACTER_COLUMN]
 
@@ -510,7 +520,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
         'kRSJapanese', 'kRSKanWa', 'kRSKangXi', 'kRSKorean', 'kSemanticVariant',
         'kSimplifiedVariant', 'kSpecializedSemanticVariant', 'kTotalStrokes',
         'kTraditionalVariant', 'kVietnamese', 'kXHC1983', 'kZVariant',
-        'kIICore', 'kGB0', 'kBigFive', 'kHanyuPinyin']
+        'kIICore', 'kGB0', 'kBigFive', 'kHKSCS', 'kHanyuPinyin']
     """Keys included in a slim version if explicitly specified."""
 
     def __init__(self, **options):
@@ -1181,10 +1191,42 @@ class GB2312SetBuilder(UnihanCharacterSetBuilder):
 
 class BIG5SetBuilder(UnihanCharacterSetBuilder):
     """
-    Builds a simple list of all characters in the Chinese standard X{BIG5}.
+    Builds a simple list of all characters in the Taiwanese standard X{BIG5}.
     """
     PROVIDES = 'BIG5Set'
     COLUMN_SOURCE = 'kBigFive'
+
+
+class HKSCSSetBuilder(UnihanCharacterSetBuilder):
+    """
+    Builds a simple list of all supplementary characters in the Hong Kong
+    standard X{HKSCS}.
+    """
+    PROVIDES = 'HKSCSSet'
+    COLUMN_SOURCE = 'kHKSCS'
+
+
+class BIG5HKSCSSetBuilder(EntryGeneratorBuilder):
+    """
+    Builds a simple list of all characters in the standard X{BIG5-HKSCS}.
+    """
+    PROVIDES = 'BIG5HKSCSSet'
+    DEPENDS = ['Unihan']
+
+    COLUMNS = ['ChineseCharacter']
+    PRIMARY_KEYS = COLUMNS
+    COLUMN_TYPES = {'ChineseCharacter': String(1)}
+
+    def getGenerator(self):
+        big5 = BIG5SetBuilder(dbConnectInst=self.db).getGenerator()
+        hkscs = HKSCSSetBuilder(dbConnectInst=self.db).getGenerator()
+        return itertools.chain(big5, hkscs)
+
+    def build(self):
+        if not self.quiet:
+            warn("Reading table content from Unihan columns "
+                "'kBigFive' and 'kHKSCS'")
+        super(BIG5HKSCSSetBuilder, self).build()
 
 
 class GlyphInformationSetBuilder(EntryGeneratorBuilder):

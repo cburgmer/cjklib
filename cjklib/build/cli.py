@@ -97,7 +97,8 @@ format --BuilderName-option or --TableName-option, e.g.
             'Strokes', 'StrokeOrder', 'CharacterDecomposition',
             'LocaleCharacterGlyph', 'StrokeCount', 'ComponentLookup',
             'CharacterRadicalResidualStrokeCount'],
-        'UnihanCharacterSets': ['IICoreSet', 'GB2312Set', 'BIG5Set'],
+        'UnihanCharacterSets': ['IICoreSet', 'GB2312Set', 'BIG5Set',
+            'HKSCSSet', 'BIG5HKSCSSet'],
         'UnihanData': ['UnihanCharacterSets', 'CharacterKangxiRadical',
             'CharacterPinyin', 'CharacterJyutping', 'CharacterHangul',
             'CharacterVietnamese', 'CharacterJapaneseKun',
@@ -138,7 +139,7 @@ format --BuilderName-option or --TableName-option, e.g.
             'CharacterJyutping', 'JyutpingSyllables', 'CantoneseYaleSyllables',
             'CantoneseYaleInitialNucleusCoda', 'JyutpingYaleMapping',
             'JyutpingIPAMapping', 'CantoneseIPAInitialFinal',
-            'JyutpingInitialFinal', 'IICoreSet'],
+            'JyutpingInitialFinal', 'GB2312Set', 'BIG5HKSCSSet'],
         'fullJapanese': ['KangxiRadicalData', 'ShapeLookupData', 'IICoreSet'], # TODO IICoreSet as long as no better source exists
         'fullKorean': ['KangxiRadicalData', 'ShapeLookupData',
             'CharacterHangul', 'IICoreSet'], # TODO IICoreSet as long as no better source exists
