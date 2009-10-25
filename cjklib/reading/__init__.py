@@ -508,9 +508,7 @@ class ReadingFactory(object):
 
         self._checkSpecialOperators(fromReading, toReading, args, options)
 
-        opt = options.copy()
-        opt['dbConnectInst'] = self.db
-        converterInst = converterClass(*args, **options)
+        converterInst = converterClass(dbConnectInst=self.db, *args, **options)
         if 'hideComplexConverter' not in options \
             or options['hideComplexConverter']:
             return ReadingFactory.SimpleReadingConverterAdaptor(

@@ -5,6 +5,7 @@ SVN
 - stroke order corrections
 - fix stroke order calculation for scheme ⿷ that affects characters with
   radical 匚
+- fix reading converters not using dbconnector of ReadingFactory
 - added BIG5HKSCS character domain for zh-HK
 
 0.2 release
