@@ -98,7 +98,7 @@ format --BuilderName-option or --TableName-option, e.g.
             'LocaleCharacterGlyph', 'StrokeCount', 'ComponentLookup',
             'CharacterRadicalResidualStrokeCount'],
         'UnihanCharacterSets': ['IICoreSet', 'GB2312Set', 'BIG5Set',
-            'HKSCSSet', 'BIG5HKSCSSet'],
+            'HKSCSSet', 'BIG5HKSCSSet', 'JISX0208Set', 'JISX0208_0213Set'],
         'UnihanData': ['UnihanCharacterSets', 'CharacterKangxiRadical',
             'CharacterPinyin', 'CharacterJyutping', 'CharacterHangul',
             'CharacterVietnamese', 'CharacterJapaneseKun',
@@ -140,7 +140,8 @@ format --BuilderName-option or --TableName-option, e.g.
             'CantoneseYaleInitialNucleusCoda', 'JyutpingYaleMapping',
             'JyutpingIPAMapping', 'CantoneseIPAInitialFinal',
             'JyutpingInitialFinal', 'GB2312Set', 'BIG5HKSCSSet'],
-        'fullJapanese': ['KangxiRadicalData', 'ShapeLookupData', 'IICoreSet'], # TODO IICoreSet as long as no better source exists
+        'fullJapanese': ['KangxiRadicalData', 'ShapeLookupData', 'JISX0208Set',
+            'JISX0208_0213Set'],
         'fullKorean': ['KangxiRadicalData', 'ShapeLookupData',
             'CharacterHangul', 'IICoreSet'], # TODO IICoreSet as long as no better source exists
         'fullVietnamese': ['KangxiRadicalData', 'ShapeLookupData', 'IICoreSet'], # TODO IICoreSet as long as no better source exists
@@ -287,7 +288,7 @@ format --BuilderName-option or --TableName-option, e.g.
         usage = "%prog [options] [build | list]"
         description = self.DESCRIPTION
         version = """%%prog %s
-Copyright (C) 2006-2009 Christoph Burgmer
+Copyright (C) 2006-2009 cjklib developers
 The library and all parts are distributed under the terms of the LGPL
 Version 2.1, February 1999 (http://www.fsf.org/licensing/licenses/lgpl.html)
 if not otherwise noted. See the data files for their specific licenses.

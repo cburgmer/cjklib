@@ -520,7 +520,8 @@ class UnihanBuilder(EntryGeneratorBuilder):
         'kRSJapanese', 'kRSKanWa', 'kRSKangXi', 'kRSKorean', 'kSemanticVariant',
         'kSimplifiedVariant', 'kSpecializedSemanticVariant', 'kTotalStrokes',
         'kTraditionalVariant', 'kVietnamese', 'kXHC1983', 'kZVariant',
-        'kIICore', 'kGB0', 'kBigFive', 'kHKSCS', 'kHanyuPinyin']
+        'kIICore', 'kGB0', 'kBigFive', 'kHKSCS', 'kHanyuPinyin', 'kJIS0',
+        'kJIS0213']
     """Keys included in a slim version if explicitly specified."""
 
     def __init__(self, **options):
@@ -1227,6 +1228,48 @@ class BIG5HKSCSSetBuilder(EntryGeneratorBuilder):
             warn("Reading table content from Unihan columns "
                 "'kBigFive' and 'kHKSCS'")
         super(BIG5HKSCSSetBuilder, self).build()
+
+
+class JISX0208SetBuilder(UnihanCharacterSetBuilder):
+    """
+    Builds a simple list of all characters in the Japanese standard
+    X{JIS X 0208}.
+    """
+    PROVIDES = 'JISX0208Set'
+    COLUMN_SOURCE = 'kJis0'
+
+
+class JISX0213SetBuilder(UnihanCharacterSetBuilder):
+    """
+    Builds a simple list of all supplementary characters in the Japanese
+    standard X{JIS X 0213}.
+    """
+    PROVIDES = 'JISX0213Set'
+    COLUMN_SOURCE = 'kJIS0213'
+
+
+class JISX0208_0213SetBuilder(EntryGeneratorBuilder):
+    """
+    Builds a simple list of all characters in the standards X{JIS X 0208} and
+    X{JIS X 0213}.
+    """
+    PROVIDES = 'JISX0208_0213Set'
+    DEPENDS = ['Unihan']
+
+    COLUMNS = ['ChineseCharacter']
+    PRIMARY_KEYS = COLUMNS
+    COLUMN_TYPES = {'ChineseCharacter': String(1)}
+
+    def getGenerator(self):
+        jis0208 = JISX0208SetBuilder(dbConnectInst=self.db).getGenerator()
+        jis0213 = JISX0213SetBuilder(dbConnectInst=self.db).getGenerator()
+        return itertools.chain(jis0208, jis0213)
+
+    def build(self):
+        if not self.quiet:
+            warn("Reading table content from Unihan columns "
+                "'kJis0' and 'kJIS0213'")
+        super(JISX0208_0213SetBuilder, self).build()
 
 
 class GlyphInformationSetBuilder(EntryGeneratorBuilder):
