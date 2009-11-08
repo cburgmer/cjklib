@@ -234,6 +234,28 @@ class CharacterLookupStrokesTest(CharacterLookupTest, unittest.TestCase):
                 self.fail("Abbreviation '%s' not supported" % abbrev)
 
 
+class CharacterLookupStrokeOrderTest(CharacterLookupTest, unittest.TestCase):
+
+    @attr('slow')
+    def testStrokeOrderMatchesStrokeCount(self):
+        """
+        Tests if stroke order information returned by C{getStrokeOrder} matches
+        stroke count returned by C{getStrokeCount}.
+        """
+        cjk = characterlookup.CharacterLookup('T', 'GlyphInformation',
+            dbConnectInst=self.db)
+        for char in cjk.getDomainCharacterIterator():
+            try:
+                strokeOrder = cjk.getStrokeOrder(char, includePartial=True)
+                strokeCount = cjk.getStrokeCount(char)
+                self.assert_(len(strokeOrder) == strokeCount,
+                    "Stroke count %d does not match stroke order (%d)"
+                    % (strokeCount, len(strokeOrder))
+                    + " for character '%s'" % char)
+            except exception.NoInformationError:
+                continue
+
+
 class CharacterLookupReadingMethodsTest(CharacterLookupTest, unittest.TestCase):
     """
     Runs consistency checks on the reading methods of the

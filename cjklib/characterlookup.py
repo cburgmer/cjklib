@@ -1237,7 +1237,7 @@ class CharacterLookup(object):
         else:
             raise ValueError(name + " is no valid stroke name")
 
-    def getStrokeOrder(self, char, glyph=None):
+    def getStrokeOrder(self, char, glyph=None, includePartial=False):
         """
         Gets the stroke order sequence for the given character.
 
@@ -1250,17 +1250,26 @@ class CharacterLookup(object):
         @param glyph: I{glyph} of the character. This parameter is optional and
             if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
             be used.
+        @type includePartial: bool
+        @param includePartial: if C{True} a stroke order sequence will be
+            returned even if only partial information is available. Unknown
+            strokes will be replaced by C{None}.
         @rtype: list
         @return: list of Unicode strokes
         @raise NoInformationError: if no stroke order information available
         """
-        strokeOrderAbbrev = self.getStrokeOrderAbbrev(char, glyph)
+        strokeOrderAbbrev = self.getStrokeOrderAbbrev(char, glyph,
+            includePartial=includePartial)
         strokeOrder = []
         for stroke in strokeOrderAbbrev.replace(' ', '-').split('-'):
-            strokeOrder.append(self.getStrokeForAbbrev(stroke))
+            if stroke != '?':
+                strokeOrder.append(self.getStrokeForAbbrev(stroke))
+            else:
+                # unknown stroke
+                strokeOrder.append(None)
         return strokeOrder
 
-    def getStrokeOrderAbbrev(self, char, glyph=None):
+    def getStrokeOrderAbbrev(self, char, glyph=None, includePartial=False):
         """
         Gets the stroke order sequence for the given character as a string of
         I{abbreviated stroke names} separated by spaces and hyphens.
@@ -1274,6 +1283,10 @@ class CharacterLookup(object):
         @param glyph: I{glyph} of the character. This parameter is optional and
             if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
             be used.
+        @type includePartial: bool
+        @param includePartial: if C{True} a stroke order sequence will be
+            returned even if only partial information is available. Unknown
+            strokes will be replaced by a question mark (C{?}).
         @rtype: str
         @return: string of stroke abbreviations separated by spaces and hyphens.
         @raise NoInformationError: if no stroke order information available
@@ -1284,7 +1297,8 @@ class CharacterLookup(object):
         """
         if glyph == None:
             glyph = self.getDefaultGlyph(char)
-        strokeOrder = self._buildStrokeOrder(char, glyph)
+        strokeOrder = self._buildStrokeOrder(char, glyph,
+            includePartial=includePartial)
         if not strokeOrder:
             raise exception.NoInformationError(
                 "Character has no stroke order information")
@@ -1317,7 +1331,7 @@ class CharacterLookup(object):
         strokeOrderDict = {}
         cache = {}
         for char, glyph in chars:
-            strokeOrder = self._buildStrokeOrder(char, glyph, cache)
+            strokeOrder = self._buildStrokeOrder(char, glyph, cache=cache)
             if strokeOrder:
                 strokeOrderDict[(char, glyph)] = strokeOrder
 
@@ -1341,7 +1355,7 @@ class CharacterLookup(object):
             and_(table.c.ChineseCharacter == char,
                 table.c.Glyph == glyph), distinct=True))
 
-    def _buildStrokeOrder(self, char, glyph, cache=None):
+    def _buildStrokeOrder(self, char, glyph, includePartial=False, cache=None):
         """
         Gets the stroke order sequence for the given character as a string of
         I{abbreviated stroke names} separated by spaces and hyphens.
@@ -1353,6 +1367,10 @@ class CharacterLookup(object):
         @param char: Chinese character
         @type glyph: int
         @param glyph: I{glyph} of the character.
+        @type includePartial: bool
+        @param includePartial: if C{True} a stroke order sequence will be
+            returned even if only partial information is available. Unknown
+            strokes will be replaced by a question mark (C{?}).
         @type cache: dict
         @param cache: optional dict of cached stroke order entries
         @rtype: str
@@ -1419,14 +1437,24 @@ class CharacterLookup(object):
                 else:
                     # no IDS operator but character
                     char, charGlyph = subTree[index]
-                    # if the character is unknown or there is none raise
+                    # if the character is unknown or there is none, raise
                     if char == u'？':
                         return None, index
                     else:
                         # recursion
-                        so = self._buildStrokeOrder(char, charGlyph, cache)
+                        so = self._buildStrokeOrder(char, charGlyph,
+                            includePartial, cache)
                         if not so:
-                            return None, index
+                            if includePartial and self.hasStrokeCount:
+                                try:
+                                    strokeCount = self.getStrokeCount(char,
+                                        charGlyph)
+                                    so = '-'.join(['?'
+                                        for i in range(strokeCount)])
+                                except exception.NoInformationError:
+                                    return None, index
+                            else:
+                                return None, index
                         strokeOrder.append(so)
 
                 return (strokeOrder, index)

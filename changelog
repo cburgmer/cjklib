@@ -2,12 +2,14 @@ Changes
 
 SVN
 ===
-- stroke order corrections
+- stroke order corrections and new entries
+- character decomposition corrections
 - fix stroke order calculation for scheme ⿷ that affects characters with
-  radical 匚
+  radicals 匚 and ⼖
 - fix reading converters not using dbconnector of ReadingFactory
 - added BIG5HKSCS character domain for zh-HK
 - added JISX0208 and JISX0208_0213 character domains for ja
+- possibility to return partial stroke order information, now shown in cjknife
 
 0.2 release
 ===========

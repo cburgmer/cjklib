@@ -943,14 +943,19 @@ class CharacterInfo:
                 # stroke order
                 try:
                     infoDict['glyphs'][glyph]['stroke count'] \
-                        =  self.characterLookup.getStrokeCount(char,
+                        = self.characterLookup.getStrokeCount(char,
                             glyph=glyph)
-                    infoDict['glyphs'][glyph]['stroke order'] \
-                        =  self.characterLookup.getStrokeOrder(char,
-                            glyph=glyph)
-                    infoDict['glyphs'][glyph]['stroke order abbrev'] \
-                        =  self.characterLookup.getStrokeOrderAbbrev(char,
-                            glyph=glyph)
+
+                    strokes = self.characterLookup.getStrokeOrder(char,
+                        glyph=glyph, includePartial=True)
+                    if set(strokes) != set([None]):
+                        for i in range(len(strokes)):
+                            if strokes[i] is None: strokes[i] = u'？'
+                        infoDict['glyphs'][glyph]['stroke order'] = strokes
+
+                        infoDict['glyphs'][glyph]['stroke order abbrev'] \
+                            = self.characterLookup.getStrokeOrderAbbrev(char,
+                                glyph=glyph, includePartial=True)
                 except exception.NoInformationError:
                     pass
         except exception.NoInformationError:

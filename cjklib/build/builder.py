@@ -2518,7 +2518,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                             # create entries for this component
                             radicalIndex \
                                 = self.getFormRadicalIndex(componentChar)
-                            if radicalIndex != None:
+                            if radicalIndex is not None:
                                 # main component is radical, no residual stroke
                                 #   count, save relative position in main
                                 #   character
@@ -2581,23 +2581,22 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                             entriesDict[(char, glyph)].add(
                                 frozenset(componentEntry.items()))
 
-                # validity check
-                seenEntriesDict = {}
-                for entry in [dict(d) for d in entriesDict[(char, glyph)]]:
-                    keyEntry = (entry['Form'], entry['Glyph'],
-                        entry['CharacterLayout'], entry['RadicalIndex'],
-                        entry['RadicalPosition'])
-                    if keyEntry in seenEntriesDict \
-                        and seenEntriesDict[keyEntry] \
-                            != entry['ResidualStrokeCount']:
-                        raise ValueError(
-                            "ambiguous residual stroke count for " \
-                            + "character '%s' with entry '" % char \
-                            + "', '".join(list([unicode(column) \
-                                for column in keyEntry])) \
-                            + "': '" + str(seenEntriesDict[keyEntry]) + "'/'" \
-                            + str(entry['ResidualStrokeCount']) + "'")
-                    seenEntriesDict[keyEntry] = entry['ResidualStrokeCount']
+                # check that keys are distinct
+                entrySet = set()
+                for entry in entriesDict[(char, glyph)]:
+                    entryDict = dict(entry)
+                    key = (entryDict['Form'], entryDict['Glyph'],
+                        entryDict['CharacterLayout'],
+                        entryDict['RadicalPosition'])
+                    if key in entrySet:
+                        if not self.quiet:
+                            warn("Inconsistent stroke count for '%s' (%d)"
+                                % (char, glyph))
+                        # remove entries
+                        entriesDict[(char, glyph)] = []
+                        break
+
+                    entrySet.add(key)
 
             # filter forms, i.e. for multiple radical occurrences prefer one
             return self.filterForms(
@@ -2614,18 +2613,13 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                     # ignore Unicode radical forms
                     continue
 
-                try:
-                    entries = self.getEntries(char, glyph, strokeCountDict,
-                        decompositionDict, entryDict)
-                    for entry in entries:
-                        yield [char, glyph, entry['RadicalIndex'],
-                            entry['Form'], entry['Glyph'],
-                            entry['CharacterLayout'], entry['RadicalPosition'],
-                            entry['ResidualStrokeCount']]
-                except ValueError:
-                    if not self.quiet:
-                        warn("Inconsistent stroke count for '%s' (%d)"
-                            % (char, glyph))
+                entries = self.getEntries(char, glyph, strokeCountDict,
+                    decompositionDict, entryDict)
+                for entry in entries:
+                    yield [char, glyph, entry['RadicalIndex'],
+                        entry['Form'], entry['Glyph'],
+                        entry['CharacterLayout'], entry['RadicalPosition'],
+                        entry['ResidualStrokeCount']]
 
     PROVIDES = 'CharacterRadicalResidualStrokeCount'
     DEPENDS = ['CharacterDecomposition', 'StrokeCount', 'KangxiRadical',
