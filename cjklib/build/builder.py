@@ -506,7 +506,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
         'kRSKorean': Text(),
         # encoding mappings
         'kGB0': String(4), 'kBigFive': String(4), 'kHKSCS': String(4),
-        'kIICore': Text(),
+        'kJis0': String(4), 'kJIS0213': String(7), 'kIICore': String(3),
         # variant mappings
         'kZVariant': Text(), 'kSimplifiedVariant': Text(),
         'kTraditionalVariant': Text(), 'kSemanticVariant': Text(),
@@ -520,7 +520,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
         'kRSJapanese', 'kRSKanWa', 'kRSKangXi', 'kRSKorean', 'kSemanticVariant',
         'kSimplifiedVariant', 'kSpecializedSemanticVariant', 'kTotalStrokes',
         'kTraditionalVariant', 'kVietnamese', 'kXHC1983', 'kZVariant',
-        'kIICore', 'kGB0', 'kBigFive', 'kHKSCS', 'kHanyuPinyin', 'kJIS0',
+        'kIICore', 'kGB0', 'kBigFive', 'kHKSCS', 'kHanyuPinyin', 'kJis0',
         'kJIS0213']
     """Keys included in a slim version if explicitly specified."""
 
