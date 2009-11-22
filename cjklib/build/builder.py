@@ -1591,6 +1591,23 @@ class CSVFileLoader(TableBuilder):
     INDEX_KEYS = []
     """Index keys (not unique) of the created table"""
 
+    @classmethod
+    def getDefaultOptions(cls):
+        options = super(CSVFileLoader, cls).getDefaultOptions()
+        options.update({'entrywise': False})
+
+        return options
+
+    @classmethod
+    def getOptionMetaData(cls, option):
+        optionsMetaData = {'entrywise': {'type': 'bool',
+                'description': "insert entries one at a time (for debugging)"}}
+
+        if option in optionsMetaData:
+            return optionsMetaData[option]
+        else:
+            return super(CSVFileLoader, cls).getOptionMetaData(option)
+
     def build(self):
         import codecs
 
@@ -1614,21 +1631,36 @@ class CSVFileLoader(TableBuilder):
                 + contentFile + "'")
         fileHandle = codecs.open(contentFile, 'r', 'utf-8')
 
-        entries = []
-        for line in UnicodeCSVFileIterator(fileHandle):
-            if len(line) == 1 and not line[0].strip():
-                continue
-            entryDict = dict([(column.name, line[i]) \
-                for i, column in enumerate(table.columns)])
-            entries.append(entryDict)
+        if not self.entrywise:
+            entries = []
+            for line in UnicodeCSVFileIterator(fileHandle):
+                if len(line) == 1 and not line[0].strip():
+                    continue
+                entryDict = dict([(column.name, line[i]) \
+                    for i, column in enumerate(table.columns)])
+                entries.append(entryDict)
 
-        try:
-            self.db.execute(table.insert(), entries)
-        except IntegrityError, e:
-            if not self.quiet:
-                warn(unicode(e))
-                #warn(unicode(insertStatement))
-            raise
+            try:
+                self.db.execute(table.insert(), entries)
+            except IntegrityError, e:
+                if not self.quiet:
+                    warn(unicode(e))
+                    warn('Run builder with option \'--entrywise=True\''
+                        ' to find violating entry')
+                raise
+        else:
+            for line in UnicodeCSVFileIterator(fileHandle):
+                if len(line) == 1 and not line[0].strip():
+                    continue
+                entryDict = dict([(column.name, line[i]) \
+                    for i, column in enumerate(table.columns)])
+                try:
+                    table.insert(entryDict).execute()
+                except IntegrityError, e:
+                    if not(self.quiet):
+                        warn(unicode(e))
+                    raise
+
 
         # get create index statement
         for index in self.buildIndexObjects(self.PROVIDES, self.INDEX_KEYS):
