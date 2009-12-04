@@ -430,7 +430,11 @@ class ReadingFactory(object):
         @raise UnsupportedError: if the given reading is not supported.
         """
         operatorClass = self.getReadingOperatorClass(readingN)
-        return operatorClass(dbConnectInst=self.db, **options)
+
+        opt = options.copy()
+        if 'dbConnectInst' not in opt:
+            opt['dbConnectInst'] = self.db
+        return operatorClass(**opt)
 
     def publishReadingConverter(self, readingConverter):
         """
@@ -508,7 +512,10 @@ class ReadingFactory(object):
 
         self._checkSpecialOperators(fromReading, toReading, args, options)
 
-        converterInst = converterClass(dbConnectInst=self.db, *args, **options)
+        opt = options.copy()
+        if 'dbConnectInst' not in opt:
+            opt['dbConnectInst'] = self.db
+        converterInst = converterClass(*args, **opt)
         if 'hideComplexConverter' not in options \
             or options['hideComplexConverter']:
             return ReadingFactory.SimpleReadingConverterAdaptor(
