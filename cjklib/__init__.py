@@ -39,7 +39,7 @@ Examples
     - Get stroke order of characters:
 
         >>> cjk.getStrokeOrder(u'说')
-        [u'\u31d4', u'\u31ca', u'\u31d4', u'\u31d2', u'\u31d1', u'\u31d5',\
+        [u'\u31d4', u'\u31ca', u'\u31d4', u'\u31d2', u'\u31d1', u'\u31d5', \
 u'\u31d0', u'\u31d3', u'\u31df']
 
     - Convert pronunciation data (here from I{Pinyin} to I{IPA}):
@@ -48,6 +48,15 @@ u'\u31d0', u'\u31d3', u'\u31df']
         >>> f = ReadingFactory()
         >>> f.convert(u'l\u01ceosh\u012b', 'Pinyin', 'MandarinIPA')
         u'lau\u02e8\u02e9.\u0282\u0285\u02e5\u02e5'
+
+    - Access a dictionary (here using Jim Breen's EDICT):
+
+        >>> from cjklib.dictionary import EDICT, DictEntryFactory
+        >>> d = EDICT(entryFactory=DictEntryFactory())
+        >>> d.getForHeadword(u'東京')
+        [{'Headword': u'\u6771\u4eac', 'Reading': \
+u'\u3068\u3046\u304d\u3087\u3046', 'Translation': u'/(n) Tokyo (current capital\
+ of Japan)/(P)/'}]
 
 @author: Christoph Burgmer <cburgmer@ira.uka.de>
 @requires: Python 2.4+, SQLAlchemy 0.4.8+ and either SQLite 3+ or MySQL 5+ and
