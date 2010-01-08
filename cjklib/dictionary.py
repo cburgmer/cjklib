@@ -21,6 +21,40 @@ Provides higher level dictionary access.
 This module provides classes for easy access to well known CJK dictionaries.
 Queries can be done using a headword, reading or translation.
 
+System and Useage
+=================
+Dictionary sources yield less structured information compared to other data
+sources exposed in this library. Owing to this fact, a flexible system is
+provided to the user.
+
+Entry factories
+---------------
+Similar to SQL interfaces, entries can be returned in different fashion. An
+X{entry factory} takes care of preparing the output. For this predefined
+factories exist: L{ListEntryFactory}, which is used as default, will return each
+entry as a list of its columns while L{DictEntryFactory} will return dict
+objects.
+
+Reading and translation formatting strategies
+---------------------------------------------
+As reading formattings vary and many readings can be converted into each other,
+a X{reading formatting strategy} can be applied to return the expected format.
+L{ReadingConversionStrategy} provides an easy way to convert the reading given
+by the dictionary into the user defined reading.
+
+For translations, a X{translation formatting strategy} can adapt given
+translation strings. Such a strategy can for example consist of simple string
+replacements.
+
+Translation search strategies
+-----------------------------
+Searching in natural language data is a difficult process and highly depends on
+the use case at hand. One popular way is using stemming algorithms for copying
+with inflections by reducing a word to its root form. Here, a basic search
+strategy is given for each dictionary. More complex ones can be implemented on
+the basis of extending the underlying table, e.g. using I{full text search}
+capabilities of the database server.
+
 Examples
 ========
 - Create a dictionary instance:
@@ -33,8 +67,10 @@ Examples
     >>> [l['HeadwordSimplified'] for l in \\
     ...     d.getForReading('po1', 'Pinyin', **{'toneMarkType': 'numbers'})]
     [u'\u5761', u'\u6cfc', u'\u948b', u'\u9642', u'\u9887']
-
 """
+
+import re
+import types
 
 from sqlalchemy import select
 from sqlalchemy.sql import or_
@@ -68,17 +104,17 @@ class DictEntryFactory(object):
             for row in results]
 
 #}
-#{ Reading formatting factories
+#{ Reading formatting strategies
 
-class PlainReadingFactory(object):
-    """Default reading formatting factory, doing nothing."""
+class PlainReadingStrategy(object):
+    """Default reading formatting strategy, doing nothing."""
     def getReading(self, plainReading):
         return plainReading
 
 
-class ReadingConversionFactory(object):
+class ReadingConversionStrategy(object):
     """Converts the entries' reading string to the given target reading."""
-    def __init__(self, toReading, targetOptions=None):
+    def __init__(self, toReading=None, targetOptions=None):
         self.toReading = toReading
         if targetOptions:
             self.targetOptions = targetOptions
@@ -94,30 +130,90 @@ class ReadingConversionFactory(object):
 
     def getReading(self, plainReading):
         if not hasattr(self, 'fromReading'):
-            raise ValueError('Factory not initialized properly.'
-                ' Probably incompatible to dictionary.')
+            raise ValueError('Strategy instance not initialized properly.'
+                ' Probably incompatible to dictionary class.')
 
+        toReading = self.toReading or self.fromReading
         try:
             return self._readingFactory.convert(plainReading, self.fromReading,
-                self.toReading, sourceOptions=self.sourceOptions,
+                toReading, sourceOptions=self.sourceOptions,
                 targetOptions=self.targetOptions)
         except (exception.DecompositionError, exception.CompositionError,
             exception.ConversionError):
             return None
 
-
-class StandardPinyinReadingFactory(ReadingConversionFactory):
-    """Converts the entries' reading string to standard I{Pinyin}."""
-    def __init__(self):
-        super(StandardPinyinReadingFactory, self).__init__('Pinyin')
-
 #}
-#{ Translation formatting factories
+#{ Translation formatting strategies
 
-class PlainTranslationFactory(object):
-    """Default translation formatting factory, doing nothing."""
+class PlainTranslationStrategy(object):
+    """Default translation formatting strategy, doing nothing."""
     def getTranslation(self, plainTranslation):
         return plainTranslation
+
+#}
+#{ Translation search strategy
+
+class ExactTranslationSearchStrategy(object):
+    """Basic translation based search strategy."""
+    def setDictionaryInstance(self, dictInstance):
+        self._dictInstance = dictInstance
+        if not hasattr(dictInstance, 'DICTIONARY_TABLE'):
+            raise ValueError('Incompatible dictionary instance')
+
+    def getWhereClause(self, searchStr):
+        """
+        Returns a SQLAlchemy clause that is necessary condition for a possible
+        match. This clause is used in the database query.
+
+        @type searchStr: str
+        @param searchStr: search string
+        @return: SQLAlchemy clause
+        """
+        dictionaryTable = self._dictInstance.db.tables[
+            self._dictInstance.DICTIONARY_TABLE]
+        return dictionaryTable.c.Translation.like('%' + searchStr + '%')
+
+    def isMatch(self, searchStr, translation):
+        """
+        Returns true if the entry's translation matches the search string. This
+        method provides the sufficient condition for a match.
+
+        @type searchStr: str
+        @param searchStr: search string
+        @type translation: str
+        @param translation: entry's translation
+        @rtype: bool
+        @return: C{True} if the entry is a match
+        """
+        return searchStr in translation.split('/')
+
+
+class SimpleTranslationSearchStrategy(ExactTranslationSearchStrategy):
+    """
+    Simple translation based search strategy. Takes into account additions put
+    in parentheses.
+    """
+    def __init__(self):
+        self._lastSearchStr = None
+        self._regex = None
+
+    def isMatch(self, searchStr, translation):
+        if self._lastSearchStr != searchStr:
+            self._lastSearchStr = searchStr
+            self._regex = re.compile('[/\,\;\.\?\!]' + '(\s+|\([^\)]+\))*'
+                + re.escape(searchStr) + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
+        return self._regex.search(translation) is not None
+
+
+class HanDeDictTranslationSearchStrategy(SimpleTranslationSearchStrategy):
+    """HanDeDict translation based search strategy."""
+    def isMatch(self, searchStr, translation):
+        if self._lastSearchStr != searchStr:
+            self._lastSearchStr = searchStr
+            self._regex = re.compile('(?!; Bsp.: [^/]+?--[^/]+)'
+                + '[/\,\;\.\?\!]' + '(\s+|\([^\)]+\))*'
+                + re.escape(searchStr) + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
+        return self._regex.search(translation) is not None
 
 #}
 #{ Dictionary classes
@@ -126,17 +222,24 @@ class BaseDictionary(object):
     """
     Base dictionary access class. Needs to be implemented by child classes.
     """
-    def __init__(self, entryFactory=None, readingFormatFactory=None,
-        translationFormatFactory=None, databaseUrl=None, dbConnectInst=None):
+    PROVIDES = None
+    """Name of dictionary that is provided by this class."""
+
+    def __init__(self, entryFactory=None, readingFormatStrategy=None,
+        translationFormatStrategy=None, translationSearchStrategy=None,
+        databaseUrl=None, dbConnectInst=None):
         """
         Initialises the BaseDictionary instance.
 
         @type entryFactory: instance
         @param entryFactory: entry factory instance
-        @type readingFormatFactory: instance
-        @param readingFormatFactory: reading formatting factory instance
-        @type translationFormatFactory: instance
-        @param translationFormatFactory: translation formatting factory instance
+        @type readingFormatStrategy: instance
+        @param readingFormatStrategy: reading formatting strategy instance
+        @type translationFormatStrategy: instance
+        @param translationFormatStrategy: translation formatting strategy
+            instance
+        @type translationSearchStrategy: instance
+        @param translationSearchStrategy: translation search strategy instance
         @type databaseUrl: str
         @param databaseUrl: database connection setting in the format
             C{driver://user:pass@host/database}.
@@ -156,46 +259,88 @@ class BaseDictionary(object):
             self.entryFactory = entryFactory
         else:
             self.entryFactory = ListEntryFactory()
-            """Factory for formatting row entry."""
+            """Factory for formatting row entries."""
 
-        if readingFormatFactory:
-            self.readingFormatFactory = readingFormatFactory
+        if readingFormatStrategy:
+            self.readingFormatStrategy = readingFormatStrategy
         else:
-            self.readingFormatFactory = PlainReadingFactory()
-            """Factory for formatting reading."""
-        if hasattr(self.readingFormatFactory, 'setReadingFactory'):
-            self.readingFormatFactory.setReadingFactory(self._readingFactory)
+            self.readingFormatStrategy = PlainReadingStrategy()
+            """Strategy for formatting readings."""
+        if hasattr(self.readingFormatStrategy, 'setReadingFactory'):
+            self.readingFormatStrategy.setReadingFactory(self._readingFactory)
 
-        if translationFormatFactory:
-            self.translationFormatFactory = translationFormatFactory
+        if translationFormatStrategy:
+            self.translationFormatStrategy = translationFormatStrategy
         else:
-            self.translationFormatFactory = PlainTranslationFactory()
-            """Factory for formatting translation."""
+            self.translationFormatStrategy = PlainTranslationStrategy()
+            """Strategy for formatting translations."""
+
+        if translationSearchStrategy:
+            self.translationSearchStrategy = translationSearchStrategy
+        else:
+            self.translationSearchStrategy = ExactTranslationSearchStrategy()
+            """Strategy for searching translations."""
+        self.translationSearchStrategy.setDictionaryInstance(self)
+
+    @staticmethod
+    def getDictionaryClasses():
+        """
+        Gets all classes in module that implement L{BaseDictionary}.
+
+        @rtype: set
+        @return: list of all classes inheriting form L{BaseDictionary}
+        """
+        dictionaryModule = __import__("cjklib.dictionary")
+        # get all classes that inherit from BaseDictionary
+        return set([clss \
+            for clss in dictionaryModule.dictionary.__dict__.values() \
+            if type(clss) == types.TypeType \
+            and issubclass(clss, dictionaryModule.dictionary.BaseDictionary) \
+            and clss.PROVIDES])
+
+    @staticmethod
+    def getAvailableDictionaries(dbConnectInst):
+        available = []
+        for dictionaryClass in BaseDictionary.getDictionaryClasses():
+            if dictionaryClass.available(dbConnectInst):
+                available.append(dictionaryClass)
+
+        return available
+
+    @classmethod
+    def available(cls, dbConnectInst):
+        raise NotImplementedError()
 
 
-class EDICT(BaseDictionary):
+class EDICTStyleDictionary(BaseDictionary):
     """
     EDICT dictionary access.
 
     @see: L{EDICTBuilder}
     """
-
-    DICTIONARY_TABLE = 'EDICT'
+    DICTIONARY_TABLE = None
     COLUMNS = ['Headword', 'Reading', 'Translation']
 
-    def __init__(self, entryFactory=None, readingFormatFactory=None,
-        translationFormatFactory=None, databaseUrl=None, dbConnectInst=None):
-        super(EDICT, self).__init__(entryFactory, readingFormatFactory,
-            translationFormatFactory, databaseUrl, dbConnectInst)
+    def __init__(self, entryFactory=None, readingFormatStrategy=None,
+        translationFormatStrategy=None, translationSearchStrategy=None,
+        databaseUrl=None, dbConnectInst=None):
+        super(EDICTStyleDictionary, self).__init__(entryFactory,
+            readingFormatStrategy, translationFormatStrategy,
+            translationSearchStrategy, databaseUrl, dbConnectInst)
 
         if hasattr(self.entryFactory, 'setColumnNames'):
             self.entryFactory.setColumnNames(self.COLUMNS)
 
-        if not self.db.has_table(self.DICTIONARY_TABLE):
+        if not self.available(self.db):
             raise ValueError("Table '%s' for dictionary does not exist"
                 % self.DICTIONARY_TABLE)
 
-    def _search(self, whereClause, orderBy, limit):
+    @classmethod
+    def available(cls, dbConnectInst):
+        return (cls.DICTIONARY_TABLE
+            and dbConnectInst.has_table(cls.DICTIONARY_TABLE))
+
+    def _search(self, whereClause, orderBy, limit, filterResult=None):
         dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
 
         if orderBy is None:
@@ -206,13 +351,17 @@ class EDICT(BaseDictionary):
             select([dictionaryTable.c[col] for col in self.COLUMNS],
                 whereClause, distinct=True).order_by(*orderBy).limit(limit))
 
+        # filter
+        if filterResult:
+            results = [row for row in results if filterResult(*row)]
+
         # format readings
-        results = [(headword, self.readingFormatFactory.getReading(reading),
+        results = [(headword, self.readingFormatStrategy.getReading(reading),
             translation) for headword, reading, translation in results]
 
         # format translations
         results = [(headword, reading,
-            self.translationFormatFactory.getTranslation(translation))
+            self.translationFormatStrategy.getTranslation(translation))
             for headword, reading, translation in results]
 
         # format results
@@ -232,17 +381,171 @@ class EDICT(BaseDictionary):
         return self._search(dictionaryTable.c.Reading == readingStr,
             limit, orderBy)
 
+    def getForTranslation(self, translationStr, limit=None, orderBy=None):
+        def filterResult(headword, reading, translation):
+            return self.translationSearchStrategy.isMatch(translationStr,
+                translation)
 
-class CEDICT(EDICT):
+        return self._search(
+            self.translationSearchStrategy.getWhereClause(translationStr),
+            limit, orderBy, filterResult)
+
+    def getFor(self, searchStr, limit=None, orderBy=None):
+        def filterResult(headword, reading, translation):
+            if searchStr == headword:
+                return True
+            elif searchStr == reading:
+                return True
+            else:
+                return self.translationSearchStrategy.isMatch(searchStr,
+                    translation)
+
+        dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
+
+        clauses = []
+        # headword
+        clauses.append(dictionaryTable.c.Headword == searchStr)
+        # reading
+        clauses.append(dictionaryTable.c.Reading == searchStr)
+        # translation
+        translationClause = self.translationSearchStrategy.getWhereClause(
+            searchStr)
+        if translationClause:
+            clauses.append(translationClause)
+
+        return self._search(or_(*clauses), limit, orderBy, filterResult)
+
+
+class EDICT(EDICTStyleDictionary):
+    """
+    EDICT dictionary access.
+
+    @see: L{EDICTBuilder}
+    """
+    PROVIDES = 'EDICT'
+    DICTIONARY_TABLE = 'EDICT'
+
+
+class EDICTStyleEnhancedReadingDictionary(EDICTStyleDictionary):
+    u"""
+    EDICT dictionary access with enhanced reading support.
+
+    The EDICTStyleEnhancedReadingDictionary dictionary class extends L{EDICT}
+    by:
+        - support for reading conversion, understanding reading format strategy
+          L{ReadingConversionStrategy},
+        - flexible searching for reading strings.
+    """
+    READING = None
+    """Reading."""
+    READING_OPTIONS = {}
+    """Options for reading of dictionary entries."""
+
+    def __init__(self, entryFactory=None, readingFormatStrategy=None,
+        translationFormatStrategy=None, translationSearchStrategy=None,
+        databaseUrl=None, dbConnectInst=None):
+        if not readingFormatStrategy:
+            readingFormatStrategy = ReadingConversionStrategy()
+        super(EDICTStyleEnhancedReadingDictionary, self).__init__(entryFactory,
+            readingFormatStrategy, translationFormatStrategy,
+            translationSearchStrategy, databaseUrl, dbConnectInst)
+
+        if hasattr(self.readingFormatStrategy, 'setReadingOptions'):
+            self.readingFormatStrategy.setReadingOptions(self.READING,
+                self.READING_OPTIONS)
+
+    def _getReadingStrings(self, readingStr, fromReading, **options):
+        decompositions = self._readingFactory.getDecompositions(readingStr,
+            fromReading, **options)
+        # convert all possible decompositions
+        decompEntities = []
+        e = None
+        for entities in decompositions:
+            try:
+                decompEntities.append(
+                    self._readingFactory.convertEntities(entities,
+                        fromReading, self.READING, sourceOptions=options,
+                        targetOptions=self.READING_OPTIONS))
+            except exception.ConversionError, e:
+                # TODO get strict mode, fail on any error
+                pass
+        if not decompEntities:
+            raise exception.ConversionError("Conversion failed for '%s'."
+                % readingStr \
+                + " No decomposition could be converted. Last error: '%s'" \
+                    % e)
+
+        strings = []
+        for entities in decompEntities:
+            strings.append(' '.join(
+                [entity for entity in entities if entity.strip()]))
+        return strings
+
+    def getForReading(self, readingStr, fromReading=None, **options):
+        # TODO support missing tones
+        limit = options.pop('limit', None)
+        orderBy = options.pop('orderBy', None)
+        if not fromReading:
+            fromReading = self.READING
+
+        dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
+
+        readingStrings = self._getReadingStrings(readingStr, fromReading,
+            **options)
+        readingClause = or_(*[dictionaryTable.c.Reading == reading
+            for reading in readingStrings])
+
+        return self._search(readingClause, limit, orderBy)
+
+    def getFor(self, searchStr, **options):
+        def filterResult(headword, reading, translation):
+            if searchStr == headword:
+                return True
+            elif fromReading and reading in readingStrings:
+                return True
+            else:
+                return self.translationSearchStrategy.isMatch(searchStr,
+                    translation)
+
+        limit = options.pop('limit', None)
+        orderBy = options.pop('orderBy', None)
+        fromReading = options.pop('fromReading', self.READING)
+
+        dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
+
+        clauses = []
+        # headword
+        clauses.append(dictionaryTable.c.Headword == searchStr)
+        # reading
+        if fromReading:
+            readingStrings = self._getReadingStrings(searchStr, fromReading,
+                **options)
+            readingClause = or_(*[dictionaryTable.c.Reading == reading
+                for reading in readingStrings])
+            clauses.append(readingClause)
+        # translation
+        translationClause = self.translationSearchStrategy.getWhereClause(
+            searchStr)
+        if translationClause:
+            clauses.append(translationClause)
+
+        return self._search(or_(*clauses), limit, orderBy, filterResult)
+
+
+class CEDICTGR(EDICTStyleEnhancedReadingDictionary):
+    """
+    CEDICT-GR dictionary access.
+
+    @see: L{CEDICTGRBuilder}
+    """
+    PROVIDES = 'CEDICTGR'
+    READING = 'GR'
+    DICTIONARY_TABLE = 'CEDICTGR'
+
+
+class CEDICT(EDICTStyleEnhancedReadingDictionary):
     u"""
     CEDICT dictionary access.
-
-    The CEDICT dictionary class extends L{EDICT} by:
-        - support for reading conversion, understanding reading format factories
-          L{ReadingConversionFactory} and more specifically
-          L{StandardPinyinReadingFactory},
-        - flexible searching for reading strings,
-        - simplified and traditional headword for each entry.
 
     Example
     =======
@@ -251,30 +554,28 @@ class CEDICT(EDICT):
 
         >>> from cjklib.dictionary import *
         >>> d = CEDICT(entryFactory=DictEntryFactory(),
-        ...     readingFormatFactory=ReadingConversionFactory('MandarinIPA'))
+        ...     readingFormatStrategy=ReadingConversionStrategy('MandarinIPA'))
         >>> print ', '.join([l['Reading'] for l in d.getForHeadword(u'行')])
         xaŋ˧˥, ɕiŋ˧˥, ɕiŋ˥˩
 
     @see: L{CEDICTBuilder}
     """
-    READING_OPTIONS = {'toneMarkType': 'numbers'}
-    """Options for reading of dictionary entries."""
-
+    PROVIDES = 'CEDICT'
     DICTIONARY_TABLE = 'CEDICT'
     COLUMNS = ['HeadwordSimplified', 'HeadwordTraditional', 'Reading',
         'Translation']
 
-    def __init__(self, headword='s', entryFactory=None,
-        readingFormatFactory=None, translationFormatFactory=None,
-        databaseUrl=None, dbConnectInst=None):
-        if not readingFormatFactory:
-            readingFormatFactory = StandardPinyinReadingFactory()
-        super(CEDICT, self).__init__(entryFactory, readingFormatFactory,
-            translationFormatFactory, databaseUrl, dbConnectInst)
+    READING = 'Pinyin'
+    READING_OPTIONS = {'toneMarkType': 'numbers'}
 
-        if hasattr(self.readingFormatFactory, 'setReadingOptions'):
-            self.readingFormatFactory.setReadingOptions('Pinyin',
-                self.READING_OPTIONS)
+    def __init__(self, headword='s', entryFactory=None,
+        readingFormatStrategy=None, translationFormatStrategy=None,
+        translationSearchStrategy=None, databaseUrl=None, dbConnectInst=None):
+        if not translationSearchStrategy:
+            translationSearchStrategy = SimpleTranslationSearchStrategy()
+        super(CEDICT, self).__init__(entryFactory, readingFormatStrategy,
+            translationFormatStrategy, translationSearchStrategy, databaseUrl,
+            dbConnectInst)
 
         if headword in ('s', 't'):
             self.headword = headword
@@ -283,7 +584,7 @@ class CEDICT(EDICT):
                 % headword \
                 + " Needs to be either 's' (simplified) or 't' (traditional)")
 
-    def _search(self, whereClause, orderBy, limit):
+    def _search(self, whereClause, orderBy, limit, filterResult=None):
         dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
 
         if orderBy is None:
@@ -294,15 +595,19 @@ class CEDICT(EDICT):
             select([dictionaryTable.c[col] for col in self.COLUMNS],
                 whereClause, distinct=True).order_by(*orderBy).limit(limit))
 
+        # filter
+        if filterResult:
+            results = [row for row in results if filterResult(*row)]
+
         # format readings
         results = [(headwordSimplified, headwordTraditional,
-            self.readingFormatFactory.getReading(reading), translation)
+            self.readingFormatStrategy.getReading(reading), translation)
             for headwordSimplified, headwordTraditional, reading, translation
             in results]
 
         # format translations
         results = [(headwordSimplified, headwordTraditional,
-            reading, self.translationFormatFactory.getTranslation(translation))
+            reading, self.translationFormatStrategy.getTranslation(translation))
             for headwordSimplified, headwordTraditional, reading, translation
             in results]
 
@@ -321,52 +626,54 @@ class CEDICT(EDICT):
 
         return self._search(whereClause, limit, orderBy)
 
-    def _getReadingClause(self, readingStr, fromReading, **options):
-        decompositions = self._readingFactory.getDecompositions(readingStr,
-            fromReading, **options)
-        # convert all possible decompositions
-        decompEntities = []
-        e = None
-        for entities in decompositions:
-            try:
-                decompEntities.append(
-                    self._readingFactory.convertEntities(entities,
-                        fromReading, 'Pinyin', sourceOptions=options,
-                        targetOptions=self.READING_OPTIONS))
-            except exception.ConversionError, e:
-                # TODO get strict mode, fail on any error
-                pass
-        if not decompEntities:
-            raise exception.ConversionError("Conversion failed for '%s'."
-                % readingStr \
-                + " No decomposition could be converted. Last error: '%s'" \
-                    % e)
+    def getForTranslation(self, translationStr, limit=None, orderBy=None):
+        def filterResult(headwordS, headwordT, reading, translation):
+            return self.translationSearchStrategy.isMatch(translationStr,
+                translation)
+
+        return self._search(
+            self.translationSearchStrategy.getWhereClause(translationStr),
+            limit, orderBy, filterResult)
+
+    def getFor(self, searchStr, **options):
+        def filterResult(headwordS, headwordT, reading, translation):
+            if self.headword != 't' and searchStr == headwordS:
+                return True
+            elif self.headword != 's' and searchStr == headwordT:
+                return True
+            elif fromReading and reading in readingStrings:
+                return True
+            else:
+                return self.translationSearchStrategy.isMatch(searchStr,
+                    translation)
+
+        limit = options.pop('limit', None)
+        orderBy = options.pop('orderBy', None)
+        fromReading = options.pop('fromReading', self.READING)
 
         dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
 
         clauses = []
-        for entities in decompEntities:
-            clauses.append(dictionaryTable.c.Reading == ' '.join(
-                [entity for entity in entities if entity.strip()]))
-        return or_(*clauses)
+        # headword
+        if self.headword == 's':
+            headwordClause = dictionaryTable.c.HeadwordSimplified == searchStr
+        else:
+            headwordClause = dictionaryTable.c.HeadwordTraditional == searchStr
+        clauses.append(headwordClause)
+        # reading
+        if fromReading:
+            readingStrings = self._getReadingStrings(searchStr, fromReading,
+                **options)
+            readingClause = or_(*[dictionaryTable.c.Reading == reading
+                for reading in readingStrings])
+            clauses.append(readingClause)
+        # translation
+        translationClause = self.translationSearchStrategy.getWhereClause(
+            searchStr)
+        if translationClause:
+            clauses.append(translationClause)
 
-    def getForReading(self, readingStr, fromReading, **options):
-        # TODO support missing tones
-        limit = options.pop('limit', None)
-        orderBy = options.pop('orderBy', None)
-
-        readingClause = self._getReadingClause(readingStr, fromReading,
-            **options)
-        return self._search(readingClause, limit, orderBy)
-
-
-class CEDICTGR(CEDICT):
-    """
-    CEDICT-GR dictionary access.
-
-    @see: L{CEDICTGRBuilder}
-    """
-    DICTIONARY_TABLE = 'CEDICTGR'
+        return self._search(or_(*clauses), limit, orderBy, filterResult)
 
 
 class HanDeDict(CEDICT):
@@ -375,7 +682,17 @@ class HanDeDict(CEDICT):
 
     @see: L{HanDeDictBuilder}
     """
+    PROVIDES = 'HanDeDict'
     DICTIONARY_TABLE = 'HanDeDict'
+
+    def __init__(self, headword='s', entryFactory=None,
+        readingFormatStrategy=None, translationFormatStrategy=None,
+        translationSearchStrategy=None, databaseUrl=None, dbConnectInst=None):
+        if not translationSearchStrategy:
+            translationSearchStrategy = HanDeDictTranslationSearchStrategy()
+        super(HanDeDict, self).__init__(headword, entryFactory,
+            readingFormatStrategy, translationFormatStrategy,
+            translationSearchStrategy, databaseUrl, dbConnectInst)
 
 
 class CFDICT(CEDICT):
@@ -384,5 +701,6 @@ class CFDICT(CEDICT):
 
     @see: L{CFDICTBuilder}
     """
+    PROVIDES = 'CFDICT'
     DICTIONARY_TABLE = 'CFDICT'
 
