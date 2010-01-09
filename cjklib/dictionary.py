@@ -84,6 +84,9 @@ from cjklib import exception
 class ListEntryFactory(object):
     """Default entry factory, returning a list of columns."""
     def getEntries(self, results):
+        """
+        Returns the dictionary results as lists.
+        """
         return results
 
 
@@ -91,10 +94,19 @@ class DictEntryFactory(object):
     """
     Dict entry factory, returning a dict with keys as given by the dictionary.
     """
-    def setColumnNames(self,columnNames):
+    def setColumnNames(self, columnNames):
+        """
+        Sets the names of the dictionary's columns.
+
+        @type columnNames: list of str
+        @param columnNames: column names
+        """
         self.columnNames = columnNames
 
     def getEntries(self, results):
+        """
+        Returns the dictionary results as dicts.
+        """
         for row in results:
             if len(row) != len(self.columnNames):
                 raise ValueError("Incompatible element counts %d for result: %d"
@@ -109,12 +121,29 @@ class DictEntryFactory(object):
 class PlainReadingStrategy(object):
     """Default reading formatting strategy, doing nothing."""
     def getReading(self, plainReading):
+        """
+        Returns the formatted reading.
+
+        @type plainReading: str
+        @param plainReading: reading as returned by the dictionary
+        @rtype: str
+        @return: formatted reading
+        """
         return plainReading
 
 
-class ReadingConversionStrategy(object):
+class ReadingConversionStrategy(PlainReadingStrategy):
     """Converts the entries' reading string to the given target reading."""
     def __init__(self, toReading=None, targetOptions=None):
+        """
+        Constructs the conversion strategy.
+
+        @type toReading: str
+        @param toReading: target reading, if omitted, the dictionary's reading
+            is assumed.
+        @type targetOptions: dict
+        @param targetOptions: target reading conversion options
+        """
         self.toReading = toReading
         if targetOptions:
             self.targetOptions = targetOptions
@@ -122,9 +151,25 @@ class ReadingConversionStrategy(object):
             self.targetOptions = {}
 
     def setReadingFactory(self, readingFactory):
+        """
+        Sets the reading factory. This method is called by the
+        dictionary object.
+
+        @type readingFactory: instance
+        @param readingFactory: L{ReadingFactory} instance
+        """
         self._readingFactory = readingFactory
 
     def setReadingOptions(self, fromReading, sourceOptions):
+        """
+        Sets the dictionary reading options. This method is called by the
+        dictionary object.
+
+        @type fromReading: str
+        @param fromReading: source reading as used in the dictionary
+        @type sourceOptions: dict
+        @param sourceOptions: source reading options
+        """
         self.fromReading = fromReading
         self.sourceOptions = sourceOptions
 
@@ -148,6 +193,14 @@ class ReadingConversionStrategy(object):
 class PlainTranslationStrategy(object):
     """Default translation formatting strategy, doing nothing."""
     def getTranslation(self, plainTranslation):
+        """
+        Returns the formatted translation.
+
+        @type plainTranslation: str
+        @param plainTranslation: translation as returned by the dictionary
+        @rtype: str
+        @return: formatted translation
+        """
         return plainTranslation
 
 #}
@@ -162,8 +215,9 @@ class ExactTranslationSearchStrategy(object):
 
     def getWhereClause(self, searchStr):
         """
-        Returns a SQLAlchemy clause that is necessary condition for a possible
-        match. This clause is used in the database query.
+        Returns a SQLAlchemy clause that is the necessary condition for a
+        possible match. This clause is used in the database query. Results may
+        then be further narrowed by L{isMatch()}.
 
         @type searchStr: str
         @param searchStr: search string
@@ -176,7 +230,9 @@ class ExactTranslationSearchStrategy(object):
     def isMatch(self, searchStr, translation):
         """
         Returns true if the entry's translation matches the search string. This
-        method provides the sufficient condition for a match.
+        method provides the sufficient condition for a match. Values passed in
+        variable C{translation} match the necessary condition as defined in
+        L{getWhereClause()}.
 
         @type searchStr: str
         @param searchStr: search string
@@ -191,7 +247,8 @@ class ExactTranslationSearchStrategy(object):
 class SimpleTranslationSearchStrategy(ExactTranslationSearchStrategy):
     """
     Simple translation based search strategy. Takes into account additions put
-    in parentheses.
+    in parentheses and allows for multiple entries in one record separated by
+    punctuation marks.
     """
     def __init__(self):
         self._lastSearchStr = None
@@ -200,19 +257,29 @@ class SimpleTranslationSearchStrategy(ExactTranslationSearchStrategy):
     def isMatch(self, searchStr, translation):
         if self._lastSearchStr != searchStr:
             self._lastSearchStr = searchStr
-            self._regex = re.compile('[/\,\;\.\?\!]' + '(\s+|\([^\)]+\))*'
-                + re.escape(searchStr) + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
+            # start with a slash '/', make sure any opening parenthesis is
+            #   closed, end any other entry with a punctuation mark, and match
+            #   search string. Finish with other content in parantheses and
+            #   a slash or punctuation mark
+            self._regex = re.compile('/((\([^\)]+\)|[^\(])+[\,\;\.\?\!])?'
+                + '(\s+|\([^\)]+\))*' + re.escape(searchStr)
+                + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
         return self._regex.search(translation) is not None
 
 
 class HanDeDictTranslationSearchStrategy(SimpleTranslationSearchStrategy):
-    """HanDeDict translation based search strategy."""
+    """
+    HanDeDict translation based search strategy. Extends
+    L{SimpleTranslationSearchStrategy} by taking into accout peculiarities of
+    the HanDeDict format.
+    """
     def isMatch(self, searchStr, translation):
         if self._lastSearchStr != searchStr:
             self._lastSearchStr = searchStr
-            self._regex = re.compile('(?!; Bsp.: [^/]+?--[^/]+)'
-                + '[/\,\;\.\?\!]' + '(\s+|\([^\)]+\))*'
-                + re.escape(searchStr) + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
+            self._regex = re.compile('/((\([^\)]+\)|[^\(])+'
+                + '(?!; Bsp.: [^/]+?--[^/]+)[\,\;\.\?\!])?'
+                + '(\s+|\([^\)]+\))*' + re.escape(searchStr)
+                + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
         return self._regex.search(translation) is not None
 
 #}
@@ -300,6 +367,15 @@ class BaseDictionary(object):
 
     @staticmethod
     def getAvailableDictionaries(dbConnectInst):
+        """
+        Returns a list of available dictionaries for the given database
+        connection.
+
+        @type dbConnectInst: instance
+        @param dbConnectInst: instance of a L{DatabaseConnector}
+        @rtype: list of class
+        @return: list of dictionary class objects
+        """
         available = []
         for dictionaryClass in BaseDictionary.getDictionaryClasses():
             if dictionaryClass.available(dbConnectInst):
@@ -309,6 +385,15 @@ class BaseDictionary(object):
 
     @classmethod
     def available(cls, dbConnectInst):
+        """
+        Returns C{True} if the dictionary is available for the given database
+        connection.
+
+        @type dbConnectInst: instance
+        @param dbConnectInst: instance of a L{DatabaseConnector}
+        @rtype: bool
+        @return: C{True} if the database exists, C{False} otherwise.
+        """
         raise NotImplementedError()
 
 
@@ -324,6 +409,8 @@ class EDICTStyleDictionary(BaseDictionary):
     def __init__(self, entryFactory=None, readingFormatStrategy=None,
         translationFormatStrategy=None, translationSearchStrategy=None,
         databaseUrl=None, dbConnectInst=None):
+        if not translationSearchStrategy:
+            translationSearchStrategy = SimpleTranslationSearchStrategy()
         super(EDICTStyleDictionary, self).__init__(entryFactory,
             readingFormatStrategy, translationFormatStrategy,
             translationSearchStrategy, databaseUrl, dbConnectInst)
@@ -568,21 +655,43 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
     READING = 'Pinyin'
     READING_OPTIONS = {'toneMarkType': 'numbers'}
 
-    def __init__(self, headword='s', entryFactory=None,
+    def __init__(self, entryFactory=None,
         readingFormatStrategy=None, translationFormatStrategy=None,
-        translationSearchStrategy=None, databaseUrl=None, dbConnectInst=None):
-        if not translationSearchStrategy:
-            translationSearchStrategy = SimpleTranslationSearchStrategy()
+        translationSearchStrategy=None, databaseUrl=None, dbConnectInst=None,
+        headword='b'):
+        """
+        Initialises the CEDICT instance. By default the both, simplified and
+        traditional, headword forms are used for lookup.
+
+        @type entryFactory: instance
+        @param entryFactory: entry factory instance
+        @type readingFormatStrategy: instance
+        @param readingFormatStrategy: reading formatting strategy instance
+        @type translationFormatStrategy: instance
+        @param translationFormatStrategy: translation formatting strategy
+            instance
+        @type translationSearchStrategy: instance
+        @param translationSearchStrategy: translation search strategy instance
+        @type databaseUrl: str
+        @param databaseUrl: database connection setting in the format
+            C{driver://user:pass@host/database}.
+        @type dbConnectInst: instance
+        @param dbConnectInst: instance of a L{DatabaseConnector}
+        @type headword: str
+        @param headword: C{'s'} if the simplified headword is used as default,
+            C{'t'} if the traditional headword is used as default, C{'b'} if
+            both are tried.
+        """
         super(CEDICT, self).__init__(entryFactory, readingFormatStrategy,
             translationFormatStrategy, translationSearchStrategy, databaseUrl,
             dbConnectInst)
 
-        if headword in ('s', 't'):
+        if headword in ('s', 't', 'b'):
             self.headword = headword
         else:
             raise ValueError("Invalid type for headword '%s'."
                 % headword \
-                + " Needs to be either 's' (simplified) or 't' (traditional)")
+                + " Allowed values 's'implified, 't'raditional, or 'b'oth")
 
     def _search(self, whereClause, orderBy, limit, filterResult=None):
         dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
@@ -621,8 +730,11 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
 
         if self.headword == 's':
             whereClause = dictionaryTable.c.HeadwordSimplified == headword
-        else:
+        elif self.headword == 't':
             whereClause = dictionaryTable.c.HeadwordTraditional == headword
+        else:
+            whereClause = or_(dictionaryTable.c.HeadwordSimplified == headword,
+                dictionaryTable.c.HeadwordTraditional == headword)
 
         return self._search(whereClause, limit, orderBy)
 
@@ -657,8 +769,12 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
         # headword
         if self.headword == 's':
             headwordClause = dictionaryTable.c.HeadwordSimplified == searchStr
-        else:
+        elif self.headword == 't':
             headwordClause = dictionaryTable.c.HeadwordTraditional == searchStr
+        else:
+            headwordClause = or_(
+                dictionaryTable.c.HeadwordSimplified == searchStr,
+                dictionaryTable.c.HeadwordTraditional == searchStr)
         clauses.append(headwordClause)
         # reading
         if fromReading:
@@ -685,14 +801,15 @@ class HanDeDict(CEDICT):
     PROVIDES = 'HanDeDict'
     DICTIONARY_TABLE = 'HanDeDict'
 
-    def __init__(self, headword='s', entryFactory=None,
+    def __init__(self, entryFactory=None,
         readingFormatStrategy=None, translationFormatStrategy=None,
-        translationSearchStrategy=None, databaseUrl=None, dbConnectInst=None):
+        translationSearchStrategy=None, databaseUrl=None, dbConnectInst=None,
+        headword='b'):
         if not translationSearchStrategy:
             translationSearchStrategy = HanDeDictTranslationSearchStrategy()
-        super(HanDeDict, self).__init__(headword, entryFactory,
-            readingFormatStrategy, translationFormatStrategy,
-            translationSearchStrategy, databaseUrl, dbConnectInst)
+        super(HanDeDict, self).__init__(entryFactory, readingFormatStrategy,
+            translationFormatStrategy, translationSearchStrategy, databaseUrl,
+            dbConnectInst, headword)
 
 
 class CFDICT(CEDICT):
