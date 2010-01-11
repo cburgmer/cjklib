@@ -303,6 +303,21 @@ class SimpleTranslationSearchStrategy(ExactTranslationSearchStrategy):
         return lambda translation: regex.search(translation) is not None
 
 
+class CEDICTTranslationSearchStrategy(ExactTranslationSearchStrategy):
+    """
+    CEDICT translation based search strategy. Takes into account additions put
+    in parentheses and appended information separated by a comma.
+    """
+    def getMatchFunction(self, searchStr):
+        # start with a slash '/', make sure any opening parenthesis is
+        #   closed and match search string. Finish with other content in
+        #   parantheses and a slash
+        regex = re.compile('/' + '(\s+|\([^\)]+\))*' + re.escape(searchStr)
+            + '(\s+|\([^\)]+\))*' + '[/,]')
+
+        return lambda translation: regex.search(translation) is not None
+
+
 class HanDeDictTranslationSearchStrategy(ExactTranslationSearchStrategy):
     """
     HanDeDict translation based search strategy. Takes into account additions
@@ -903,6 +918,16 @@ class CEDICTGR(EDICTStyleEnhancedReadingDictionary):
     READING = 'GR'
     DICTIONARY_TABLE = 'CEDICTGR'
 
+    def __init__(self, entryFactory=None,
+        readingFormatStrategy=None, translationFormatStrategy=None,
+        readingSearchStrategy=None, translationSearchStrategy=None,
+        databaseUrl=None, dbConnectInst=None):
+        if not translationSearchStrategy:
+            translationSearchStrategy = CEDICTTranslationSearchStrategy()
+        super(CEDICTGR, self).__init__(entryFactory, readingFormatStrategy,
+            translationFormatStrategy, readingSearchStrategy,
+            translationSearchStrategy, databaseUrl, dbConnectInst)
+
 
 class CEDICT(EDICTStyleEnhancedReadingDictionary):
     u"""
@@ -958,6 +983,8 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
             C{'t'} if the traditional headword is used as default, C{'b'} if
             both are tried.
         """
+        if not translationSearchStrategy:
+            translationSearchStrategy = CEDICTTranslationSearchStrategy()
         super(CEDICT, self).__init__(entryFactory, readingFormatStrategy,
             translationFormatStrategy, readingSearchStrategy,
             translationSearchStrategy, databaseUrl, dbConnectInst)
