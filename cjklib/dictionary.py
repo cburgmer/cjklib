@@ -83,6 +83,32 @@ Examples
     [(u'\u4f60\u597d', u'\u4f60\u597d', u'n\u01d0 h\u01ceo',\
  u'/hello/hi/how are you?/')]
 
+- A simple dictionary search tool:
+
+    >>> from cjklib.dictionary import *
+    >>> from cjklib.reading import ReadingFactory
+    >>> def search(string, reading=None):
+    ...     # guess reading dialect
+    ...     options = {}
+    ...     if reading:
+    ...         f = ReadingFactory()
+    ...         opClass = f.getReadingOperatorClass(reading)
+    ...         if hasattr(opClass, 'guessReadingDialect'):
+    ...             options = opClass.guessReadingDialect(string)
+    ...     # search
+    ...     d = CEDICT(entryFactory=DictEntryFactory(),
+    ...         readingSearchStrategy=TonelessReadingSearchStrategy())
+    ...     result = d.getFor(string, fromReading=reading, **options)
+    ...     # print
+    ...     for e in result:
+    ...         print e['HeadwordSimplified'], e['Reading'], e['Translation']
+    ...
+    >>> search('Nanjing', 'Pinyin')
+    南京 Nán jīng /Nanjing subprovincial city on the Changjiang, capital of
+    Jiangsu province 江蘇|江苏/capital of China at different historical periods/
+    南靖 Nán jìng /Najing county in Zhangzhou 漳州[Zhang1 zhou1], Fujian/
+    宁 níng /peaceful/rather/Ningxia (abbr.)/Nanjing (abbr.)/surname Ning/
+
 @todo Impl: Use Iterators?
 """
 
@@ -235,7 +261,7 @@ class ExactTranslationSearchStrategy(object):
         """
         Returns a SQLAlchemy clause that is the necessary condition for a
         possible match. This clause is used in the database query. Results may
-        then be further narrowed by L{isMatch()}.
+        then be further narrowed by L{getMatchFunction()}.
 
         @type searchStr: str
         @param searchStr: search string
@@ -245,21 +271,21 @@ class ExactTranslationSearchStrategy(object):
             self._dictInstance.DICTIONARY_TABLE]
         return dictionaryTable.c.Translation.like('%' + searchStr + '%')
 
-    def isMatch(self, searchStr, translation):
+    def getMatchFunction(self, searchStr):
         """
-        Returns true if the entry's translation matches the search string. This
-        method provides the sufficient condition for a match. Values passed in
-        variable C{translation} match the necessary condition as defined in
-        L{getWhereClause()}.
+        Gets a function that returns C{True} if the entry's translation matches
+        the search string.
+
+        This method provides the sufficient condition for a match. Note that
+        matches from other SQL clauses might get included, that do not fulfill
+        the conditions of L{getWhereClause()}.
 
         @type searchStr: str
         @param searchStr: search string
-        @type translation: str
-        @param translation: entry's translation
-        @rtype: bool
-        @return: C{True} if the entry is a match
+        @rtype: function
+        @return: function that returns C{True} if the entry is a match
         """
-        return searchStr in translation.split('/')
+        return lambda translation: searchStr in translation.split('/')
 
 
 class SimpleTranslationSearchStrategy(ExactTranslationSearchStrategy):
@@ -268,21 +294,16 @@ class SimpleTranslationSearchStrategy(ExactTranslationSearchStrategy):
     in parentheses and allows for multiple entries in one record separated by
     punctuation marks.
     """
-    def __init__(self):
-        self._lastSearchStr = None
-        self._regex = None
+    def getMatchFunction(self, searchStr):
+        # start with a slash '/', make sure any opening parenthesis is
+        #   closed, end any other entry with a punctuation mark, and match
+        #   search string. Finish with other content in parantheses and
+        #   a slash or punctuation mark
+        regex = re.compile('/((\([^\)]+\)|[^\(])+[\,\;\.\?\!])?'
+            + '(\s+|\([^\)]+\))*' + re.escape(searchStr) + '(\s+|\([^\)]+\))*'
+            + '[/\,\;\.\?\!]')
 
-    def isMatch(self, searchStr, translation):
-        if self._lastSearchStr != searchStr:
-            self._lastSearchStr = searchStr
-            # start with a slash '/', make sure any opening parenthesis is
-            #   closed, end any other entry with a punctuation mark, and match
-            #   search string. Finish with other content in parantheses and
-            #   a slash or punctuation mark
-            self._regex = re.compile('/((\([^\)]+\)|[^\(])+[\,\;\.\?\!])?'
-                + '(\s+|\([^\)]+\))*' + re.escape(searchStr)
-                + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
-        return self._regex.search(translation) is not None
+        return lambda translation: regex.search(translation) is not None
 
 
 class HanDeDictTranslationSearchStrategy(SimpleTranslationSearchStrategy):
@@ -291,14 +312,12 @@ class HanDeDictTranslationSearchStrategy(SimpleTranslationSearchStrategy):
     L{SimpleTranslationSearchStrategy} by taking into accout peculiarities of
     the HanDeDict format.
     """
-    def isMatch(self, searchStr, translation):
-        if self._lastSearchStr != searchStr:
-            self._lastSearchStr = searchStr
-            self._regex = re.compile('/((\([^\)]+\)|[^\(])+'
-                + '(?!; Bsp.: [^/]+?--[^/]+)[\,\;\.\?\!])?'
-                + '(\s+|\([^\)]+\))*' + re.escape(searchStr)
-                + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
-        return self._regex.search(translation) is not None
+    def getMatchFunction(self, searchStr):
+        regex = re.compile('/((\([^\)]+\)|[^\(])+'
+            + '(?!; Bsp.: [^/]+?--[^/]+)[\,\;\.\?\!])?' + '(\s+|\([^\)]+\))*'
+            + re.escape(searchStr) + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
+
+        return lambda translation: regex.search(translation) is not None
 
 #}
 #{ Reading search strategy
@@ -314,7 +333,7 @@ class ExactReadingSearchStrategy(object):
         """
         Returns a SQLAlchemy clause that is the necessary condition for a
         possible match. This clause is used in the database query. Results
-        may then be further narrowed by L{isMatch()}.
+        may then be further narrowed by L{getMatchFunction()}.
 
         @type readingStr: str
         @param readingStr: search string
@@ -330,26 +349,26 @@ class ExactReadingSearchStrategy(object):
             self._dictInstance.DICTIONARY_TABLE]
         return dictionaryTable.c.Reading == readingStr
 
-    def isMatch(self, readingStr, reading, fromReading, **options):
+    def getMatchFunction(self, readingStr, fromReading, **options):
         """
-        Returns true if the entry's reading matches the search string. This
-        method provides the sufficient condition for a match. Values passed
-        in variable C{reading} match the necessary condition as defined in
-        L{getWhereClause()}.
+        Gets a function that returns C{True} if the entry's reading matches the
+        search string.
+
+        This method provides the sufficient condition for a match. Note that
+        matches from other SQL clauses might get included, that do not fulfill
+        the conditions of L{getWhereClause()}.
 
         @type readingStr: str
         @param readingStr: search string
-        @type reading: str
-        @param reading: entry's reading
         @type fromReading: str
         @param fromReading: source reading as used in the dictionary
         @type options: dict
         @param options: source reading options
-        @rtype: bool
-        @return: C{True} if the entry is a match
+        @rtype: function
+        @return: function that returns C{True} if the entry is a match
         @raise ConversionError: if reading cannot be processed
         """
-        return True
+        return lambda reading: readingStr == reading
 
 
 class SimpleReadingSearchStrategy(ExactReadingSearchStrategy):
@@ -423,11 +442,6 @@ class TonelessReadingSearchStrategy(SimpleReadingSearchStrategy):
     """
     Reading based search strategy with support for missing tonal information.
     """
-    def __init__(self):
-        super(TonelessReadingSearchStrategy, self).__init__()
-        self._isMatchOptions = None
-        self._matchSet = None
-
     def setReadingFactory(self, readingFactory):
         """
         Sets the reading factory. This method is called by the
@@ -481,7 +495,7 @@ class TonelessReadingSearchStrategy(SimpleReadingSearchStrategy):
 
         return whereClause
 
-    def isMatch(self, readingStr, reading, fromReading, **options):
+    def getMatchFunction(self, readingStr, fromReading, **options):
         def getTonalForms(decompEntities):
             """
             Gets all tonal reading strings for decompositions with missing tone
@@ -524,23 +538,20 @@ class TonelessReadingSearchStrategy(SimpleReadingSearchStrategy):
         decompEntities = self._getReadings(readingStr, fromReading,
             **options)
 
-        if self._isMatchOptions != (readingStr, fromReading, options):
-            self._isMatchOptions = (readingStr, fromReading, options)
+        # if reading is tonal and includes support for missing tones, handle
+        if (self._readingFactory.isReadingOperationSupported(
+            'splitEntityTone', fromReading, **options)
+            and self._readingFactory.isReadingOperationSupported(
+                'getTones', fromReading, **options)
+            and None in self._readingFactory.getTones(fromReading,
+                **options)):
+            # look for missing tone information and generate all forms
+            matchSet = getTonalForms(decompEntities)
+        else:
+            matchSet = set([' '.join(entities)
+                for entities in decompEntities])
 
-            # if reading is tonal and includes support for missing tones, handle
-            if (self._readingFactory.isReadingOperationSupported(
-                'splitEntityTone', fromReading, **options)
-                and self._readingFactory.isReadingOperationSupported(
-                    'getTones', fromReading, **options)
-                and None in self._readingFactory.getTones(fromReading,
-                    **options)):
-                # look for missing tone information and generate all forms
-                self._matchSet = getTonalForms(decompEntities)
-            else:
-                self._matchSet = set([' '.join(entities)
-                    for entities in decompEntities])
-
-        return reading in self._matchSet
+        return lambda reading: reading in matchSet
 
 #}
 #{ Dictionary classes
@@ -663,11 +674,7 @@ class BaseDictionary(object):
 
 
 class EDICTStyleDictionary(BaseDictionary):
-    """
-    EDICT dictionary access.
-
-    @see: L{EDICTBuilder}
-    """
+    """Access for EDICT-style dictionaries."""
     DICTIONARY_TABLE = None
     COLUMNS = ['Headword', 'Reading', 'Translation']
 
@@ -739,8 +746,10 @@ class EDICTStyleDictionary(BaseDictionary):
 
     def getForTranslation(self, translationStr, limit=None, orderBy=None):
         def filterResult(headword, reading, translation):
-            return self.translationSearchStrategy.isMatch(translationStr,
-                translation)
+            return isMatch(translation)
+
+        isMatch = self.translationSearchStrategy.getMatchFunction(
+            translationStr)
 
         return self._search(
             self.translationSearchStrategy.getWhereClause(translationStr),
@@ -752,7 +761,7 @@ class EDICTStyleDictionary(BaseDictionary):
                 return True
             elif searchStr == reading:
                 return True
-            elif self.translationSearchStrategy.isMatch(searchStr, translation):
+            elif translationClause and isMatch(translation):
                 return True
             else:
                 return False
@@ -769,6 +778,7 @@ class EDICTStyleDictionary(BaseDictionary):
             searchStr)
         if translationClause:
             clauses.append(translationClause)
+            isMatch = self.translationSearchStrategy.getMatchFunction(searchStr)
 
         return self._search(or_(*clauses), limit, orderBy, filterResult)
 
@@ -785,7 +795,7 @@ class EDICT(EDICTStyleDictionary):
 
 class EDICTStyleEnhancedReadingDictionary(EDICTStyleDictionary):
     u"""
-    EDICT dictionary access with enhanced reading support.
+    Access for EDICT-style dictionaries with enhanced reading support.
 
     The EDICTStyleEnhancedReadingDictionary dictionary class extends L{EDICT}
     by:
@@ -822,10 +832,9 @@ class EDICTStyleEnhancedReadingDictionary(EDICTStyleDictionary):
             self.readingSearchStrategy.setReadingFactory(self._readingFactory)
 
     def getForReading(self, readingStr, fromReading=None, **options):
-        # raises conversion error
+        # TODO document: raises conversion error
         def filterResult(headword, reading, translation):
-            return self.readingSearchStrategy.isMatch(readingStr, reading,
-                fromReading, **options)
+            return isMatch(reading)
 
         limit = options.pop('limit', None)
         orderBy = options.pop('orderBy', None)
@@ -836,6 +845,8 @@ class EDICTStyleEnhancedReadingDictionary(EDICTStyleDictionary):
 
         readingClause = self.readingSearchStrategy.getWhereClause(readingStr,
             fromReading, **options)
+        isMatch = self.readingSearchStrategy.getMatchFunction(readingStr,
+            fromReading, **options)
 
         return self._search(readingClause, limit, orderBy, filterResult)
 
@@ -843,9 +854,9 @@ class EDICTStyleEnhancedReadingDictionary(EDICTStyleDictionary):
         def filterResult(headword, reading, translation):
             if searchStr == headword:
                 return True
-            elif self.readingSearchStrategy.isMatch(searchStr, reading):
+            elif readingClause and isReadingMatch(reading):
                 return True
-            elif self.translationSearchStrategy.isMatch(searchStr, translation):
+            elif translationClause and isTranslationMatch(translation):
                 return True
             else:
                 return False
@@ -860,17 +871,23 @@ class EDICTStyleEnhancedReadingDictionary(EDICTStyleDictionary):
         # headword
         clauses.append(dictionaryTable.c.Headword == searchStr)
         # reading
+        readingClause = None
         try:
             readingClause = self.readingSearchStrategy.getWhereClause(
                 searchStr, fromReading, **options)
             clauses.append(readingClause)
         except ConversionError:
             pass
+        if readingClause:
+            isReadingMatch = self.readingSearchStrategy.getMatchFunction(
+                searchStr, fromReading, **options)
         # translation
         translationClause = self.translationSearchStrategy.getWhereClause(
             searchStr)
         if translationClause:
             clauses.append(translationClause)
+            isTranslationMatch \
+                = self.translationSearchStrategy.getMatchFunction(searchStr)
 
         return self._search(or_(*clauses), limit, orderBy, filterResult)
 
@@ -998,8 +1015,10 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
 
     def getForTranslation(self, translationStr, limit=None, orderBy=None):
         def filterResult(headwordS, headwordT, reading, translation):
-            return self.translationSearchStrategy.isMatch(translationStr,
-                translation)
+            return isMatch(translation)
+
+        isMatch = self.translationSearchStrategy.getMatchFunction(
+            translationStr)
 
         return self._search(
             self.translationSearchStrategy.getWhereClause(translationStr),
@@ -1008,8 +1027,7 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
     def getForReading(self, readingStr, fromReading=None, **options):
         # raises conversion error
         def filterResult(headwordS, headwordT, reading, translation):
-            return self.readingSearchStrategy.isMatch(readingStr, reading,
-                fromReading, **options)
+            return isMatch(reading)
 
         limit = options.pop('limit', None)
         orderBy = options.pop('orderBy', None)
@@ -1020,6 +1038,8 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
 
         readingClause = self.readingSearchStrategy.getWhereClause(readingStr,
             fromReading, **options)
+        isMatch = self.readingSearchStrategy.getMatchFunction(readingStr,
+            fromReading, **options)
 
         return self._search(readingClause, limit, orderBy, filterResult)
 
@@ -1029,10 +1049,9 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
                 return True
             elif self.headword != 's' and searchStr == headwordT:
                 return True
-            elif self.readingSearchStrategy.isMatch(searchStr, reading,
-                fromReading, **options):
+            elif readingClause and isReadingMatch(reading):
                 return True
-            elif self.translationSearchStrategy.isMatch(searchStr, translation):
+            elif translationClause and isTranslationMatch(translation):
                 return True
             else:
                 return False
@@ -1055,17 +1074,23 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
                 dictionaryTable.c.HeadwordTraditional == searchStr)
         clauses.append(headwordClause)
         # reading
+        readingClause = None
         try:
             readingClause = self.readingSearchStrategy.getWhereClause(
                 searchStr, fromReading, **options)
             clauses.append(readingClause)
         except ConversionError:
             pass
+        if readingClause:
+            isReadingMatch = self.readingSearchStrategy.getMatchFunction(
+                searchStr, fromReading, **options)
         # translation
         translationClause = self.translationSearchStrategy.getWhereClause(
             searchStr)
         if translationClause:
             clauses.append(translationClause)
+            isTranslationMatch \
+                = self.translationSearchStrategy.getMatchFunction(searchStr)
 
         return self._search(or_(*clauses), limit, orderBy, filterResult)
 
