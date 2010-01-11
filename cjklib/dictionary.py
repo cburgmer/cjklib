@@ -83,7 +83,7 @@ Examples
     [(u'\u4f60\u597d', u'\u4f60\u597d', u'n\u01d0 h\u01ceo',\
  u'/hello/hi/how are you?/')]
 
-- A simple dictionary search tool:
+- A simple dictionary lookup tool:
 
     >>> from cjklib.dictionary import *
     >>> from cjklib.reading import ReadingFactory
@@ -248,7 +248,7 @@ class PlainTranslationStrategy(object):
         return plainTranslation
 
 #}
-#{ Translation search strategy
+#{ Translation search strategies
 
 class ExactTranslationSearchStrategy(object):
     """Basic translation based search strategy."""
@@ -291,28 +291,29 @@ class ExactTranslationSearchStrategy(object):
 class SimpleTranslationSearchStrategy(ExactTranslationSearchStrategy):
     """
     Simple translation based search strategy. Takes into account additions put
-    in parentheses and allows for multiple entries in one record separated by
-    punctuation marks.
+    in parentheses.
+    """
+    def getMatchFunction(self, searchStr):
+        # start with a slash '/', make sure any opening parenthesis is
+        #   closed and match search string. Finish with other content in
+        #   parantheses and a slash
+        regex = re.compile('/' + '(\s+|\([^\)]+\))*' + re.escape(searchStr)
+            + '(\s+|\([^\)]+\))*' + '/')
+
+        return lambda translation: regex.search(translation) is not None
+
+
+class HanDeDictTranslationSearchStrategy(ExactTranslationSearchStrategy):
+    """
+    HanDeDict translation based search strategy. Takes into account additions
+    put in parentheses and allows for multiple entries in one record separated
+    by punctuation marks.
     """
     def getMatchFunction(self, searchStr):
         # start with a slash '/', make sure any opening parenthesis is
         #   closed, end any other entry with a punctuation mark, and match
         #   search string. Finish with other content in parantheses and
         #   a slash or punctuation mark
-        regex = re.compile('/((\([^\)]+\)|[^\(])+[\,\;\.\?\!])?'
-            + '(\s+|\([^\)]+\))*' + re.escape(searchStr) + '(\s+|\([^\)]+\))*'
-            + '[/\,\;\.\?\!]')
-
-        return lambda translation: regex.search(translation) is not None
-
-
-class HanDeDictTranslationSearchStrategy(SimpleTranslationSearchStrategy):
-    """
-    HanDeDict translation based search strategy. Extends
-    L{SimpleTranslationSearchStrategy} by taking into accout peculiarities of
-    the HanDeDict format.
-    """
-    def getMatchFunction(self, searchStr):
         regex = re.compile('/((\([^\)]+\)|[^\(])+'
             + '(?!; Bsp.: [^/]+?--[^/]+)[\,\;\.\?\!])?' + '(\s+|\([^\)]+\))*'
             + re.escape(searchStr) + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
@@ -320,7 +321,7 @@ class HanDeDictTranslationSearchStrategy(SimpleTranslationSearchStrategy):
         return lambda translation: regex.search(translation) is not None
 
 #}
-#{ Reading search strategy
+#{ Reading search strategies
 
 class ExactReadingSearchStrategy(object):
     """Basic translation based search strategy."""
@@ -1115,7 +1116,7 @@ class HanDeDict(CEDICT):
             translationSearchStrategy, databaseUrl, dbConnectInst, headword)
 
 
-class CFDICT(CEDICT):
+class CFDICT(HanDeDict):
     """
     CFDICT dictionary access.
 
