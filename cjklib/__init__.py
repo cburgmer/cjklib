@@ -51,12 +51,12 @@ u'\u31d0', u'\u31d3', u'\u31df']
 
     - Access a dictionary (here using Jim Breen's EDICT):
 
-        >>> from cjklib.dictionary import EDICT, DictEntryFactory
-        >>> d = EDICT(entryFactory=DictEntryFactory())
+        >>> from cjklib.dictionary import EDICT
+        >>> d = EDICT()
         >>> d.getForTranslation('Tokyo')
-        [{'Headword': u'\u6771\u4eac', 'Reading':\
- u'\u3068\u3046\u304d\u3087\u3046', 'Translation': u'/(n) Tokyo (current\
- capital of Japan)/(P)/'}]
+        [EntryTuple(Headword=u'\u6771\u4eac',\
+ Reading=u'\u3068\u3046\u304d\u3087\u3046', Translation=u'/(n) Tokyo (current\
+ capital of Japan)/(P)/')]
 
 @author: Christoph Burgmer <cburgmer@ira.uka.de>
 @requires: Python 2.4+, SQLAlchemy 0.4.8+ and either SQLite 3+ or MySQL 5+ and
