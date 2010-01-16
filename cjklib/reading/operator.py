@@ -1010,7 +1010,7 @@ class TonalIPAOperator(TonalFixedEntityOperator):
             raise InvalidEntityError(
                 "Invalid tone information given for '%s': '%s'"
                     % (plainEntity, unicode(tone)))
-        
+
         if self.toneMarkType == 'none' or tone == None:
             entity = plainEntity
         else:

@@ -534,6 +534,32 @@ class ReadingFactory(object):
         return (fromReading, toReading) \
             in self._sharedState['readingConverterClasses']
 
+    def isReadingOperationSupported(self, operation, readingN, **options):
+        """
+        Returns C{True} if the given method is supported by the reading.
+
+        @type operation: str
+        @param operation: name of method
+        @type readingN: str
+        @param readingN: name of reading
+        @param options: additional options for handling the input
+        @rtype: bool
+        @return: C{True} if method is supported, C{False} otherwise.
+        @raise ValueError: if the given method is not covered.
+        """
+        if not operation in ('decompose', 'compose', 'isReadingEntity',
+            'isFormattingEntity',
+            # romanisations
+            'getDecompositions', 'segment', 'isStrictDecomposition',
+            'getReadingEntities', 'getFormattingEntities',
+            # Tonal fixed entities
+            'getTones', 'getTonalEntity', 'splitEntityTone',
+            'getPlainReadingEntities', 'isPlainReadingEntity'):
+            raise ValueError("Operation '%s' is not a default reading operation"
+                % operation)
+        readingOp = self._getReadingOperatorInstance(readingN, **options)
+        return hasattr(readingOp, operation)
+
     def getDefaultOptions(self, *args):
         """
         Returns the default options for the L{ReadingOperator} or
