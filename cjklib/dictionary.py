@@ -21,14 +21,12 @@ Provides higher level dictionary access.
 This module provides classes for easy access to well known CJK dictionaries.
 Queries can be done using a headword, reading or translation.
 
-System and Useage
-=================
 Dictionary sources yield less structured information compared to other data
 sources exposed in this library. Owing to this fact, a flexible system is
 provided to the user.
 
 Entry factories
----------------
+===============
 Similar to SQL interfaces, entries can be returned in different fashion. An
 X{entry factory} takes care of preparing the output. For this predefined
 factories exist: L{TupleEntryFactory}, which is very basic, will return each
@@ -36,26 +34,60 @@ entry as a tuple of its columns while the mostly used L{NamedTupleFactory} will
 return tuple objects that are accessible by attribute also.
 
 Formatting strategies
----------------------
+=====================
 As reading formattings vary and many readings can be converted into each other,
 a X{formatting strategy} can be applied to return the expected format.
 L{ReadingConversionStrategy} provides an easy way to convert the reading given
 by the dictionary into the user defined reading. Other columns can also be
 formatted by applying a strategy, see the example below.
 
-Reading and translation search strategies
------------------------------------------
+Search strategies
+=================
 Searching in natural language data is a difficult process and highly depends on
-the use case at hand. For dictionaries whose readings have dialects a simple
-search strategy exists converting the search string to the dictionary's reading.
-With L{TonelessReadingSearchStrategy} also a more complex strategy exists to
-cope with missing tonal information.
+the use case at hand. This task is provided by X{search strategies} which
+account for the more complex parts of this module. Strategies exist for the
+three main parts of dictionary entries: headword, reading and translation.
+Additionally mixed searching for a headword partially expressed by reading
+information is supported and can augment the basic reading search.
 
-For translations simple strategies exist that take into acount additional
-information put into parantheses. More complex ones can be implemented on the
-basis of extending the underlying table, e.g. using I{full text search}
-capabilities of the database server. One popular way is using stemming
-algorithms for copying with inflections by reducing a word to its root form.
+Headword search strategies
+--------------------------
+Searching for headwords is the most simple among the three. Exact searches are
+provided by class L{ExactSearchStrategy}. By default class
+L{WildcardHeadwordSearchStrategy} is employed which offers wildcard searches.
+
+Reading search strategies
+-------------------------
+Readings have more complex and unique representations. Several classes are
+provided here: L{ExactSearchStrategy} again can be used for exact matches, L{WildcardReadingSearchStrategy} extends this strategy with wildcard searches.
+L{SimpleReadingSearchStrategy} and L{SimpleWildcardReadingSearchStrategy}
+provide similar searching for readings whose entities are separated by spaces
+(e.g. CEDICT). The latter strategy is used by dictionaries with romanisations.
+A more complex search is provided by L{TonelessReadingSearchStrategy} which
+offers search which supports missing tonal information.
+
+Translation search strategies
+-----------------------------
+A basic search is provided by L{SingleEntryTranslationSearchStrategy} which
+finds an exact entry in a list of entries separated by slashes ('X{/}'). More
+flexible searching is provided by L{SimpleTranslationSearchStrategy} and
+L{SimpleWildcardTranslationSearchStrategy} which take into account additional
+information placed in parantheses. These classes have even more special
+implementations adapted to formats found in dictionaries I{CEDICT} and
+I{HanDeDict}.
+
+More complex ones could be implemented on the basis of extending the underlying
+table in the database, e.g. using I{full text search} capabilities of the
+database server. One popular way is using stemming algorithms for copying with
+inflections by reducing a word to its root form.
+
+Mixed reading search strategies
+-------------------------------
+Special support for a string with mixed reading and headword entities is
+provided by X{mixed reading search strategies}. For example X{'dui4 不 qi3'}
+will find all entries with headwords whose middle character out of three is
+X{'不'} and whose left character is read X{'dui4'} while the right character is
+read X{'qi3'}.
 
 Examples
 ========
@@ -109,20 +141,23 @@ Examples
     ...         if hasattr(opClass, 'guessReadingDialect'):
     ...             options = opClass.guessReadingDialect(string)
     ...     # search
-    ...     d = CEDICT(readingSearchStrategy=TonelessReadingSearchStrategy())
+    ...     d = CEDICT(readingSearchStrategy=TonelessReadingSearchStrategy(),
+    ...         entryFactory=UnifiedHeadwordEntryFactory())
     ...     result = d.getFor(string, reading=reading, **options)
     ...     # print
     ...     for e in result:
-    ...         print e.HeadwordSimplified, e.Reading, e.Translation
+    ...         print e.Headword, e.Reading, e.Translation
     ...
     >>> search('Nanjing', 'Pinyin')
     南京 Nán jīng /Nanjing subprovincial city on the Changjiang, capital of
     Jiangsu province 江蘇|江苏/capital of China at different historical periods/
     南靖 Nán jìng /Najing county in Zhangzhou 漳州[Zhang1 zhou1], Fujian/
-    宁 níng /peaceful/rather/Ningxia (abbr.)/Nanjing (abbr.)/surname Ning/
+    宁（寧） níng /peaceful/rather/Ningxia (abbr.)/Nanjing (abbr.)/surname Ning/
 
+@todo Fix: letter case
 @todo Impl: Use Iterators?
 @todo Impl: Pass entry factories directly to search method in DatabaseConnector
+@todo Fix:  Don't "correct" non-reading entities in HanDeDict in builder
 """
 
 import re
@@ -301,6 +336,51 @@ class NamedTupleFactory(object):
         EntryTuple = self._getNamedTuple()
         return map(EntryTuple._make, results)
 
+
+class UnifiedHeadwordEntryFactory(NamedTupleFactory):
+    """
+    Factory adding a simple X{Headword} key for CEDICT style dictionaries to
+    provide results compatible with EDICT. An alternative headword is given in
+    brackets if two different headword instances are provided in the entry.
+    """
+    def __init__(self, headword='s'):
+        if headword in ('s', 't'):
+            self.headword = headword
+        else:
+            raise ValueError("Invalid type for headword '%s'."
+                % headword \
+                + " Allowed values 's'implified or 't'raditional")
+
+    def _unifyHeadwords(self, entry):
+        entry = list(entry)
+        if self.headword == 's':
+            headwords = (entry[0], entry[1])
+        else:
+            headwords = (entry[1], entry[0])
+
+        if headwords[0] == headwords[1]:
+            entry.append(headwords[0])
+        else:
+            entry.append(u'%s（%s）' % (entry[0], entry[1]))
+        return entry
+
+    def getEntries(self, results):
+        """
+        Returns the dictionary results as named tuples.
+        """
+        def augmentedEntry(entry):
+            entry = self._unifyHeadwords(entry)
+            return EntryTuple._make(entry)
+
+        EntryTuple = self._getNamedTuple()
+        return map(augmentedEntry, results)
+
+    def setDictionaryInstance(self, dictInstance):
+        if not hasattr(dictInstance, 'COLUMNS'):
+            raise ValueError('Incompatible dictionary')
+
+        self.columnNames = dictInstance.COLUMNS + ['Headword']
+
 #}
 #{ Formatting strategies
 
@@ -370,10 +450,10 @@ class ReadingConversionStrategy(BaseFormatStrategy):
             return None
 
 #}
-#{ Translation search strategies
+#{ Common search classes
 
-class ExactTranslationSearchStrategy(object):
-    """Basic translation based search strategy."""
+class ExactSearchStrategy(object):
+    """Simple search strategy class."""
     def getWhereClause(self, column, searchStr):
         """
         Returns a SQLAlchemy clause that is the necessary condition for a
@@ -386,15 +466,15 @@ class ExactTranslationSearchStrategy(object):
         @param searchStr: search string
         @return: SQLAlchemy clause
         """
-        return column.like('%' + searchStr + '%')
+        return column == searchStr
 
     def getMatchFunction(self, searchStr):
         """
-        Gets a function that returns C{True} if the entry's translation matches
+        Gets a function that returns C{True} if the entry's cell content matches
         the search string.
 
         This method provides the sufficient condition for a match. Note that
-        matches from other SQL clauses might get included, that do not fulfill
+        matches from other SQL clauses might get included which do not fulfill
         the conditions of L{getWhereClause()}.
 
         @type searchStr: str
@@ -402,10 +482,130 @@ class ExactTranslationSearchStrategy(object):
         @rtype: function
         @return: function that returns C{True} if the entry is a match
         """
+        return lambda cell: searchStr == cell
+
+
+class WildcardBase(object):
+    """
+    Wildcard search base class. Provides wildcard conversion and regular
+    expression preparation methods.
+    """
+    def __init__(self, singleCharacter='_', multipleCharacters='%',
+        escape='\\'):
+        self.singleCharacter = singleCharacter
+        self.multipleCharacters = multipleCharacters
+        self.escape = escape
+        if len(self.escape) != 1:
+            raise ValueError("Escape character %s needs to have length 1"
+                % repr(self.escape))
+
+    def hasWildcardCharacters(self, searchStr):
+        """
+        Returns C{True} if a wildcard character is included in the search
+        string. Escaping is not considered.
+        """
+        return (self.singleCharacter in searchStr
+            or self.multipleCharacters in searchStr)
+
+    def _getWildcardString(self, searchStr):
+        param = {'esc': re.escape(self.escape),
+            'single': re.escape(self.singleCharacter),
+            'multiple': re.escape(self.multipleCharacters)}
+        # substitute wildcard characters, make sure escape is handled properly
+        if self.singleCharacter != '_':
+            searchStr = re.sub(
+                '(?<!%(esc)s)((?:%(esc)s{2}|[^%(esc)s])*?)%(single)s' % param,
+                r'\1_', searchStr)
+        if self.multipleCharacters != '%':
+            searchStr = re.sub(
+                '(?<!%(esc)s)((?:%(esc)s{2}|[^%(esc)s])*?)%(multiple)s' % param,
+                r'\1%', searchStr)
+
+        return searchStr
+
+    def _prepareWildcardRegex(self, searchStr):
+        # TODO allow '/' to fill in for wildcard?
+        param = {'esc': re.escape(self.escape),
+            'single': re.escape(self.singleCharacter),
+            'multiple': re.escape(self.multipleCharacters)}
+        # substitute wildcard characters and escape plain parts, make sure
+        #   escape is handled properly
+        parts = re.split(r'(\\{2}|\\?(?:%(single)s|%(multiple)s))' % param,
+            searchStr)
+
+        preparedParts = []
+        for part in parts:
+            if part == self.singleCharacter:
+                preparedParts.append('.')
+            elif part == self.multipleCharacters:
+                preparedParts.append('.*')
+            else:
+                preparedParts.append(re.escape(part))
+
+        return ''.join(preparedParts)
+
+    def _getWildcardRegex(self, searchStr):
+        return re.compile('^' + self._prepareWildcardRegex(searchStr) + '$')
+
+#}
+#{ Headword search strategies
+
+class WildcardHeadwordSearchStrategy(ExactSearchStrategy, WildcardBase):
+    """Basic headword search strategy with support for wildcards."""
+    def getWhereClause(self, column, searchStr):
+        if self.hasWildcardCharacters(searchStr):
+            wildcardSearchStr = self._getWildcardString(searchStr)
+            return column.like(wildcardSearchStr, escape=self.escape)
+        else:
+            # simple routine is faster
+            return ExactSearchStrategy.getWhereClause(self, column, searchStr)
+
+    def getMatchFunction(self, searchStr):
+        if self.hasWildcardCharacters(searchStr):
+            regex = self._getWildcardRegex(searchStr)
+            return lambda headword: regex.search(headword) is not None
+        else:
+            # simple routine is faster
+            return ExactSearchStrategy.getMatchFunction(self, searchStr)
+
+#}
+#{ Translation search strategies
+
+class SingleEntryTranslationSearchStrategy(ExactSearchStrategy):
+    """Basic translation search strategy."""
+    def getWhereClause(self, column, searchStr):
+        # TODO escape searchStr, no wildcards inside
+        return column.like('%' + searchStr + '%')
+
+    def getMatchFunction(self, searchStr):
         return lambda translation: searchStr in translation.split('/')
 
 
-class SimpleTranslationSearchStrategy(ExactTranslationSearchStrategy):
+class WildcardTranslationSearchStrategy(SingleEntryTranslationSearchStrategy,
+    WildcardBase):
+    """Basic translation search strategy with support for wildcards."""
+    def _getWildcardRegex(self, searchStr):
+        return re.compile('/' + self._prepareWildcardRegex(searchStr) + '/')
+
+    def getWhereClause(self, column, searchStr):
+        wildcardSearchStr = self._getWildcardString(searchStr)
+        if not wildcardSearchStr.startswith('%'):
+            wildcardSearchStr = '%' + wildcardSearchStr
+        if not searchStr.endswith('%'):
+            wildcardSearchStr = wildcardSearchStr + '%'
+        return column.like(wildcardSearchStr, escape=self.escape)
+
+    def getMatchFunction(self, searchStr):
+        if self.hasWildcardCharacters(searchStr):
+            regex = self._getWildcardRegex(readingStr)
+            return lambda translation: regex.search(translation) is not None
+        else:
+            # simple routine is faster
+            return SingleEntryTranslationSearchStrategy.getMatchFunction(self,
+                searchStr)
+
+
+class SimpleTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
     """
     Simple translation search strategy. Takes into account additions put in
     parentheses.
@@ -420,7 +620,34 @@ class SimpleTranslationSearchStrategy(ExactTranslationSearchStrategy):
         return lambda translation: regex.search(translation) is not None
 
 
-class CEDICTTranslationSearchStrategy(ExactTranslationSearchStrategy):
+class SimpleWildcardTranslationSearchStrategy(
+    WildcardTranslationSearchStrategy, SimpleTranslationSearchStrategy):
+    """
+    Simple translation search strategy with support for wildcards. Takes into
+    account additions put in parentheses.
+    """
+    def _getWildcardRegex(self, searchStr):
+        # TODO '* Tokyo' finds "/(n) Tokyo (current capital of Japan)/(P)/"
+        #   but should probably disregard that
+        regexStr = self._prepareWildcardRegex(searchStr)
+        if not searchStr.startswith('%'):
+            regexStr = '(\s+|\([^\)]+\))*' + regexStr
+        if not searchStr.endswith('%'):
+            regexStr = regexStr + '(\s+|\([^\)]+\))*'
+
+        return re.compile('/' + regexStr + '/')
+
+    def getMatchFunction(self, searchStr):
+        if self.hasWildcardCharacters(searchStr):
+            regex = self._getWildcardRegex(readingStr)
+            return lambda translation: regex.search(translation) is not None
+        else:
+            # simple routine is faster
+            return SimpleTranslationSearchStrategy.getMatchFunction(self,
+                searchStr)
+
+
+class CEDICTTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
     """
     CEDICT translation based search strategy. Takes into account additions put
     in parentheses and appended information separated by a comma.
@@ -435,7 +662,35 @@ class CEDICTTranslationSearchStrategy(ExactTranslationSearchStrategy):
         return lambda translation: regex.search(translation) is not None
 
 
-class HanDeDictTranslationSearchStrategy(ExactTranslationSearchStrategy):
+class CEDICTWildcardTranslationSearchStrategy(
+    WildcardTranslationSearchStrategy, CEDICTTranslationSearchStrategy):
+    """
+    CEDICT translation based search strategy with support for wildcards. Takes
+    into account additions put in parentheses and appended information separated
+    by a comma.
+    """
+    def _getWildcardRegex(self, searchStr):
+        # TODO '* Tokyo' finds "/(n) Tokyo (current capital of Japan)/(P)/"
+        #   but should probably disregard that
+        regexStr = self._prepareWildcardRegex(searchStr)
+        if not searchStr.startswith('%'):
+            regexStr = '(\s+|\([^\)]+\))*' + regexStr
+        if not searchStr.endswith('%'):
+            regexStr = regexStr + '(\s+|\([^\)]+\))*'
+
+        return re.compile('/' + regexStr + '[/,]')
+
+    def getMatchFunction(self, searchStr):
+        if self.hasWildcardCharacters(searchStr):
+            regex = self._getWildcardRegex(searchStr)
+            return lambda translation: regex.search(translation) is not None
+        else:
+            # simple routine is faster
+            return CEDICTTranslationSearchStrategy.getMatchFunction(self,
+                searchStr)
+
+
+class HanDeDictTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
     """
     HanDeDict translation based search strategy. Takes into account additions
     put in parentheses and allows for multiple entries in one record separated
@@ -452,57 +707,66 @@ class HanDeDictTranslationSearchStrategy(ExactTranslationSearchStrategy):
 
         return lambda translation: regex.search(translation) is not None
 
+
+class HanDeDictWildcardTranslationSearchStrategy(
+    WildcardTranslationSearchStrategy, HanDeDictTranslationSearchStrategy):
+    """
+    HanDeDict translation based search strategy with support for wildcards.
+    Takes into account additions put in parentheses and appended information
+    separated by a comma.
+    """
+    def _getWildcardRegex(self, searchStr):
+        # TODO '* Tokyo' finds "/(n) Tokyo (current capital of Japan)/(P)/"
+        #   but should probably disregard that
+        regexStr = self._prepareWildcardRegex(searchStr)
+        if not searchStr.startswith('%'):
+            regexStr = '(\s+|\([^\)]+\))*' + regexStr
+        if not searchStr.endswith('%'):
+            regexStr = regexStr + '(\s+|\([^\)]+\))*'
+
+        return re.compile('/((\([^\)]+\)|[^\(])+'
+            + '(?!; Bsp.: [^/]+?--[^/]+)[\,\;\.\?\!])?' + regexStr
+            + '[/\,\;\.\?\!]')
+
+    def getMatchFunction(self, searchStr):
+        if self.hasWildcardCharacters(searchStr):
+            regex = self._getWildcardRegex(searchStr)
+            return lambda translation: regex.search(translation) is not None
+        else:
+            # simple routine is faster
+            return HanDeDictTranslationSearchStrategy.getMatchFunction(self,
+                searchStr)
+
 #}
 #{ Reading search strategies
 
-class ExactReadingSearchStrategy(object):
-    """Basic translation based search strategy."""
-    def getWhereClause(self, column, readingStr, fromReading, **options):
-        """
-        Returns a SQLAlchemy clause that is the necessary condition for a
-        possible match. This clause is used in the database query. Results
-        may then be further narrowed by L{getMatchFunction()}.
+class WildcardReadingSearchStrategy(ExactSearchStrategy, WildcardBase):
+    """Basic reading search strategy with support for wildcards."""
+    def _getWildcardRegex(self, searchStr):
+        return re.compile(self._prepareWildcardRegex(searchStr) + '$')
 
-        @type column: SQLAlchemy column instance
-        @param column: column to check against
-        @type readingStr: str
-        @param readingStr: search string
-        @type fromReading: str
-        @param fromReading: source reading as used in the dictionary
-        @type options: dict
-        @param options: source reading options
-        @return: SQLAlchemy clause
-        @raise ConversionError: if reading cannot be processed
-        @todo Fix: letter case
-        """
-        return column == readingStr
+    def getWhereClause(self, column, searchStr, **options):
+        if self.hasWildcardCharacters(searchStr):
+            wildcardReadingStr = self._getWildcardString(readingStr)
+            return column.like(wildcardReadingStr, escape=self.escape)
+        else:
+            # simple routine is faster
+            return ExactSearchStrategy.getWhereClause(self, column, searchStr)
 
-    def getMatchFunction(self, readingStr, fromReading, **options):
-        """
-        Gets a function that returns C{True} if the entry's reading matches the
-        search string.
-
-        This method provides the sufficient condition for a match. Note that
-        matches from other SQL clauses might get included, that do not fulfill
-        the conditions of L{getWhereClause()}.
-
-        @type readingStr: str
-        @param readingStr: search string
-        @type fromReading: str
-        @param fromReading: source reading as used in the dictionary
-        @type options: dict
-        @param options: source reading options
-        @rtype: function
-        @return: function that returns C{True} if the entry is a match
-        @raise ConversionError: if reading cannot be processed
-        """
-        return lambda reading: readingStr == reading
+    def getMatchFunction(self, searchStr, **options):
+        if self.hasWildcardCharacters(searchStr):
+            regex = self._getWildcardRegex(readingStr)
+            return lambda reading: regex.search(reading) is not None
+        else:
+            # simple routine is faster
+            return ExactSearchStrategy.getMatchFunction(self, searchStr)
 
 
-class SimpleReadingSearchStrategy(ExactReadingSearchStrategy):
+class SimpleReadingSearchStrategy(ExactSearchStrategy):
     """
-    Simple reading search strategy. Converts search string to dictionary reading
-    and separates entities by space.
+    Simple reading search strategy. Converts search string to the dictionary
+    reading and separates entities by space.
+    @todo Fix: How to handle non-reading entities?
     """
     def __init__(self):
         self._getReadingsOptions = None
@@ -512,10 +776,15 @@ class SimpleReadingSearchStrategy(ExactReadingSearchStrategy):
         self._readingFactory = ReadingFactory(
             dbConnectInst=self._dictInstance.db)
 
-    def _getReadings(self, readingStr, fromReading, **options):
-        if self._getReadingsOptions != (readingStr, fromReading, options):
-            self._getReadingsOptions = (readingStr, fromReading, options)
+        if (not hasattr(self._dictInstance, 'READING')
+            or not hasattr(self._dictInstance, 'READING_OPTIONS')):
+            raise ValueError('Incompatible dictionary')
 
+    def _getReadings(self, readingStr, **options):
+        if self._getReadingsOptions != (readingStr, options):
+            self._getReadingsOptions = (readingStr, options)
+
+            fromReading = options.get('reading', self._dictInstance.READING)
             decompEntities = []
             try:
                 decompositions = self._readingFactory.getDecompositions(
@@ -549,23 +818,31 @@ class SimpleReadingSearchStrategy(ExactReadingSearchStrategy):
 
         return self._decompEntities
 
-    def getWhereClause(self, column, readingStr, fromReading, **options):
-        decompEntities = self._getReadings(readingStr, fromReading, **options)
+    def getWhereClause(self, column, searchStr, **options):
+        decompEntities = self._getReadings(searchStr, **options)
 
         return or_(*[column == ' '.join(entities)
             for entities in decompEntities])
 
+    def getMatchFunction(self, searchStr, **options):
+        decompEntities = self._getReadings(searchStr, **options)
 
-class MixedReadingSearchStrategy(SimpleReadingSearchStrategy):
-    """
-    Reading search strategy that extends L{SimpleReadingSearchStrategy} to allow
-    intermixing of readings with single characters from the headword.
-    """
-    def __init__(self):
-        super(MixedReadingSearchStrategy, self).__init__()
-        self._getReadingsSearchPairsOptions = None
+        matchSet = set([' '.join(entities) for entities in decompEntities])
 
-    def _getReadingsSearchPairs(self, readingStr, fromReading, **options):
+        return lambda reading: reading in matchSet
+
+
+class SimpleWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
+    WildcardBase):
+    """
+    Simple reading search strategy with support for wildcards. Converts search
+    string to the dictionary reading and separates entities by space.
+    """
+    def __init__(self, **options):
+        SimpleReadingSearchStrategy.__init__(self)
+        WildcardBase.__init__(self, **options)
+
+    def _getWildcardForms(self, decompEntities):
         def isReadingEntity(entity, cache={}):
             if entity not in cache:
                 cache[entity] = self._readingFactory.isReadingEntity(entity,
@@ -573,99 +850,111 @@ class MixedReadingSearchStrategy(SimpleReadingSearchStrategy):
                     **self._dictInstance.READING_OPTIONS)
             return cache[entity]
 
-        if self._getReadingsSearchPairsOptions != (readingStr, fromReading,
-            options):
-            self._getReadingsSearchPairsOptions = (readingStr, fromReading,
-                options)
+        param = {'esc': re.escape(self.escape),
+            'single': re.escape(self.singleCharacter),
+            'multiple': re.escape(self.multipleCharacters)}
+        # substitute wildcard characters and escape plain parts, make sure
+        #   escape is handled properly
+        wildcardRegex = re.compile(
+            r'( |\\{2}|\\?(?:%(single)s|%(multiple)s))' % param)
 
-            decompEntities = self._getReadings(readingStr, fromReading,
-                **options)
-
-            # separate reading entities from non-reading ones
-            self._searchPairs = []
-            for entities in decompEntities:
-                searchEntities = []
-                nonReadingEntityFound = False
-                for entity in entities:
-                    if isReadingEntity(entity):
-                        searchEntities.append((None, entity))
-                    else:
-                        nonReadingEntityFound = True
-                        searchEntities.extend([(c, None) for c in entity])
-
-                # discard pure reading strings as they will be covered by the
-                #   simple reading search routine
-                if nonReadingEntityFound:
-                    self._searchPairs.append(searchEntities)
-
-        return self._searchPairs
-
-    def getWhereClauseMixed(self, headwordColumn, readingColumn, readingStr,
-        fromReading, **options):
-
-        searchPairs = self._getReadingsSearchPairs(readingStr, fromReading,
-            **options)
-
-        clauses = []
-        for searchEntities in searchPairs:
-            # search clauses
-            headwordSearchEntities = []
-            readingSearchEntities = []
-            for headwordEntity, readingEntity in searchEntities:
-                if headwordEntity is None:
-                    headwordSearchEntities.append('_')
+        wildcardForms = []
+        for entities in decompEntities:
+            wildcardEntities = []
+            for entity in entities:
+                if isReadingEntity(entity):
+                    wildcardEntities.append(entity)
                 else:
-                    headwordSearchEntities.append(headwordEntity)
-                if readingEntity is None:
-                    readingSearchEntities.append('_%')
-                else:
-                    readingSearchEntities.append(readingEntity)
+                    for part in wildcardRegex.split(entity):
+                        if part == self.singleCharacter:
+                            wildcardEntities.append('_%')
+                        elif part == self.multipleCharacters:
+                            wildcardEntities.append('%')
+                        else:
+                            # one char each
+                            wildcardEntities.extend(part.strip())
+            wildcardForms.append(wildcardEntities)
 
-            headwordClause = headwordColumn.like(
-                ''.join(headwordSearchEntities))
-            readingClause = readingColumn.like(' '.join(readingSearchEntities))
+        return wildcardForms
 
-            clauses.append(and_(headwordClause, readingClause))
+    def getWhereClause(self, column, searchStr, **options):
+        def getWildcardReading(entities):
+            entityList = []
+            for entity in entities:
+                # insert space to separate reading entities, but only if we are
+                #   not looking for a wildcard with a possibly empty match
+                if entityList and entityList[-1] != '%' and entity != '%':
+                    entityList.append(' ')
+                entityList.append(entity)
+            return ''.join(entityList)
 
-        if clauses:
-            return or_(*clauses)
+        if self.hasWildcardCharacters(searchStr):
+            decompEntities = self._getReadings(searchStr, **options)
+
+            wildcardForms = self._getWildcardForms(decompEntities)
+            wildcardReadings = map(getWildcardReading, wildcardForms)
+
+            return or_(*[column.like(reading, escape=self.escape)
+                for reading in wildcardReadings])
         else:
-            return None
+            # simple routine is faster
+            return SimpleReadingSearchStrategy.getWhereClause(self, column,
+                searchStr, **options)
 
-    def getMatchFunctionMixed(self, readingStr, fromReading, **options):
+    def getMatchFunction(self, searchStr, **options):
         def getReadingEntities(reading):
             # simple and efficient method for CEDICT type dictionaries
             return reading.split(' ')
 
-        def matchHeadwordReadingPair(headword, reading):
+        def depthFirstSearch(searchEntities, entities):
+            if not searchEntities:
+                if not entities:
+                    return True
+                else:
+                    return False
+            if searchEntities[0] == '%':
+                if depthFirstSearch(searchEntities[1:], entities):
+                    # try consume no entity
+                    return True
+                else:
+                    # consume one entity
+                    return depthFirstSearch(searchEntities, entities[1:])
+            elif searchEntities[0] == '_%':
+                # consume one entity
+                return depthFirstSearch(searchEntities[1:], entities[1:])
+            elif entities and searchEntities[0] == entities[0]:
+                return depthFirstSearch(searchEntities[1:], entities[1:])
+            else:
+                return False
+
+        def matchReadingEntities(reading):
             readingEntities = getReadingEntities(reading)
 
             # match against all pairs
-            for searchEntities in searchPairs:
-                for idx, entryTuple in enumerate(searchEntities):
-                    headwordEntity, readingEntity = entryTuple
-                    if (headwordEntity is not None
-                        and headword[idx] != headwordEntity):
-                        break
-                    if (readingEntity is not None
-                        and readingEntities[idx] != readingEntity):
-                        break
-                else:
+            for entities in wildcardForms:
+                if depthFirstSearch(entities, readingEntities):
                     return True
 
             return False
 
-        searchPairs = self._getReadingsSearchPairs(readingStr, fromReading,
-            **options)
+        if self.hasWildcardCharacters(searchStr):
+            decompEntities = self._getReadings(searchStr, **options)
 
-        return matchHeadwordReadingPair
+            wildcardForms = self._getWildcardForms(decompEntities)
+
+            return matchReadingEntities
+        else:
+            # simple routine is faster
+            return SimpleReadingSearchStrategy.getMatchFunction(self, searchStr,
+                **options)
 
 
 class TonelessReadingSearchStrategy(SimpleReadingSearchStrategy):
     """
     Reading based search strategy with support for missing tonal information.
     """
-    def getWhereClause(self, column, readingStr, fromReading, **options):
+    # TODO implement wildcard version
+    def getWhereClause(self, column, searchStr, **options):
         def getWildcardForms(decompEntities):
             """Adds wildcards to account for missing tone information."""
             wildcardEntities = []
@@ -684,8 +973,9 @@ class TonelessReadingSearchStrategy(SimpleReadingSearchStrategy):
 
             return wildcardEntities
 
-        decompEntities = self._getReadings(readingStr, fromReading, **options)
+        decompEntities = self._getReadings(searchStr, **options)
 
+        fromReading = options.get('reading', self._dictInstance.READING)
         # if reading is tonal and includes support for missing tones, handle
         if (self._readingFactory.isReadingOperationSupported('splitEntityTone',
             fromReading, **options)
@@ -703,7 +993,7 @@ class TonelessReadingSearchStrategy(SimpleReadingSearchStrategy):
 
         return whereClause
 
-    def getMatchFunction(self, readingStr, fromReading, **options):
+    def getMatchFunction(self, searchStr, **options):
         def getTonalForms(decompEntities):
             """
             Gets all tonal reading strings for decompositions with missing tone
@@ -742,9 +1032,9 @@ class TonelessReadingSearchStrategy(SimpleReadingSearchStrategy):
                     pass
             return tonalEntities
 
-        decompEntities = self._getReadings(readingStr, fromReading,
-            **options)
+        decompEntities = self._getReadings(searchStr, **options)
 
+        fromReading = options.get('reading', self._dictInstance.READING)
         # if reading is tonal and includes support for missing tones, handle
         if (self._readingFactory.isReadingOperationSupported(
             'splitEntityTone', fromReading, **options)
@@ -761,6 +1051,114 @@ class TonelessReadingSearchStrategy(SimpleReadingSearchStrategy):
         return lambda reading: reading in matchSet
 
 #}
+#{ Mixed reading search strategies
+
+class MixedReadingSearchStrategy(SimpleReadingSearchStrategy):
+    """
+    Reading search strategy that extends L{SimpleReadingSearchStrategy} to allow
+    intermixing of readings with single characters from the headword.
+
+    This strategy complements the basic search strategy. It is not built to
+    return results for plain reading or plain headword strings.
+    """
+    # TODO implement wildcard version
+    def __init__(self):
+        super(MixedReadingSearchStrategy, self).__init__()
+        self._getReadingsSearchPairsOptions = None
+
+    def _getReadingsSearchPairs(self, readingStr, **options):
+        def isReadingEntity(entity, cache={}):
+            if entity not in cache:
+                cache[entity] = self._readingFactory.isReadingEntity(entity,
+                    self._dictInstance.READING,
+                    **self._dictInstance.READING_OPTIONS)
+            return cache[entity]
+
+        if self._getReadingsSearchPairsOptions != (readingStr, options):
+            self._getReadingsSearchPairsOptions = (readingStr, options)
+
+            decompEntities = self._getReadings(readingStr, **options)
+
+            # separate reading entities from non-reading ones
+            self._searchPairs = []
+            for entities in decompEntities:
+                searchEntities = []
+                hasReadingEntity = hasHeadwordEntity = False
+                for entity in entities:
+                    if isReadingEntity(entity):
+                        hasReadingEntity = True
+                        searchEntities.append((None, entity))
+                    else:
+                        hasHeadwordEntity = True
+                        searchEntities.extend([(c, None) for c in entity])
+
+                # discard pure reading or pure headword strings as they will be
+                #   covered through other strategies
+                if hasReadingEntity and hasHeadwordEntity:
+                    self._searchPairs.append(searchEntities)
+
+        return self._searchPairs
+
+    def getWhereClause(self, headwordColumn, readingColumn, searchStr,
+        **options):
+
+        searchPairs = self._getReadingsSearchPairs(searchStr, **options)
+
+        fromReading = options.get('reading', self._dictInstance.READING)
+        clauses = []
+        for searchEntities in searchPairs:
+            # search clauses
+            headwordSearchEntities = []
+            readingSearchEntities = []
+            for headwordEntity, readingEntity in searchEntities:
+                if headwordEntity is None:
+                    headwordSearchEntities.append('_')
+                else:
+                    headwordSearchEntities.append(headwordEntity)
+                if readingEntity is None:
+                    readingSearchEntities.append('_%')
+                else:
+                    readingSearchEntities.append(readingEntity)
+
+            headwordClause = headwordColumn.like(
+                ''.join(headwordSearchEntities))
+            readingClause = readingColumn.like(' '.join(readingSearchEntities))
+
+            clauses.append(and_(headwordClause, readingClause))
+
+        if clauses:
+            return or_(*clauses)
+        else:
+            return None
+
+    def getMatchFunction(self, searchStr, **options):
+        def getReadingEntities(reading):
+            # simple and efficient method for CEDICT type dictionaries
+            return reading.split(' ')
+
+        def matchHeadwordReadingPair(headword, reading):
+            readingEntities = getReadingEntities(reading)
+
+            # match against all pairs
+            for searchEntities in searchPairs:
+                for idx, entryTuple in enumerate(searchEntities):
+                    headwordEntity, readingEntity = entryTuple
+                    if (headwordEntity is not None
+                        and headword[idx] != headwordEntity):
+                        break
+                    if (readingEntity is not None
+                        and readingEntities[idx] != readingEntity):
+                        break
+                else:
+                    return True
+
+            return False
+
+        searchPairs = self._getReadingsSearchPairs(searchStr, **options)
+
+        return matchHeadwordReadingPair
+
+#}
 #{ Dictionary classes
 
 class BaseDictionary(object):
@@ -770,59 +1168,71 @@ class BaseDictionary(object):
     PROVIDES = None
     """Name of dictionary that is provided by this class."""
 
-    def __init__(self, entryFactory=None, columnFormatStrategies=None,
-        readingSearchStrategy=None, translationSearchStrategy=None,
-        databaseUrl=None, dbConnectInst=None):
+    def __init__(self, **options):
         """
         Initialises the BaseDictionary instance.
 
-        @type entryFactory: instance
-        @param entryFactory: entry factory instance
-        @type columnFormatStrategies: dict
-        @param columnFormatStrategies: column formatting strategy instances
-        @type readingSearchStrategy: instance
-        @param readingSearchStrategy: reading search strategy instance
-        @type translationSearchStrategy: instance
-        @param translationSearchStrategy: translation search strategy instance
-        @type databaseUrl: str
-        @param databaseUrl: database connection setting in the format
+        @keyword entryFactory: entry factory instance
+        @keyword columnFormatStrategies: column formatting strategy instances
+        @keyword headwordSearchStrategy: headword search strategy instance
+        @keyword readingSearchStrategy: reading search strategy instance
+        @keyword translationSearchStrategy: translation search strategy instance
+        @keyword mixedReadingSearchStrategy: mixed reading search strategy
+            instance
+        @keyword databaseUrl: database connection setting in the format
             C{driver://user:pass@host/database}.
-        @type dbConnectInst: instance
-        @param dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
         """
         # get connector to database
-        if dbConnectInst:
-            self.db = dbConnectInst
+        if 'dbConnectInst' in options:
+            self.db = options['dbConnectInst']
         else:
             self.db = DatabaseConnector.getDBConnector(databaseUrl)
             """L{DatabaseConnector} instance"""
 
-        if entryFactory:
-            self.entryFactory = entryFactory
+        if 'entryFactory' in options:
+            self.entryFactory = options['entryFactory']
         else:
             self.entryFactory = TupleFactory()
             """Factory for formatting row entries."""
         if hasattr(self.entryFactory, 'setDictionaryInstance'):
             self.entryFactory.setDictionaryInstance(self)
 
-        self.columnFormatStrategies = columnFormatStrategies or {}
+        self.columnFormatStrategies = options.get('columnFormatStrategies', {})
         """Strategies for formatting columns."""
         for column in self.columnFormatStrategies.values():
             if hasattr(column, 'setDictionaryInstance'):
                 column.setDictionaryInstance(self)
 
-        if readingSearchStrategy:
-            self.readingSearchStrategy = readingSearchStrategy
+        if 'headwordSearchStrategy' in options:
+            self.headwordSearchStrategy = options['headwordSearchStrategy']
         else:
-            self.readingSearchStrategy = ExactReadingSearchStrategy()
+            self.headwordSearchStrategy = WildcardHeadwordSearchStrategy()
+            """Strategy for searching readings."""
+        if hasattr(self.headwordSearchStrategy, 'setDictionaryInstance'):
+            self.headwordSearchStrategy.setDictionaryInstance(self)
+
+        if 'readingSearchStrategy' in options:
+            self.readingSearchStrategy = options['readingSearchStrategy']
+        else:
+            self.readingSearchStrategy = WildcardReadingSearchStrategy()
             """Strategy for searching readings."""
         if hasattr(self.readingSearchStrategy, 'setDictionaryInstance'):
             self.readingSearchStrategy.setDictionaryInstance(self)
 
-        if translationSearchStrategy:
-            self.translationSearchStrategy = translationSearchStrategy
+        self.mixedReadingSearchStrategy = options.get(
+            'mixedReadingSearchStrategy', None)
+        """Strategy for mixed searching of headword/reading."""
+        if (self.mixedReadingSearchStrategy
+            and hasattr(self.mixedReadingSearchStrategy,
+                'setDictionaryInstance')):
+            self.mixedReadingSearchStrategy.setDictionaryInstance(self)
+
+        if 'translationSearchStrategy' in options:
+            self.translationSearchStrategy \
+                = options['translationSearchStrategy']
         else:
-            self.translationSearchStrategy = ExactTranslationSearchStrategy()
+            self.translationSearchStrategy = WildcardTranslationSearchStrategy()
             """Strategy for searching translations."""
         if hasattr(self.translationSearchStrategy, 'setDictionaryInstance'):
             self.translationSearchStrategy.setDictionaryInstance(self)
@@ -862,6 +1272,22 @@ class BaseDictionary(object):
         return available
 
     @classmethod
+    def getDictionaryClass(cls, dictionaryName):
+        """
+        Get a dictionary class by dictionary name.
+
+        @rtype: type
+        @return: dictionary class
+        """
+        if not hasattr(cls, '_dictionaryMap'):
+            cls._dictionaryMap = dict([(dictCls.PROVIDES, dictCls)
+                for dictCls in cls.getDictionaryClasses()])
+
+        if dictionaryName not in cls._dictionaryMap:
+            raise ValueError('Not a supported dictionary')
+        return cls._dictionaryMap[dictionaryName]
+
+    @classmethod
     def available(cls, dbConnectInst):
         """
         Returns C{True} if the dictionary is available for the given database
@@ -886,17 +1312,13 @@ class EDICTStyleDictionary(BaseDictionary):
     READING_OPTIONS = {}
     """Options for reading of dictionary entries."""
 
-    def __init__(self, entryFactory=None, columnFormatStrategies=None,
-        readingSearchStrategy=None, translationSearchStrategy=None,
-        databaseUrl=None, dbConnectInst=None):
-
-        if not entryFactory:
-            entryFactory = NamedTupleFactory()
-        if not translationSearchStrategy:
-            translationSearchStrategy = SimpleTranslationSearchStrategy()
-        super(EDICTStyleDictionary, self).__init__(entryFactory,
-            columnFormatStrategies, readingSearchStrategy,
-            translationSearchStrategy, databaseUrl, dbConnectInst)
+    def __init__(self, **options):
+        if 'entryFactory' not in options:
+            options['entryFactory'] = NamedTupleFactory()
+        if 'translationSearchStrategy' not in options:
+            options['translationSearchStrategy'] \
+                = SimpleWildcardTranslationSearchStrategy()
+        super(EDICTStyleDictionary, self).__init__(**options)
 
         if not self.available(self.db):
             raise ValueError("Table '%s' for dictionary does not exist"
@@ -907,7 +1329,7 @@ class EDICTStyleDictionary(BaseDictionary):
         return (cls.DICTIONARY_TABLE
             and dbConnectInst.has_table(cls.DICTIONARY_TABLE))
 
-    def _search(self, whereClause, filters, orderBy, limit):
+    def _search(self, whereClause, filters, limit, orderBy):
         def _getFilterFunction(filterList):
             """Creates a function for filtering search results."""
             def anyFunc(row):
@@ -925,13 +1347,20 @@ class EDICTStyleDictionary(BaseDictionary):
 
         dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
 
-        if orderBy is None:
-            orderBy = []
+        orderByCols = []
+        if orderBy is not None:
+            if type(orderBy) != type([]):
+                orderBy = [orderBy]
+            try:
+                orderByCols = [dictionaryTable.c[col] for col in orderBy]
+            except KeyError:
+                raise ValueError("Invalid 'ORDER BY' columns specified: '%s'"
+                    % "', '".join(orderBy))
 
         # lookup in db
         results = self.db.selectRows(
             select([dictionaryTable.c[col] for col in self.COLUMNS],
-                whereClause, distinct=True).order_by(*orderBy).limit(limit))
+                whereClause, distinct=True).order_by(*orderByCols).limit(limit))
 
         # filter
         if filters:
@@ -954,11 +1383,15 @@ class EDICTStyleDictionary(BaseDictionary):
         return self._search(None, limit, orderBy)
 
     def _getHeadwordSearch(self, headwordStr, **options):
-        filters = [(['Headword'], lambda headword: headword == headwordStr)]
-
         dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
-        clauses = [dictionaryTable.c.Headword == headword]
-        return clauses, filters
+
+        headwordClause = self.headwordSearchStrategy.getWhereClause(
+            dictionaryTable.c.Headword, headwordStr)
+
+        headwordMatchFunc = self.headwordSearchStrategy.getMatchFunction(
+            headwordStr)
+
+        return [headwordClause], [(['Headword'], headwordMatchFunc)]
 
     def getForHeadword(self, headwordStr, limit=None, orderBy=None):
         clauses, filters = self._getHeadwordSearch(headwordStr)
@@ -966,8 +1399,6 @@ class EDICTStyleDictionary(BaseDictionary):
         return self._search(or_(*clauses), filters, limit, orderBy)
 
     def _getReadingSearch(self, readingStr, **options):
-        fromReading = options.pop('reading', self.READING)
-
         dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
 
         clauses = []
@@ -975,24 +1406,24 @@ class EDICTStyleDictionary(BaseDictionary):
 
         # reading search
         readingClause = self.readingSearchStrategy.getWhereClause(
-            dictionaryTable.c.Reading, readingStr, fromReading, **options)
+            dictionaryTable.c.Reading, readingStr, **options)
         clauses.append(readingClause)
 
         readingMatchFunc = self.readingSearchStrategy.getMatchFunction(
-            readingStr, fromReading, **options)
+            readingStr, **options)
         filters.append((['Reading'], readingMatchFunc))
 
         # mixed search
-        if hasattr(self.readingSearchStrategy, 'getWhereClauseMixed'):
-            mixedClause = self.readingSearchStrategy.getWhereClauseMixed(
+        if self.mixedReadingSearchStrategy:
+            mixedClause = self.mixedReadingSearchStrategy.getWhereClause(
                 dictionaryTable.c.Headword, dictionaryTable.c.Reading,
-                readingStr, fromReading, **options)
+                readingStr, **options)
             if mixedClause:
                 clauses.append(mixedClause)
 
                 mixedReadingMatchFunc \
-                    = self.readingSearchStrategy.getMatchFunctionMixed(
-                        readingStr, fromReading, **options)
+                    = self.mixedReadingSearchStrategy.getMatchFunction(
+                        readingStr, **options)
                 filters.append((['Headword', 'Reading'],
                     mixedReadingMatchFunc))
 
@@ -1055,18 +1486,16 @@ class EDICTStyleEnhancedReadingDictionary(EDICTStyleDictionary):
           L{ReadingConversionStrategy},
         - flexible searching for reading strings.
     """
-    def __init__(self, entryFactory=None, columnFormatStrategies=None,
-        readingSearchStrategy=None, translationSearchStrategy=None,
-        databaseUrl=None, dbConnectInst=None):
+    def __init__(self, **options):
 
-        columnFormatStrategies = columnFormatStrategies or {}
+        columnFormatStrategies = options.get('columnFormatStrategies', {})
         if 'Reading' not in columnFormatStrategies:
             columnFormatStrategies['Reading'] = ReadingConversionStrategy()
-        if not readingSearchStrategy:
-            readingSearchStrategy = SimpleReadingSearchStrategy()
-        super(EDICTStyleEnhancedReadingDictionary, self).__init__(entryFactory,
-            columnFormatStrategies, readingSearchStrategy,
-            translationSearchStrategy, databaseUrl, dbConnectInst)
+            options['columnFormatStrategies'] = columnFormatStrategies
+        if 'readingSearchStrategy' not in options:
+            options['readingSearchStrategy'] \
+                = SimpleWildcardReadingSearchStrategy()
+        super(EDICTStyleEnhancedReadingDictionary, self).__init__(**options)
 
 
 class CEDICTGR(EDICTStyleEnhancedReadingDictionary):
@@ -1079,15 +1508,12 @@ class CEDICTGR(EDICTStyleEnhancedReadingDictionary):
     READING = 'GR'
     DICTIONARY_TABLE = 'CEDICTGR'
 
-    def __init__(self, entryFactory=None, columnFormatStrategies=None,
-        readingSearchStrategy=None, translationSearchStrategy=None,
-        databaseUrl=None, dbConnectInst=None):
+    def __init__(self, **options):
 
-        if not translationSearchStrategy:
-            translationSearchStrategy = CEDICTTranslationSearchStrategy()
-        super(CEDICTGR, self).__init__(entryFactory, columnFormatStrategies,
-            readingSearchStrategy, translationSearchStrategy, databaseUrl,
-            dbConnectInst)
+        if 'translationSearchStrategy' not in options:
+            options['translationSearchStrategy'] \
+                = CEDICTWildcardTranslationSearchStrategy()
+        super(CEDICTGR, self).__init__(**options)
 
 
 class CEDICT(EDICTStyleEnhancedReadingDictionary):
@@ -1115,37 +1541,31 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
     READING = 'Pinyin'
     READING_OPTIONS = {'toneMarkType': 'numbers'}
 
-    def __init__(self, entryFactory=None, columnFormatStrategies=None,
-        readingSearchStrategy=None, translationSearchStrategy=None,
-        databaseUrl=None, dbConnectInst=None, headword='b'):
+    def __init__(self, **options):
         """
         Initialises the CEDICT instance. By default the both, simplified and
         traditional, headword forms are used for lookup.
 
-        @type entryFactory: instance
-        @param entryFactory: entry factory instance
-        @type columnFormatStrategies: list
-        @param columnFormatStrategies: column formatting strategy instances
-        @type readingSearchStrategy: instance
-        @param readingSearchStrategy: reading search strategy instance
-        @type translationSearchStrategy: instance
-        @param translationSearchStrategy: translation search strategy instance
-        @type databaseUrl: str
-        @param databaseUrl: database connection setting in the format
+        @keyword entryFactory: entry factory instance
+        @keyword columnFormatStrategies: column formatting strategy instances
+        @keyword headwordSearchStrategy: headword search strategy instance
+        @keyword readingSearchStrategy: reading search strategy instance
+        @keyword translationSearchStrategy: translation search strategy instance
+        @keyword mixedReadingSearchStrategy: mixed reading search strategy
+            instance
+        @keyword databaseUrl: database connection setting in the format
             C{driver://user:pass@host/database}.
-        @type dbConnectInst: instance
-        @param dbConnectInst: instance of a L{DatabaseConnector}
-        @type headword: str
-        @param headword: C{'s'} if the simplified headword is used as default,
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword headword: C{'s'} if the simplified headword is used as default,
             C{'t'} if the traditional headword is used as default, C{'b'} if
             both are tried.
         """
-        if not translationSearchStrategy:
-            translationSearchStrategy = CEDICTTranslationSearchStrategy()
-        super(CEDICT, self).__init__(entryFactory, columnFormatStrategies,
-            readingSearchStrategy, translationSearchStrategy, databaseUrl,
-            dbConnectInst)
+        if 'translationSearchStrategy' not in options:
+            options['translationSearchStrategy'] \
+                = CEDICTWildcardTranslationSearchStrategy()
+        super(CEDICT, self).__init__(**options)
 
+        headword = options.get('headword', 'b')
         if headword in ('s', 't', 'b'):
             self.headword = headword
         else:
@@ -1154,8 +1574,6 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
                 + " Allowed values 's'implified, 't'raditional, or 'b'oth")
 
     def _getReadingSearch(self, readingStr, **options):
-        fromReading = options.pop('reading', self.READING)
-
         dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
 
         clauses = []
@@ -1163,48 +1581,56 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
 
         # reading search
         readingClause = self.readingSearchStrategy.getWhereClause(
-            dictionaryTable.c.Reading, readingStr, fromReading, **options)
+            dictionaryTable.c.Reading, readingStr, **options)
         clauses.append(readingClause)
 
         readingMatchFunc = self.readingSearchStrategy.getMatchFunction(
-            readingStr, fromReading, **options)
+            readingStr, **options)
         filters.append((['Reading'], readingMatchFunc))
 
         # mixed search
-        if hasattr(self.readingSearchStrategy, 'getWhereClauseMixed'):
-            mixedClauseS = self.readingSearchStrategy.getWhereClauseMixed(
-                dictionaryTable.c.HeadwordSimplified, dictionaryTable.c.Reading,
-                readingStr, fromReading, **options)
-            if mixedClauseS:
-                mixedClauseT = self.readingSearchStrategy.getWhereClauseMixed(
+        if self.mixedReadingSearchStrategy:
+            mixedClauses = []
+            if self.headword != 't':
+                mixedClauseS = self.mixedReadingSearchStrategy.getWhereClause(
+                    dictionaryTable.c.HeadwordSimplified,
+                    dictionaryTable.c.Reading, readingStr, **options)
+                if mixedClauseS: mixedClauses.append(mixedClauseS)
+            if self.headword != 's':
+                mixedClauseT = self.mixedReadingSearchStrategy.getWhereClause(
                     dictionaryTable.c.HeadwordTraditional,
-                    dictionaryTable.c.Reading, readingStr, fromReading,
-                    **options)
-                clauses.append(mixedClauseS)
-                clauses.append(mixedClauseT)
+                    dictionaryTable.c.Reading, readingStr, **options)
+                if mixedClauseT: mixedClauses.append(mixedClauseT)
 
+            if mixedClauses:
+                clauses.extend(mixedClauses)
                 mixedReadingMatchFunc \
-                    = self.readingSearchStrategy.getMatchFunctionMixed(
-                        readingStr, fromReading, **options)
-                filters.append((['HeadwordSimplified', 'Reading'],
-                    mixedReadingMatchFunc))
-                filters.append((['HeadwordTraditional', 'Reading'],
-                    mixedReadingMatchFunc))
+                    = self.mixedReadingSearchStrategy.getMatchFunction(
+                        readingStr, **options)
+                if self.headword != 't':
+                    filters.append((['HeadwordSimplified', 'Reading'],
+                        mixedReadingMatchFunc))
+                if self.headword != 's':
+                    filters.append((['HeadwordTraditional', 'Reading'],
+                        mixedReadingMatchFunc))
 
         return clauses, filters
 
     def _getHeadwordSearch(self, headwordStr, **options):
-        filters = [
-            (['HeadwordSimplified'], lambda headword: headword == headwordStr),
-            (['HeadwordTraditional'], lambda headword: headword == headwordStr)]
-
         dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]
 
         clauses = []
+        filters = []
         if self.headword != 't':
-            clauses.append(dictionaryTable.c.HeadwordSimplified == headwordStr)
+            clauses.append(self.headwordSearchStrategy.getWhereClause(
+                dictionaryTable.c.HeadwordSimplified, headwordStr))
+            filters.append((['HeadwordSimplified'],
+                self.headwordSearchStrategy.getMatchFunction(headwordStr)))
         if self.headword != 's':
-            clauses.append(dictionaryTable.c.HeadwordTraditional == headwordStr)
+            clauses.append(self.headwordSearchStrategy.getWhereClause(
+                dictionaryTable.c.HeadwordTraditional, headwordStr))
+            filters.append((['HeadwordTraditional'],
+                self.headwordSearchStrategy.getMatchFunction(headwordStr)))
 
         return clauses, filters
 
@@ -1218,15 +1644,11 @@ class HanDeDict(CEDICT):
     PROVIDES = 'HanDeDict'
     DICTIONARY_TABLE = 'HanDeDict'
 
-    def __init__(self, entryFactory=None, columnFormatStrategies=None,
-        readingSearchStrategy=None, translationSearchStrategy=None,
-        databaseUrl=None, dbConnectInst=None, headword='b'):
-
-        if not translationSearchStrategy:
-            translationSearchStrategy = HanDeDictTranslationSearchStrategy()
-        super(HanDeDict, self).__init__(entryFactory, columnFormatStrategies,
-            readingSearchStrategy, translationSearchStrategy, databaseUrl,
-            dbConnectInst, headword)
+    def __init__(self, **options):
+        if 'translationSearchStrategy' not in options:
+            options['translationSearchStrategy'] \
+                = HanDeDictWildcardTranslationSearchStrategy()
+        super(HanDeDict, self).__init__(**options)
 
 
 class CFDICT(HanDeDict):
