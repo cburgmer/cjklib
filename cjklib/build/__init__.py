@@ -100,7 +100,7 @@ class DatabaseBuilder:
             from pkg_resources import Requirement, resource_filename
             options['dataPath'] \
                 = resource_filename(Requirement.parse("cjklib"), "cjklib/data")
-        elif type(options['dataPath']) in (type(''), type(u'')):
+        elif isinstance(options['dataPath'], basestring):
             # wrap as list
             options['dataPath'] = [options['dataPath']]
 
@@ -117,7 +117,8 @@ class DatabaseBuilder:
         if 'dbConnectInst' in options:
             self.db = options.pop('dbConnectInst')
         else:
-            self.db = dbconnector.DatabaseConnector.getDBConnector(databaseUrl)
+            self.db = dbconnector.DatabaseConnector.getDBConnector(
+                {'sqlalchemy.url': databaseUrl})
             """L{DatabaseConnector} instance"""
 
         # get TableBuilder classes
@@ -257,11 +258,20 @@ class DatabaseBuilder:
         # get depending tables that need to be updated when dependencies change
         dependingTables = []
         if self.rebuildDepending:
+            # report tables that should be updated but lie outside our scope
+            if not self.quiet:
+                externalDependingTables \
+                    = self.getExternalRebuiltDependingTables(tables)
+                if externalDependingTables:
+                    warn("Ignoring tables with dependencies updated"
+                        + " but belonging to attached databases: '" \
+                        + "', '".join(externalDependingTables) + "'")
+
             dependingTables = self.getRebuiltDependingTables(tables)
             if dependingTables:
                 if not self.quiet:
                     warn("Tables rebuilt because of dependencies updated: '" \
-                        +"', '".join(dependingTables) + "'")
+                        + "', '".join(dependingTables) + "'")
                 tables.extend(dependingTables)
 
         # get table list according to dependencies
@@ -274,11 +284,10 @@ class DatabaseBuilder:
         if not self.quiet and self.rebuildExisting:
             warn("Rebuilding tables and overwriting old ones...")
         builderClasses.reverse()
-        self.instancesUnrequestedTable = set()
+        self._instancesUnrequestedTable = set()
         while builderClasses:
             builder = builderClasses.pop()
-            # check first if the table will only be created for resolving
-            # dependencies and note it down for deletion
+
             transaction = self.db.connection.begin()
 
             try:
@@ -289,18 +298,23 @@ class DatabaseBuilder:
                 # mark tables as deletable if its only provided because of
                 #   dependencies and the table doesn't exists yet
                 if builder.PROVIDES in buildDependentTables \
-                    and not self.db.engine.has_table(builder.PROVIDES):
-                    self.instancesUnrequestedTable.add(instance)
+                    and not self.db.mainHasTable(builder.PROVIDES):
+                    self._instancesUnrequestedTable.add(instance)
 
-                if self.db.engine.has_table(builder.PROVIDES):
+                if self.db.mainHasTable(builder.PROVIDES):
+                    # will only remove the table if found in the main database
                     if not self.quiet:
-                        warn("Removing previously built table '%s'" \
+                        warn("Removing previously built table '%s'"
                             % builder.PROVIDES)
                     instance.remove()
 
                 if not self.quiet:
-                    warn("Building table '%s' with builder '%s'..." \
+                    warn("Building table '%s' with builder '%s'..."
                         % (builder.PROVIDES, builder.__name__))
+
+                # remove old metadata
+                if builder.PROVIDES in self.db.tables:
+                    del self.db.tables[builder.PROVIDES]
 
                 instance.build()
                 transaction.commit()
@@ -342,8 +356,8 @@ class DatabaseBuilder:
         removed and not included in later builds.
         """
         # remove tables that where only created as build dependencies
-        if 'instancesUnrequestedTable' in self.__dict__:
-            for instance in self.instancesUnrequestedTable:
+        if hasattr(self, '_instancesUnrequestedTable'):
+            for instance in self._instancesUnrequestedTable:
                 if not self.quiet:
                     warn("Removing table '" + instance.PROVIDES \
                         + "' as it was only created to solve build " \
@@ -352,14 +366,19 @@ class DatabaseBuilder:
                     instance.remove()
                 except OperationalError:
                     pass
+                # remove old metadata
+                if instance.PROVIDES in self.db.tables:
+                    del self.db.tables[instance.PROVIDES]
 
     def remove(self, tables):
         """
-        Removes the given tables.
+        Removes the given tables from the main database.
 
         @type tables: list
         @param tables: list of tables to remove
         @raise UnsupportedError: if an unsupported table is given.
+        @rtype: list
+        @return: names of deleted tables, might be smaller than the actual list
         """
         if type(tables) != type([]):
             tables = [tables]
@@ -371,8 +390,9 @@ class DatabaseBuilder:
                     % table)
             tableBuilderClasses.append(self._tableBuilderLookup[table])
 
+        removed = []
         for builder in tableBuilderClasses:
-            if self.db.engine.has_table(builder.PROVIDES):
+            if self.db.mainHasTable(builder.PROVIDES):
                 if not self.quiet:
                     warn("Removing previously built table '%s'"
                         % builder.PROVIDES)
@@ -382,21 +402,27 @@ class DatabaseBuilder:
                 options['dbConnectInst'] = self.db
                 instance = builder(**options)
                 instance.remove()
+                removed.append(builder.PROVIDES)
+                # remove old metadata
+                if builder.PROVIDES in self.db.tables:
+                    del self.db.tables[builder.PROVIDES]
+
+        return removed
 
     def needsRebuild(self, tableName):
         """
-        Returns true if either rebuild is turned on by default or we build into
-        database and the table doesn't exist yet.
+        Returns C{True} if either rebuild is turned on by default or the table
+        does not exist yet in any of the databases.
 
-        @type tableName: classobj
-        @param tableName: L{TableBuilder} class
+        @type tableName: str
+        @param tableName: table name
         @rtype: bool
         @return: C{True}, if table needs to be rebuilt
         """
         if self.rebuildExisting:
             return True
         else:
-            return not self.db.engine.has_table(tableName)
+            return not self.db.hasTable(tableName)
 
     def getBuildDependentTables(self, tableNames):
         """
@@ -421,7 +447,7 @@ class DatabaseBuilder:
             if table in tableNames:
                 # don't add dependant tables if they are given explicitly
                 return
-            if self.db.engine.has_table(table):
+            if self.db.hasTable(table):
                 skippedTables.add(table)
                 return
 
@@ -432,7 +458,7 @@ class DatabaseBuilder:
                 # either we have no builder or the builder was removed in
                 # favour of another builder that shares at least one table
                 # with the removed one
-                raise exception.UnsupportedError("table '%s'" + table \
+                raise exception.UnsupportedError("Table '%s'" % table \
                     + " not provided, might be related to conflicting " \
                     + "builders")
             builderClass = self._tableBuilderLookup[table]
@@ -498,7 +524,28 @@ class DatabaseBuilder:
 
         needRebuild = set()
         for tableName in dependingTables:
-            if self.db.engine.has_table(tableName):
+            if self.db.mainHasTable(tableName):
+                needRebuild.add(tableName)
+        return needRebuild
+
+    def getExternalRebuiltDependingTables(self, tableNames):
+        """
+        Gets the name of the tables that depend on the given tables to be built
+        and already exist similar to L{getRebuiltDependingTables()} but only for
+        tables of attached databases.
+
+        @type tableNames: list of str
+        @param tableNames: list of tables
+        @rtype: list of str
+        @return: names of tables of attached databsaes that need to be rebuilt
+        because of dependencies
+        """
+        dependingTables = self.getDependingTables(tableNames)
+
+        needRebuild = set()
+        for tableName in dependingTables:
+            if (not self.db.mainHasTable(tableName)
+                and self.db.hasTable(tableName)):
                 needRebuild.add(tableName)
         return needRebuild
 

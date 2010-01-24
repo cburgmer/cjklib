@@ -483,10 +483,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
             for char, entryDict in self.unihanGenerator.generator():
                 newEntryDict = {UnihanBuilder.CHARACTER_COLUMN: char}
                 for column in columns:
-                    if entryDict.has_key(column):
-                        newEntryDict[column] = entryDict[column]
-                    else:
-                        newEntryDict[column] = None
+                    newEntryDict[column] = entryDict.get(column, None)
                 yield newEntryDict
 
     PROVIDES = 'Unihan'
@@ -3270,7 +3267,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
     def remove(self):
         # get drop table statement
 
-        hasFTS3 = self.db.engine.has_table(self.PROVIDES + '_Text')
+        hasFTS3 = self.db.mainHasTable(self.PROVIDES + '_Text')
         if not hasFTS3:
             table = Table(self.PROVIDES, self.db.metadata)
             table.drop()

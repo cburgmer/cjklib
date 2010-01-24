@@ -65,20 +65,20 @@ class CharacterLookupTest(NeedsDatabaseTest):
 
     class EngineMock(object):
         """
-        Serves as a normal SQLAlchemy engine, but fakes existance of some
+        Serves as a normal SQLAlchemy engine, but fakes existence of some
         tables.
         """
         def __init__(self, engine, mockTables=None, mockNonTables=None):
             self._engine = engine
             self.mockTables = mockTables or []
             self.mockNonTables = mockNonTables or []
-        def has_table(self, table):
+        def has_table(self, table, *args, **kwargs):
             if table in self.mockTables:
                 return True
             elif table in self.mockNonTables:
                 return False
             else:
-                return self._engine.has_table(table)
+                return self._engine.has_table(table, *args, **kwargs)
         def __getattr__(self, attr):
             return getattr(self._engine, attr)
 

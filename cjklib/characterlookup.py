@@ -306,7 +306,7 @@ class CharacterLookup(object):
         ('2F800', '2FA1D')]
     """
     List of character codepoint ranges for the Han script.
-    @see: Scripts.txt from Unicoce
+    @see: Scripts.txt from Unicode
     """
 
     def __init__(self, locale, characterDomain="Unicode", databaseUrl=None,
@@ -348,9 +348,9 @@ class CharacterLookup(object):
         self._readingFactory = None
 
         # test for existing tables that can be used to speed up look up
-        self.hasComponentLookup = self.db.engine.has_table('ComponentLookup')
+        self.hasComponentLookup = self.db.hasTable('ComponentLookup')
         """C{True} if table C{ComponentLookup} exists"""
-        self.hasStrokeCount = self.db.engine.has_table('StrokeCount')
+        self.hasStrokeCount = self.db.hasTable('StrokeCount')
         """C{True} if table C{StrokeCount} exists"""
 
     def _getReadingFactory(self):
@@ -384,8 +384,7 @@ class CharacterLookup(object):
         @param characterDomain: the current I{character domain}
         """
         domainTable = characterDomain + 'Set'
-        if characterDomain == 'Unicode' \
-            or self.db.engine.has_table(domainTable):
+        if characterDomain == 'Unicode' or self.db.hasTable(domainTable):
             # check column
             self._characterDomainTable = None
             if characterDomain != 'Unicode':
@@ -473,7 +472,7 @@ class CharacterLookup(object):
         """
         domains = ['Unicode']
         for table in self.db.tables:
-            if table.endswith('Set') and self.db.engine.has_table(table) \
+            if table.endswith('Set') and self.db.hasTable(table) \
                 and 'ChineseCharacter' in self.db.tables[table].columns:
                 domains.append(table[:-3])
 
@@ -640,7 +639,7 @@ class CharacterLookup(object):
         for characterReading in self.CHARARACTER_READING_MAPPING:
             # check first if database has the table in need
             table, _ = self.CHARARACTER_READING_MAPPING[characterReading]
-            if not self.db.engine.has_table(table):
+            if not self.db.hasTable(table):
                 continue
 
             if readingN == characterReading:
@@ -1214,7 +1213,7 @@ class CharacterLookup(object):
                 [table.c.Stroke, table.c.StrokeAbbrev]))
             for stroke, strokeAbbrev in result:
                 self._strokeLookup[strokeAbbrev] = stroke
-        if self._strokeLookup.has_key(abbrev):
+        if abbrev in self._strokeLookup:
             return self._strokeLookup[abbrev]
         else:
             raise ValueError(abbrev + " is no valid stroke abbreviation")

@@ -15,6 +15,7 @@ include COPYING
 include DEVELOPMENT
 include THANKS
 include TODO
+include NEWS
 include changelog
 include cjklib.conf
 include epydoc_config

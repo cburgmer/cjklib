@@ -117,13 +117,13 @@ class TableBuilderTest:
                         [self.BUILDER.PROVIDES])
 
                     # make sure table exists (others might have been created)
-                    tables = self.dbInstances[databasePath].db.getTables()
+                    tables = set(
+                        self.dbInstances[databasePath].db.getTableNames())
                     self.assert_(self.BUILDER.PROVIDES in tables,
                         "Table '%s' not found in '%s'" \
                             % (self.BUILDER.PROVIDES, "', '".join(tables)))
                     # make sure depends are removed
-                    self.assert_(
-                        len(set(tables) & set(self.BUILDER.DEPENDS)) == 0)
+                    self.assert_(len(tables & set(self.BUILDER.DEPENDS)) == 0)
                 except KeyboardInterrupt:
                     try:
                         # remove temporary tables
@@ -142,7 +142,7 @@ class TableBuilderTest:
                 self.dbInstances[databasePath].remove(
                     [self.BUILDER.PROVIDES])
 
-                tables = self.dbInstances[databasePath].db.getTables()
+                tables = self.dbInstances[databasePath].db.getTableNames()
                 self.assert_(len(tables) == 0)
 
 

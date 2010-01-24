@@ -3,6 +3,7 @@ Changes
 SVN
 ===
 - easy dictionary access for EDICT, CEDICT and others
+- multiple database support
 - stroke order corrections and new entries
 - character decomposition corrections
 - fix stroke order calculation for scheme ⿷ that affects characters with

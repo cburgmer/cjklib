@@ -158,6 +158,7 @@ Examples
 @todo Impl: Use Iterators?
 @todo Impl: Pass entry factories directly to search method in DatabaseConnector
 @todo Fix:  Don't "correct" non-reading entities in HanDeDict in builder
+@todo Impl: Allow simple FTS3 searching as build support is already provided.
 """
 
 import re
@@ -1327,7 +1328,7 @@ class EDICTStyleDictionary(BaseDictionary):
     @classmethod
     def available(cls, dbConnectInst):
         return (cls.DICTIONARY_TABLE
-            and dbConnectInst.has_table(cls.DICTIONARY_TABLE))
+            and dbConnectInst.hasTable(cls.DICTIONARY_TABLE))
 
     def _search(self, whereClause, filters, limit, orderBy):
         def _getFilterFunction(filterList):
