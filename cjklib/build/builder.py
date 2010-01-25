@@ -3613,3 +3613,265 @@ class CFDICTWordIndexBuilder(WordIndexBuilder):
     DEPENDS = ['CFDICT']
     TABLE_SOURCE = 'CFDICT'
     HEADWORD_SOURCE = 'HeadwordTraditional'
+
+
+class SimpleWenlinFormatBuilder(EntryGeneratorBuilder):
+    """
+    Provides a builder for loading dictionaries following the Wenlin format::
+
+        *** 928171 ***
+        pinyin                          gǎngbì
+        characters                      港币[-幣]
+        serial-number                   1929047
+        definition                      Hong Kong dollar
+    """
+    class TableGenerator:
+        """Generates the dictionary entries."""
+
+        def __init__(self, fileHandle, quiet=False, columnMap=None,
+            filterFunc=None):
+            """
+            Initialises the TableGenerator.
+
+            @type fileHandle: file
+            @param fileHandle: handle of file to read from
+            @type quiet: bool
+            @param quiet: if true no status information will be printed
+            @type columnMap: dict
+            @param columnMap: dictionary mapping keys onto table columns
+            @type filterFunc: function
+            @param filterFunc: function used to filter entry content
+            """
+            self.fileHandle = fileHandle
+            self.quiet = quiet
+            self.columnMap = columnMap
+            self.filterFunc = filterFunc
+
+        def generator(self):
+            """Provides the dictionary entries."""
+            entry = None
+            for line in self.fileHandle:
+                if re.match(r'\s*\*\*\*\s*(.*)\s*\*\*\*\s*', line):
+                    # save old entry
+                    if entry:
+                        if self.filterFunc:
+                            for filt in self.filterFunc:
+                                entry = filt(self, entry)
+                        yield entry
+
+                    entry = {}
+                    continue
+                elif re.match(r'^\s*$', line):
+                    continue
+
+                pair = re.split('\s+', line.strip(), 1)
+                if len(pair) != 2:
+                    if not self.quiet:
+                        warn("Error reading line: '%s'" % line.strip())
+                    continue
+                else:
+                    key, value = pair
+
+                matchObj = re.match(r'^(\d+)(.+)$', key)
+                idx = None
+                if matchObj:
+                    # key/value pair is only one of many
+                    idx, key = matchObj.groups()
+
+                if self.columnMap:
+                    if key in self.columnMap:
+                        key = self.columnMap[key]
+                    else:
+                        continue
+
+                if idx is not None:
+                    # key/value pair is only one of many
+                    if key not in entry or not entry[key]:
+                        entry[key] = {}
+                    elif type(entry[key]) != type({}):
+                        entry[key] = {'-1': entry[key]}
+                        if not self.quiet:
+                            warn("Warning: "
+                                "index error for key '%s' in entry '%s'" %
+                                    (key, entry.get('characters', '')))
+                    entry[key][int(idx)] = value
+                else:
+                    if key in entry:
+                        warn("Warning: "
+                            "overwriting pair '%s': '%s' for entry '%s'" %
+                                (key, entry[key], entry.get('characters', '')))
+                    entry[key] = value
+
+    def filterCharacters(self, entry):
+        """
+        Generates a traditional and simplified form from 'characters'.
+
+        @type entry: tuple
+        @param entry: a dictionary entry
+        @rtype: tuple
+        @return: the given entry with corrected ü-voul
+        """
+        if 'characters' not in entry:
+            entry['HeadwordTraditional'] = None
+            entry['HeadwordSimplified'] = None
+            if not self.quiet:
+                warn("No characters defined for entry '%s'" % repr(entry))
+            return entry
+
+        matchObj = re.match('^(.+)\s*\[(.+)\]\s*$', entry['characters'])
+        if not matchObj:
+            simplified = tranditional = entry['characters']
+        else:
+            simplified = matchObj.group(1)
+            tranditional = list(simplified)
+            trad = matchObj.group(2)
+            try:
+                for i in range(len(trad)):
+                    if trad[i] != '-':
+                        tranditional[i] = trad[i]
+                tranditional = ''.join(tranditional)
+            except IndexError:
+                tranditional = simplified
+                if not self.quiet:
+                    warn("Error deriving traditional form from '%s'"
+                        % entry['characters'])
+
+        del entry['characters']
+        entry['HeadwordTraditional'] = tranditional
+        entry['HeadwordSimplified'] = simplified
+        return entry
+
+    def filterSequence(self, entry):
+        for key in entry:
+            if type(entry[key]) == type({}):
+                entry[key] = '/'.join(
+                    [v for _, v in sorted(entry[key].items())])
+        return entry
+
+    COLUMNS = ['HeadwordTraditional', 'HeadwordSimplified', 'Reading',
+        'Translation']
+    PRIMARY_KEYS = []
+    INDEX_KEYS = [['HeadwordTraditional'], ['HeadwordSimplified'], ['Reading']]
+    COLUMN_TYPES = {'HeadwordTraditional': String(255),
+        'HeadwordSimplified': String(255), 'Reading': String(255),
+        'Translation': Text()}
+
+    COLUMN_MAP = {'pinyin': 'Reading', 'definition': 'Translation',
+        'characters': 'characters'}
+    FILE_NAMES = None
+    """Names of file containing the edict formated dictionary."""
+    ENCODING = 'utf-8'
+    """Encoding of the dictionary file."""
+    FILTER = [filterCharacters, filterSequence]
+    """Filter to apply to the read entry before writing to table."""
+
+    def __init__(self, **options):
+        """
+        Constructs the SimpleWenlinFormatBuilder.
+
+        @param options: extra options
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword dataPath: optional list of paths to the data file(s)
+        @keyword quiet: if C{True} no status information will be printed to
+            stderr
+        @keyword filePath: file path including file name, overrides dataPath
+        @keyword fileType: type of file (.zip, .gz, .txt), overrides file type
+            guessing
+        """
+        super(SimpleWenlinFormatBuilder, self).__init__(**options)
+
+        if self.fileType and self.fileType not in ('.zip', '.gz',
+            '.txt'):
+            raise ValueError('Unknown file type "%s"' % self.fileType)
+
+    @classmethod
+    def getDefaultOptions(cls):
+        options = super(SimpleWenlinFormatBuilder, cls).getDefaultOptions()
+        options.update({'filePath': None, 'fileType': None})
+
+        return options
+
+    @classmethod
+    def getOptionMetaData(cls, option):
+        optionsMetaData = {'filePath': {'type': 'string', 'description': \
+                "file path including file name, overrides searching"},
+            'fileType': {'type': 'choice', 'choices': ('.zip', '.gz', '.txt'),
+                'description': "file extension, overrides file type guessing"}}
+
+        if option in optionsMetaData:
+            return optionsMetaData[option]
+        else:
+            return super(SimpleWenlinFormatBuilder, cls).getOptionMetaData(option)
+
+    def getGenerator(self):
+        def prependLineGenerator(line, data):
+            """
+            The first line red for guessing format has to be reinserted.
+            """
+            yield line
+            for nextLine in data:
+                yield nextLine
+
+        # get file handle
+        if self.filePath:
+            filePath =  self.filePath
+        else:
+            filePath = self.findFile(self.FILE_NAMES)
+
+        handle = self.getFileHandle(filePath)
+        if not self.quiet:
+            warn("Reading table from file '" + filePath + "'")
+
+        # remove header
+        line = handle.readline()
+        while re.match(r'^\s*$', line):
+            line = handle.readline()
+        if line.strip() != 'cidian.db':
+            if not self.quiet:
+                warn("Warning: file does not start with string 'cidian.db'")
+            if line.startswith('***'):
+                handle = prependLineGenerator(line, handle)
+        line = handle.readline()
+        while re.match(r'^\s*$', line):
+            line = handle.readline()
+        if line.strip() != "New or changed entries:":
+            if line.startswith('***'):
+                handle = prependLineGenerator(line, handle)
+            elif not self.quiet:
+                warn("Warning: unrecognized header information '%s'"
+                    % line)
+
+        # create generator
+        return SimpleWenlinFormatBuilder.TableGenerator(handle, self.quiet,
+            self.COLUMN_MAP, self.FILTER).generator()
+
+    def getFileHandle(self, filePath):
+        """
+        Returns a handle to the give file.
+
+        The file can be either normal content, zip or gz.
+
+        @type filePath: str
+        @param filePath: path of file
+        @rtype: file
+        @return: handle to file's content
+        """
+        import zipfile
+        import tarfile
+
+        if (self.fileType == '.zip'
+            or not self.fileType and zipfile.is_zipfile(filePath)):
+            import StringIO
+            z = zipfile.ZipFile(filePath, 'r')
+            archiveContent = self.getArchiveContentName(z.namelist(), filePath)
+            return StringIO.StringIO(z.read(archiveContent)\
+                .decode(self.ENCODING))
+        elif (self.fileType == '.gz'
+            or not self.fileType and filePath.endswith('.gz')):
+            import gzip
+            import StringIO
+            z = gzip.GzipFile(filePath, 'r')
+            return StringIO.StringIO(z.read().decode(self.ENCODING))
+        else:
+            import codecs
+            return codecs.open(filePath, 'r', self.ENCODING)
