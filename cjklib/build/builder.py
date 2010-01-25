@@ -2991,7 +2991,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
     def getGenerator(self):
         # get file handle
-        if  self.filePath:
+        if self.filePath:
             filePath =  self.filePath
         else:
             filePath = self.findFile(self.FILE_NAMES)
@@ -3028,7 +3028,7 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         """
         Returns a handle to the give file.
 
-        The file can be either normal content, zip, tar, .tar.gz, tar.bz2
+        The file can be either normal content, zip, tar, .tar.gz, tar.bz2 or gz.
 
         @type filePath: str
         @param filePath: path of file
@@ -3299,6 +3299,7 @@ class WordIndexBuilder(EntryGeneratorBuilder):
     @todo Fix:  Using a row_id for joining instead of Headword(Traditional) and
         Reading would maybe speed up table joins. Needs a workaround to include
         multiple rows for one actual headword entry though.
+    @todo Fix:  Implementation not needed anymore. Remove also from cli tables.
     """
     class WordEntryGenerator:
         """Generates words for a list of dictionary entries."""

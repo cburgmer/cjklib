@@ -63,7 +63,7 @@ u'\u31d0', u'\u31d3', u'\u31df']
     MySQL-Python
 @version: 0.2
 
-@copyright: Copyright (C) 2006-2009 cjklib developers
+@copyright: Copyright (C) 2006-2010 cjklib developers
 
     cjklib comes with absolutely no warranty; for details see B{License}.
 

@@ -415,7 +415,7 @@ class ReadingFactory(object):
         @raise UnsupportedError: if the given reading is not supported.
         """
         if readingN not in self._sharedState['readingOperatorClasses']:
-            raise UnsupportedError("reading '" + readingN + "' not supported")
+            raise UnsupportedError("reading '%s' not supported" % readingN)
         return self._sharedState['readingOperatorClasses'][readingN]
 
     def createReadingOperator(self, readingN, **options):
@@ -463,8 +463,9 @@ class ReadingFactory(object):
             supported.
         """
         if not self.isReadingConversionSupported(fromReading, toReading):
-            raise UnsupportedError("conversion from '" + fromReading \
-                + "' to '" + toReading + "' not supported")
+            raise UnsupportedError(
+                "conversion from '%s' to '%s' not supported"
+                % (fromReading, toReading))
         return self._sharedState['readingConverterClasses']\
             [(fromReading, toReading)]
 

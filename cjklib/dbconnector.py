@@ -336,7 +336,7 @@ class DatabaseConnector:
         return schema
 
     def getTableNames(self):
-        """"
+        """
         Gets the unique list of names of all tables (and views) from the
         databases.
 
