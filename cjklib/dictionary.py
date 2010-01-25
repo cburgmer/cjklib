@@ -362,7 +362,7 @@ class UnifiedHeadwordEntryFactory(NamedTupleFactory):
         if headwords[0] == headwords[1]:
             entry.append(headwords[0])
         else:
-            entry.append(u'%s（%s）' % (entry[0], entry[1]))
+            entry.append(u'%s（%s）' % headwords)
         return entry
 
     def getEntries(self, results):
