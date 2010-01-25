@@ -25,6 +25,7 @@ import locale
 import copy
 from optparse import OptionParser, OptionGroup, Option, OptionValueError, Values
 import ConfigParser
+import logging
 
 from cjklib import build
 from cjklib import exception
@@ -146,13 +147,15 @@ format --BuilderName-option or --TableName-option, e.g.
             'CharacterHangul', 'IICoreSet'], # TODO IICoreSet as long as no better source exists
         'fullVietnamese': ['KangxiRadicalData', 'ShapeLookupData', 'IICoreSet'], # TODO IICoreSet as long as no better source exists
         # additional data for cjknife
+        'Dictionaries': ['CEDICT', 'CEDICTGR', 'HanDeDict', 'CFDICT', 'EDICT'],
+        # TODO deprecated
         'fullDictionaries': ['fullCEDICT', 'fullCEDICTGR', 'fullHanDeDict',
             'fullCFDICT', 'fullEDICT'],
-        'fullCEDICT': ['CEDICT', 'CEDICT_Words'],
-        'fullCEDICTGR': ['CEDICTGR', 'CEDICTGR_Words'],
-        'fullHanDeDict': ['HanDeDict', 'HanDeDict_Words'],
-        'fullCFDICT': ['CFDICT', 'CFDICT_Words'],
-        'fullEDICT': ['EDICT', 'EDICT_Words'],
+        'fullCEDICT': ['CEDICT'],
+        'fullCEDICTGR': ['CEDICTGR'],
+        'fullHanDeDict': ['HanDeDict'],
+        'fullCFDICT': ['CFDICT'],
+        'fullEDICT': ['EDICT'],
     }
     """
     Definition of build groups available to the user. Recursive definitions are
@@ -383,6 +386,10 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             + "allAvail, for all data available to the build script\n")
         cls.printFormattedLine("Standard groups:")
         groupList = cls.BUILD_GROUPS.keys()
+        # TODO deprecated
+        groupList = [group for group in groupList
+            if (group != 'fullDictionaries'
+                and group not in cls.BUILD_GROUPS['fullDictionaries'])]
         groupList.sort()
         for groupName in groupList:
             content = []
@@ -394,7 +401,7 @@ There is NO WARRANTY, to the extent permitted by law.""" \
                     content.append(member)
             cls.printFormattedLine(groupName + ": " + ', '.join(content),
                 subsequentPrefix='  ')
-        cls.printFormattedLine("\nBoth Group names and table names can be " \
+        cls.printFormattedLine("\nBoth group names and table names can be " \
             "given to the build process.")
 
     def runBuild(self, buildGroupList, options):
@@ -416,6 +423,15 @@ There is NO WARRANTY, to the extent permitted by law.""" \
                         + "together with other groups.")
             # if generic group given get list
             buildGroupList = build.DatabaseBuilder.getSupportedTables()
+
+        # TODO deprecated
+        deprecatedGroups =  (
+            (set(['fullDictionaries'] + self.BUILD_GROUPS['fullDictionaries']))
+                & set(buildGroupList))
+        if deprecatedGroups:
+            logging.warning("Group(s) '%s' is (are) deprecated"
+                    % "', '".join(deprecatedGroups)
+                + " and will disappear from future versions.")
 
         # unpack groups
         groups = []

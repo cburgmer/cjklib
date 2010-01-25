@@ -33,7 +33,7 @@ built before use. Currently supported are EDICT, CEDICT, HanDeDict, CFDICT,
 CEDICTGR.
 
 To create the needed tables and indices for e.g. the CEDICT dictionary run
-$ buildcjkdb build fullCEDICT --dataPath=PathToCedictFile
+$ buildcjkdb build CEDICT --dataPath=PathToCEDICTFile
 
 Database
 ========
@@ -53,7 +53,7 @@ SQLite
 ------
 Currently only characters from the Basic Multilingual Plane (BMP) of Unicode
 are supported, due to missing support in MySQL (see below). To enable full
-support set wideBuild to True in cjklib.conf.
+support set wideBuild to "True" in cjklib.conf.
 
 SQLite offers a full-text search with extension FTS3 which needs to be
 compiled in to used. Cjknife can use the full-text capabilities for the
@@ -75,14 +75,14 @@ GRANT ALL ON cjklib.* TO 'user_name'@'host_name';
 
 Now you need to change cjklib.conf to tell cjklib to use MySQL.
 
-MySQL < 6 doesn't support true UTF-8, and uses a Version with max 3 bytes, so
+MySQL < 6 doesn't support true UTF-8, and uses a version with max 3 bytes, so
 characters outside the Basic Multilingual Plane (BMP) can't be encoded. Building
-the Unihan database thus might result in Warnings, Characters above 0x20000
+the Unihan database thus might result in warnings, characters above 0x20000
 can't be built at all.
 
 Contributing
 ============
-If you are interested in contributing to cjklib, join
+If you are interested in the development of cjklib, join
 cjklib-devel@googlegroups.com (http://groups.google.com/group/cjklib-devel).
 
 Please report bugs to http://code.google.com/p/cjklib/issues/list.

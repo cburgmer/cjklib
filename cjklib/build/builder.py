@@ -28,6 +28,7 @@ import os.path
 import copy
 import xml.sax
 import itertools
+import logging
 
 from sqlalchemy import Table, Column, Integer, String, Text, Index
 from sqlalchemy import select, union
@@ -3299,7 +3300,6 @@ class WordIndexBuilder(EntryGeneratorBuilder):
     @todo Fix:  Using a row_id for joining instead of Headword(Traditional) and
         Reading would maybe speed up table joins. Needs a workaround to include
         multiple rows for one actual headword entry though.
-    @todo Fix:  Implementation not needed anymore. Remove also from cli tables.
     """
     class WordEntryGenerator:
         """Generates words for a list of dictionary entries."""
@@ -3347,6 +3347,10 @@ class WordIndexBuilder(EntryGeneratorBuilder):
     """Source of headword"""
 
     def getGenerator(self):
+        # TODO deprecated
+        logging.warning("Class WordIndexBuilder is deprecated"
+            + " and will disappear from future versions.")
+
         table = self.db.tables[self.TABLE_SOURCE]
         entries = self.db.selectRows(
             select([table.c[self.HEADWORD_SOURCE], table.c.Reading,
