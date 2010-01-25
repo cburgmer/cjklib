@@ -85,7 +85,7 @@ class DatabaseConnector:
         'cjklib_0.StrokeOrder'
 
     Discovery of attachable databases
-    =================================
+    ---------------------------------
     DatabaseConnector has the ability to discover databases attaching them to
     the main database. Specifying databases can be done in three ways:
         1. A full URL can be given denoting a single database, e.g.
@@ -132,6 +132,9 @@ class DatabaseConnector:
             if ('url' not in configuration
                 and 'sqlalchemy.url' not in configuration):
                 configuration['sqlalchemy.url'] = cls._getDefaultDB(projectName)
+
+            if 'attach' not in configuration:
+                configuration['attach'] = [projectName]
 
         # if settings changed, remove old instance
         if not cls._dbconnectInstSettings \
