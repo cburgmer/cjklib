@@ -35,7 +35,7 @@ $ nosetests cjklib/test/*.py --with-id --failed
 
 To test the build methods you need to download external files first:
 $ cd test
-$ python download.py
+$ make
 Currently only SQLite in-memory database testing is enabled. You might want
 to enable MySQL, see cjklib/test/build.py for details.
 

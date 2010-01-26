@@ -6,7 +6,10 @@ include cjklib/build/*.py
 include cjklib/test/*.py
 include cjklib/cjklib.db
 include setup.py
+include files/*.py
+include files/Makefile
 include test/*.py
+include test/Makefile
 include examples/*.py
 include scripts/*.py
 include scripts/*.csv

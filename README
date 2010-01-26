@@ -17,6 +17,16 @@ your system:
 
 $ python setup.py install
 
+CJK-dictionaries are not included by default. If you want to install any of
+those do the following (with an Internet connection):
+$ cd files
+$ make CEDICT
+$ sudo make install
+
+This will download CEDICT, create a SQLite database file and install it to
+/usr/local/share/cjklib. Substitute CEDICT with any other dictionary. Currently
+supported are EDICT, CEDICT, HanDeDict, CFDICT, CEDICTGR.
+
 Documentation
 =============
 The API under http://cburgmer.nfshost.com/cjklib/ includes a lot of
@@ -27,13 +37,6 @@ Usage
 The main components of this package are accessible through the Python library.
 But there is a small command line tool 'cjknife' that offers some of the
 library's functions. See "cjknife --help" for an overview.
-
-This tool also offers simple access to dictionaries which though have to be
-built before use. Currently supported are EDICT, CEDICT, HanDeDict, CFDICT,
-CEDICTGR.
-
-To create the needed tables and indices for e.g. the CEDICT dictionary run
-$ buildcjkdb build CEDICT --dataPath=PathToCEDICTFile
 
 Database
 ========
