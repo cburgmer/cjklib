@@ -442,10 +442,6 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             else:
                 groups.append(group)
 
-        # TODO only set 'slim' if table doesn't already exist
-        if 'slimUnihanTable' not in options:
-            options['slimUnihanTable'] = 'Unihan' not in groups
-
         # create builder instance
         dbBuilder = build.DatabaseBuilder(**options)
 
