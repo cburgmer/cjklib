@@ -65,10 +65,20 @@ class TableBuilderTest:
         prefer.extend(self.PREFER_BUILDERS)
 
         self.dataPath = self.EXTERNAL_DATA_PATHS[:]
-        buildModule = __import__("cjklib.build")
-        buildModulePath = os.path.dirname(os.path.abspath(buildModule.__file__))
-        self.dataPath.append(os.path.join(buildModulePath, 'data'))
+
+        try:
+            from pkg_resources import Requirement, resource_filename
+            dataDir = resource_filename(Requirement.parse('cjklib'),
+                'cjklib/data')
+        except ImportError:
+            buildModule = __import__("cjklib.build")
+            buildModulePath = os.path.dirname(os.path.abspath(
+                buildModule.__file__))
+            dataDir = os.path.join(buildModulePath, 'data')
+
+        self.dataPath.append(dataDir)
         self.dataPath.append(os.path.join('.', 'test'))
+        self.dataPath.append(os.path.join('.', 'test', 'downloads'))
 
         self.dbInstances = {}
         for databasePath in self.DATABASES:
@@ -244,31 +254,31 @@ class MysqlCharacterVariantBuilderTest(TableBuilderTest, unittest.TestCase):
 class EDICTBuilderTest(TableBuilderTest, unittest.TestCase):
     BUILDER = builder.EDICTBuilder
     OPTIONS = [{'enableFTS3': False},
-        {'filePath': './test/EDICT', 'fileType': '.gz'}]
+        {'filePath': './test/downloads/EDICT', 'fileType': '.gz'}]
 
 
 class CEDICTBuilderTest(TableBuilderTest, unittest.TestCase):
     BUILDER = builder.CEDICTBuilder
     OPTIONS = [{'enableFTS3': False},
-        {'filePath': './test/CEDICT', 'fileType': '.gz'}]
+        {'filePath': './test/downloads/CEDICT', 'fileType': '.gz'}]
 
 
 class CEDICTGRBuilderTest(TableBuilderTest, unittest.TestCase):
     BUILDER = builder.CEDICTGRBuilder
     OPTIONS = [{'enableFTS3': False},
-        {'filePath': './test/CEDICTGR', 'fileType': '.zip'}]
+        {'filePath': './test/downloads/CEDICTGR', 'fileType': '.zip'}]
 
 
 class HanDeDictBuilderTest(TableBuilderTest, unittest.TestCase):
     BUILDER = builder.HanDeDictBuilder
     OPTIONS = [{'enableFTS3': False},
-        {'filePath': './test/HanDeDict', 'fileType': '.tar.bz2'}]
+        {'filePath': './test/downloads/HanDeDict', 'fileType': '.tar.bz2'}]
 
 
 class CFDICTBuilderTest(TableBuilderTest, unittest.TestCase):
     BUILDER = builder.CFDICTBuilder
     OPTIONS = [{'enableFTS3': False},
-        {'filePath': './test/CFDICT', 'fileType': '.tar.bz2'}]
+        {'filePath': './test/downloads/CFDICT', 'fileType': '.tar.bz2'}]
 
 
 # Generate default test classes for TableBuilder without special definitions
