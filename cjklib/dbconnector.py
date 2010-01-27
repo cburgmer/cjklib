@@ -244,8 +244,10 @@ class DatabaseConnector:
                 # path
                 if not os.path.exists(name):
                     continue
-                attachable.extend([('sqlite:///%s' % f)
-                    for f in glob.glob(os.path.join(name, "*.db"))])
+
+                files = glob.glob(os.path.join(name, "*.db"))
+                files.sort()
+                attachable.extend([('sqlite:///%s' % f) for f in files])
 
             elif '/' not in name and '\\' not in name:
                 # project name
@@ -364,7 +366,7 @@ class DatabaseConnector:
                 return Table(tableName, self.metadata, autoload=True,
                     autoload_with=self.engine, schema=schema)
 
-            raise KeyError("Table '%s' not found in any database")
+            raise KeyError("Table '%s' not found in any database" % tableName)
 
         return getTable
 
