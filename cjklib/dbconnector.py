@@ -114,6 +114,9 @@ class DatabaseConnector:
         C{{'sqlalchemy.url': 'driver://user:pass@host/database'}} as
         configuration.
 
+        If no configuration is passed a connection is made to the default
+        database PROJECTNAME.db in the project's folder.
+
         See the documentation of sqlalchemy.create_engine() for more options.
 
         @param configuration: database connection options (includes settings for
@@ -125,20 +128,14 @@ class DatabaseConnector:
         # allow single string and interpret as url
         if isinstance(configuration, basestring):
             configuration = {'sqlalchemy.url': configuration}
+
         elif not configuration:
             # try to read from config
-            configuration = getConfigSettings('Connection', projectName)
-
-            if ('url' not in configuration
-                and 'sqlalchemy.url' not in configuration):
-                configuration['sqlalchemy.url'] = cls._getDefaultDB(projectName)
-
-            if 'attach' not in configuration:
-                configuration['attach'] = [projectName]
+            configuration = cls.getDefaultConfiguration(projectName)
 
         # if settings changed, remove old instance
-        if not cls._dbconnectInstSettings \
-            or cls._dbconnectInstSettings != configuration:
+        if (not cls._dbconnectInstSettings
+            or cls._dbconnectInstSettings != configuration):
             cls._dbconnectInst = None
 
         if not cls._dbconnectInst:
@@ -150,32 +147,56 @@ class DatabaseConnector:
         return cls._dbconnectInst
 
     @classmethod
-    def _getDefaultDB(cls, projectName='cjklib'):
+    def getDefaultConfiguration(cls, projectName='cjklib'):
         """
-        Gets the default database URL for the given project.
+        Gets the default configuration for the given project. Settings are read
+        from a configuration file.
+
+        By default an URL to a database PROJECTNAME.db in the project's folder
+        is returned and the project's default directories are searched for
+        attachable databases.
 
         @type projectName: str
-        @param projectName: name of project which will be used as the name of
-            the database
+        @param projectName: name of project which will be used in search for the
+            configuration and as the name of the default database
         """
-        try:
-            from pkg_resources import Requirement, resource_filename
-            dbFile = resource_filename(Requirement.parse(projectName),
-                '%(proj)s/%(proj)s.db' % {'proj': projectName})
-        except ImportError:
-            libdir = os.path.dirname(os.path.abspath(__file__))
-            dbFile = os.path.join(libdir, '%(proj)s.db' % {'proj': projectName})
+        # try to read from config
+        configuration = getConfigSettings('Connection', projectName)
 
-        return 'sqlite:///%s' % dbFile
+        if 'url' in configuration:
+            url = configuration.pop('url')
+            if 'sqlalchemy.url' not in configuration:
+                configuration['sqlalchemy.url'] = url
+
+        if 'sqlalchemy.url' not in configuration:
+            try:
+                from pkg_resources import Requirement, resource_filename
+                dbFile = resource_filename(Requirement.parse(projectName),
+                    '%(proj)s/%(proj)s.db' % {'proj': projectName})
+            except ImportError:
+                # fall back to the directory of this file, only works for cjklib
+                libdir = os.path.dirname(os.path.abspath(__file__))
+                dbFile = os.path.join(libdir,
+                    '%(proj)s.db' % {'proj': projectName})
+
+            configuration['sqlalchemy.url'] = 'sqlite:///%s' % dbFile
+
+        if 'attach' in configuration:
+            configuration['attach'] = configuration['attach'].split('\n')
+        else:
+            configuration['attach'] = [projectName]
+
+        return configuration
 
     def __init__(self, configuration):
         """
         Constructs the DatabaseConnector object and connects to the database
         specified by the options given in databaseSettings.
 
-        To connect to a user specific database give
+        To connect to a database give
         C{{'sqlalchemy.url': 'driver://user:pass@host/database'}} as
-        configuration.
+        configuration. Further databases can be attached by passing a list
+        of URLs or names for keyword C{'attach'}, see L{DatabaseConnector}.
 
         See the documentation of sqlalchemy.create_engine() for more options.
 
@@ -223,8 +244,6 @@ class DatabaseConnector:
         self.attached = OrderedDict()
         """Mapping of attached database URLs to internal schema names"""
         attach = configuration.pop('attach', [])
-        if isinstance(attach, basestring): attach = attach.split('\n')
-
         for url in self._findAttachableDatabases(attach):
             self.attachDatabase(url)
 
@@ -251,24 +270,19 @@ class DatabaseConnector:
 
             elif '/' not in name and '\\' not in name:
                 # project name
-                configuration = getConfigSettings('Connection', name)
+                configuration = self.getDefaultConfiguration(name)
 
                 # first add main database
-                if 'url' in configuration:
-                    url = configuration['url']
-                elif 'sqlalchemy.url' in configuration:
-                    url = configuration['sqlalchemy.url']
-                else:
-                    url = self._getDefaultDB(name)
-                attachable.append(url)
+                attachable.append(configuration['sqlalchemy.url'])
 
                 # add attachables from the given project
-                if 'attach' in configuration:
-                    subSearchPath = configuration['attach'].split('\n')
-                else:
-                    subSearchPath = getSearchPaths(name)
+                attach = configuration['attach']
+                if name in attach:
+                    # default search path
+                    attach.remove(name)
+                    attach.extend(getSearchPaths(name))
 
-                attachable.extend(self._findAttachableDatabases(subSearchPath))
+                attachable.extend(self._findAttachableDatabases(attach))
             else:
                 raise ValueError("Invalid database reference '%s'" % name)
 
