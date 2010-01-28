@@ -17,6 +17,7 @@
 
 """
 Provides a command line interface (I{CLI}) to the build functionality of cjklib.
+@todo Bug: 'prefer' command line option overwrites any default
 """
 
 import sys
@@ -31,7 +32,7 @@ from cjklib import build
 from cjklib import exception
 from cjklib.dbconnector import DatabaseConnector
 import cjklib
-from cjklib.util import getConfigSettings
+from cjklib.util import getConfigSettings, getDataPath
 
 class ExtendedOption(Option):
     """
@@ -271,18 +272,18 @@ format --BuilderName-option or --TableName-option, e.g.
         """
         options = {}
         # dataPath
-        options['dataPath'] = ['.']
-        buildModule = __import__("cjklib.build")
-
-        from pkg_resources import Requirement, resource_filename
-        options['dataPath'].append(
-            resource_filename(Requirement.parse("cjklib"), "cjklib/data"))
+        options['dataPath'] = ['.', getDataPath()]
         # prefer
         options['prefer'] = cls.DB_PREFER_BUILDERS
         # databaseUrl
-        config = getConfigSettings('Connection')
-        if 'url' in config:
-            options['databaseUrl'] = config['url']
+        config = DatabaseConnector.getDefaultConfiguration()
+        if 'sqlalchemy.url' in config:
+            options['databaseUrl'] = config['sqlalchemy.url']
+        if 'attach' in config:
+            attach = config['attach']
+            if isinstance(attach, basestring): attach = attach.split('\n')
+            options['attach'] = attach
+
         # build specific options
         options.update(cls.getBuilderConfigSettings())
         return options
@@ -291,7 +292,7 @@ format --BuilderName-option or --TableName-option, e.g.
         usage = "%prog [options] [build | list]"
         description = self.DESCRIPTION
         version = """%%prog %s
-Copyright (C) 2006-2009 cjklib developers
+Copyright (C) 2006-2010 cjklib developers
 The library and all parts are distributed under the terms of the LGPL
 Version 2.1, February 1999 (http://www.fsf.org/licensing/licenses/lgpl.html)
 if not otherwise noted. See the data files for their specific licenses.
@@ -317,9 +318,12 @@ There is NO WARRANTY, to the extent permitted by law.""" \
         parser.add_option("--database", action="store", metavar="URL",
             dest="databaseUrl", default=defaults.get("databaseUrl", None),
             help="database url [default: %default]")
+        parser.add_option("--attach", action="append", metavar="URL",
+            dest="attach", default=defaults.get("attach", []),
+            help="attachable databases [default: %default]")
 
         optionSet = set(['rebuildExisting', 'rebuildDepending', 'quiet',
-            'databaseUrl', 'prefer'])
+            'databaseUrl', 'attach', 'prefer'])
         globalBuilderGroup = OptionGroup(parser, "Global builder commands")
         localBuilderGroup = OptionGroup(parser, "Local builder commands")
         for builder in build.DatabaseBuilder.getTableBuilderClasses():
@@ -442,8 +446,16 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             else:
                 groups.append(group)
 
+        # get database connection
+        configuration = DatabaseConnector.getDefaultConfiguration()
+        configuration['sqlalchemy.url'] = options.pop('databaseUrl',
+            configuration['sqlalchemy.url'])
+        configuration['attach'] = options.pop('databaseUrl',
+            configuration.get('attach', []))
+        db = DatabaseConnector(configuration)
+
         # create builder instance
-        dbBuilder = build.DatabaseBuilder(**options)
+        dbBuilder = build.DatabaseBuilder(dbConnectInst=db, **options)
 
         try:
             dbBuilder.build(groups)

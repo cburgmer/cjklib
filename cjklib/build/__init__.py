@@ -239,6 +239,9 @@ class DatabaseBuilder:
 
         if not self.quiet:
             warn("Building database '%s'" % self.db.databaseUrl)
+            if self.db.attached:
+                warn("Reading from additional databases '%s'"
+                    % "', '".join(self.db.attached.keys()))
 
         # remove tables that don't need to be rebuilt
         filteredTables = []
