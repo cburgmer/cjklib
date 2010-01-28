@@ -386,29 +386,31 @@ There is NO WARRANTY, to the extent permitted by law.""" \
 
         return parser
 
-    @classmethod
-    def listBuildGroups(cls):
-        cls.printFormattedLine("Generic groups:\n" \
+    def listBuildGroups(self):
+        self.printFormattedLine("Generic groups:\n" \
             + "all, for all tables understood by the build script\n" \
             + "allAvail, for all data available to the build script\n")
-        cls.printFormattedLine("Standard groups:")
-        groupList = cls.BUILD_GROUPS.keys()
-        # TODO deprecated
-        groupList = [group for group in groupList
-            if (group != 'fullDictionaries'
-                and group not in cls.BUILD_GROUPS['fullDictionaries'])]
+        self.printFormattedLine("Standard groups:")
+        groupList = self.BUILD_GROUPS.keys()
         groupList.sort()
+        deprecated = self._getDeprecated()
         for groupName in groupList:
+            if groupName in deprecated:
+                continue
+
             content = []
             # get group content, add apostrophes for "sub"groups
-            for member in cls.BUILD_GROUPS[groupName]:
-                if cls.BUILD_GROUPS.has_key(member):
+            for member in self.BUILD_GROUPS[groupName]:
+                if member in deprecated:
+                    continue
+
+                if self.BUILD_GROUPS.has_key(member):
                     content.append("'" + member + "'")
                 else:
                     content.append(member)
-            cls.printFormattedLine(groupName + ": " + ', '.join(content),
+            self.printFormattedLine(groupName + ": " + ', '.join(content),
                 subsequentPrefix='  ')
-        cls.printFormattedLine("\nBoth group names and table names can be " \
+        self.printFormattedLine("\nBoth group names and table names can be "
             "given to the build process.")
 
     def _getDeprecated(self):
@@ -446,7 +448,6 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             # if generic group given get list
             buildGroupList = build.DatabaseBuilder.getSupportedTables()
 
-        # TODO deprecated
         deprecatedGroups = self._getDeprecated() & set(buildGroupList)
         if deprecatedGroups:
             logging.warning("Group(s) '%s' is (are) deprecated"
