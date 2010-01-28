@@ -74,7 +74,7 @@ class ExtendedOption(Option):
             Option.take_action(
                 self, action, dest, opt, value, values, parser)
 
-class CommandLineBuilder:
+class CommandLineBuilder(object):
     """
     I{Command line interface} (X{CLI}) to the build functionality of cjklib.
     """
@@ -170,6 +170,9 @@ format --BuilderName-option or --TableName-option, e.g.
     output_encoding \
         = (hasattr(sys.stdout, 'encoding') and sys.stdout.encoding) \
             or locale.getpreferredencoding() or 'ascii'
+
+    def __init__(self, deprecated=None):
+        self.deprecated = deprecated or []
 
     @classmethod
     def printFormattedLine(cls, outputString, lineLength=None,
@@ -408,6 +411,21 @@ There is NO WARRANTY, to the extent permitted by law.""" \
         cls.printFormattedLine("\nBoth group names and table names can be " \
             "given to the build process.")
 
+    def _getDeprecated(self):
+        deprecated = set()
+        for entry in self.deprecated:
+            if entry in self.BUILD_GROUPS:
+                # group
+                deprecated.add(entry)
+                deprecated.update(self.BUILD_GROUPS[entry])
+            else:
+                # single table
+                for groupEntries in self.BUILD_GROUPS.values():
+                    if entry in groupEntries:
+                        deprecated.add(entry)
+
+        return deprecated
+
     def runBuild(self, buildGroupList, options):
         if not buildGroupList:
             return
@@ -429,9 +447,7 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             buildGroupList = build.DatabaseBuilder.getSupportedTables()
 
         # TODO deprecated
-        deprecatedGroups =  (
-            (set(['fullDictionaries'] + self.BUILD_GROUPS['fullDictionaries']))
-                & set(buildGroupList))
+        deprecatedGroups = self._getDeprecated() & set(buildGroupList)
         if deprecatedGroups:
             logging.warning("Group(s) '%s' is (are) deprecated"
                     % "', '".join(deprecatedGroups)
@@ -510,7 +526,7 @@ There is NO WARRANTY, to the extent permitted by law.""" \
 
 
 def main():
-    if not CommandLineBuilder().run():
+    if not CommandLineBuilder(deprecated=['fullDictionaries']).run():
         sys.exit(1)
 
 if __name__ == "__main__":
