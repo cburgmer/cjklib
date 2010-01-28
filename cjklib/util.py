@@ -128,11 +128,31 @@ def getSearchPaths(projectName='cjklib'):
         from pkg_resources import Requirement, resource_filename
         libdir = resource_filename(Requirement.parse(projectName), projectName)
     except ImportError:
+        # fall back to the directory of this file, only works for cjklib
         libdir = os.path.dirname(os.path.abspath(__file__))
 
     searchPath.append(libdir)
 
     return searchPath
+
+def getDataPath():
+    """
+    Gets the path to packaged data.
+
+    @rtype: str
+    @return: path
+    """
+    try:
+        from pkg_resources import Requirement, resource_filename
+        dataDir = resource_filename(Requirement.parse('cjklib'),
+            'cjklib/data')
+    except ImportError:
+        buildModule = __import__("cjklib.build")
+        buildModulePath = os.path.dirname(os.path.abspath(
+            buildModule.__file__))
+        dataDir = os.path.join(buildModulePath, 'data')
+
+    return dataDir
 
 
 # define our own titlecase methods, as the Python implementation is currently

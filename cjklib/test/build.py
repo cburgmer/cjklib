@@ -30,7 +30,7 @@ import os.path
 from sqlalchemy import Table
 
 from cjklib.build import DatabaseBuilder, builder
-
+from cjklib import util
 
 class TableBuilderTest:
     """Base class for testing of L{TableBuilder}s."""
@@ -65,18 +65,7 @@ class TableBuilderTest:
         prefer.extend(self.PREFER_BUILDERS)
 
         self.dataPath = self.EXTERNAL_DATA_PATHS[:]
-
-        try:
-            from pkg_resources import Requirement, resource_filename
-            dataDir = resource_filename(Requirement.parse('cjklib'),
-                'cjklib/data')
-        except ImportError:
-            buildModule = __import__("cjklib.build")
-            buildModulePath = os.path.dirname(os.path.abspath(
-                buildModule.__file__))
-            dataDir = os.path.join(buildModulePath, 'data')
-
-        self.dataPath.append(dataDir)
+        self.dataPath.append(util.getDataPath())
         self.dataPath.append(os.path.join('.', 'test'))
         self.dataPath.append(os.path.join('.', 'test', 'downloads'))
 
