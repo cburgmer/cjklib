@@ -1554,10 +1554,15 @@ class CharacterPinyinAdditionalBuilder(EntryGeneratorBuilder):
 class CharacterPinyinBuilder(EntryGeneratorBuilder):
     """
     Builds the character Pinyin mapping table from the several sources.
+
+    Field 'kMandarin' from Unihan is not used, see
+    U{http://unicode.org/faq/han_cjk.html#19} and thread under
+    U{http://www.unicode.org/mail-arch/unicode-ml/y2010-m01/0246.html}.
     """
     PROVIDES = 'CharacterPinyin'
-    DEPENDS = ['CharacterUnihanPinyin', 'CharacterXHPCPinyin',
-        'CharacterXHCPinyin', 'CharacterHDZPinyin', 'CharacterAdditionalPinyin']
+    DEPENDS = ['CharacterXHPCPinyin', 'CharacterXHCPinyin',
+        'CharacterHDZPinyin', 'CharacterAdditionalPinyin']
+        # 'CharacterUnihanPinyin'
 
     COLUMNS = ['ChineseCharacter', 'Reading']
     PRIMARY_KEYS = COLUMNS
