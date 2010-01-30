@@ -471,7 +471,7 @@ class CharacterLookup(object):
         @return: list of supported I{character domains}
         """
         domains = ['Unicode']
-        for table in self.db.tables:
+        for table in self.db.getTableNames():
             if table.endswith('Set') and self.db.hasTable(table) \
                 and 'ChineseCharacter' in self.db.tables[table].columns:
                 domains.append(table[:-3])
