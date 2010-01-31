@@ -252,7 +252,8 @@ format --BuilderName-option or --TableName-option, e.g.
         config = ConfigParser.RawConfigParser(configOptions)
 
         options = {}
-        for builder in build.DatabaseBuilder.getTableBuilderClasses():
+        for builder in build.DatabaseBuilder.getTableBuilderClasses(
+            resolveConflicts=False):
             if not builder.PROVIDES:
                 continue
 
