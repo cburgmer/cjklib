@@ -341,10 +341,12 @@ class DatabaseBuilder:
                             % "', '".join(dependingTables[1:]))
                     builderClasses = remainingBuilderClasses
                 else:
+                    if not self.quiet: warn("Error")
                     self.clearTemporary()
                     raise
             except Exception, e:
                 transaction.rollback()
+                if not self.quiet: warn("Error")
                 self.clearTemporary()
                 raise
 

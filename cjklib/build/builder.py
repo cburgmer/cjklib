@@ -1639,8 +1639,12 @@ class CSVFileLoader(TableBuilder):
             for line in UnicodeCSVFileIterator(fileHandle):
                 if len(line) == 1 and not line[0].strip():
                     continue
-                entryDict = dict([(column.name, line[i]) \
-                    for i, column in enumerate(table.columns)])
+                try:
+                    entryDict = dict([(column.name, line[i]) \
+                        for i, column in enumerate(table.columns)])
+                except IndexError:
+                    raise ValueError("Invalid entry, line length mismatch: %s"
+                        % repr(line))
                 entries.append(entryDict)
 
             try:
