@@ -54,7 +54,10 @@ class ExtendedOption(Option):
                 "option %s: invalid bool value: %r" % (opt, value))
 
     def check_pathstring(option, opt, value):
-        return value.split(':')
+        if not value:
+            return []
+        else:
+            return value.split(':')
 
     TYPES = Option.TYPES + ("bool", "pathstring")
     TYPE_CHECKER = copy.copy(Option.TYPE_CHECKER)
@@ -336,8 +339,8 @@ There is NO WARRANTY, to the extent permitted by law.""" \
         parser.add_option("--database", action="store", metavar="URL",
             dest="databaseUrl", default=defaults.get("databaseUrl", None),
             help="database url [default: %default]")
-        parser.add_option("--attach", action="append", metavar="URL",
-            dest="attach", default=defaults.get("attach", []),
+        parser.add_option("--attach", action="appendResetDefault",
+            metavar="URL", dest="attach", default=defaults.get("attach", []),
             help="attachable databases [default: %default]")
 
         optionSet = set(['rebuildExisting', 'rebuildDepending', 'quiet',
