@@ -1188,6 +1188,7 @@ class BaseDictionary(object):
         if 'dbConnectInst' in options:
             self.db = options['dbConnectInst']
         else:
+            databaseUrl = options.pop('databaseUrl', None)
             self.db = DatabaseConnector.getDBConnector(databaseUrl)
             """L{DatabaseConnector} instance"""
 
