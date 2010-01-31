@@ -17,7 +17,6 @@
 
 """
 Provides a command line interface (I{CLI}) to the build functionality of cjklib.
-@todo Bug: 'prefer' command line option overwrites any default
 """
 
 import sys
@@ -36,8 +35,13 @@ from cjklib.util import getConfigSettings, getDataPath
 
 class ExtendedOption(Option):
     """
-    Add support for "bool" to optparse, and offer special handling of PATH
-    strings.
+    Extends optparse by adding:
+        - bool type, boolean can be set by C{True} or C{False}, no one-way
+          setting
+        - path type, a list of paths given in one string separated by a colon
+          C{':'}
+        - extend action that resets a default value for user specified options
+        - append action that resets a default value for user specified options
     """
     # taken from ConfigParser.RawConfigParser
     _boolean_states = {'1': True, 'yes': True, 'true': True, 'on': True,
@@ -57,10 +61,13 @@ class ExtendedOption(Option):
     TYPE_CHECKER["bool"] = check_bool
     TYPE_CHECKER["pathstring"] = check_pathstring
 
-    ACTIONS = Option.ACTIONS + ("extendResetDefault",)
-    STORE_ACTIONS = Option.STORE_ACTIONS + ("extendResetDefault",)
-    TYPED_ACTIONS = Option.TYPED_ACTIONS + ("extendResetDefault",)
-    ALWAYS_TYPED_ACTIONS = Option.ALWAYS_TYPED_ACTIONS + ("extendResetDefault",)
+    ACTIONS = Option.ACTIONS + ("extendResetDefault", "appendResetDefault")
+    STORE_ACTIONS = Option.STORE_ACTIONS + ("extendResetDefault",
+        "appendResetDefault")
+    TYPED_ACTIONS = Option.TYPED_ACTIONS + ("extendResetDefault",
+        "appendResetDefault")
+    ALWAYS_TYPED_ACTIONS = Option.ALWAYS_TYPED_ACTIONS + ("extendResetDefault",
+        "appendResetDefault")
 
     def take_action(self, action, dest, opt, value, values, parser):
         if action == "extendResetDefault":
@@ -70,6 +77,13 @@ class ExtendedOption(Option):
                 del values.ensure_value(dest, [])[:]
                 self.resetDefault.add(dest)
             values.ensure_value(dest, []).extend(value)
+        elif action == "appendResetDefault":
+            if not hasattr(self, 'resetDefault'):
+                self.resetDefault = set()
+            if dest not in self.resetDefault:
+                del values.ensure_value(dest, [])[:]
+                self.resetDefault.add(dest)
+            values.ensure_value(dest, []).append(value)
         else:
             Option.take_action(
                 self, action, dest, opt, value, values, parser)
@@ -277,7 +291,7 @@ format --BuilderName-option or --TableName-option, e.g.
         # dataPath
         options['dataPath'] = ['.', getDataPath()]
         # prefer
-        options['prefer'] = cls.DB_PREFER_BUILDERS
+        options['prefer'] = cls.DB_PREFER_BUILDERS[:]
         # databaseUrl
         config = DatabaseConnector.getDefaultConfiguration()
         if 'sqlalchemy.url' in config:
@@ -312,8 +326,9 @@ There is NO WARRANTY, to the extent permitted by law.""" \
         parser.add_option("-d", "--keepDepending", action="store_false",
             dest="rebuildDepending", default=True,
             help="don't rebuild build-depends tables that are not given")
-        parser.add_option("-p", "--prefer", action="append", metavar="BUILDER",
-            dest="prefer", default=defaults.get("prefer", []),
+        parser.add_option("-p", "--prefer", action="appendResetDefault",
+            metavar="BUILDER", dest="prefer",
+            default=defaults.get("prefer", []),
             help="builder preferred where several provide the same table" \
                 + " [default: %default]")
         parser.add_option("-q", "--quiet", action="store_true", dest="quiet",
@@ -428,6 +443,23 @@ There is NO WARRANTY, to the extent permitted by law.""" \
 
         return deprecated
 
+    def _combinePreferred(self, preferred, otherPreferred):
+        """
+        Combine two lists of preferred builders, by giving classes from the
+        first list precedence.
+        """
+        builderClasses = build.DatabaseBuilder.getTableBuilderClasses(
+            resolveConflicts=False)
+        preferredBuilders = preferred + otherPreferred
+        dbPreferClasses = [clss for clss in builderClasses
+            if clss.__name__ in (preferred + otherPreferred)]
+
+        # sort out the default preferred if they collide with user's choice
+        dbPreferClasses = build.DatabaseBuilder.resolveBuilderConflicts(
+            dbPreferClasses, preferred)
+
+        return [clss.__name__ for clss in dbPreferClasses]
+
     def runBuild(self, buildGroupList, options):
         if not buildGroupList:
             return
@@ -462,6 +494,12 @@ There is NO WARRANTY, to the extent permitted by law.""" \
                 buildGroupList.update(self.BUILD_GROUPS[group])
             else:
                 groups.append(group)
+
+        # re-add builders preferred by default, in case overwritten by user
+        preferredBuilderNames = options.get('prefer', [])
+        if preferredBuilderNames:
+            options['prefer'] = self._combinePreferred(preferredBuilderNames,
+                self.DB_PREFER_BUILDERS)
 
         # get database connection
         configuration = DatabaseConnector.getDefaultConfiguration()
