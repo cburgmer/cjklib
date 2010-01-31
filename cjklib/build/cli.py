@@ -22,8 +22,7 @@ Provides a command line interface (I{CLI}) to the build functionality of cjklib.
 import sys
 import os
 import locale
-import copy
-from optparse import OptionParser, OptionGroup, Option, OptionValueError, Values
+from optparse import OptionParser, OptionGroup, Values
 import ConfigParser
 import logging
 
@@ -31,65 +30,7 @@ from cjklib import build
 from cjklib import exception
 from cjklib.dbconnector import DatabaseConnector
 import cjklib
-from cjklib.util import getConfigSettings, getDataPath
-
-class ExtendedOption(Option):
-    """
-    Extends optparse by adding:
-        - bool type, boolean can be set by C{True} or C{False}, no one-way
-          setting
-        - path type, a list of paths given in one string separated by a colon
-          C{':'}
-        - extend action that resets a default value for user specified options
-        - append action that resets a default value for user specified options
-    """
-    # taken from ConfigParser.RawConfigParser
-    _boolean_states = {'1': True, 'yes': True, 'true': True, 'on': True,
-                       '0': False, 'no': False, 'false': False, 'off': False}
-    def check_bool(option, opt, value):
-        if value.lower() in ExtendedOption._boolean_states:
-            return ExtendedOption._boolean_states[value.lower()]
-        else:
-            raise OptionValueError(
-                "option %s: invalid bool value: %r" % (opt, value))
-
-    def check_pathstring(option, opt, value):
-        if not value:
-            return []
-        else:
-            return value.split(':')
-
-    TYPES = Option.TYPES + ("bool", "pathstring")
-    TYPE_CHECKER = copy.copy(Option.TYPE_CHECKER)
-    TYPE_CHECKER["bool"] = check_bool
-    TYPE_CHECKER["pathstring"] = check_pathstring
-
-    ACTIONS = Option.ACTIONS + ("extendResetDefault", "appendResetDefault")
-    STORE_ACTIONS = Option.STORE_ACTIONS + ("extendResetDefault",
-        "appendResetDefault")
-    TYPED_ACTIONS = Option.TYPED_ACTIONS + ("extendResetDefault",
-        "appendResetDefault")
-    ALWAYS_TYPED_ACTIONS = Option.ALWAYS_TYPED_ACTIONS + ("extendResetDefault",
-        "appendResetDefault")
-
-    def take_action(self, action, dest, opt, value, values, parser):
-        if action == "extendResetDefault":
-            if not hasattr(self, 'resetDefault'):
-                self.resetDefault = set()
-            if dest not in self.resetDefault:
-                del values.ensure_value(dest, [])[:]
-                self.resetDefault.add(dest)
-            values.ensure_value(dest, []).extend(value)
-        elif action == "appendResetDefault":
-            if not hasattr(self, 'resetDefault'):
-                self.resetDefault = set()
-            if dest not in self.resetDefault:
-                del values.ensure_value(dest, [])[:]
-                self.resetDefault.add(dest)
-            values.ensure_value(dest, []).append(value)
-        else:
-            Option.take_action(
-                self, action, dest, opt, value, values, parser)
+from cjklib.util import getConfigSettings, getDataPath, ExtendedOption
 
 class CommandLineBuilder(object):
     """
