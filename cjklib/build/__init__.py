@@ -648,27 +648,28 @@ class DatabaseBuilder:
                 optionMetaData[option] = (metaData, builder)
 
     @staticmethod
-    def getTableBuilderClasses(preferClassNameSet=set(), resolveConflicts=True,
+    def getTableBuilderClasses(preferClassNameSet=None, resolveConflicts=True,
         quiet=True, additionalBuilders=None):
         """
         Gets all classes in module that implement L{TableBuilder}.
 
-        @type preferClassNameSet: set of str
-        @param preferClassNameSet: set of L{TableBuilder} names to prefer in
-            conflicting cases, resolveConflicting must be True to take effect
-            (default)
+        @type preferClassNameSet: list of str
+        @param preferClassNameSet:list of L{TableBuilder} class names that will
+            be preferred in conflicting cases, resolveConflicting must be
+            C{True} to take effect (default)
         @type resolveConflicts: bool
         @param resolveConflicts: if true conflicting builders will be removed
             so that only one builder is left per Table.
         @type quiet: bool
-        @param quiet: if true no status information will be printed to stderr
+        @param quiet: if C{True} no status information will be printed to stderr
         @type additionalBuilders: list of classobj
         @param additionalBuilders: list of externally provided TableBuilders
         @rtype: set
         @return: list of all classes inheriting form L{TableBuilder} that
             provide a table (i.d. non abstract implementations), with its name
             as key
-        @raise ValueError: if two different options with the same name collide.
+        @raise ValueError: if two builders are preferred that provide the same
+            table, if two different options with the same name collide
         """
         additionalBuilders = additionalBuilders or []
         buildModule = __import__("cjklib.build.builder")
@@ -681,8 +682,41 @@ class DatabaseBuilder:
         # add additionally provided
         tableBuilderClasses.update(additionalBuilders)
 
-        # check for conflicting builders and keep only one per conflicting group
-        # group builders first
+        if resolveConflicts:
+            tableBuilderClasses = DatabaseBuilder.resolveBuilderConflicts(
+                tableBuilderClasses, preferClassNameSet, quiet=quiet)
+
+        # check if all options are unique
+        DatabaseBuilder._checkOptionUniqueness(tableBuilderClasses)
+
+        return tableBuilderClasses
+
+    @staticmethod
+    def resolveBuilderConflicts(classList, preferClassNames=None, quiet=True):
+        """
+        Returns a subset of L{TableBuilder} classes so that every buildable
+        table is only represented by exactly one builder.
+
+        @type classList: list of classobj
+        @param classList: list of TableBuilders
+        @type preferClassNames: list of classobj
+        @param preferClassNames: list of L{TableBuilder} class names that will
+            be preferred in conflicting cases
+        @type quiet: bool
+        @param quiet: if C{True} no status information will be printed to stderr
+        @rtype: list of classobj
+        @return: mapping of table names to builder classes that provide the
+            given table
+        @raise ValueError: if two builders are preferred that provide the same
+            table
+        """
+        tableBuilderClasses = set(classList)
+
+        preferClassNames = preferClassNames or []
+        preferClassSet = set([clss for clss in tableBuilderClasses \
+            if clss.__name__ in preferClassNames])
+
+        # group table builders by provided tables
         tableToBuilderMapping = {}
         for clss in tableBuilderClasses:
             if clss.PROVIDES not in tableToBuilderMapping:
@@ -690,34 +724,29 @@ class DatabaseBuilder:
 
             tableToBuilderMapping[clss.PROVIDES].add(clss)
 
-        preferClassSet = set([clss for clss in tableBuilderClasses \
-            if clss.__name__ in preferClassNameSet])
-
-        if resolveConflicts:
-            # now check conflicting and choose preferred if given
-            for builderClssSet in tableToBuilderMapping.values():
-                preferredBuilders = builderClssSet & preferClassSet
-                if preferredBuilders:
-                    if len(preferredBuilders) > 1:
-                        # the user specified more than one preferred table that
-                        # both provided at least one same table
-                        raise Exception("More than one TableBuilder " \
-                            + "preferred for conflicting table.")
-                    preferred = preferredBuilders.pop()
-                    builderClssSet.remove(preferred)
-                else:
-                    preferred = builderClssSet.pop()
-                if not quiet and builderClssSet:
-                    warn("Removing conflicting builder(s) '%s'" \
-                            % "', '".join(
-                                [clss.__name__ for clss in builderClssSet]) \
-                        + " in favour of '%s'" % preferred.__name__)
-                # remove other conflicting
-                for clss in builderClssSet:
-                    tableBuilderClasses.remove(clss)
-
-        # check if all options are unique
-        DatabaseBuilder._checkOptionUniqueness(tableBuilderClasses)
+        # now check conflicting and choose preferred if given
+        for tableName, builderClssSet in tableToBuilderMapping.items():
+            preferredBuilders = builderClssSet & preferClassSet
+            if preferredBuilders:
+                if len(preferredBuilders) > 1:
+                    # the user specified more than one preferred table that
+                    # both provided one same table
+                    raise ValueError("More than one TableBuilder preferred"
+                        " for conflicting table '%s': '%s'"
+                            % (tableName,
+                                [b.__name__ for b in preferredBuilders]))
+                preferred = preferredBuilders.pop()
+                builderClssSet.remove(preferred)
+            else:
+                preferred = builderClssSet.pop()
+            if not quiet and builderClssSet:
+                warn("Removing conflicting builder(s) '%s'" \
+                        % "', '".join(
+                            [clss.__name__ for clss in builderClssSet]) \
+                    + " in favour of '%s'" % preferred.__name__)
+            # remove other conflicting
+            for clss in builderClssSet:
+                tableBuilderClasses.remove(clss)
 
         return tableBuilderClasses
 
