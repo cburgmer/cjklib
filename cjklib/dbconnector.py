@@ -321,6 +321,8 @@ class DatabaseConnector:
 
         return [viewName for viewName, in viewList]
 
+    #{ Multiple database support
+
     def attachDatabase(self, databaseUrl):
         """
         Attaches a database to the main database.
@@ -427,6 +429,9 @@ class DatabaseConnector:
         """
         return self.engine.has_table(tableName, schema=self._mainSchema)
 
+    #}
+    #{ Select commands
+
     def execute(self, *options, **keywords):
         """
         Executes a request on the given database.
@@ -453,8 +458,6 @@ class DatabaseConnector:
                 return data.decode('utf8')
             else:
                 return data
-
-    # select commands
 
     def selectScalar(self, request):
         """
