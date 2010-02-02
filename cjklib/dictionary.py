@@ -951,101 +951,203 @@ class SimpleWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
 
 
 class TonelessReadingSearchStrategy(SimpleReadingSearchStrategy):
-    """
+    u"""
     Reading based search strategy with support for missing tonal information.
+
+    Example:
+
+        >>> from cjklib import dictionary
+        >>> d = dictionary.CEDICT(
+        ...     \
+readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
+        >>> [r.Reading for r in d.getForReading('zhidao',\
+ toneMarkType='numbers')]
+        [u'zh\xec d\u01ceo', u'zh\xed d\u01ceo', u'zh\u01d0 d\u01ceo',\
+ u'zh\xed d\xe0o', u'zh\xed d\u01ceo', u'zh\u012b dao']
+
+    @todo Impl: Support readings with toneless base forms but without support
+        for missing tone
+    @todo Fix:  Too many possibilities will break SQL queries, as too many ORs
+        will occur.
     """
     # TODO implement wildcard version
-    def getWhereClause(self, column, searchStr, **options):
-        def getWildcardForms(decompEntities):
-            """Adds wildcards to account for missing tone information."""
-            wildcardEntities = []
-            for entities in decompEntities:
-                newEntities = []
-                for entity in entities:
-                    if self._readingFactory.isReadingEntity(entity, fromReading,
-                        **options):
-                        plainEntity, tone \
-                            = self._readingFactory.splitEntityTone(entity,
-                                fromReading, **options)
-                        if tone is None:
-                            entity = '%s_' % plainEntity
-                    newEntities.append(entity)
-                wildcardEntities.append(newEntities)
+    READINGS_HAVE_TONE_APPENDED = ['Pinyin', 'WadeGiles', 'Jyutping',
+        'CantoneseYale']
+    """
+    List of readings that have their tone mark appended in supported
+    dictionaries. Used to optimize searches in SQL by using a wildcard.
+    """
+    def __init__(self):
+        SimpleReadingSearchStrategy.__init__(self)
+        self._getPlainFormsOptions = None
 
-            return wildcardEntities
-
-        decompEntities = self._getReadings(searchStr, **options)
-
-        fromReading = options.get('reading', self._dictInstance.READING)
-        # if reading is tonal and includes support for missing tones, handle
-        if (self._readingFactory.isReadingOperationSupported('splitEntityTone',
-            fromReading, **options)
+    def _hasTonlessSupport(self):
+        """
+        Checks if the dictionary's reading has tonal support and can be searched
+        for.
+        """
+        return (self._readingFactory.isReadingOperationSupported(
+                'splitEntityTone', self._dictInstance.READING,
+                **self._dictInstance.READING_OPTIONS)
             and self._readingFactory.isReadingOperationSupported('getTones',
-                fromReading, **options)
-            and None in self._readingFactory.getTones(fromReading, **options)):
-            # look for missing tone information and use wildcards
-            searchEntities = getWildcardForms(decompEntities)
+                self._dictInstance.READING,
+                **self._dictInstance.READING_OPTIONS)
+            and None in self._readingFactory.getTones(
+                self._dictInstance.READING,
+                **self._dictInstance.READING_OPTIONS))
 
-            whereClause = or_(*[column.like(' '.join(entities))
-                for entities in searchEntities])
+    def _getPlainForms(self, searchStr, **options):
+        """
+        Returns reading entities split into plain entities with tone where
+        possible.
+        """
+        def isReadingEntity(entity, cache={}):
+            if entity not in cache:
+                cache[entity] = self._readingFactory.isReadingEntity(
+                    entity, self._dictInstance.READING,
+                    **self._dictInstance.READING_OPTIONS)
+            return cache[entity]
+
+        def isPlainReadingEntity(entity, cache={}):
+            if entity not in cache:
+                cache[entity] = self._readingFactory.isPlainReadingEntity(
+                    entity, self._dictInstance.READING,
+                    **self._dictInstance.READING_OPTIONS)
+            return cache[entity]
+
+        def splitEntityTone(entity, cache={}):
+            if entity not in cache:
+                try:
+                    cache[entity] = self._readingFactory.splitEntityTone(
+                        entity, self._dictInstance.READING,
+                        **self._dictInstance.READING_OPTIONS)
+                except (exception.InvalidEntityError,
+                    exception.UnsupportedError):
+                    cache[entity] = None
+            return cache[entity]
+
+        if self._getPlainFormsOptions != (searchStr, options):
+            self._getPlainFormsOptions = (searchStr, options)
+
+            decompEntities = self._getReadings(searchStr, **options)
+
+            self._plainForms = []
+            for entities in decompEntities:
+                plain = []
+                for entity in entities:
+                    if isReadingEntity(entity):
+                        # default case
+                        result = splitEntityTone(entity)
+                        if result:
+                            plainEntity, tone = result
+                            plain.append((entity, plainEntity, tone))
+                        else:
+                            plain.append(entity)
+                    else:
+                        plain.append(entity)
+                self._plainForms.append(plain)
+
+        if not self._plainForms:
+            raise exception.ConversionError(
+                "Converting to plain forms failed for '%s'." % searchStr)
+
+        return self._plainForms
+
+    def _getWildcardForms(self, searchStr, **options):
+        """Adds wildcards to account for missing tone information."""
+        wildcardEntities = []
+        for entities in self._getPlainForms(searchStr, **options):
+            newEntities = []
+            for entity in entities:
+                if not isinstance(entity, basestring):
+                    entity, plainEntity, tone = entity
+                    if tone is None:
+                        entity = '%s_' % plainEntity
+                newEntities.append(entity)
+            wildcardEntities.append(newEntities)
+
+        return wildcardEntities
+
+    def _getTonalForms(self, searchStr, **options):
+        """
+        Gets all tonal reading strings for decompositions with missing tone
+        information.
+        """
+        def getTonalEntity(plainEntity, tone, cache={}):
+            key = (plainEntity, tone)
+            if key not in cache:
+                try:
+                    cache[key] = self._readingFactory.getTonalEntity(
+                        plainEntity, tone, self._dictInstance.READING,
+                        **self._dictInstance.READING_OPTIONS)
+                except (exception.InvalidEntityError,
+                    exception.UnsupportedError):
+                    cache[key] = None
+            return cache[key]
+
+        tones = self._readingFactory.getTones(
+            self._dictInstance.READING,
+            **self._dictInstance.READING_OPTIONS)
+
+        formsSet = set()
+        for entities in self._getPlainForms(searchStr, **options):
+            newEntities = []
+            for entity in entities:
+                if not isinstance(entity, basestring):
+                    entity, plainEntity, tone = entity
+
+                    if tone is None:
+                        entityList = []
+                        for t in tones:
+                            tonalentity = getTonalEntity(plainEntity, t)
+                            if tonalentity: entityList.append(tonalentity)
+                    else:
+                        entityList = [entity]
+                else:
+                    entityList = [entity]
+                newEntities.append(entityList)
+
+            # build cross product of tonal entities
+            formsSet.update(map(tuple, cross(*newEntities)))
+
+        return formsSet
+
+    def getWhereClause(self, column, searchStr, **options):
+        # if reading is tonal and includes support for missing tones, handle
+        if self._hasTonlessSupport():
+            if self._dictInstance.READING in self.READINGS_HAVE_TONE_APPENDED:
+                # look for missing tone information and use wildcards, with
+                #   better performance
+                # TODO that's not generally true
+                searchEntities = self._getWildcardForms(searchStr, **options)
+
+                whereClause = or_(*[column.like(' '.join(entities))
+                    for entities in searchEntities])
+            else:
+                # look for missing tone information and generate all forms
+                # TODO SQLite only supports limited numbers of ANDs
+                searchEntities = self._getTonalForms(searchStr, **options)
+
+                whereClause = or_(*[column == ' '.join(entities)
+                    for entities in searchEntities])
         else:
+            decompEntities = self._getReadings(searchStr, **options)
+
             whereClause = or_(*[column == ' '.join(entities)
                 for entities in decompEntities])
 
         return whereClause
 
     def getMatchFunction(self, searchStr, **options):
-        def getTonalForms(decompEntities):
-            """
-            Gets all tonal reading strings for decompositions with missing tone
-            information.
-            """
-            formsSet = set()
-            for entities in decompEntities:
-                newEntities = []
-                for entity in entities:
-                    entityList = [entity]
-                    if self._readingFactory.isReadingEntity(entity, fromReading,
-                        **options):
-                        plainEntity, tone \
-                            = self._readingFactory.splitEntityTone(entity,
-                                fromReading, **options)
-                        if tone is None:
-                            entityList = getTonalEntities(plainEntity)
-                    newEntities.append(entityList)
-
-                # build cross product of tonal entities
-                formsSet.update([' '.join(entities) for entities
-                    in cross(*newEntities)])
-
-            return formsSet
-
-        def getTonalEntities(plainEntity):
-            """Gets all tonal forms for a given plain entity."""
-            tonalEntities = []
-            tones = self._readingFactory.getTones(
-                fromReading, **options)
-            for tone in tones:
-                try:
-                    tonalEntities.append(self._readingFactory.getTonalEntity(
-                        plainEntity, tone, fromReading, **options))
-                except exception.InvalidEntityError:
-                    pass
-            return tonalEntities
-
-        decompEntities = self._getReadings(searchStr, **options)
-
-        fromReading = options.get('reading', self._dictInstance.READING)
         # if reading is tonal and includes support for missing tones, handle
-        if (self._readingFactory.isReadingOperationSupported(
-            'splitEntityTone', fromReading, **options)
-            and self._readingFactory.isReadingOperationSupported(
-                'getTones', fromReading, **options)
-            and None in self._readingFactory.getTones(fromReading,
-                **options)):
+        if self._hasTonlessSupport():
             # look for missing tone information and generate all forms
-            matchSet = getTonalForms(decompEntities)
+            searchEntities = self._getTonalForms(searchStr, **options)
+
+            matchSet = [' '.join(entities) for entities in searchEntities]
         else:
+            decompEntities = self._getReadings(searchStr, **options)
+
             matchSet = set([' '.join(entities)
                 for entities in decompEntities])
 
@@ -1102,7 +1204,19 @@ class MixedReadingSearchStrategy(SimpleReadingSearchStrategy):
 
     def getWhereClause(self, headwordColumn, readingColumn, searchStr,
         **options):
+        """
+        Returns a SQLAlchemy clause that is the necessary condition for a
+        possible match. This clause is used in the database query. Results may
+        then be further narrowed by L{getMatchFunction()}.
 
+        @type headwordColumn: SQLAlchemy column instance
+        @param headwordColumn: headword column to check against
+        @type readingColumn: SQLAlchemy column instance
+        @param readingColumn: reading column to check against
+        @type searchStr: str
+        @param searchStr: search string
+        @return: SQLAlchemy clause
+        """
         searchPairs = self._getReadingsSearchPairs(searchStr, **options)
 
         fromReading = options.get('reading', self._dictInstance.READING)
