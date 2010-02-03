@@ -141,8 +141,7 @@ Examples
     ...         if hasattr(opClass, 'guessReadingDialect'):
     ...             options = opClass.guessReadingDialect(string)
     ...     # search
-    ...     d = CEDICT(readingSearchStrategy=TonelessReadingSearchStrategy(),
-    ...         entryFactory=UnifiedHeadwordEntryFactory())
+    ...     d = CEDICT(entryFactory=UnifiedHeadwordEntryFactory())
     ...     result = d.getFor(string, reading=reading, **options)
     ...     # print
     ...     for e in result:
@@ -871,7 +870,7 @@ class ReadingWildcardBase(WildcardBase):
     def _getWildcardForms(self, searchStr, **options):
         """
         Gets reading decomposition and prepares wildcards. Needs a method
-        L{_getReadings()} to do the actual decomposition.
+        C{_getReadings()} to do the actual decomposition.
         """
         def isReadingEntity(entity, cache={}):
             if entity not in cache:
@@ -1334,8 +1333,8 @@ class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
 
 class MixedReadingSearchStrategy(SimpleReadingSearchStrategy):
     """
-    Reading search strategy that extends L{SimpleReadingSearchStrategy} to allow
-    intermixing of readings with single characters from the headword.
+    Reading search strategy that supplements L{SimpleReadingSearchStrategy} to
+    allow intermixing of readings with single characters from the headword.
 
     This strategy complements the basic search strategy. It is not built to
     return results for plain reading or plain headword strings.
@@ -1450,6 +1449,15 @@ class MixedReadingSearchStrategy(SimpleReadingSearchStrategy):
 
 class MixedWildcardReadingSearchStrategy(MixedReadingSearchStrategy,
     ReadingWildcardBase):
+    """
+    Reading search strategy that supplements
+    L{SimpleWildcardReadingSearchStrategy} to allow intermixing of readings with
+    single characters from the headword. This class adds wildcard support to
+    L{MixedReadingSearchStrategy}.
+
+    This strategy complements the basic search strategy. It is not built to
+    return results for plain reading or plain headword strings.
+    """
     def __init__(self):
         MixedReadingSearchStrategy.__init__(self)
         ReadingWildcardBase.__init__(self)
