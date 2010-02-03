@@ -933,20 +933,24 @@ class ReadingWildcardBase(WildcardBase):
                 return True
             else:
                 return False
-        if searchEntities[0] == '%':
+        elif searchEntities[0] == '%':
             if ReadingWildcardBase._depthFirstSearch(searchEntities[1:],
                 entities):
                 # try consume no entity
                 return True
-            else:
+            elif entities:
                 # consume one entity
                 return ReadingWildcardBase._depthFirstSearch(searchEntities,
                     entities[1:])
-        elif searchEntities[0] == '_%' and entities:
+            else:
+                return False
+        elif not entities:
+            return False
+        elif searchEntities[0] == '_%':
             # consume one entity
             return ReadingWildcardBase._depthFirstSearch(searchEntities[1:],
                 entities[1:])
-        elif entities and searchEntities[0] == entities[0]:
+        elif searchEntities[0] == entities[0]:
             return ReadingWildcardBase._depthFirstSearch(searchEntities[1:],
                 entities[1:])
         else:
