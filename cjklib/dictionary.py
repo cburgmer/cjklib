@@ -1019,7 +1019,6 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
         instances. Implement a match function that goes with out the need to
         generate all instances.
     """
-    # TODO implement wildcard version
     READINGS_HAVE_TONE_APPENDED = ['Pinyin', 'WadeGiles', 'Jyutping',
         'CantoneseYale']
     """
@@ -1091,7 +1090,7 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
                             plainEntity, tone = result
                             plain.append((entity, plainEntity, tone))
                         else:
-                            plain.append(entity)
+                            plain.append((entity, None, None))
                     else:
                         plain.append(entity)
                 self._plainForms.append(plain)
@@ -1110,7 +1109,7 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
             for entity in entities:
                 if not isinstance(entity, basestring):
                     entity, plainEntity, tone = entity
-                    if tone is None:
+                    if plainEntity is not None and tone is None:
                         entity = '%s_' % plainEntity
                 newEntities.append(entity)
             wildcardEntities.append(newEntities)
@@ -1145,7 +1144,7 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
                 if not isinstance(entity, basestring):
                     entity, plainEntity, tone = entity
 
-                    if tone is None:
+                    if plainEntity is not None and tone is None:
                         entityList = []
                         for t in tones:
                             tonalentity = getTonalEntity(plainEntity, t)
@@ -1198,6 +1197,133 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
 
         matchSet = set([' '.join(entities) for entities in searchEntities])
         return lambda reading: reading in matchSet
+
+
+class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
+    ReadingWildcardBase):
+    u"""
+    Reading based search strategy with support for missing tonal information and
+    wildcards.
+    """
+    def __init__(self, **options):
+        TonelessReadingSearchStrategy.__init__(self)
+        ReadingWildcardBase.__init__(self, **options)
+
+    def _getTonalWildcardForms(self, searchStr, **options):
+        """Adds wildcards to account for missing tone information."""
+        wildcardEntities = []
+        for entities in self._getPlainForms(searchStr, **options):
+            newEntities = []
+            for entity in entities:
+                if not isinstance(entity, basestring):
+                    entity, plainEntity, tone = entity
+                    if plainEntity is not None and tone is None:
+                        entity = '%s_' % plainEntity
+                    newEntities.append(entity)
+                else:
+                    newEntities.extend(self._translateWildcards(entity))
+            wildcardEntities.append(newEntities)
+
+        return wildcardEntities
+
+    def getWhereClause(self, column, searchStr, **options):
+        if self.hasWildcardCharacters(searchStr):
+            # if reading is tonal and includes support for missing tones, handle
+            if self._hasTonlessSupport():
+                if (self._dictInstance.READING in
+                    self.READINGS_HAVE_TONE_APPENDED):
+                    # look for missing tone information and use wildcards, with
+                    #   better performance
+                    # TODO that's not generally true
+                    searchEntities = self._getTonalWildcardForms(searchStr,
+                        **options)
+                else:
+                    # look for missing tone information and generate all forms
+                    # TODO SQLite only supports limited numbers of ANDs
+                    searchEntities = self._getAllTonalForms(searchStr,
+                        **options)
+            else:
+                searchEntities = self._getWildcardForms(searchStr, **options)
+
+            wildcardReadings = map(self._getWildcardReading, searchEntities)
+
+            return or_(*[column.like(reading, escape=self.escape)
+                for reading in wildcardReadings])
+        else:
+            # simple routine is faster
+            return TonelessReadingSearchStrategy.getWhereClause(self, column,
+                searchStr, **options)
+
+    def _getAllTonalForms(self, searchStr, **options):
+        """
+        Gets all tonal reading strings for decompositions with missing tone
+        information.
+        """
+        def getTonalEntity(plainEntity, tone, cache={}):
+            key = (plainEntity, tone)
+            if key not in cache:
+                try:
+                    cache[key] = self._readingFactory.getTonalEntity(
+                        plainEntity, tone, self._dictInstance.READING,
+                        **self._dictInstance.READING_OPTIONS)
+                except (exception.InvalidEntityError,
+                    exception.UnsupportedError):
+                    cache[key] = None
+            return cache[key]
+
+        tones = self._readingFactory.getTones(
+            self._dictInstance.READING,
+            **self._dictInstance.READING_OPTIONS)
+
+        formsSet = set()
+        for entities in self._getPlainForms(searchStr, **options):
+            newEntities = []
+            for entity in entities:
+                if not isinstance(entity, basestring):
+                    entity, plainEntity, tone = entity
+
+                    if plainEntity is not None and tone is None:
+                        entityList = []
+                        for t in tones:
+                            tonalentity = getTonalEntity(plainEntity, t)
+                            if tonalentity: entityList.append(tonalentity)
+                    else:
+                        entityList = [entity]
+                    newEntities.append(entityList)
+                else:
+                    newEntities.extend(
+                        [[c] for c in self._translateWildcards(entity)])
+
+            # build cross product of tonal entities
+            formsSet.update(map(tuple, cross(*newEntities)))
+
+        return formsSet
+
+    def getMatchFunction(self, searchStr, **options):
+        """Gets a match function for a search string with wildcards."""
+        def matchReadingEntities(reading):
+            readingEntities = self._getReadingEntities(reading)
+
+            # match against all pairs
+            for entities in searchEntities:
+                if self._depthFirstSearch(entities, readingEntities):
+                    return True
+
+            return False
+
+        if self.hasWildcardCharacters(searchStr):
+            # if reading is tonal and includes support for missing tones, handle
+            if self._hasTonlessSupport():
+                # look for missing tone information and generate all forms
+                searchEntities = self._getAllTonalForms(searchStr, **options)
+            else:
+                searchEntities = self._getWildcardForms(searchStr, **options)
+
+            return matchReadingEntities
+        else:
+            # simple routine is faster
+            return TonelessReadingSearchStrategy.getMatchFunction(self,
+                searchStr, **options)
 
 #}
 #{ Mixed reading search strategies
@@ -1725,6 +1851,9 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
         if 'translationSearchStrategy' not in options:
             options['translationSearchStrategy'] \
                 = CEDICTWildcardTranslationSearchStrategy()
+        if 'readingSearchStrategy' not in options:
+            options['readingSearchStrategy'] \
+                = TonelessWildcardReadingSearchStrategy()
         super(CEDICT, self).__init__(**options)
 
         headword = options.get('headword', 'b')
