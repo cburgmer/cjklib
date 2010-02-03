@@ -1336,7 +1336,6 @@ class MixedReadingSearchStrategy(SimpleReadingSearchStrategy):
     This strategy complements the basic search strategy. It is not built to
     return results for plain reading or plain headword strings.
     """
-    # TODO implement wildcard version
     def __init__(self):
         super(MixedReadingSearchStrategy, self).__init__()
         self._getReadingsSearchPairsOptions = None
@@ -1391,7 +1390,6 @@ class MixedReadingSearchStrategy(SimpleReadingSearchStrategy):
         """
         searchPairs = self._getReadingsSearchPairs(searchStr, **options)
 
-        fromReading = options.get('reading', self._dictInstance.READING)
         clauses = []
         for searchEntities in searchPairs:
             # search clauses
@@ -1444,6 +1442,115 @@ class MixedReadingSearchStrategy(SimpleReadingSearchStrategy):
         searchPairs = self._getReadingsSearchPairs(searchStr, **options)
 
         return matchHeadwordReadingPair
+
+
+class MixedWildcardReadingSearchStrategy(MixedReadingSearchStrategy,
+    ReadingWildcardBase):
+    def __init__(self):
+        MixedReadingSearchStrategy.__init__(self)
+        ReadingWildcardBase.__init__(self)
+        self._getWildcardReadingsSearchPairsOptions = None
+
+    def _getWildcardReadingsSearchPairs(self, readingStr, **options):
+        def isReadingEntity(entity, cache={}):
+            if entity not in cache:
+                cache[entity] = self._readingFactory.isReadingEntity(entity,
+                    self._dictInstance.READING,
+                    **self._dictInstance.READING_OPTIONS)
+            return cache[entity]
+
+        if self._getWildcardReadingsSearchPairsOptions != (readingStr, options):
+            self._getWildcardReadingsSearchPairsOptions = (readingStr, options)
+
+            decompEntities = self._getReadings(readingStr, **options)
+
+            # separate reading entities from non-reading ones
+            self._wildcardSearchPairs = []
+            for entities in decompEntities:
+                searchEntities = []
+                hasReadingEntity = hasHeadwordEntity = False
+                for entity in entities:
+                    if isReadingEntity(entity):
+                        hasReadingEntity = True
+                        searchEntities.append(('_', entity))
+                    else:
+                        for c in self._translateWildcards(entity):
+                            if c == '_%':
+                                searchEntities.append(('_', '_%'))
+                            elif c == '%':
+                                searchEntities.append(('%', '%'))
+                            else:
+                                searchEntities.append((c, '_%'))
+                                hasHeadwordEntity = True
+
+                # discard pure reading or pure headword strings as they will be
+                #   covered through other strategies
+                if hasReadingEntity and hasHeadwordEntity:
+                    self._wildcardSearchPairs.append(searchEntities)
+
+        return self._wildcardSearchPairs
+
+    def getWhereClause(self, headwordColumn, readingColumn, searchStr,
+        **options):
+        if self.hasWildcardCharacters(searchStr):
+
+            searchPairs = self._getWildcardReadingsSearchPairs(searchStr,
+                **options)
+
+            clauses = []
+            for searchEntities in searchPairs:
+                # search clauses
+                headwordSearchEntities, readingSearchEntities \
+                    = zip(*searchEntities)
+
+                headwordClause = headwordColumn.like(
+                    ''.join(headwordSearchEntities))
+
+                wildcardReadings = self._getWildcardReading(
+                    readingSearchEntities)
+                readingClause = readingColumn.like(wildcardReadings)
+
+                clauses.append(and_(headwordClause, readingClause))
+
+            if clauses:
+                return or_(*clauses)
+            else:
+                return None
+        else:
+            # simple routine is faster
+            return MixedReadingSearchStrategy.getWhereClause(self,
+                headwordColumn, readingColumn, searchStr, **options)
+
+    def getMatchFunction(self, searchStr, **options):
+        """Gets a match function for a search string with wildcards."""
+        def matchHeadwordReadingPair(headword, reading):
+            readingEntities = self._getReadingEntities(reading)
+
+            # match against all pairs
+            for searchEntities in searchPairs:
+                headwordSearchEntities, readingSearchEntities \
+                    = zip(*searchEntities)
+
+                for idx, headwordEntity in enumerate(headwordSearchEntities):
+                    if (headwordEntity != '_'
+                        and headword[idx] != headwordEntity):
+                        break
+
+                if self._depthFirstSearch(readingSearchEntities,
+                    readingEntities):
+                    return True
+
+            return False
+
+        if self.hasWildcardCharacters(searchStr):
+            searchPairs = self._getWildcardReadingsSearchPairs(searchStr,
+                **options)
+
+            return matchHeadwordReadingPair
+        else:
+            # simple routine is faster
+            return MixedReadingSearchStrategy.getMatchFunction(self, searchStr,
+                **options)
 
 #}
 #{ Dictionary classes
@@ -1854,6 +1961,9 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
         if 'readingSearchStrategy' not in options:
             options['readingSearchStrategy'] \
                 = TonelessWildcardReadingSearchStrategy()
+        if 'mixedReadingSearchStrategy' not in options:
+            options['mixedReadingSearchStrategy'] \
+                = MixedWildcardReadingSearchStrategy()
         super(CEDICT, self).__init__(**options)
 
         headword = options.get('headword', 'b')
