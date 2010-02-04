@@ -1032,6 +1032,12 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
         SimpleReadingSearchStrategy.__init__(self)
         self._getPlainFormsOptions = None
 
+    def setDictionaryInstance(self, dictInstance):
+        SimpleReadingSearchStrategy.setDictionaryInstance(self, dictInstance)
+        if not self._hasTonlessSupport():
+            raise ValueError(
+                "Dictionary's reading not supported for toneless searching")
+
     def _hasTonlessSupport(self):
         """
         Checks if the dictionary's reading has tonal support and can be searched
@@ -1164,8 +1170,7 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
         return formsSet
 
     def getWhereClause(self, column, searchStr, **options):
-        # if reading is tonal and includes support for missing tones, handle
-        if self._hasTonlessSupport():
+        if self._hasTonlessSupport(): # TODO check if the string has missing tones instead
             if self._dictInstance.READING in self.READINGS_HAVE_TONE_APPENDED:
                 # look for missing tone information and use wildcards, with
                 #   better performance
@@ -1191,8 +1196,7 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
         return whereClause
 
     def getMatchFunction(self, searchStr, **options):
-        # if reading is tonal and includes support for missing tones, handle
-        if self._hasTonlessSupport():
+        if self._hasTonlessSupport(): # TODO check if the string has missing tones instead
             # look for missing tone information and generate all forms
             searchEntities = self._getAllTonalForms(searchStr, **options)
         else:
@@ -1231,22 +1235,18 @@ class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
 
     def getWhereClause(self, column, searchStr, **options):
         if self.hasWildcardCharacters(searchStr):
-            # if reading is tonal and includes support for missing tones, handle
-            if self._hasTonlessSupport():
-                if (self._dictInstance.READING in
-                    self.READINGS_HAVE_TONE_APPENDED):
-                    # look for missing tone information and use wildcards, with
-                    #   better performance
-                    # TODO that's not generally true
-                    searchEntities = self._getTonalWildcardForms(searchStr,
-                        **options)
-                else:
-                    # look for missing tone information and generate all forms
-                    # TODO SQLite only supports limited numbers of ANDs
-                    searchEntities = self._getAllTonalForms(searchStr,
-                        **options)
+            if (self._dictInstance.READING in
+                self.READINGS_HAVE_TONE_APPENDED):
+                # look for missing tone information and use wildcards, with
+                #   better performance
+                # TODO that's not generally true
+                searchEntities = self._getTonalWildcardForms(searchStr,
+                    **options)
             else:
-                searchEntities = self._getWildcardForms(searchStr, **options)
+                # look for missing tone information and generate all forms
+                # TODO SQLite only supports limited numbers of ANDs
+                searchEntities = self._getAllTonalForms(searchStr,
+                    **options)
 
             wildcardReadings = map(self._getWildcardReading, searchEntities)
 
@@ -1315,12 +1315,8 @@ class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
             return False
 
         if self.hasWildcardCharacters(searchStr):
-            # if reading is tonal and includes support for missing tones, handle
-            if self._hasTonlessSupport():
-                # look for missing tone information and generate all forms
-                searchEntities = self._getAllTonalForms(searchStr, **options)
-            else:
-                searchEntities = self._getWildcardForms(searchStr, **options)
+            # look for missing tone information and generate all forms
+            searchEntities = self._getAllTonalForms(searchStr, **options)
 
             return matchReadingEntities
         else:
@@ -1331,136 +1327,25 @@ class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
 #}
 #{ Mixed reading search strategies
 
-class MixedReadingSearchStrategy(SimpleReadingSearchStrategy):
-    """
-    Reading search strategy that supplements L{SimpleReadingSearchStrategy} to
-    allow intermixing of readings with single characters from the headword.
-
-    This strategy complements the basic search strategy. It is not built to
-    return results for plain reading or plain headword strings.
-    """
-    def __init__(self):
-        super(MixedReadingSearchStrategy, self).__init__()
-        self._getReadingsSearchPairsOptions = None
-
-    def _getReadingsSearchPairs(self, readingStr, **options):
-        def isReadingEntity(entity, cache={}):
-            if entity not in cache:
-                cache[entity] = self._readingFactory.isReadingEntity(entity,
-                    self._dictInstance.READING,
-                    **self._dictInstance.READING_OPTIONS)
-            return cache[entity]
-
-        if self._getReadingsSearchPairsOptions != (readingStr, options):
-            self._getReadingsSearchPairsOptions = (readingStr, options)
-
-            decompEntities = self._getReadings(readingStr, **options)
-
-            # separate reading entities from non-reading ones
-            self._searchPairs = []
-            for entities in decompEntities:
-                searchEntities = []
-                hasReadingEntity = hasHeadwordEntity = False
-                for entity in entities:
-                    if isReadingEntity(entity):
-                        hasReadingEntity = True
-                        searchEntities.append((None, entity))
-                    else:
-                        hasHeadwordEntity = True
-                        searchEntities.extend([(c, None) for c in entity])
-
-                # discard pure reading or pure headword strings as they will be
-                #   covered through other strategies
-                if hasReadingEntity and hasHeadwordEntity:
-                    self._searchPairs.append(searchEntities)
-
-        return self._searchPairs
-
-    def getWhereClause(self, headwordColumn, readingColumn, searchStr,
-        **options):
-        """
-        Returns a SQLAlchemy clause that is the necessary condition for a
-        possible match. This clause is used in the database query. Results may
-        then be further narrowed by L{getMatchFunction()}.
-
-        @type headwordColumn: SQLAlchemy column instance
-        @param headwordColumn: headword column to check against
-        @type readingColumn: SQLAlchemy column instance
-        @param readingColumn: reading column to check against
-        @type searchStr: str
-        @param searchStr: search string
-        @return: SQLAlchemy clause
-        """
-        searchPairs = self._getReadingsSearchPairs(searchStr, **options)
-
-        clauses = []
-        for searchEntities in searchPairs:
-            # search clauses
-            headwordSearchEntities = []
-            readingSearchEntities = []
-            for headwordEntity, readingEntity in searchEntities:
-                if headwordEntity is None:
-                    headwordSearchEntities.append('_')
-                else:
-                    headwordSearchEntities.append(headwordEntity)
-                if readingEntity is None:
-                    readingSearchEntities.append('_%')
-                else:
-                    readingSearchEntities.append(readingEntity)
-
-            headwordClause = headwordColumn.like(
-                ''.join(headwordSearchEntities))
-            readingClause = readingColumn.like(' '.join(readingSearchEntities))
-
-            clauses.append(and_(headwordClause, readingClause))
-
-        if clauses:
-            return or_(*clauses)
-        else:
-            return None
-
-    def getMatchFunction(self, searchStr, **options):
-        def getReadingEntities(reading):
-            # simple and efficient method for CEDICT type dictionaries
-            return reading.split(' ')
-
-        def matchHeadwordReadingPair(headword, reading):
-            readingEntities = getReadingEntities(reading)
-
-            # match against all pairs
-            for searchEntities in searchPairs:
-                for idx, entryTuple in enumerate(searchEntities):
-                    headwordEntity, readingEntity = entryTuple
-                    if (headwordEntity is not None
-                        and headword[idx] != headwordEntity):
-                        break
-                    if (readingEntity is not None
-                        and readingEntities[idx] != readingEntity):
-                        break
-                else:
-                    return True
-
-            return False
-
-        searchPairs = self._getReadingsSearchPairs(searchStr, **options)
-
-        return matchHeadwordReadingPair
-
-
-class MixedWildcardReadingSearchStrategy(MixedReadingSearchStrategy,
+class MixedWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
     ReadingWildcardBase):
     """
     Reading search strategy that supplements
     L{SimpleWildcardReadingSearchStrategy} to allow intermixing of readings with
-    single characters from the headword. This class adds wildcard support to
-    L{MixedReadingSearchStrategy}.
+    single characters from the headword. By default wildcard searches are
+    supported.
 
     This strategy complements the basic search strategy. It is not built to
     return results for plain reading or plain headword strings.
+
+    @todo Fix:  Escape wildcards if wildcard searches are disabled
     """
-    def __init__(self):
-        MixedReadingSearchStrategy.__init__(self)
+    def __init__(self, supportWildcards=True):
+        SimpleReadingSearchStrategy.__init__(self)
         ReadingWildcardBase.__init__(self)
+
+        self.supportWildcards = supportWildcards
+
         self._getWildcardReadingsSearchPairsOptions = None
 
     def _getWildcardReadingsSearchPairs(self, readingStr, **options):
@@ -1485,7 +1370,7 @@ class MixedWildcardReadingSearchStrategy(MixedReadingSearchStrategy,
                     if isReadingEntity(entity):
                         hasReadingEntity = True
                         searchEntities.append(('_', entity))
-                    else:
+                    elif self.supportWildcards:
                         for c in self._translateWildcards(entity):
                             if c == '_%':
                                 searchEntities.append(('_', '_%'))
@@ -1494,6 +1379,10 @@ class MixedWildcardReadingSearchStrategy(MixedReadingSearchStrategy,
                             else:
                                 searchEntities.append((c, '_%'))
                                 hasHeadwordEntity = True
+                    else:
+                        # TODO escape wildcards
+                        hasHeadwordEntity = True
+                        searchEntities.extend([(c, None) for c in entity])
 
                 # discard pure reading or pure headword strings as they will be
                 #   covered through other strategies
@@ -1504,65 +1393,97 @@ class MixedWildcardReadingSearchStrategy(MixedReadingSearchStrategy,
 
     def getWhereClause(self, headwordColumn, readingColumn, searchStr,
         **options):
-        if self.hasWildcardCharacters(searchStr):
+        """
+        Returns a SQLAlchemy clause that is the necessary condition for a
+        possible match. This clause is used in the database query. Results may
+        then be further narrowed by L{getMatchFunction()}.
 
-            searchPairs = self._getWildcardReadingsSearchPairs(searchStr,
-                **options)
+        @type headwordColumn: SQLAlchemy column instance
+        @param headwordColumn: headword column to check against
+        @type readingColumn: SQLAlchemy column instance
+        @param readingColumn: reading column to check against
+        @type searchStr: str
+        @param searchStr: search string
+        @return: SQLAlchemy clause
+        """
+        searchPairs = self._getWildcardReadingsSearchPairs(searchStr, **options)
 
-            clauses = []
-            for searchEntities in searchPairs:
-                # search clauses
-                headwordSearchEntities, readingSearchEntities \
-                    = zip(*searchEntities)
+        clauses = []
+        for searchEntities in searchPairs:
+            # search clauses
+            headwordSearchEntities, readingSearchEntities \
+                = zip(*searchEntities)
 
-                headwordClause = headwordColumn.like(
-                    ''.join(headwordSearchEntities))
+            headwordClause = headwordColumn.like(
+                ''.join(headwordSearchEntities), escape=self.escape)
 
-                wildcardReadings = self._getWildcardReading(
-                    readingSearchEntities)
-                readingClause = readingColumn.like(wildcardReadings)
+            wildcardReadings = self._getWildcardReading(
+                readingSearchEntities)
+            readingClause = readingColumn.like(wildcardReadings,
+                escape=self.escape)
 
-                clauses.append(and_(headwordClause, readingClause))
+            clauses.append(and_(headwordClause, readingClause))
 
-            if clauses:
-                return or_(*clauses)
-            else:
-                return None
+        if clauses:
+            return or_(*clauses)
         else:
-            # simple routine is faster
-            return MixedReadingSearchStrategy.getWhereClause(self,
-                headwordColumn, readingColumn, searchStr, **options)
+            return None
+
+    @staticmethod
+    def _depthFirstSearchPairs(searchEntities, entities):
+        """
+        Depth first search comparing a list of reading entities with wildcards
+        against reading entities from a result.
+        """
+        def equals(searchEntity, entity):
+            headwordSE, readingSE = searchEntity
+            headwordEntity, readingEntity = entity
+            return ((headwordSE == '_' or headwordSE == headwordEntity)
+                and (readingSE == '_%' or readingSE == readingEntity))
+
+        if not searchEntities:
+            if not entities:
+                return True
+            else:
+                return False
+        elif searchEntities[0] == ('%', '%'):
+            if MixedWildcardReadingSearchStrategy._depthFirstSearchPairs(
+                searchEntities[1:], entities):
+                # try consume no entity
+                return True
+            elif entities:
+                # consume one entity
+                return MixedWildcardReadingSearchStrategy\
+                    ._depthFirstSearchPairs(searchEntities, entities[1:])
+            else:
+                return False
+        elif not entities:
+            return False
+        elif equals(searchEntities[0], entities[0]):
+            return MixedWildcardReadingSearchStrategy._depthFirstSearchPairs(
+                searchEntities[1:], entities[1:])
+        else:
+            return False
 
     def getMatchFunction(self, searchStr, **options):
-        """Gets a match function for a search string with wildcards."""
         def matchHeadwordReadingPair(headword, reading):
             readingEntities = self._getReadingEntities(reading)
 
+            if len(headword) != len(readingEntities):
+                # error in database entry
+                return False
+
             # match against all pairs
             for searchEntities in searchPairs:
-                headwordSearchEntities, readingSearchEntities \
-                    = zip(*searchEntities)
-
-                for idx, headwordEntity in enumerate(headwordSearchEntities):
-                    if (headwordEntity != '_'
-                        and headword[idx] != headwordEntity):
-                        break
-
-                if self._depthFirstSearch(readingSearchEntities,
-                    readingEntities):
+                entities = zip(list(headword), readingEntities)
+                if self._depthFirstSearchPairs(searchEntities, entities):
                     return True
 
             return False
 
-        if self.hasWildcardCharacters(searchStr):
-            searchPairs = self._getWildcardReadingsSearchPairs(searchStr,
-                **options)
+        searchPairs = self._getWildcardReadingsSearchPairs(searchStr, **options)
 
-            return matchHeadwordReadingPair
-        else:
-            # simple routine is faster
-            return MixedReadingSearchStrategy.getMatchFunction(self, searchStr,
-                **options)
+        return matchHeadwordReadingPair
 
 #}
 #{ Dictionary classes
