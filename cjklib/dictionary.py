@@ -1902,6 +1902,9 @@ class EDICTStyleEnhancedReadingDictionary(EDICTStyleDictionary):
         if 'readingSearchStrategy' not in options:
             options['readingSearchStrategy'] \
                 = SimpleWildcardReadingSearchStrategy()
+        if 'mixedReadingSearchStrategy' not in options:
+            options['mixedReadingSearchStrategy'] \
+                = MixedWildcardReadingSearchStrategy()
         super(EDICTStyleEnhancedReadingDictionary, self).__init__(**options)
 
 
@@ -1916,7 +1919,6 @@ class CEDICTGR(EDICTStyleEnhancedReadingDictionary):
     DICTIONARY_TABLE = 'CEDICTGR'
 
     def __init__(self, **options):
-
         if 'translationSearchStrategy' not in options:
             options['translationSearchStrategy'] \
                 = CEDICTWildcardTranslationSearchStrategy()
@@ -1973,9 +1975,6 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
         if 'readingSearchStrategy' not in options:
             options['readingSearchStrategy'] \
                 = TonelessWildcardReadingSearchStrategy()
-        if 'mixedReadingSearchStrategy' not in options:
-            options['mixedReadingSearchStrategy'] \
-                = MixedWildcardReadingSearchStrategy()
         super(CEDICT, self).__init__(**options)
 
         headword = options.get('headword', 'b')
