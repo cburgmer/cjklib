@@ -179,6 +179,25 @@ if not hasattr(__builtins__, 'all'):
                 return False
         return True
 
+_wildcardRegexCache = {}
+def _escapeWildcards(string, escape='\\'):
+    r"""
+    Escape SQL wildcard characters in a string.
+
+        >>> _escapeWildcards('_%\\ab%c\\%a\\_\\\\_')
+        '\\_\\%\\\\ab\\%c\\%a\\_\\\\\\_'
+    """
+    assert len(escape) == 1
+    if escape not in _wildcardRegexCache:
+        _wildcardRegexCache[escape] = re.compile(
+            # go past on all properly escaped ones
+            (r'((?:%(esc)s{2}|%(esc)s[_%%]|[^%(esc)s_%%])*)'
+            # find single chars
+            r'(%(esc)s(?![%(esc)s_%%])|[_%%])') % {'esc': re.escape(escape)})
+    # insert escape
+    return _wildcardRegexCache[escape].sub(r'\1%s\2' % re.escape(escape),
+        string)
+
 #{ Entry factories
 
 class TupleEntryFactory(object):
@@ -574,8 +593,7 @@ class WildcardHeadwordSearchStrategy(ExactSearchStrategy, WildcardBase):
 class SingleEntryTranslationSearchStrategy(ExactSearchStrategy):
     """Basic translation search strategy."""
     def getWhereClause(self, column, searchStr):
-        # TODO escape searchStr, no wildcards inside
-        return column.like('%' + searchStr + '%')
+        return column.contains(_escapeWildcards(searchStr), escape='\\')
 
     def getMatchFunction(self, searchStr):
         return lambda translation: searchStr in translation.split('/')
@@ -846,7 +864,7 @@ class ReadingWildcardBase(WildcardBase):
         # substitute wildcard characters and escape plain parts, make sure
         #   escape is handled properly
         self._wildcardRegex = re.compile(
-            r'( |\\{2}|\\?(?:%(single)s|%(multiple)s))' % param)
+            r'( |%(esc)s{2}|%(esc)s?(?:%(single)s|%(multiple)s))' % param)
 
         self._getWildcardFormsOptions = None
 
@@ -1119,7 +1137,11 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
                 if not isinstance(entity, basestring):
                     entity, plainEntity, tone = entity
                     if plainEntity is not None and tone is None:
-                        entity = '%s_' % plainEntity
+                        entity = '%s_' % _escapeWildcards(plainEntity)
+                    else:
+                        entity = _escapeWildcards(entity)
+                else:
+                    entity = _escapeWildcards(entity)
                 newEntities.append(entity)
             wildcardEntities.append(newEntities)
 
@@ -1178,7 +1200,7 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
                 searchEntities = self._getTonalWildcardForms(searchStr,
                     **options)
 
-                whereClause = or_(*[column.like(' '.join(entities))
+                whereClause = or_(*[column.like(' '.join(entities), escape='\\')
                     for entities in searchEntities])
             else:
                 # look for missing tone information and generate all forms
@@ -1369,7 +1391,8 @@ class MixedWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
                 for entity in entities:
                     if isReadingEntity(entity):
                         hasReadingEntity = True
-                        searchEntities.append(('_', entity))
+                        searchEntities.append(('_',
+                            _escapeWildcards(entity, self.escape)))
                     elif self.supportWildcards:
                         for c in self._translateWildcards(entity):
                             if c == '_%':
@@ -1380,9 +1403,10 @@ class MixedWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
                                 searchEntities.append((c, '_%'))
                                 hasHeadwordEntity = True
                     else:
-                        # TODO escape wildcards
                         hasHeadwordEntity = True
-                        searchEntities.extend([(c, None) for c in entity])
+                        searchEntities.extend(
+                            [(_escapeWildcards(c, self.escape), None)
+                                for c in entity])
 
                 # discard pure reading or pure headword strings as they will be
                 #   covered through other strategies
