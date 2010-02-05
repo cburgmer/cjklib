@@ -945,6 +945,12 @@ class ReadingWildcardBase(WildcardBase):
         Depth first search comparing a list of reading entities with wildcards
         against reading entities from a result.
         """
+        def equals(searchEntity, entity):
+            return (searchEntity == '_%'
+                or (not isinstance(searchEntity, basestring)
+                    and entity in searchEntity)
+                or searchEntity == entity)
+
         if not searchEntities:
             if not entities:
                 return True
@@ -963,11 +969,8 @@ class ReadingWildcardBase(WildcardBase):
                 return False
         elif not entities:
             return False
-        elif searchEntities[0] == '_%':
+        elif equals(searchEntities[0], entities[0]):
             # consume one entity
-            return ReadingWildcardBase._depthFirstSearch(searchEntities[1:],
-                entities[1:])
-        elif searchEntities[0] == entities[0]:
             return ReadingWildcardBase._depthFirstSearch(searchEntities[1:],
                 entities[1:])
         else:
@@ -1035,10 +1038,8 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
     @todo Impl: Support readings with toneless base forms but without support
         for missing tone
     @todo Fix:  Too many possibilities will break SQL queries, as too many ORs
-        will occur.
-    @todo Fix: "tiananmen" with 32 decompositions has way to many tonal
-        instances. Implement a match function that goes with out the need to
-        generate all instances.
+        will occur. Especially if reading is not in READINGS_HAVE_TONE_APPENDED,
+        i.e. does not support wildcard searching.
     """
     READINGS_HAVE_TONE_APPENDED = ['Pinyin', 'WadeGiles', 'Jyutping',
         'CantoneseYale']
@@ -1168,7 +1169,7 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
             self._dictInstance.READING,
             **self._dictInstance.READING_OPTIONS)
 
-        formsSet = set()
+        forms = []
         for entities in self._getPlainForms(searchStr, **options):
             newEntities = []
             for entity in entities:
@@ -1186,8 +1187,20 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
                     entityList = [entity]
                 newEntities.append(entityList)
 
+            forms.append(newEntities)
+
+        return forms
+
+    def _rolloutTonalForms(self, forms):
+        """Roll out tonal forms into a big list of single readings."""
+        def makeList(*args):
+            return [(isinstance(element, basestring) and [element] or element)
+                for element in args]
+
+        formsSet = set()
+        for entities in forms:
             # build cross product of tonal entities
-            formsSet.update(map(tuple, cross(*newEntities)))
+            formsSet.update(map(tuple, cross(*makeList(*entities))))
 
         return formsSet
 
@@ -1205,7 +1218,8 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
             else:
                 # look for missing tone information and generate all forms
                 # TODO SQLite only supports limited numbers of ANDs
-                searchEntities = self._getAllTonalForms(searchStr, **options)
+                tonalForms = self._getAllTonalForms(searchStr, **options)
+                searchEntities = self._rolloutTonalForms(tonalForms)
 
                 whereClause = or_(*[column == ' '.join(entities)
                     for entities in searchEntities])
@@ -1217,15 +1231,33 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
 
         return whereClause
 
+    def _getReadingEntities(self, reading):
+        """Splits a reading string into entities."""
+        # simple and efficient method for CEDICT type dictionaries
+        return reading.split(' ')
+
     def getMatchFunction(self, searchStr, **options):
+        def matchReadingEntities(reading):
+            readingEntities = self._getReadingEntities(reading)
+
+            for entities in tonalForms:
+                if len(readingEntities) != len(entities):
+                    continue
+                for idx, entity in enumerate(readingEntities):
+                    if entity not in entities[idx]:
+                        break
+                else:
+                    return True
+            return False
+
         if self._hasTonlessSupport(): # TODO check if the string has missing tones instead
             # look for missing tone information and generate all forms
-            searchEntities = self._getAllTonalForms(searchStr, **options)
+            tonalForms = self._getAllTonalForms(searchStr, **options)
+            return matchReadingEntities
         else:
             searchEntities = self._getReadings(searchStr, **options)
-
-        matchSet = set([' '.join(entities) for entities in searchEntities])
-        return lambda reading: reading in matchSet
+            matchSet = set([' '.join(entities) for entities in searchEntities])
+            return lambda reading: reading in matchSet
 
 
 class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
@@ -1267,8 +1299,8 @@ class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
             else:
                 # look for missing tone information and generate all forms
                 # TODO SQLite only supports limited numbers of ANDs
-                searchEntities = self._getAllTonalForms(searchStr,
-                    **options)
+                tonalForms = self._getAllTonalForms(searchStr, **options)
+                searchEntities = self._rolloutTonalForms(tonalForms)
 
             wildcardReadings = map(self._getWildcardReading, searchEntities)
 
@@ -1300,7 +1332,7 @@ class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
             self._dictInstance.READING,
             **self._dictInstance.READING_OPTIONS)
 
-        formsSet = set()
+        forms = []
         for entities in self._getPlainForms(searchStr, **options):
             newEntities = []
             for entity in entities:
@@ -1308,21 +1340,20 @@ class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
                     entity, plainEntity, tone = entity
 
                     if plainEntity is not None and tone is None:
-                        entityList = []
+                        entities = []
                         for t in tones:
                             tonalentity = getTonalEntity(plainEntity, t)
-                            if tonalentity: entityList.append(tonalentity)
+                            if tonalentity: entities.append(tonalentity)
                     else:
-                        entityList = [entity]
-                    newEntities.append(entityList)
+                        entities = entity
+                    newEntities.append(entities)
                 else:
                     newEntities.extend(
-                        [[c] for c in self._translateWildcards(entity)])
+                        [c for c in self._translateWildcards(entity)])
 
-            # build cross product of tonal entities
-            formsSet.update(map(tuple, cross(*newEntities)))
+            forms.append(newEntities)
 
-        return formsSet
+        return forms
 
     def getMatchFunction(self, searchStr, **options):
         """Gets a match function for a search string with wildcards."""
@@ -1330,7 +1361,7 @@ class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
             readingEntities = self._getReadingEntities(reading)
 
             # match against all pairs
-            for entities in searchEntities:
+            for entities in tonalForms:
                 if self._depthFirstSearch(entities, readingEntities):
                     return True
 
@@ -1338,7 +1369,7 @@ class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
 
         if self.hasWildcardCharacters(searchStr):
             # look for missing tone information and generate all forms
-            searchEntities = self._getAllTonalForms(searchStr, **options)
+            tonalForms = self._getAllTonalForms(searchStr, **options)
 
             return matchReadingEntities
         else:
