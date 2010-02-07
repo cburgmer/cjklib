@@ -582,7 +582,8 @@ class WildcardHeadwordSearchStrategy(ExactSearchStrategy, WildcardBase):
     def getMatchFunction(self, searchStr):
         if self.hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(searchStr)
-            return lambda headword: regex.search(headword) is not None
+            return lambda headword: (headword is not None
+                and regex.search(headword) is not None)
         else:
             # simple routine is faster
             return ExactSearchStrategy.getMatchFunction(self, searchStr)
@@ -616,7 +617,8 @@ class WildcardTranslationSearchStrategy(SingleEntryTranslationSearchStrategy,
     def getMatchFunction(self, searchStr):
         if self.hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(readingStr)
-            return lambda translation: regex.search(translation) is not None
+            return lambda translation: (translation is not None
+                and regex.search(translation) is not None)
         else:
             # simple routine is faster
             return SingleEntryTranslationSearchStrategy.getMatchFunction(self,
@@ -635,7 +637,8 @@ class SimpleTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
         regex = re.compile('/' + '(\s+|\([^\)]+\))*' + re.escape(searchStr)
             + '(\s+|\([^\)]+\))*' + '/')
 
-        return lambda translation: regex.search(translation) is not None
+        return lambda translation: (translation is not None
+            and regex.search(translation) is not None)
 
 
 class SimpleWildcardTranslationSearchStrategy(
@@ -657,8 +660,9 @@ class SimpleWildcardTranslationSearchStrategy(
 
     def getMatchFunction(self, searchStr):
         if self.hasWildcardCharacters(searchStr):
-            regex = self._getWildcardRegex(readingStr)
-            return lambda translation: regex.search(translation) is not None
+            regex = self._getWildcardRegex(searchStr)
+            return lambda translation: (translation is not None
+                and regex.search(translation) is not None)
         else:
             # simple routine is faster
             return SimpleTranslationSearchStrategy.getMatchFunction(self,
@@ -677,7 +681,8 @@ class CEDICTTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
         regex = re.compile('/' + '(\s+|\([^\)]+\))*' + re.escape(searchStr)
             + '(\s+|\([^\)]+\))*' + '[/,]')
 
-        return lambda translation: regex.search(translation) is not None
+        return lambda translation: (translation is not None
+            and regex.search(translation) is not None)
 
 
 class CEDICTWildcardTranslationSearchStrategy(
@@ -701,7 +706,8 @@ class CEDICTWildcardTranslationSearchStrategy(
     def getMatchFunction(self, searchStr):
         if self.hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(searchStr)
-            return lambda translation: regex.search(translation) is not None
+            return lambda translation: (translation is not None
+                and regex.search(translation) is not None)
         else:
             # simple routine is faster
             return CEDICTTranslationSearchStrategy.getMatchFunction(self,
@@ -723,7 +729,8 @@ class HanDeDictTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
             + '(?!; Bsp.: [^/]+?--[^/]+)[\,\;\.\?\!])?' + '(\s+|\([^\)]+\))*'
             + re.escape(searchStr) + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
 
-        return lambda translation: regex.search(translation) is not None
+        return lambda translation: (translation is not None
+            and regex.search(translation) is not None)
 
 
 class HanDeDictWildcardTranslationSearchStrategy(
@@ -749,7 +756,8 @@ class HanDeDictWildcardTranslationSearchStrategy(
     def getMatchFunction(self, searchStr):
         if self.hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(searchStr)
-            return lambda translation: regex.search(translation) is not None
+            return lambda translation: (translation is not None
+                and regex.search(translation) is not None)
         else:
             # simple routine is faster
             return HanDeDictTranslationSearchStrategy.getMatchFunction(self,
@@ -774,7 +782,8 @@ class WildcardReadingSearchStrategy(ExactSearchStrategy, WildcardBase):
     def getMatchFunction(self, searchStr, **options):
         if self.hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(searchStr)
-            return lambda reading: regex.search(reading) is not None
+            return lambda reading: (reading is not None
+                and regex.search(reading) is not None)
         else:
             # simple routine is faster
             return ExactSearchStrategy.getMatchFunction(self, searchStr)
