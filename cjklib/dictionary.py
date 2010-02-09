@@ -1113,6 +1113,7 @@ class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
     def __init__(self, supportWildcards=True, **options):
         _SimpleReadingWildcardBase.__init__(self, **options)
         self._supportWildcards = supportWildcards
+        self._getPlainFormsOptions = None
 
     def _createTonalEntityWildcard(self, plainEntity):
         return self.TonalEntityWildcard(plainEntity, self.escape)
@@ -1238,7 +1239,6 @@ readingSearchStrategy=dictionary.TonelessWildcardReadingSearchStrategy())
     def __init__(self, **options):
         SimpleReadingSearchStrategy.__init__(self)
         _TonelessReadingWildcardBase.__init__(self, **options)
-        self._getPlainFormsOptions = None
 
     def setDictionaryInstance(self, dictInstance):
         SimpleReadingSearchStrategy.setDictionaryInstance(self, dictInstance)
@@ -1486,6 +1486,92 @@ class MixedWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
 
     def getMatchFunction(self, searchStr, **options):
         return self._getWildcardMatchFunction(searchStr, **options)
+
+
+class MixedTonelessWildcardReadingSearchStrategy(
+    MixedWildcardReadingSearchStrategy, _TonelessReadingWildcardBase):
+    """
+    Reading search strategy that supplements
+    L{TonelessWildcardReadingSearchStrategy} to allow intermixing of readings
+    missing tonal information with single characters from the headword. By
+    default wildcard searches are supported.
+
+    This strategy complements the basic search strategy. It is not built to
+    return results for plain reading or plain headword strings.
+    """
+    class TonelessReadingWildcard:
+        """
+        Wildcard matching an exact toneless reading entity and one arbitrary
+        headword character.
+        """
+        def __init__(self, plainEntity, escape):
+            self._plainEntity = plainEntity
+            self._escape = escape
+        def tonelessReadingEntity(self):
+            return _escapeWildcards(self._plainEntity, self._escape) + '_'
+        SQL_LIKE_STATEMENT = property(tonelessReadingEntity)
+        SQL_LIKE_STATEMENT_HEADWORD = '_'
+        def match(self, entity):
+            if entity is None:
+                return False
+            _, readingEntity = entity
+            return (readingEntity == self._plainEntity
+                or readingEntity[:-1] == self._plainEntity)
+
+    def __init__(self, supportWildcards=True):
+        MixedWildcardReadingSearchStrategy.__init__(self)
+        _TonelessReadingWildcardBase.__init__(self, supportWildcards)
+
+    def _createTonelessReadingWildcard(self, plainEntity):
+        return self.TonelessReadingWildcard(plainEntity, self.escape)
+
+    def _getWildcardForms(self, readingStr, **options):
+        def isReadingEntity(entity, cache={}):
+            if entity not in cache:
+                cache[entity] = self._readingFactory.isReadingEntity(entity,
+                    self._dictInstance.READING,
+                    **self._dictInstance.READING_OPTIONS)
+            return cache[entity]
+
+        if self._getWildcardFormsOptions != (readingStr, options):
+            self._getWildcardFormsOptions = (readingStr, options)
+
+            decompEntities = self._getPlainForms(readingStr, **options)
+
+            # separate reading entities from non-reading ones
+            self._wildcardForms = []
+            for entities in decompEntities:
+                searchEntities = []
+                hasReadingEntity = hasHeadwordEntity = False
+                for entity in entities:
+                    if not isinstance(entity, basestring):
+                        hasReadingEntity = True
+
+                        entity, plainEntity, tone = entity
+                        if plainEntity is not None and tone is None:
+                            searchEntities.append(
+                                self._createTonelessReadingWildcard(
+                                    plainEntity))
+                        else:
+                            searchEntities.append(
+                                self._createReadingWildcard(entity))
+                    elif self._supportWildcards:
+                        parsedEntities = self._parseWildcardString(entity)
+                        searchEntities.extend(parsedEntities)
+                        hasHeadwordEntity = hasHeadwordEntity or any(
+                            isinstance(entity, self.HeadwordWildcard)
+                            for entity in parsedEntities)
+                    else:
+                        hasHeadwordEntity = True
+                        searchEntities.extend(
+                            [self._createHeadwordWildcard(c) for c in entity])
+
+                # discard pure reading or pure headword strings as they will be
+                #   covered through other strategies
+                if hasReadingEntity and hasHeadwordEntity:
+                    self._wildcardForms.append(searchEntities)
+
+        return self._wildcardForms
 
 #}
 #{ Dictionary classes
@@ -1898,6 +1984,9 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
         if 'readingSearchStrategy' not in options:
             options['readingSearchStrategy'] \
                 = TonelessWildcardReadingSearchStrategy()
+        if 'mixedReadingSearchStrategy' not in options:
+            options['mixedReadingSearchStrategy'] \
+                = MixedTonelessWildcardReadingSearchStrategy()
         super(CEDICT, self).__init__(**options)
 
         headword = options.get('headword', 'b')
