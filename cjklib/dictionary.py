@@ -178,25 +178,26 @@ if not hasattr(__builtins__, 'all'):
             if not element:
                 return False
         return True
+    def any(iterable):
+        for element in iterable:
+            if element:
+                return True
+        return False
 
 _wildcardRegexCache = {}
 def _escapeWildcards(string, escape='\\'):
     r"""
-    Escape SQL wildcard characters in a string.
+    Escape characters that would be interpreted by a SQL LIKE statement.
 
         >>> _escapeWildcards('_%\\ab%c\\%a\\_\\\\_')
-        '\\_\\%\\\\ab\\%c\\%a\\_\\\\\\_'
+        '\\_\\%\\\\ab\\%c\\\\\\%a\\\\\\_\\\\\\\\\\_'
     """
     assert len(escape) == 1
     if escape not in _wildcardRegexCache:
         _wildcardRegexCache[escape] = re.compile(
-            # go past on all properly escaped ones
-            (r'((?:%(esc)s{2}|%(esc)s[_%%]|[^%(esc)s_%%])*)'
-            # find single chars
-            r'(%(esc)s(?![%(esc)s_%%])|[_%%])') % {'esc': re.escape(escape)})
+            r'(%s|[_%%])' % re.escape(escape))
     # insert escape
-    return _wildcardRegexCache[escape].sub(r'\1%s\2' % re.escape(escape),
-        string)
+    return _wildcardRegexCache[escape].sub(r'%s\1' % re.escape(escape), string)
 
 #{ Entry factories
 
@@ -504,11 +505,27 @@ class ExactSearchStrategy(object):
         return lambda cell: searchStr == cell
 
 
-class WildcardBase(object):
+class _WildcardBase(object):
     """
     Wildcard search base class. Provides wildcard conversion and regular
     expression preparation methods.
+
+    Wildcards can be used as placeholders in searches. By default C{'_'}
+    substitutes a single character while C{'%'} matches zero, one or multiple
+    characters. Searches for the actual characters (here C{'_'} and C{'%'}) need
+    to mask those occurences by the escape character, by default a backslash
+    C{'\\'}, which needs escaping itself.
     """
+    class SingleWildcard:
+        """Wildcard matching exactly one character."""
+        SQL_LIKE_STATEMENT = '_'
+        REGEX_PATTERN = '.'
+
+    class MultipleWildcard:
+        """Wildcard matching zero, one or multiple characters."""
+        SQL_LIKE_STATEMENT = '%'
+        REGEX_PATTERN = '.*'
+
     def __init__(self, singleCharacter='_', multipleCharacters='%',
         escape='\\'):
         self.singleCharacter = singleCharacter
@@ -518,50 +535,69 @@ class WildcardBase(object):
             raise ValueError("Escape character %s needs to have length 1"
                 % repr(self.escape))
 
-    def hasWildcardCharacters(self, searchStr):
-        """
-        Returns C{True} if a wildcard character is included in the search
-        string. Escaping is not considered.
-        """
-        return (self.singleCharacter in searchStr
-            or self.multipleCharacters in searchStr)
-
-    def _getWildcardString(self, searchStr):
-        param = {'esc': re.escape(self.escape),
-            'single': re.escape(self.singleCharacter),
-            'multiple': re.escape(self.multipleCharacters)}
-        # substitute wildcard characters, make sure escape is handled properly
-        if self.singleCharacter != '_':
-            searchStr = re.sub(
-                '(?<!%(esc)s)((?:%(esc)s{2}|[^%(esc)s])*?)%(single)s' % param,
-                r'\1_', searchStr)
-        if self.multipleCharacters != '%':
-            searchStr = re.sub(
-                '(?<!%(esc)s)((?:%(esc)s{2}|[^%(esc)s])*?)%(multiple)s' % param,
-                r'\1%', searchStr)
-
-        return searchStr
-
-    def _prepareWildcardRegex(self, searchStr):
-        # TODO allow '/' and whitespace to fill in for wildcard?
         param = {'esc': re.escape(self.escape),
             'single': re.escape(self.singleCharacter),
             'multiple': re.escape(self.multipleCharacters)}
         # substitute wildcard characters and escape plain parts, make sure
         #   escape is handled properly
-        parts = re.split(r'(\\{2}|\\?(?:%(single)s|%(multiple)s))' % param,
-            searchStr)
+        self._wildcardRegex = re.compile(
+            r'(%(esc)s{2}|%(esc)s?(?:%(single)s|%(multiple)s)|[_%%\\])'
+                % param)
 
-        preparedParts = []
-        for part in parts:
-            if part == self.singleCharacter:
-                preparedParts.append('.')
-            elif part == self.multipleCharacters:
-                preparedParts.append('.*')
+    def _parseWildcardString(self, string):
+        entities = []
+        for idx, part in enumerate(self._wildcardRegex.split(string)):
+            if idx % 2 == 0:
+                if part:
+                    entities.append(part)
             else:
-                preparedParts.append(re.escape(part))
+                if part == self.singleCharacter:
+                    entities.append(self.SingleWildcard())
+                elif part == self.multipleCharacters:
+                    entities.append(self.MultipleWildcard())
+                elif (part.startswith(self.escape)
+                    and part[1:] in (self.escape, self.singleCharacter,
+                        self.multipleCharacters)):
+                    # unescape
+                    entities.append(part[1:])
+                else:
+                    entities.append(part)
 
-        return ''.join(preparedParts)
+        return entities
+
+    def _hasWildcardCharacters(self, searchStr):
+        """
+        Returns C{True} if a wildcard character is included in the search
+        string.
+        """
+        for idx, part in enumerate(self._wildcardRegex.split(searchStr)):
+            if (idx % 2 == 1
+                and part in (self.singleCharacter, self.multipleCharacters)):
+                return True
+        return False
+
+    def _getWildcardQuery(self, searchStr):
+        """Joins reading entities, taking care of wildcards."""
+        entityList = []
+        for entity in self._parseWildcardString(searchStr):
+            if not isinstance(entity, basestring):
+                entity = entity.SQL_LIKE_STATEMENT
+            else:
+                entity = _escapeWildcards(entity, escape=self.escape)
+            entityList.append(entity)
+
+        return ''.join(entityList)
+
+    def _prepareWildcardRegex(self, searchStr):
+        entityList = []
+        for entity in self._parseWildcardString(searchStr):
+            if not isinstance(entity, basestring):
+                entity = entity.REGEX_PATTERN
+            else:
+                entity = re.escape(entity)
+            entityList.append(entity)
+
+        return ''.join(entityList)
 
     def _getWildcardRegex(self, searchStr):
         return re.compile('^' + self._prepareWildcardRegex(searchStr) + '$')
@@ -569,18 +605,18 @@ class WildcardBase(object):
 #}
 #{ Headword search strategies
 
-class WildcardHeadwordSearchStrategy(ExactSearchStrategy, WildcardBase):
+class WildcardHeadwordSearchStrategy(ExactSearchStrategy, _WildcardBase):
     """Basic headword search strategy with support for wildcards."""
     def getWhereClause(self, column, searchStr):
-        if self.hasWildcardCharacters(searchStr):
-            wildcardSearchStr = self._getWildcardString(searchStr)
+        if self._hasWildcardCharacters(searchStr):
+            wildcardSearchStr = self._getWildcardQuery(searchStr)
             return column.like(wildcardSearchStr, escape=self.escape)
         else:
             # simple routine is faster
             return ExactSearchStrategy.getWhereClause(self, column, searchStr)
 
     def getMatchFunction(self, searchStr):
-        if self.hasWildcardCharacters(searchStr):
+        if self._hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(searchStr)
             return lambda headword: (headword is not None
                 and regex.search(headword) is not None)
@@ -601,21 +637,17 @@ class SingleEntryTranslationSearchStrategy(ExactSearchStrategy):
 
 
 class WildcardTranslationSearchStrategy(SingleEntryTranslationSearchStrategy,
-    WildcardBase):
+    _WildcardBase):
     """Basic translation search strategy with support for wildcards."""
     def _getWildcardRegex(self, searchStr):
         return re.compile('/' + self._prepareWildcardRegex(searchStr) + '/')
 
     def getWhereClause(self, column, searchStr):
-        wildcardSearchStr = self._getWildcardString(searchStr)
-        if not wildcardSearchStr.startswith('%'):
-            wildcardSearchStr = '%' + wildcardSearchStr
-        if not searchStr.endswith('%'):
-            wildcardSearchStr = wildcardSearchStr + '%'
-        return column.like(wildcardSearchStr, escape=self.escape)
+        wildcardSearchStr = self._getWildcardQuery(searchStr)
+        return column.contains(wildcardSearchStr, escape=self.escape)
 
     def getMatchFunction(self, searchStr):
-        if self.hasWildcardCharacters(searchStr):
+        if self._hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(readingStr)
             return lambda translation: (translation is not None
                 and regex.search(translation) is not None)
@@ -641,8 +673,18 @@ class SimpleTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
             and regex.search(translation) is not None)
 
 
-class SimpleWildcardTranslationSearchStrategy(
-    WildcardTranslationSearchStrategy, SimpleTranslationSearchStrategy):
+class _SimpleTranslationWildcardBase(_WildcardBase):
+    """
+    Wildcard search base class for translation strings.
+    """
+    class SingleWildcard:
+        SQL_LIKE_STATEMENT = '_'
+        # don't match a trailing space or following space if bordered by bracket
+        REGEX_PATTERN = '(?:(?:(?<!\)) (?!\())|[^ ])'
+
+
+class SimpleWildcardTranslationSearchStrategy(SimpleTranslationSearchStrategy,
+    _SimpleTranslationWildcardBase):
     """
     Simple translation search strategy with support for wildcards. Takes into
     account additions put in parentheses.
@@ -658,8 +700,12 @@ class SimpleWildcardTranslationSearchStrategy(
 
         return re.compile('/' + regexStr + '/')
 
+    def getWhereClause(self, column, searchStr):
+        wildcardSearchStr = self._getWildcardQuery(searchStr)
+        return column.contains(wildcardSearchStr, escape=self.escape)
+
     def getMatchFunction(self, searchStr):
-        if self.hasWildcardCharacters(searchStr):
+        if self._hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(searchStr)
             return lambda translation: (translation is not None
                 and regex.search(translation) is not None)
@@ -685,8 +731,8 @@ class CEDICTTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
             and regex.search(translation) is not None)
 
 
-class CEDICTWildcardTranslationSearchStrategy(
-    WildcardTranslationSearchStrategy, CEDICTTranslationSearchStrategy):
+class CEDICTWildcardTranslationSearchStrategy(CEDICTTranslationSearchStrategy,
+    _SimpleTranslationWildcardBase):
     """
     CEDICT translation based search strategy with support for wildcards. Takes
     into account additions put in parentheses and appended information separated
@@ -703,8 +749,12 @@ class CEDICTWildcardTranslationSearchStrategy(
 
         return re.compile('/' + regexStr + '[/,]')
 
+    def getWhereClause(self, column, searchStr):
+        wildcardSearchStr = self._getWildcardQuery(searchStr)
+        return column.contains(wildcardSearchStr, escape=self.escape)
+
     def getMatchFunction(self, searchStr):
-        if self.hasWildcardCharacters(searchStr):
+        if self._hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(searchStr)
             return lambda translation: (translation is not None
                 and regex.search(translation) is not None)
@@ -734,7 +784,7 @@ class HanDeDictTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
 
 
 class HanDeDictWildcardTranslationSearchStrategy(
-    WildcardTranslationSearchStrategy, HanDeDictTranslationSearchStrategy):
+    HanDeDictTranslationSearchStrategy, _SimpleTranslationWildcardBase):
     """
     HanDeDict translation based search strategy with support for wildcards.
     Takes into account additions put in parentheses and appended information
@@ -753,8 +803,12 @@ class HanDeDictWildcardTranslationSearchStrategy(
             + '(?!; Bsp.: [^/]+?--[^/]+)[\,\;\.\?\!])?' + regexStr
             + '[/\,\;\.\?\!]')
 
+    def getWhereClause(self, column, searchStr):
+        wildcardSearchStr = self._getWildcardQuery(searchStr)
+        return column.contains(wildcardSearchStr, escape=self.escape)
+
     def getMatchFunction(self, searchStr):
-        if self.hasWildcardCharacters(searchStr):
+        if self._hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(searchStr)
             return lambda translation: (translation is not None
                 and regex.search(translation) is not None)
@@ -766,21 +820,21 @@ class HanDeDictWildcardTranslationSearchStrategy(
 #}
 #{ Reading search strategies
 
-class WildcardReadingSearchStrategy(ExactSearchStrategy, WildcardBase):
+class WildcardReadingSearchStrategy(ExactSearchStrategy, _WildcardBase):
     """Basic reading search strategy with support for wildcards."""
     def _getWildcardRegex(self, searchStr):
         return re.compile(self._prepareWildcardRegex(searchStr) + '$')
 
     def getWhereClause(self, column, searchStr, **options):
-        if self.hasWildcardCharacters(searchStr):
-            wildcardReadingStr = self._getWildcardString(searchStr)
+        if self._hasWildcardCharacters(searchStr):
+            wildcardReadingStr = self._getWildcardQuery(searchStr)
             return column.like(wildcardReadingStr, escape=self.escape)
         else:
             # simple routine is faster
             return ExactSearchStrategy.getWhereClause(self, column, searchStr)
 
     def getMatchFunction(self, searchStr, **options):
-        if self.hasWildcardCharacters(searchStr):
+        if self._hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(searchStr)
             return lambda reading: (reading is not None
                 and regex.search(reading) is not None)
@@ -859,45 +913,46 @@ class SimpleReadingSearchStrategy(ExactSearchStrategy):
         return lambda reading: reading in matchSet
 
 
-class ReadingWildcardBase(WildcardBase):
+class _SimpleReadingWildcardBase(_WildcardBase):
     """
-    Wildcard search base class for readings. Provides wildcard conversion and
-    matching of reading strings.
+    Wildcard search base class for readings.
     """
-    def __init__(self):
-        WildcardBase.__init__(self)
+    class SingleWildcard:
+        """Wildcard matching exactly one reading entity."""
+        SQL_LIKE_STATEMENT = '_%'
+        def match(self, entity):
+            return entity is not None
 
-        param = {'esc': re.escape(self.escape),
-            'single': re.escape(self.singleCharacter),
-            'multiple': re.escape(self.multipleCharacters)}
-        # substitute wildcard characters and escape plain parts, make sure
-        #   escape is handled properly
-        self._wildcardRegex = re.compile(
-            r'( |%(esc)s{2}|%(esc)s?(?:%(single)s|%(multiple)s))' % param)
+    class MultipleWildcard:
+        """Wildcard matching zero, one or multiple reading entities."""
+        SQL_LIKE_STATEMENT = '%'
+        def match(self, entity):
+            return True
 
+    def __init__(self, **options):
+        _WildcardBase.__init__(self, **options)
         self._getWildcardFormsOptions = None
 
-    def _translateWildcards(self, string):
-        """
-        Splits a string into single characters and translates user defined
-        wildcards to SQL ones.
-        """
-        wildcardEntities = []
-        for part in self._wildcardRegex.split(string):
-            if part == self.singleCharacter:
-                wildcardEntities.append('_%')
-            elif part == self.multipleCharacters:
-                wildcardEntities.append('%')
+    def _parseWildcardString(self, string):
+        entities = _WildcardBase._parseWildcardString(self, string)
+        # brake down longer entities into single characters, omit spaces
+        newEntities = []
+        for entity in entities:
+            if entity in (self.escape, self.singleCharacter,
+                self.multipleCharacters) or not isinstance(entity, basestring):
+                newEntities.append(entity)
             else:
-                # one char each
-                wildcardEntities.extend(part.strip())
+                newEntities.extend([e for e in entity if e != ' '])
 
-        return wildcardEntities
+        return newEntities
+
+    def _getReadings(self, readingStr, **options):
+        raise NotImplementedError
 
     def _getWildcardForms(self, searchStr, **options):
         """
         Gets reading decomposition and prepares wildcards. Needs a method
-        C{_getReadings()} to do the actual decomposition.
+        L{_getReadings()} to do the actual decomposition.
         """
         def isReadingEntity(entity, cache={}):
             if entity not in cache:
@@ -917,7 +972,7 @@ class ReadingWildcardBase(WildcardBase):
                         wildcardEntities.append(entity)
                     else:
                         wildcardEntities.extend(
-                            self._translateWildcards(entity))
+                            self._parseWildcardString(entity))
 
                 self._wildcardForms.append(wildcardEntities)
 
@@ -927,21 +982,24 @@ class ReadingWildcardBase(WildcardBase):
         """Joins reading entities, taking care of wildcards."""
         entityList = []
         for entity in entities:
+            if not isinstance(entity, basestring):
+                entity = entity.SQL_LIKE_STATEMENT
+            else:
+                entity = _escapeWildcards(entity, escape=self.escape)
+
             # insert space to separate reading entities, but only if we are
             #   not looking for a wildcard with a possibly empty match
             if entityList and entityList[-1] != '%' and entity != '%':
                 entityList.append(' ')
             entityList.append(entity)
+
         return ''.join(entityList)
 
-    def _getWildcardWhereClause(self, column, searchStr, **options):
-        """Gets a where clause for a search string with wildcards."""
+    def _getWildcardQuery(self, searchStr, **options):
         wildcardForms = self._getWildcardForms(searchStr, **options)
 
         wildcardReadings = map(self._getWildcardReading, wildcardForms)
-
-        return or_(*[column.like(reading, escape=self.escape)
-            for reading in wildcardReadings])
+        return wildcardReadings
 
     def _getReadingEntities(self, reading):
         """Splits a reading string into entities."""
@@ -954,34 +1012,35 @@ class ReadingWildcardBase(WildcardBase):
         Depth first search comparing a list of reading entities with wildcards
         against reading entities from a result.
         """
-        def equals(searchEntity, entity):
-            return (searchEntity == '_%'
-                or (not isinstance(searchEntity, basestring)
-                    and entity in searchEntity)
-                or searchEntity == entity)
+        def matches(searchEntity, entity):
+            if isinstance(searchEntity, basestring):
+                return searchEntity == entity
+            else:
+                return searchEntity.match(entity)
 
         if not searchEntities:
             if not entities:
                 return True
             else:
                 return False
-        elif searchEntities[0] == '%':
-            if ReadingWildcardBase._depthFirstSearch(searchEntities[1:],
+        elif matches(searchEntities[0], None):
+            # matches empty string
+            if _SimpleReadingWildcardBase._depthFirstSearch(searchEntities[1:],
                 entities):
                 # try consume no entity
                 return True
             elif entities:
                 # consume one entity
-                return ReadingWildcardBase._depthFirstSearch(searchEntities,
-                    entities[1:])
+                return _SimpleReadingWildcardBase._depthFirstSearch(
+                    searchEntities, entities[1:])
             else:
                 return False
         elif not entities:
             return False
-        elif equals(searchEntities[0], entities[0]):
+        elif matches(searchEntities[0], entities[0]):
             # consume one entity
-            return ReadingWildcardBase._depthFirstSearch(searchEntities[1:],
-                entities[1:])
+            return _SimpleReadingWildcardBase._depthFirstSearch(
+                searchEntities[1:], entities[1:])
         else:
             return False
 
@@ -1003,25 +1062,27 @@ class ReadingWildcardBase(WildcardBase):
 
 
 class SimpleWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
-    ReadingWildcardBase):
+    _SimpleReadingWildcardBase):
     """
     Simple reading search strategy with support for wildcards. Converts search
     string to the dictionary reading and separates entities by space.
     """
     def __init__(self, **options):
         SimpleReadingSearchStrategy.__init__(self)
-        ReadingWildcardBase.__init__(self, **options)
+        _SimpleReadingWildcardBase.__init__(self, **options)
 
     def getWhereClause(self, column, searchStr, **options):
-        if self.hasWildcardCharacters(searchStr):
-            return self._getWildcardWhereClause(column, searchStr, **options)
+        if self._hasWildcardCharacters(searchStr):
+            queries = self._getWildcardQuery(searchStr, **options)
+            return or_(*[column.like(query, escape=self.escape)
+                for query in queries])
         else:
             # simple routine is faster
             return SimpleReadingSearchStrategy.getWhereClause(self, column,
                 searchStr, **options)
 
     def getMatchFunction(self, searchStr, **options):
-        if self.hasWildcardCharacters(searchStr):
+        if self._hasWildcardCharacters(searchStr):
             return self._getWildcardMatchFunction(searchStr, **options)
         else:
             # simple routine is faster
@@ -1269,118 +1330,69 @@ readingSearchStrategy=dictionary.TonelessReadingSearchStrategy())
             return lambda reading: reading in matchSet
 
 
+class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
+    """
+    Wildcard search base class for tonal readings.
+    """
+    class TonalEntityWildcard:
+        """
+        Wildcard matching a reading entity with any tone that is appended as
+        single character.
+        """
+        def __init__(self, plainEntity):
+            self._plainEntity = plainEntity
+        def getSQL(self):
+            return self._plainEntity + '_'
+        SQL_LIKE_STATEMENT = property(getSQL)
+        def match(self, entity):
+            return entity and (entity == self._plainEntity
+                or entity[:-1] == self._plainEntity)
+
+    def _getWildcardForms(self, searchStr, **options):
+        if self._getWildcardFormsOptions != (searchStr, options):
+            decompEntities = self._getPlainForms(searchStr, **options)
+
+            self._wildcardForms = []
+            for entities in decompEntities:
+                wildcardEntities = []
+                for entity in entities:
+                    if not isinstance(entity, basestring):
+                        entity, plainEntity, tone = entity
+                        if plainEntity is not None and tone is None:
+                            entity = self.TonalEntityWildcard(plainEntity)
+                        wildcardEntities.append(entity)
+                    else:
+                        wildcardEntities.extend(
+                            self._parseWildcardString(entity))
+
+                self._wildcardForms.append(wildcardEntities)
+
+        return self._wildcardForms
+
+
 class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
-    ReadingWildcardBase):
-    u"""
+    _TonelessReadingWildcardBase):
+    """
     Reading based search strategy with support for missing tonal information and
     wildcards.
     """
     def __init__(self, **options):
         TonelessReadingSearchStrategy.__init__(self)
-        ReadingWildcardBase.__init__(self, **options)
-
-    def _getTonalWildcardForms(self, searchStr, **options):
-        """Adds wildcards to account for missing tone information."""
-        wildcardEntities = []
-        for entities in self._getPlainForms(searchStr, **options):
-            newEntities = []
-            for entity in entities:
-                if not isinstance(entity, basestring):
-                    entity, plainEntity, tone = entity
-                    if plainEntity is not None and tone is None:
-                        entity = '%s_' % plainEntity
-                    newEntities.append(entity)
-                else:
-                    newEntities.extend(self._translateWildcards(entity))
-            wildcardEntities.append(newEntities)
-
-        return wildcardEntities
+        _TonelessReadingWildcardBase.__init__(self, **options)
 
     def getWhereClause(self, column, searchStr, **options):
-        if self.hasWildcardCharacters(searchStr):
-            if (self._dictInstance.READING in
-                self.READINGS_HAVE_TONE_APPENDED):
-                # look for missing tone information and use wildcards, with
-                #   better performance
-                # TODO that's not generally true
-                searchEntities = self._getTonalWildcardForms(searchStr,
-                    **options)
-            else:
-                # look for missing tone information and generate all forms
-                # TODO SQLite only supports limited numbers of ANDs
-                tonalForms = self._getAllTonalForms(searchStr, **options)
-                searchEntities = self._rolloutTonalForms(tonalForms)
-
-            wildcardReadings = map(self._getWildcardReading, searchEntities)
-
-            return or_(*[column.like(reading, escape=self.escape)
-                for reading in wildcardReadings])
+        if self._hasWildcardCharacters(searchStr):
+            queries = self._getWildcardQuery(searchStr, **options)
+            return or_(*[column.like(query, escape=self.escape)
+                for query in queries])
         else:
             # simple routine is faster
             return TonelessReadingSearchStrategy.getWhereClause(self, column,
                 searchStr, **options)
 
-    def _getAllTonalForms(self, searchStr, **options):
-        """
-        Gets all tonal reading strings for decompositions with missing tone
-        information.
-        """
-        def getTonalEntity(plainEntity, tone, cache={}):
-            key = (plainEntity, tone)
-            if key not in cache:
-                try:
-                    cache[key] = self._readingFactory.getTonalEntity(
-                        plainEntity, tone, self._dictInstance.READING,
-                        **self._dictInstance.READING_OPTIONS)
-                except (exception.InvalidEntityError,
-                    exception.UnsupportedError):
-                    cache[key] = None
-            return cache[key]
-
-        tones = self._readingFactory.getTones(
-            self._dictInstance.READING,
-            **self._dictInstance.READING_OPTIONS)
-
-        forms = []
-        for entities in self._getPlainForms(searchStr, **options):
-            newEntities = []
-            for entity in entities:
-                if not isinstance(entity, basestring):
-                    entity, plainEntity, tone = entity
-
-                    if plainEntity is not None and tone is None:
-                        entities = []
-                        for t in tones:
-                            tonalentity = getTonalEntity(plainEntity, t)
-                            if tonalentity: entities.append(tonalentity)
-                    else:
-                        entities = entity
-                    newEntities.append(entities)
-                else:
-                    newEntities.extend(
-                        [c for c in self._translateWildcards(entity)])
-
-            forms.append(newEntities)
-
-        return forms
-
     def getMatchFunction(self, searchStr, **options):
-        """Gets a match function for a search string with wildcards."""
-        def matchReadingEntities(reading):
-            readingEntities = self._getReadingEntities(reading)
-
-            # match against all pairs
-            for entities in tonalForms:
-                if self._depthFirstSearch(entities, readingEntities):
-                    return True
-
-            return False
-
-        if self.hasWildcardCharacters(searchStr):
-            # look for missing tone information and generate all forms
-            tonalForms = self._getAllTonalForms(searchStr, **options)
-
-            return matchReadingEntities
+        if self._hasWildcardCharacters(searchStr):
+            return self._getWildcardMatchFunction(searchStr, **options)
         else:
             # simple routine is faster
             return TonelessReadingSearchStrategy.getMatchFunction(self,
@@ -1389,8 +1401,172 @@ class TonelessWildcardReadingSearchStrategy(TonelessReadingSearchStrategy,
 #}
 #{ Mixed reading search strategies
 
+class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
+    """
+    Wildcard search base class for readings mixed with headword characters.
+    """
+    class SingleWildcard:
+        """
+        Wildcard matching one arbitrary reading entity and headword character.
+        """
+        SQL_LIKE_STATEMENT = '_%'
+        SQL_LIKE_STATEMENT_HEADWORD = '_'
+        def match(self, entity):
+            return entity is not None
+
+    class MultipleWildcard:
+        """
+        Wildcard matching zero, one or multiple reading entities and headword
+        characters.
+        """
+        SQL_LIKE_STATEMENT = '%'
+        SQL_LIKE_STATEMENT_HEADWORD = '%'
+        def match(self, entity):
+            return True
+
+    class HeadwordWildcard:
+        """
+        Wildcard matching an exact headword character and one arbitrary reading
+        entity.
+        """
+        def __init__(self, headwordEntity, escape):
+            self._headwordEntity = headwordEntity
+            self._escape = escape
+        def headwordEntity(self):
+            return _escapeWildcards(self._headwordEntity, self._escape)
+        SQL_LIKE_STATEMENT = '_%'
+        SQL_LIKE_STATEMENT_HEADWORD = property(headwordEntity)
+        def match(self, entity):
+            if entity is None:
+                return False
+            headwordEntity, _ = entity
+            return headwordEntity == self._headwordEntity
+
+    class ReadingWildcard:
+        """
+        Wildcard matching an exact reading entity and one arbitrary headword
+        character.
+        """
+        def __init__(self, readingEntity, escape):
+            self._readingEntity = readingEntity
+            self._escape = escape
+        def readingEntity(self):
+            return _escapeWildcards(self._readingEntity, self._escape)
+        SQL_LIKE_STATEMENT = property(readingEntity)
+        SQL_LIKE_STATEMENT_HEADWORD = '_'
+        def match(self, entity):
+            if entity is None:
+                return False
+            _, readingEntity = entity
+            return readingEntity == self._readingEntity
+
+    def __init__(self, supportWildcards=True, **options):
+        _SimpleReadingWildcardBase.__init__(self, **options)
+        self._supportWildcards = supportWildcards
+
+    def _createReadingWildcard(self, headwordEntity):
+        return self.ReadingWildcard(headwordEntity, self.escape)
+
+    def _createHeadwordWildcard(self, readingEntity):
+        return self.HeadwordWildcard(readingEntity, self.escape)
+
+    def _parseWildcardString(self, string):
+        entities = _SimpleReadingWildcardBase._parseWildcardString(self, string)
+        # return pairs for headword and reading
+        newEntities = []
+        for entity in entities:
+            if isinstance(entity, basestring):
+                # single entity, assume belonging to headword
+                newEntities.append(self._createHeadwordWildcard(entity))
+            else:
+                newEntities.append(entity)
+
+        return newEntities
+
+    def _getWildcardForms(self, readingStr, **options):
+        def isReadingEntity(entity, cache={}):
+            if entity not in cache:
+                cache[entity] = self._readingFactory.isReadingEntity(entity,
+                    self._dictInstance.READING,
+                    **self._dictInstance.READING_OPTIONS)
+            return cache[entity]
+
+        if self._getWildcardFormsOptions != (readingStr, options):
+            self._getWildcardFormsOptions = (readingStr, options)
+
+            decompEntities = self._getReadings(readingStr, **options)
+
+            # separate reading entities from non-reading ones
+            self._wildcardForms = []
+            for entities in decompEntities:
+                searchEntities = []
+                hasReadingEntity = hasHeadwordEntity = False
+                for entity in entities:
+                    if isReadingEntity(entity):
+                        hasReadingEntity = True
+                        searchEntities.append(
+                            self._createReadingWildcard(entity))
+                    elif self._supportWildcards:
+                        parsedEntities = self._parseWildcardString(entity)
+                        searchEntities.extend(parsedEntities)
+                        hasHeadwordEntity = hasHeadwordEntity or any(
+                            isinstance(entity, self.HeadwordWildcard)
+                            for entity in parsedEntities)
+                    else:
+                        hasHeadwordEntity = True
+                        searchEntities.extend(
+                            [self._createHeadwordWildcard(c) for c in entity])
+
+                # discard pure reading or pure headword strings as they will be
+                #   covered through other strategies
+                if hasReadingEntity and hasHeadwordEntity:
+                    self._wildcardForms.append(searchEntities)
+
+        return self._wildcardForms
+
+    def _getWildcardHeadword(self, entities):
+        """Join chars, taking care of wildcards."""
+        entityList = [entity.SQL_LIKE_STATEMENT_HEADWORD for entity in entities]
+        return ''.join(entityList)
+
+    def _getWildcardQuery(self, searchStr, **options):
+        """Gets a where clause for a search string with wildcards."""
+        searchPairs = self._getWildcardForms(searchStr, **options)
+
+        queries = []
+        for searchEntities in searchPairs:
+            # search clauses
+            wildcardHeadword = self._getWildcardHeadword(searchEntities)
+            wildcardReading = self._getWildcardReading(searchEntities)
+
+            queries.append((wildcardHeadword, wildcardReading))
+
+        return queries
+
+    def _getWildcardMatchFunction(self, searchStr, **options):
+        """Gets a match function for a search string with wildcards."""
+        def matchHeadwordReadingPair(headword, reading):
+            readingEntities = self._getReadingEntities(reading)
+
+            if len(headword) != len(readingEntities):
+                # error in database entry
+                return False
+
+            # match against all pairs
+            for searchEntities in searchPairs:
+                entities = zip(list(headword), readingEntities)
+                if self._depthFirstSearch(searchEntities, entities):
+                    return True
+
+            return False
+
+        searchPairs = self._getWildcardForms(searchStr, **options)
+
+        return matchHeadwordReadingPair
+
+
 class MixedWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
-    ReadingWildcardBase):
+    _MixedReadingWildcardBase):
     """
     Reading search strategy that supplements
     L{SimpleWildcardReadingSearchStrategy} to allow intermixing of readings with
@@ -1399,61 +1575,10 @@ class MixedWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
 
     This strategy complements the basic search strategy. It is not built to
     return results for plain reading or plain headword strings.
-
-    @todo Fix:  Escape wildcards if wildcard searches are disabled
     """
     def __init__(self, supportWildcards=True):
         SimpleReadingSearchStrategy.__init__(self)
-        ReadingWildcardBase.__init__(self)
-
-        self.supportWildcards = supportWildcards
-
-        self._getWildcardReadingsSearchPairsOptions = None
-
-    def _getWildcardReadingsSearchPairs(self, readingStr, **options):
-        def isReadingEntity(entity, cache={}):
-            if entity not in cache:
-                cache[entity] = self._readingFactory.isReadingEntity(entity,
-                    self._dictInstance.READING,
-                    **self._dictInstance.READING_OPTIONS)
-            return cache[entity]
-
-        if self._getWildcardReadingsSearchPairsOptions != (readingStr, options):
-            self._getWildcardReadingsSearchPairsOptions = (readingStr, options)
-
-            decompEntities = self._getReadings(readingStr, **options)
-
-            # separate reading entities from non-reading ones
-            self._wildcardSearchPairs = []
-            for entities in decompEntities:
-                searchEntities = []
-                hasReadingEntity = hasHeadwordEntity = False
-                for entity in entities:
-                    if isReadingEntity(entity):
-                        hasReadingEntity = True
-                        searchEntities.append(('_',
-                            _escapeWildcards(entity, self.escape)))
-                    elif self.supportWildcards:
-                        for c in self._translateWildcards(entity):
-                            if c == '_%':
-                                searchEntities.append(('_', '_%'))
-                            elif c == '%':
-                                searchEntities.append(('%', '%'))
-                            else:
-                                searchEntities.append((c, '_%'))
-                                hasHeadwordEntity = True
-                    else:
-                        hasHeadwordEntity = True
-                        searchEntities.extend(
-                            [(_escapeWildcards(c, self.escape), None)
-                                for c in entity])
-
-                # discard pure reading or pure headword strings as they will be
-                #   covered through other strategies
-                if hasReadingEntity and hasHeadwordEntity:
-                    self._wildcardSearchPairs.append(searchEntities)
-
-        return self._wildcardSearchPairs
+        _MixedReadingWildcardBase.__init__(self, supportWildcards)
 
     def getWhereClause(self, headwordColumn, readingColumn, searchStr,
         **options):
@@ -1470,84 +1595,17 @@ class MixedWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
         @param searchStr: search string
         @return: SQLAlchemy clause
         """
-        searchPairs = self._getWildcardReadingsSearchPairs(searchStr, **options)
-
-        clauses = []
-        for searchEntities in searchPairs:
-            # search clauses
-            headwordSearchEntities, readingSearchEntities \
-                = zip(*searchEntities)
-
-            headwordClause = headwordColumn.like(
-                ''.join(headwordSearchEntities), escape=self.escape)
-
-            wildcardReadings = self._getWildcardReading(
-                readingSearchEntities)
-            readingClause = readingColumn.like(wildcardReadings,
-                escape=self.escape)
-
-            clauses.append(and_(headwordClause, readingClause))
-
-        if clauses:
-            return or_(*clauses)
+        queries = self._getWildcardQuery(searchStr, **options)
+        if queries:
+            return or_(*[
+                    and_(headwordColumn.like(headwordQuery, escape=self.escape),
+                        readingColumn.like(readingQuery, escape=self.escape))
+                    for headwordQuery, readingQuery in queries])
         else:
             return None
 
-    @staticmethod
-    def _depthFirstSearchPairs(searchEntities, entities):
-        """
-        Depth first search comparing a list of reading entities with wildcards
-        against reading entities from a result.
-        """
-        def equals(searchEntity, entity):
-            headwordSE, readingSE = searchEntity
-            headwordEntity, readingEntity = entity
-            return ((headwordSE == '_' or headwordSE == headwordEntity)
-                and (readingSE == '_%' or readingSE == readingEntity))
-
-        if not searchEntities:
-            if not entities:
-                return True
-            else:
-                return False
-        elif searchEntities[0] == ('%', '%'):
-            if MixedWildcardReadingSearchStrategy._depthFirstSearchPairs(
-                searchEntities[1:], entities):
-                # try consume no entity
-                return True
-            elif entities:
-                # consume one entity
-                return MixedWildcardReadingSearchStrategy\
-                    ._depthFirstSearchPairs(searchEntities, entities[1:])
-            else:
-                return False
-        elif not entities:
-            return False
-        elif equals(searchEntities[0], entities[0]):
-            return MixedWildcardReadingSearchStrategy._depthFirstSearchPairs(
-                searchEntities[1:], entities[1:])
-        else:
-            return False
-
     def getMatchFunction(self, searchStr, **options):
-        def matchHeadwordReadingPair(headword, reading):
-            readingEntities = self._getReadingEntities(reading)
-
-            if len(headword) != len(readingEntities):
-                # error in database entry
-                return False
-
-            # match against all pairs
-            for searchEntities in searchPairs:
-                entities = zip(list(headword), readingEntities)
-                if self._depthFirstSearchPairs(searchEntities, entities):
-                    return True
-
-            return False
-
-        searchPairs = self._getWildcardReadingsSearchPairs(searchStr, **options)
-
-        return matchHeadwordReadingPair
+        return self._getWildcardMatchFunction(searchStr, **options)
 
 #}
 #{ Dictionary classes
