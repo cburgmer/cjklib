@@ -102,13 +102,6 @@ class CharacterInfo:
         @param dictionaryDatabaseUrl: database connection setting in the format
             C{driver://user:pass@host/database}.
         """
-        if charLocale:
-            self.locale = charLocale
-        elif dictionaryN and dictionaryN in self.DICTIONARY_CHAR_LOCALE:
-            self.locale = self.DICTIONARY_CHAR_LOCALE[dictionaryN]
-        else:
-            self.locale = self.guessCharacterLocale()
-
         if dictionaryN:
             dictObj = dictionary.BaseDictionary.getDictionaryClass(dictionaryN)
 
@@ -125,10 +118,6 @@ class CharacterInfo:
         else:
             self.db = DatabaseConnector.getDBConnector()
 
-        self.characterLookup = characterlookup.CharacterLookup(self.locale,
-            characterDomain, dbConnectInst=self.db)
-        self.characterLookupTraditional = characterlookup.CharacterLookup('T',
-            characterDomain, dbConnectInst=self.db)
         self.readingFactory = reading.ReadingFactory(dbConnectInst=self.db)
 
         if dictionaryN:
@@ -152,6 +141,18 @@ class CharacterInfo:
                         break
                 else:
                     self.dictionary = None
+
+        if charLocale:
+            self.locale = charLocale
+        elif self.dictionary and self.dictionary in self.DICTIONARY_CHAR_LOCALE:
+            self.locale = self.DICTIONARY_CHAR_LOCALE[self.dictionary]
+        else:
+            self.locale = self.guessCharacterLocale()
+
+        self.characterLookup = characterlookup.CharacterLookup(self.locale,
+            characterDomain, dbConnectInst=self.db)
+        self.characterLookupTraditional = characterlookup.CharacterLookup('T',
+            characterDomain, dbConnectInst=self.db)
 
     # Settings
 
