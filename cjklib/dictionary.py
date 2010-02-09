@@ -1100,10 +1100,11 @@ class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
         Wildcard matching a reading entity with any tone that is appended as
         single character.
         """
-        def __init__(self, plainEntity):
+        def __init__(self, plainEntity, escape):
             self._plainEntity = plainEntity
+            self._escape = escape
         def getSQL(self):
-            return _escapeWildcards(self._plainEntity) + '_'
+            return _escapeWildcards(self._plainEntity, self._escape) + '_'
         SQL_LIKE_STATEMENT = property(getSQL)
         def match(self, entity):
             return entity and (entity == self._plainEntity
@@ -1112,6 +1113,9 @@ class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
     def __init__(self, supportWildcards=True, **options):
         _SimpleReadingWildcardBase.__init__(self, **options)
         self._supportWildcards = supportWildcards
+
+    def _createTonalEntityWildcard(self, plainEntity):
+        return self.TonalEntityWildcard(plainEntity, self.escape)
 
     def _getPlainForms(self, searchStr, **options):
         """
@@ -1181,7 +1185,8 @@ class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
                     if not isinstance(entity, basestring):
                         entity, plainEntity, tone = entity
                         if plainEntity is not None and tone is None:
-                            entity = self.TonalEntityWildcard(plainEntity)
+                            entity = self._createTonalEntityWildcard(
+                                plainEntity)
                         wildcardEntities.append(entity)
                     elif self._supportWildcards:
                         wildcardEntities.extend(
@@ -1212,7 +1217,7 @@ class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
 
 class TonelessWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
     _TonelessReadingWildcardBase):
-    """
+    u"""
     Reading based search strategy with support for missing tonal information and
     wildcards.
 
