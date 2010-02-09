@@ -823,9 +823,6 @@ class HanDeDictWildcardTranslationSearchStrategy(
 
 class WildcardReadingSearchStrategy(ExactSearchStrategy, _WildcardBase):
     """Basic reading search strategy with support for wildcards."""
-    def _getWildcardRegex(self, searchStr):
-        return re.compile(self._prepareWildcardRegex(searchStr) + '$')
-
     def getWhereClause(self, column, searchStr, **options):
         if self._hasWildcardCharacters(searchStr):
             wildcardReadingStr = self._getWildcardQuery(searchStr)
