@@ -59,7 +59,8 @@ L{WildcardHeadwordSearchStrategy} is employed which offers wildcard searches.
 Reading search strategies
 -------------------------
 Readings have more complex and unique representations. Several classes are
-provided here: L{ExactSearchStrategy} again can be used for exact matches, L{WildcardReadingSearchStrategy} extends this strategy with wildcard searches.
+provided here: L{ExactSearchStrategy} again can be used for exact matches,
+L{WildcardReadingSearchStrategy} extends this strategy with wildcard searches.
 L{SimpleReadingSearchStrategy} and L{SimpleWildcardReadingSearchStrategy}
 provide similar searching for readings whose entities are separated by spaces
 (e.g. CEDICT). The latter strategy is used by dictionaries with romanisations.
@@ -1485,16 +1486,11 @@ class MixedWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
         return self._getWildcardMatchFunction(searchStr, **options)
 
 
-class MixedTonelessWildcardReadingSearchStrategy(
-    MixedWildcardReadingSearchStrategy, _TonelessReadingWildcardBase):
+class _MixedTonelessReadingWildcardBase(_MixedReadingWildcardBase,
+    _TonelessReadingWildcardBase):
     """
-    Reading search strategy that supplements
-    L{TonelessWildcardReadingSearchStrategy} to allow intermixing of readings
-    missing tonal information with single characters from the headword. By
-    default wildcard searches are supported.
-
-    This strategy complements the basic search strategy. It is not built to
-    return results for plain reading or plain headword strings.
+    Wildcard search base class for readings missing tonal information mixed with
+    headword characters.
     """
     class TonelessReadingWildcard:
         """
@@ -1515,9 +1511,10 @@ class MixedTonelessWildcardReadingSearchStrategy(
             return (readingEntity == self._plainEntity
                 or readingEntity[:-1] == self._plainEntity)
 
-    def __init__(self, supportWildcards=True):
-        MixedWildcardReadingSearchStrategy.__init__(self)
-        _TonelessReadingWildcardBase.__init__(self, supportWildcards)
+    def __init__(self, supportWildcards=True, **options):
+        _MixedReadingWildcardBase.__init__(self, **options)
+        _TonelessReadingWildcardBase.__init__(self, **options)
+        self._supportWildcards = supportWildcards
 
     def _createTonelessReadingWildcard(self, plainEntity):
         return self.TonelessReadingWildcard(plainEntity, self.escape)
@@ -1569,6 +1566,49 @@ class MixedTonelessWildcardReadingSearchStrategy(
                     self._wildcardForms.append(searchEntities)
 
         return self._wildcardForms
+
+
+class MixedTonelessWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
+    _MixedTonelessReadingWildcardBase):
+    """
+    Reading search strategy that supplements
+    L{TonelessWildcardReadingSearchStrategy} to allow intermixing of readings
+    missing tonal information with single characters from the headword. By
+    default wildcard searches are supported.
+
+    This strategy complements the basic search strategy. It is not built to
+    return results for plain reading or plain headword strings.
+    """
+    def __init__(self, supportWildcards=True):
+        SimpleReadingSearchStrategy.__init__(self)
+        _MixedTonelessReadingWildcardBase.__init__(self, supportWildcards)
+
+    def getWhereClause(self, headwordColumn, readingColumn, searchStr,
+        **options):
+        """
+        Returns a SQLAlchemy clause that is the necessary condition for a
+        possible match. This clause is used in the database query. Results may
+        then be further narrowed by L{getMatchFunction()}.
+
+        @type headwordColumn: SQLAlchemy column instance
+        @param headwordColumn: headword column to check against
+        @type readingColumn: SQLAlchemy column instance
+        @param readingColumn: reading column to check against
+        @type searchStr: str
+        @param searchStr: search string
+        @return: SQLAlchemy clause
+        """
+        queries = self._getWildcardQuery(searchStr, **options)
+        if queries:
+            return or_(*[
+                    and_(headwordColumn.like(headwordQuery, escape=self.escape),
+                        readingColumn.like(readingQuery, escape=self.escape))
+                    for headwordQuery, readingQuery in queries])
+        else:
+            return None
+
+    def getMatchFunction(self, searchStr, **options):
+        return self._getWildcardMatchFunction(searchStr, **options)
 
 #}
 #{ Dictionary classes
