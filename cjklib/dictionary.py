@@ -48,24 +48,27 @@ the use case at hand. This task is provided by X{search strategies} which
 account for the more complex parts of this module. Strategies exist for the
 three main parts of dictionary entries: headword, reading and translation.
 Additionally mixed searching for a headword partially expressed by reading
-information is supported and can augment the basic reading search.
+information is supported and can augment the basic reading search. Several
+instances of search strategies exist offering basic or more sophisticated
+routines. For example wildcard searching is offered on top of many basic
+strategies offering by default placeholders C{'_'} for a single character, and
+C{'%'} for a match of zero to many characters.
 
 Headword search strategies
 --------------------------
 Searching for headwords is the most simple among the three. Exact searches are
 provided by class L{ExactSearchStrategy}. By default class
-L{WildcardHeadwordSearchStrategy} is employed which offers wildcard searches.
+L{WildcardSearchStrategy} is employed which offers wildcard searches.
 
 Reading search strategies
 -------------------------
 Readings have more complex and unique representations. Several classes are
-provided here: L{ExactSearchStrategy} again can be used for exact matches,
-L{WildcardReadingSearchStrategy} extends this strategy with wildcard searches.
-L{SimpleReadingSearchStrategy} and L{SimpleWildcardReadingSearchStrategy}
-provide similar searching for readings whose entities are separated by spaces
-(e.g. CEDICT). The latter strategy is used by dictionaries with romanisations.
-A more complex search is provided by L{TonelessWildcardReadingSearchStrategy}
-which offers search which supports missing tonal information.
+provided here: L{ExactSearchStrategy} again can be used for exact matches, and
+L{WildcardSearchStrategy} for wildcard searches. L{SimpleReadingSearchStrategy}
+and L{SimpleWildcardReadingSearchStrategy} provide similar searching for
+transcriptions as found e.g. in CEDICT. A more complex search is provided by
+L{TonelessWildcardReadingSearchStrategy} which offers search for readings
+missing tonal information.
 
 Translation search strategies
 -----------------------------
@@ -77,7 +80,7 @@ information placed in parantheses. These classes have even more special
 implementations adapted to formats found in dictionaries I{CEDICT} and
 I{HanDeDict}.
 
-More complex ones could be implemented on the basis of extending the underlying
+More complex ones can be implemented on the basis of extending the underlying
 table in the database, e.g. using I{full text search} capabilities of the
 database server. One popular way is using stemming algorithms for copying with
 inflections by reducing a word to its root form.
@@ -149,11 +152,8 @@ TonelessWildcardReadingSearchStrategy())
     ...     for e in result:
     ...         print e.Headword, e.Reading, e.Translation
     ...
-    >>> search('Nanjing', 'Pinyin')
-    南京 Nán jīng /Nanjing subprovincial city on the Changjiang, capital of
-    Jiangsu province 江蘇|江苏/capital of China at different historical periods/
-    南靖 Nán jìng /Najing county in Zhangzhou 漳州[Zhang1 zhou1], Fujian/
-    宁（寧） níng /peaceful/rather/Ningxia (abbr.)/Nanjing (abbr.)/surname Ning/
+    >>> search('_taijiu', 'Pinyin')
+    茅台酒（茅臺酒） máo tái jiǔ /maotai (a Chinese liquor)/CL:杯[bei1],瓶[ping2]/
 
 @todo Fix: letter case
 @todo Impl: Use Iterators?
@@ -604,12 +604,10 @@ class _WildcardBase(object):
     def _getWildcardRegex(self, searchStr):
         return re.compile('^' + self._prepareWildcardRegex(searchStr) + '$')
 
-#}
-#{ Headword search strategies
 
-class WildcardHeadwordSearchStrategy(ExactSearchStrategy, _WildcardBase):
+class WildcardSearchStrategy(ExactSearchStrategy, _WildcardBase):
     """Basic headword search strategy with support for wildcards."""
-    def getWhereClause(self, column, searchStr):
+    def getWhereClause(self, column, searchStr, **options):
         if self._hasWildcardCharacters(searchStr):
             wildcardSearchStr = self._getWildcardQuery(searchStr)
             return column.like(wildcardSearchStr, escape=self.escape)
@@ -617,7 +615,7 @@ class WildcardHeadwordSearchStrategy(ExactSearchStrategy, _WildcardBase):
             # simple routine is faster
             return ExactSearchStrategy.getWhereClause(self, column, searchStr)
 
-    def getMatchFunction(self, searchStr):
+    def getMatchFunction(self, searchStr, **options):
         if self._hasWildcardCharacters(searchStr):
             regex = self._getWildcardRegex(searchStr)
             return lambda headword: (headword is not None
@@ -821,26 +819,6 @@ class HanDeDictWildcardTranslationSearchStrategy(
 
 #}
 #{ Reading search strategies
-
-class WildcardReadingSearchStrategy(ExactSearchStrategy, _WildcardBase):
-    """Basic reading search strategy with support for wildcards."""
-    def getWhereClause(self, column, searchStr, **options):
-        if self._hasWildcardCharacters(searchStr):
-            wildcardReadingStr = self._getWildcardQuery(searchStr)
-            return column.like(wildcardReadingStr, escape=self.escape)
-        else:
-            # simple routine is faster
-            return ExactSearchStrategy.getWhereClause(self, column, searchStr)
-
-    def getMatchFunction(self, searchStr, **options):
-        if self._hasWildcardCharacters(searchStr):
-            regex = self._getWildcardRegex(searchStr)
-            return lambda reading: (reading is not None
-                and regex.search(reading) is not None)
-        else:
-            # simple routine is faster
-            return ExactSearchStrategy.getMatchFunction(self, searchStr)
-
 
 class SimpleReadingSearchStrategy(ExactSearchStrategy):
     """
@@ -1660,7 +1638,7 @@ class BaseDictionary(object):
         if 'headwordSearchStrategy' in options:
             self.headwordSearchStrategy = options['headwordSearchStrategy']
         else:
-            self.headwordSearchStrategy = WildcardHeadwordSearchStrategy()
+            self.headwordSearchStrategy = WildcardSearchStrategy()
             """Strategy for searching readings."""
         if hasattr(self.headwordSearchStrategy, 'setDictionaryInstance'):
             self.headwordSearchStrategy.setDictionaryInstance(self)
@@ -1668,7 +1646,7 @@ class BaseDictionary(object):
         if 'readingSearchStrategy' in options:
             self.readingSearchStrategy = options['readingSearchStrategy']
         else:
-            self.readingSearchStrategy = WildcardReadingSearchStrategy()
+            self.readingSearchStrategy = WildcardSearchStrategy()
             """Strategy for searching readings."""
         if hasattr(self.readingSearchStrategy, 'setDictionaryInstance'):
             self.readingSearchStrategy.setDictionaryInstance(self)
