@@ -30,7 +30,7 @@ from sqlalchemy.engine.url import make_url
 from cjklib.util import getConfigSettings, getSearchPaths, LazyDict, OrderedDict
 
 class DatabaseConnector:
-    """
+    u"""
     A DatabaseConnector connects to one or more SQL databases. It provides four
     simple methods for retrieving scalars or rows of data:
         1. C{selectScalar()}: returns one single value
@@ -42,6 +42,15 @@ class DatabaseConnector:
     attaching further databases and gives any program that depends on cjklib the
     possibility to easily add own data in databases outside cjklib extending the
     library's information.
+
+    DatabaseConnector has a convenience function L{getDBConnector()} that loads
+    an instance with the proper settings for the given project. By default
+    settings for project C{'cjklib'} are chosen, but this behaviour can be
+    overwritten by passing a different project name:
+    C{DatabaseConnector.getDBConnector(projectName='My Project')}. Connection
+    settings can also be provided manually, omitting automatic searching.
+    Multiple calls with the same connection settings will return the same shared
+    instance.
 
     Example:
 
@@ -70,11 +79,13 @@ class DatabaseConnector:
     table names can be retrieved with L{getTableNames()}.
 
     Table lookup is designed with a stable data set in mind. Moving tables
-    between databases is not especially supported and while operations through
+    between databases is not specially supported and while operations through
     the L{build} module will update any information in the L{tables} dictionary,
     manual creating and dropping of a table or changing its structure will lead
     to the dictionary having obsolete information. This can be circumvented by
-    deleting keys forcing an update.
+    deleting keys forcing an update:
+
+        >>> del db.tables['my table']
 
     Example:
 
@@ -244,15 +255,20 @@ class DatabaseConnector:
         self.attached = OrderedDict()
         """Mapping of attached database URLs to internal schema names"""
         attach = configuration.pop('attach', [])
-        for url in self._findAttachableDatabases(attach):
+        searchPaths = self.engine.name == 'sqlite'
+        for url in self._findAttachableDatabases(attach, searchPaths):
             self.attachDatabase(url)
 
         # register views
         self._registerViews()
 
-    def _findAttachableDatabases(self, attachList):
+    def _findAttachableDatabases(self, attachList, searchPaths=False):
         """
         Returns URLs for databases that can be attached to a given database.
+
+        @type searchPaths: bool
+        @param searchPaths: if C{True} default search paths will be checked for
+            attachable SQLite databases.
         """
         attachable = []
         for name in attachList:
@@ -280,11 +296,15 @@ class DatabaseConnector:
                 if name in attach:
                     # default search path
                     attach.remove(name)
-                    attach.extend(getSearchPaths(name))
+                    if searchPaths:
+                        attach.extend(getSearchPaths(name))
 
-                attachable.extend(self._findAttachableDatabases(attach))
+                attachable.extend(self._findAttachableDatabases(attach,
+                    searchPaths))
             else:
-                raise ValueError("Invalid database reference '%s'" % name)
+                raise ValueError(("Invalid database reference '%s'."
+                    " Check your 'attach' settings!")
+                    % name)
 
         return attachable
 
@@ -338,7 +358,10 @@ class DatabaseConnector:
 
         url = make_url(databaseUrl)
         if url.drivername != self.engine.name:
-            raise ValueError("Incompatible engines")
+            raise ValueError(
+                ("Unable to attach database '%s': Incompatible engines."
+                " Check your 'attach' settings!")
+                    % databaseUrl)
 
         if self.engine.name == 'sqlite':
             databaseFile = url.database
