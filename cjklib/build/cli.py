@@ -242,9 +242,7 @@ format --BuilderName-option or --TableName-option, e.g.
         if 'sqlalchemy.url' in config:
             options['databaseUrl'] = config['sqlalchemy.url']
         if 'attach' in config:
-            attach = config['attach']
-            if isinstance(attach, basestring): attach = attach.split('\n')
-            options['attach'] = attach
+            options['attach'] = config['attach']
 
         # build specific options
         options.update(cls.getBuilderConfigSettings())
@@ -450,9 +448,13 @@ There is NO WARRANTY, to the extent permitted by law.""" \
         configuration = DatabaseConnector.getDefaultConfiguration()
         configuration['sqlalchemy.url'] = options.pop('databaseUrl',
             configuration['sqlalchemy.url'])
-        configuration['attach'] = options.pop('databaseUrl',
-            configuration.get('attach', []))
-        db = DatabaseConnector(configuration)
+        configuration['attach'] = [attach for attach in
+            options.pop('attach', configuration.get('attach', [])) if attach]
+        try:
+            db = DatabaseConnector(configuration)
+        except ValueError, e:
+            print >> sys.stderr, "Error: %s" % e
+            return False
 
         # create builder instance
         dbBuilder = build.DatabaseBuilder(dbConnectInst=db, **options)
