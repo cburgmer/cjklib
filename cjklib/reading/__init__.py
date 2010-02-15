@@ -188,7 +188,7 @@ __all__ = ['operator', 'converter', 'ReadingFactory']
 import types
 
 from cjklib.exception import UnsupportedError
-from cjklib.dbconnector import DatabaseConnector
+from cjklib import dbconnector
 from cjklib.reading import operator as readingoperator
 from cjklib.reading import converter as readingconverter
 
@@ -364,7 +364,7 @@ class ReadingFactory(object):
         if dbConnectInst:
             self.db = dbConnectInst
         else:
-            self.db = DatabaseConnector.getDBConnector(databaseUrl)
+            self.db = dbconnector.getDBConnector(databaseUrl)
         # create object instance cache if needed, shared with all factories
         #   using the same database connection
         if self.db not in self._sharedState:

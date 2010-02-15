@@ -18,6 +18,7 @@
 """
 Provides the central Chinese character based functions.
 """
+__all__ = ["CharacterLookup"]
 
 import math
 from sqlalchemy import select, union
@@ -340,7 +341,7 @@ class CharacterLookup(object):
         if dbConnectInst:
             self.db = dbConnectInst
         else:
-            self.db = dbconnector.DatabaseConnector.getDBConnector(databaseUrl)
+            self.db = dbconnector.getDBConnector(databaseUrl)
             """L{DatabaseConnector} instance"""
         # character domain
         self.setCharacterDomain(characterDomain)

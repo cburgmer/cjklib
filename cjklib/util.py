@@ -33,6 +33,8 @@ import csv
 
 from sqlalchemy.types import String, Text
 
+#{ Configuration and file access
+
 def getConfigSettings(section, projectName='cjklib'):
     """
     Reads the configuration from the given section of the project's config file.
@@ -158,6 +160,7 @@ def getDataPath():
 
     return dataDir
 
+#{ Unicode enhancement
 
 # define our own titlecase methods, as the Python implementation is currently
 #   buggy (http://bugs.python.org/issue6412), see also
@@ -205,6 +208,8 @@ def istitlecase(strng):
     """
     return titlecase(strng) == strng
 
+#{ Helper methods
+
 def cross(*args):
     """
     Builds a cross product of the given lists.
@@ -229,6 +234,8 @@ def crossDict(*args):
     for arg in args:
         ans = [joinDict(x, y) for x in ans for y in arg]
     return ans
+
+#{ Helper classes
 
 class CharacterRangeIterator(object):
     """Iterates over a given set of codepoint ranges given in hex."""
@@ -259,6 +266,7 @@ class CharacterRangeIterator(object):
             self._curRange = self._popRange()
         return unichr(curIndex)
 
+#{ Library extensions
 
 class UnicodeCSVFileIterator(object):
     """Provides a CSV file iterator supporting Unicode."""
@@ -408,7 +416,6 @@ class ExtendedOption(Option):
             Option.take_action(
                 self, action, dest, opt, value, values, parser)
 
-
 #{ SQLAlchemy column types
 
 class _CollationMixin(object):
@@ -471,6 +478,45 @@ class CollationText(_CollationMixin, Text):
         else:
             return self._extend("TEXT")
 
+#{ Decorators
+
+if sys.version_info >= (2, 5):
+    import warnings
+    import functools
+
+    def deprecated(func):
+        """This is a decorator which can be used to mark functions
+        as deprecated. It will result in a warning being emitted
+        when the function is used."""
+        @functools.wraps(func)
+        def new_func(*args, **kwargs):
+            warnings.warn_explicit(
+                "Call to deprecated function %(funcname)s." % {
+                    'funcname': func.__name__,
+                },
+                category=DeprecationWarning,
+                filename=func.func_code.co_filename,
+                lineno=func.func_code.co_firstlineno + 1
+            )
+            return func(*args, **kwargs)
+        return new_func
+else:
+    import warnings
+
+    def deprecated(func):
+        """This is a decorator which can be used to mark functions
+        as deprecated. It will result in a warning being emitted
+        when the function is used."""
+        def new_func(*args, **kwargs):
+            warnings.warn("Call to deprecated function %s." % func.__name__,
+                category=DeprecationWarning)
+            return func(*args, **kwargs)
+        new_func.__name__ = func.__name__
+        new_func.__doc__ = func.__doc__
+        new_func.__dict__.update(func.__dict__)
+        return new_func
+
+#{ Collection classes
 
 if sys.version_info >= (2, 5):
     class LazyDict(dict):

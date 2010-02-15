@@ -47,6 +47,16 @@ For more complex operators, see L{PinyinOperator} or L{MandarinIPAOperator}.
 # pylint: disable-msg=E1101
 #  member variables are set by setattr()
 
+__all__ = [
+    # abstract
+    "ReadingOperator", "RomanisationOperator", "TonalFixedEntityOperator", "TonalRomanisationOperator", "TonalIPAOperator", "SimpleEntityOperator",
+    # specific
+    "HangulOperator", "HiraganaOperator", "KatakanaOperator", "KanaOperator",
+    "PinyinOperator", "WadeGilesOperator", "GROperator", "MandarinIPAOperator",
+    "MandarinBrailleOperator", "JyutpingOperator", "CantoneseYaleOperator",
+    "CantoneseIPAOperator"
+    ]
+
 import re
 import string
 import unicodedata
@@ -59,7 +69,7 @@ from sqlalchemy.sql import or_
 from cjklib.exception import (DecompositionError, AmbiguousDecompositionError,
     InvalidEntityError, CompositionError, UnsupportedError,
     AmbiguousConversionError)
-from cjklib.dbconnector import DatabaseConnector
+from cjklib import dbconnector
 from cjklib.util import titlecase, istitlecase, cross
 
 class ReadingOperator(object):
@@ -97,7 +107,7 @@ class ReadingOperator(object):
         if 'dbConnectInst' in options:
             self.db = options['dbConnectInst']
         else:
-            self.db = DatabaseConnector.getDBConnector()
+            self.db = dbconnector.getDBConnector()
 
         for option, defaultValue in self.getDefaultOptions().items():
             optionValue = options.get(option, defaultValue)

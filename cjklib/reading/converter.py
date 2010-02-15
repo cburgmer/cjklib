@@ -49,6 +49,19 @@ See L{PinyinDialectConverter} for more examples.
 # pylint: disable-msg=E1101
 #  member variables are set by setattr()
 
+__all__ = [
+    # abstract
+    "ReadingConverter", "DialectSupportReadingConverter",
+    "EntityWiseReadingConverter", "RomanisationConverter",
+    # specific
+    "PinyinDialectConverter", "WadeGilesDialectConverter",
+    "PinyinWadeGilesConverter", "GRDialectConverter", "GRPinyinConverter",
+    "PinyinIPAConverter", "PinyinBrailleConverter", "JyutpingDialectConverter",
+    "CantoneseYaleDialectConverter", "JyutpingYaleConverter",
+    # bridge
+    "BridgeConverter"
+    ]
+
 import re
 import copy
 import types
@@ -58,7 +71,7 @@ from sqlalchemy.sql import and_
 
 from cjklib.exception import (ConversionError, AmbiguousConversionError,
     InvalidEntityError, UnsupportedError)
-from cjklib.dbconnector import DatabaseConnector
+from cjklib import dbconnector
 from cjklib.reading import operator as readingoperator
 import cjklib.reading
 from cjklib.util import titlecase, istitlecase
@@ -155,7 +168,7 @@ class ReadingConverter(object):
         if 'dbConnectInst' in options:
             self.db = options['dbConnectInst']
         else:
-            self.db = DatabaseConnector.getDBConnector()
+            self.db = dbconnector.getDBConnector()
 
         self._f = cjklib.reading.ReadingFactory(dbConnectInst=self.db)
 

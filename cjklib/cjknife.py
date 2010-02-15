@@ -33,14 +33,14 @@ import sys
 import getopt
 import locale
 import re
-import logging
+import warnings
 
 from sqlalchemy import Table
 from sqlalchemy import select, union
 from sqlalchemy.sql import and_, or_
 
 import cjklib
-from cjklib.dbconnector import DatabaseConnector
+from cjklib import dbconnector
 from cjklib import characterlookup
 from cjklib import reading
 from cjklib import dictionary
@@ -103,7 +103,7 @@ class CharacterInfo:
             C{driver://user:pass@host/database}.
         """
         if dictionaryN:
-            dictObj = dictionary.BaseDictionary.getDictionaryClass(dictionaryN)
+            dictObj = dictionary.getDictionaryClass(dictionaryN)
 
         if readingN:
             self.reading = readingN
@@ -113,10 +113,10 @@ class CharacterInfo:
             self.reading = self.guessReading()
 
         if dictionaryDatabaseUrl:
-            self.db = DatabaseConnector(
+            self.db = dbconnector.DatabaseConnector(
                 {'sqlalchemy.url': dictionaryDatabaseUrl, 'attach': ['cjklib']})
         else:
-            self.db = DatabaseConnector.getDBConnector()
+            self.db = dbconnector.getDBConnector()
 
         self.readingFactory = reading.ReadingFactory(dbConnectInst=self.db)
 
@@ -131,8 +131,7 @@ class CharacterInfo:
             else:
                 # get a dictionary that is compatible with the selected reading
                 for dictName in self.getAvailableDictionaries():
-                    dictObj = dictionary.BaseDictionary.getDictionaryClass(
-                        dictName)
+                    dictObj = dictionary.getDictionaryClass(dictName)
                     if (hasattr(dictObj, 'READING') and dictObj.READING
                         and (dictObj.READING == self.reading
                             or self.readingFactory.isReadingConversionSupported(
@@ -206,7 +205,7 @@ class CharacterInfo:
         """
         if not hasattr(self, '_availableDictionaries'):
             self._availableDictionaries = [dic.PROVIDES for dic in
-                dictionary.BaseDictionary.getAvailableDictionaries(self.db)]
+                dictionary.getAvailableDictionaries(self.db)]
             self._availableDictionaries.sort()
 
         return self._availableDictionaries
@@ -486,7 +485,7 @@ class CharacterInfo:
         @param limit: maximum number of entries
         """
         if not hasattr(self, '_dictInstance'):
-            dictObj = dictionary.BaseDictionary.getDictionaryClass(
+            dictObj = dictionary.getDictionaryClass(
                 self.dictionary)
 
             options = {}
@@ -954,7 +953,7 @@ def main():
         # setting of dictionary
         elif o in ("-w", "--set-dictionary"):
             dictionaries = dict([(dic.PROVIDES.lower(), dic.PROVIDES) for dic
-                in dictionary.BaseDictionary.getDictionaryClasses()])
+                in dictionary.getDictionaryClasses()])
             if a.lower() in dictionaries:
                 dictionaryN = dictionaries[a.lower()]
             else:
@@ -1188,9 +1187,11 @@ def main():
                 alternative = '%%%s' % alternative
             if command != "-e":
                 alternative = '%s%%' % alternative
-            logging.warning("Option '%s' is deprecated" % command
-                + " and will disappear from future versions."
-                + " Use '-x \"%s\"' instead" % alternative)
+
+            warnings.warn(("Option '%s' is deprecated"
+                " and will disappear from future versions."
+                " Use '-x \"%s\"' instead")  % (command, alternative),
+                category=DeprecationWarning)
 
             if not charInfo.hasDictionary():
                 print "Error: no dictionary available"
@@ -1239,8 +1240,7 @@ def main():
             if availableDictionaries:
                 dictionaryList = []
                 for dictionaryName in availableDictionaries:
-                    dictObj = dictionary.BaseDictionary.getDictionaryClass(
-                        dictionaryName)
+                    dictObj = dictionary.getDictionaryClass(dictionaryName)
 
                     if dictObj.READING:
                         dictionaryList.append("%s (%s)"

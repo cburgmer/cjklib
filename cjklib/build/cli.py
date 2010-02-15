@@ -24,11 +24,11 @@ import os
 import locale
 from optparse import OptionParser, OptionGroup, Values
 import ConfigParser
-import logging
+import warnings
 
 from cjklib import build
 from cjklib import exception
-from cjklib.dbconnector import DatabaseConnector
+from cjklib import dbconnector
 import cjklib
 from cjklib.util import getConfigSettings, getDataPath, ExtendedOption
 
@@ -238,7 +238,7 @@ format --BuilderName-option or --TableName-option, e.g.
         # prefer
         options['prefer'] = cls.DB_PREFER_BUILDERS[:]
         # databaseUrl
-        config = DatabaseConnector.getDefaultConfiguration()
+        config = dbconnector.getDefaultConfiguration()
         if 'sqlalchemy.url' in config:
             options['databaseUrl'] = config['sqlalchemy.url']
         if 'attach' in config:
@@ -432,9 +432,10 @@ There is NO WARRANTY, to the extent permitted by law.""" \
 
         deprecatedGroups = self._getDeprecated() & set(buildGroupList)
         if deprecatedGroups:
-            logging.warning("Group(s) '%s' is (are) deprecated"
+            warnings.warn("Group(s) '%s' is (are) deprecated"
                     % "', '".join(deprecatedGroups)
-                + " and will disappear from future versions.")
+                + " and will disappear from future versions.",
+                category=DeprecationWarning)
 
         # unpack groups
         groups = []
@@ -452,7 +453,7 @@ There is NO WARRANTY, to the extent permitted by law.""" \
                 self.DB_PREFER_BUILDERS)
 
         # get database connection
-        configuration = DatabaseConnector.getDefaultConfiguration()
+        configuration = dbconnector.getDefaultConfiguration()
         configuration['sqlalchemy.url'] = options.pop('databaseUrl',
             configuration['sqlalchemy.url'])
         configuration['attach'] = [attach for attach in
@@ -460,7 +461,7 @@ There is NO WARRANTY, to the extent permitted by law.""" \
         if 'registerUnicode' in options:
             configuration['registerUnicode'] = options.pop('registerUnicode')
         try:
-            db = DatabaseConnector(configuration)
+            db = dbconnector.DatabaseConnector(configuration)
         except ValueError, e:
             print >> sys.stderr, "Error: %s" % e
             return False

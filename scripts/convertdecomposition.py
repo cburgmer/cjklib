@@ -36,7 +36,7 @@ from sqlalchemy import select
 
 import cjklib
 from cjklib.characterlookup import CharacterLookup
-from cjklib.dbconnector import DatabaseConnector
+from cjklib import dbconnector
 from cjklib.util import cross, UnicodeCSVFileIterator
 
 # get local language and output encoding
@@ -68,7 +68,7 @@ class CjklibGenerator(object):
         """
         decompDict = {}
         # get entries from database
-        db = DatabaseConnector.getDBConnector()
+        db = dbconnector.getDBConnector()
         table = db.tables['CharacterDecomposition']
 
         result = db.selectRows(select([table.c.ChineseCharacter,

@@ -22,6 +22,55 @@ Some L{TableBuilder} implementations aren't used by the CJK library but are
 provided here for additional usage.
 """
 
+__all__ = [
+    # abstract
+    "TableBuilder", "EntryGeneratorBuilder",
+    # Unihan and Kanjidic character information
+    "UnihanGenerator", "UnihanBuilder", "Kanjidic2Builder",
+    "UnihanDerivedBuilder", "UnihanStrokeCountBuilder",
+    "CharacterRadicalBuilder", "CharacterKangxiRadicalBuilder",
+    "CharacterKanWaRadicalBuilder", "CharacterJapaneseRadicalBuilder",
+    "CharacterKoreanRadicalBuilder", "CharacterVariantBuilder",
+    "UnihanCharacterSetBuilder", "IICoreSetBuilder", "GB2312SetBuilder",
+    "BIG5SetBuilder", "HKSCSSetBuilder", "BIG5HKSCSSetBuilder",
+    "JISX0208SetBuilder", "JISX0213SetBuilder", "JISX0208_0213SetBuilder",
+    "GlyphInformationSetBuilder",
+    # Unihan reading information
+    "CharacterReadingBuilder", "CharacterUnihanPinyinBuilder",
+    "CharacterJyutpingBuilder", "CharacterJapaneseKunBuilder",
+    "CharacterJapaneseOnBuilder", "CharacterHangulBuilder",
+    "CharacterVietnameseBuilder", "CharacterXHPCReadingBuilder",
+    "CharacterDiacriticPinyinBuilder", "CharacterXHCReadingBuilder",
+    "CharacterHDZReadingBuilder", "CharacterPinyinAdditionalBuilder",
+    "CharacterPinyinBuilder",
+    # CSV file based
+    "CSVFileLoader", "PinyinSyllablesBuilder", "PinyinInitialFinalBuilder",
+    "WadeGilesSyllablesBuilder", "WadeGilesInitialFinalBuilder",
+    "GRSyllablesBuilder", "GRRhotacisedFinalsBuilder", "GRAbbreviationBuilder",
+    "JyutpingSyllablesBuilder", "JyutpingInitialFinalBuilder",
+    "CantoneseYaleSyllablesBuilder", "CantoneseYaleInitialNucleusCodaBuilder",
+    "JyutpingYaleMappingBuilder", "WadeGilesPinyinMappingBuilder",
+    "PinyinGRMappingBuilder", "PinyinIPAMappingBuilder",
+    "MandarinIPAInitialFinalBuilder", "JyutpingIPAMappingBuilder",
+    "CantoneseIPAInitialFinalBuilder", "KangxiRadicalBuilder",
+    "KangxiRadicalIsolatedCharacterBuilder",
+    "RadicalEquivalentCharacterBuilder", "StrokesBuilder", "StrokeOrderBuilder",
+    "CharacterDecompositionBuilder", "LocaleCharacterGlyphBuilder",
+    "MandarinBraileInitialBuilder", "MandarinBraileFinalBuilder",
+    # Library dependent
+    "GlyphBuilder", "StrokeCountBuilder", "CombinedStrokeCountBuilder",
+    "CharacterComponentLookupBuilder", "CharacterRadicalStrokeCountBuilder",
+    "CharacterResidualStrokeCountBuilder",
+    "CombinedCharacterResidualStrokeCountBuilder",
+    # Dictionary builder
+    "EDICTFormatBuilder", "WordIndexBuilder", "EDICTBuilder",
+    "EDICTWordIndexBuilder", "CEDICTFormatBuilder", "CEDICTBuilder",
+    "CEDICTWordIndexBuilder", "CEDICTGRBuilder", "CEDICTGRWordIndexBuilder",
+    "TimestampedCEDICTFormatBuilder", "HanDeDictBuilder",
+    "HanDeDictWordIndexBuilder", "CFDICTBuilder", "CFDICTWordIndexBuilder",
+    "SimpleWenlinFormatBuilder"
+    ]
+
 import types
 import re
 import os.path
@@ -39,7 +88,8 @@ from sqlalchemy.exceptions import IntegrityError, OperationalError
 from cjklib import characterlookup
 from cjklib import exception
 from cjklib.build import warn
-from cjklib.util import UnicodeCSVFileIterator, CollationString, CollationText
+from cjklib.util import (UnicodeCSVFileIterator, CollationString, CollationText,
+    deprecated)
 
 # pylint: disable-msg=E1101
 #  member variables are set by setattr()
@@ -285,7 +335,7 @@ class EntryGeneratorBuilder(TableBuilder):
             index.create()
 
 #}
-#{ Unihan character information
+#{ Unihan and Kanjidic character information
 
 class UnihanGenerator:
     """
@@ -1956,7 +2006,7 @@ class MandarinBraileFinalBuilder(CSVFileLoader):
     TABLE_DECLARATION_FILE_MAPPING = 'pinyinbraillefinalmapping.sql'
 
 #}
-#{ Library dependant
+#{ Library dependent
 
 class GlyphBuilder(EntryGeneratorBuilder):
     """
@@ -3393,11 +3443,8 @@ class WordIndexBuilder(EntryGeneratorBuilder):
     HEADWORD_SOURCE = 'Headword'
     """Source of headword"""
 
+    @deprecated
     def getGenerator(self):
-        # TODO deprecated
-        logging.warning("Class WordIndexBuilder is deprecated"
-            + " and will disappear from future versions.")
-
         table = self.db.tables[self.TABLE_SOURCE]
         entries = self.db.selectRows(
             select([table.c[self.HEADWORD_SOURCE], table.c.Reading,

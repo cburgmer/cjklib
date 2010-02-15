@@ -51,7 +51,7 @@ import getopt
 
 from sqlalchemy import select
 
-from cjklib.dbconnector import DatabaseConnector
+from cjklib import dbconnector
 from cjklib.reading import ReadingFactory
 from cjklib import characterlookup
 from cjklib import exception
@@ -135,7 +135,7 @@ _dictionaryEntries = None
 def getDictionaryEntries(dictionary):
     global _dictionaryEntries
     if not _dictionaryEntries:
-        db = DatabaseConnector.getDBConnector()
+        db = dbconnector.getDBConnector()
         table = db.tables[dictionary]
         _dictionaryEntries = db.selectRows(
             select([table.c.HeadwordTraditional, table.c.HeadwordSimplified,

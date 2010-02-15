@@ -17,7 +17,97 @@
 
 """
 Provides simple read access to SQL databases.
+
+A DatabaseConnector connects to one or more SQL databases. It provides four
+simple methods for retrieving scalars or rows of data:
+    1. C{selectScalar()}: returns one single value
+    2. C{selectRow()}: returns only one entry with several columns
+    3. C{selectScalars()}: returns entries for a single column
+    4. C{selectRows()}: returns multiple entries for multiple columns
+
+This class takes care to load the correct database(s). It provides for
+attaching further databases and gives any program that depends on cjklib the
+possibility to easily add own data in databases outside cjklib extending the
+library's information.
+
+DatabaseConnector has a convenience function L{getDBConnector()} that loads
+an instance with the proper settings for the given project. By default
+settings for project C{'cjklib'} are chosen, but this behaviour can be
+overwritten by passing a different project name:
+C{getDBConnector(projectName='My Project')}. Connection settings can also be
+provided manually, omitting automatic searching. Multiple calls with the
+same connection settings will return the same shared instance.
+
+Example:
+
+    >>> from cjklib import dbconnector
+    >>> from sqlalchemy import select
+    >>> db = dbconnector.getDBConnector()
+    >>> db.selectScalar(select([db.tables['Strokes'].c.Name],
+    ...     db.tables['Strokes'].c.StrokeAbbrev == 'T'))
+    u'\u63d0'
+
+DatabaseConnector is tested on SQLite and MySQL but should support most
+other database systems through I{SQLAlchemy}.
+
+SQLite and Unicode
+==================
+SQLite be default only provides letter case folding for alphabetic
+characters A-Z from ASCII. If SQLite is built against I{ICU}, Unicode
+methods are used instead for C{LIKE} and C{upper()/lower()}. If I{ICU} is
+not compiled into the database system L{DatabaseConnector} can register own
+methods. As this has negative impact on performance, it is disabled by
+default. Compatibility support can be enabled by setting option
+C{'registerUnicode'} to C{True} when given as configuration to L{__init__()}
+or L{getDBConnector()} or alternatively can be set as default in
+C{cjklib.conf}.
+
+Multiple database support
+=========================
+A DatabaseConnector instance is attached to a main database. Further
+databases can be attached at any time, providing further tables. Tables from
+the main database will shadow any other table with a similar name. A table
+not found in the main database will be chosen from a database in the order
+of their attachment.
+
+The L{DatabaseConnector.tables} dictionary allows simple lookup of table objects
+by short name, without the need of knowing the full qualified name including the
+database specifier. Existence of tables can be checked using
+L{DatabaseConnector.hasTable()}; L{DatabaseConnector.tables} will only include
+table information after the first access. All table names can be retrieved with
+L{DatabaseConnector.getTableNames()}.
+
+Table lookup is designed with a stable data set in mind. Moving tables between
+databases is not specially supported and while operations through the L{build}
+module will update any information in the L{DatabaseConnector.tables}
+dictionary, manual creating and dropping of a table or changing its structure
+will lead to the dictionary having obsolete information. This can be
+circumvented by deleting keys forcing an update:
+
+    >>> del db.tables['my table']
+
+Example:
+
+    >>> from cjklib.dbconnector import DatabaseConnector
+    >>> db = DatabaseConnector({'url': 'sqlite:////tmp/mydata.db',
+    ...     'attach': ['cjklib']})
+    >>> db.tables['StrokeOrder'].fullname
+    'cjklib_0.StrokeOrder'
+
+Discovery of attachable databases
+---------------------------------
+DatabaseConnector has the ability to discover databases attaching them to
+the main database. Specifying databases can be done in three ways:
+    1. A full URL can be given denoting a single database, e.g.
+        X{'sqlite:////tmp/mydata.db'}.
+    2. Giving a directory will add any .db file as SQLite database, e.g.
+        X{'/usr/local/share/cjklib'}.
+    3. Giving a project name will prompt DatabaseConnector to check for
+        a project config file and add databases specified there and/or scan
+        that project's default directories, e.g. X{'cjklib'}.
 """
+
+__all__ = ["getDBConnector", "getDefaultConfiguration", "DatabaseConnector"]
 
 import os
 import logging
@@ -27,191 +117,120 @@ from sqlalchemy import MetaData, Table, engine_from_config
 from sqlalchemy.sql import text
 from sqlalchemy.engine.url import make_url
 
-from cjklib.util import getConfigSettings, getSearchPaths, LazyDict, OrderedDict
+from cjklib.util import (getConfigSettings, getSearchPaths, deprecated,
+    LazyDict, OrderedDict)
 
-class DatabaseConnector:
-    u"""
-    A DatabaseConnector connects to one or more SQL databases. It provides four
-    simple methods for retrieving scalars or rows of data:
-        1. C{selectScalar()}: returns one single value
-        2. C{selectRow()}: returns only one entry with several columns
-        3. C{selectScalars()}: returns entries for a single column
-        4. C{selectRows()}: returns multiple entries for multiple columns
+_dbconnectInst = None
+# Cached instance of a DatabaseConnector used for connections with settings of
+#   _dbconnectInstSettings
 
-    This class takes care to load the correct database(s). It provides for
-    attaching further databases and gives any program that depends on cjklib the
-    possibility to easily add own data in databases outside cjklib extending the
-    library's information.
+_dbconnectInstSettings = None
+# Connection configuration for cached instance
 
-    DatabaseConnector has a convenience function L{getDBConnector()} that loads
-    an instance with the proper settings for the given project. By default
-    settings for project C{'cjklib'} are chosen, but this behaviour can be
-    overwritten by passing a different project name:
-    C{DatabaseConnector.getDBConnector(projectName='My Project')}. Connection
-    settings can also be provided manually, omitting automatic searching.
-    Multiple calls with the same connection settings will return the same shared
-    instance.
-
-    Example:
-
-        >>> from cjklib.dbconnector import DatabaseConnector
-        >>> from sqlalchemy import select
-        >>> db = DatabaseConnector.getDBConnector()
-        >>> db.selectScalar(select([db.tables['Strokes'].c.Name],
-        ...     db.tables['Strokes'].c.StrokeAbbrev == 'T'))
-        u'\u63d0'
-
-    DatabaseConnector is tested on SQLite and MySQL but should support most
-    other database systems through I{SQLAlchemy}.
-
-    SQLite and Unicode
-    ==================
-    SQLite be default only provides letter case folding for alphabetic
-    characters A-Z from ASCII. If SQLite is built against I{ICU}, Unicode
-    methods are used instead for C{LIKE} and C{upper()/lower()}. If I{ICU} is
-    not compiled into the database system L{DatabaseConnector} can register own
-    methods. As this has negative impact on performance, it is disabled by
-    default. Compatibility support can be enabled by setting option
-    C{'registerUnicode'} to C{True} when given as configuration to L{__init__()}
-    or L{getDBConnector()} or alternatively can be set as default in
-    C{cjklib.conf}.
-
-    Multiple database support
-    =========================
-    A DatabaseConnector instance is attached to a main database. Further
-    databases can be attached at any time, providing further tables. Tables from
-    the main database will shadow any other table with a similar name. A table
-    not found in the main database will be chosen from a database in the order
-    of their attachment.
-
-    The L{tables} dictionary allows simple lookup of table objects by short
-    name, without the need of knowing the full qualified name including the
-    database specifier. Existence of tables can be checked using L{hasTable()};
-    L{tables} will only include table information after the first access. All
-    table names can be retrieved with L{getTableNames()}.
-
-    Table lookup is designed with a stable data set in mind. Moving tables
-    between databases is not specially supported and while operations through
-    the L{build} module will update any information in the L{tables} dictionary,
-    manual creating and dropping of a table or changing its structure will lead
-    to the dictionary having obsolete information. This can be circumvented by
-    deleting keys forcing an update:
-
-        >>> del db.tables['my table']
-
-    Example:
-
-        >>> from cjklib.dbconnector import DatabaseConnector
-        >>> db = DatabaseConnector({'url': 'sqlite:////tmp/mydata.db',
-        ...     'attach': ['cjklib']})
-        >>> db.tables['StrokeOrder'].fullname
-        'cjklib_0.StrokeOrder'
-
-    Discovery of attachable databases
-    ---------------------------------
-    DatabaseConnector has the ability to discover databases attaching them to
-    the main database. Specifying databases can be done in three ways:
-        1. A full URL can be given denoting a single database, e.g.
-           X{'sqlite:////tmp/mydata.db'}.
-        2. Giving a directory will add any .db file as SQLite database, e.g.
-           X{'/usr/local/share/cjklib'}.
-        3. Giving a project name will prompt DatabaseConnector to check for
-           a project config file and add databases specified there and/or scan
-           that project's default directories, e.g. X{'cjklib'}.
+def getDBConnector(configuration=None, projectName='cjklib'):
     """
-    _dbconnectInst = None
-    """
-    Instance of a L{DatabaseConnector} used for all connections to SQL server.
-    """
-    _dbconnectInstSettings = None
-    """
-    Database url used to create the connector instance.
-    """
+    Returns a shared L{DatabaseConnector} instance.
 
+    To connect to a user specific database give
+    C{{'sqlalchemy.url': 'driver://user:pass@host/database'}} as
+    configuration.
+
+    If no configuration is passed a connection is made to the default
+    database PROJECTNAME.db in the project's folder.
+
+
+    @see: The documentation of sqlalchemy.create_engine() for more options
+    @see: the class documentation of L{DatabaseConnector}.
+
+    @param configuration: database connection options (includes settings for
+        SQLAlchemy prefixed by C{'sqlalchemy.'})
+    @type projectName: str
+    @param projectName: name of project which will be used as name of the
+        config file
+    """
+    global _dbconnectInst, _dbconnectInstSettings
+    # allow single string and interpret as url
+    if isinstance(configuration, basestring):
+        configuration = {'sqlalchemy.url': configuration}
+
+    elif not configuration:
+        # try to read from config
+        configuration = getDefaultConfiguration(projectName)
+
+    # if settings changed, remove old instance
+    if (not _dbconnectInstSettings or _dbconnectInstSettings != configuration):
+        _dbconnectInst = None
+
+    if not _dbconnectInst:
+        databaseSettings = configuration.copy()
+
+        _dbconnectInst = DatabaseConnector(databaseSettings)
+        _dbconnectInstSettings = databaseSettings
+
+    return _dbconnectInst
+
+def getDefaultConfiguration(projectName='cjklib'):
+    """
+    Gets the default configuration for the given project. Settings are read
+    from a configuration file.
+
+    By default an URL to a database PROJECTNAME.db in the project's folder
+    is returned and the project's default directories are searched for
+    attachable databases.
+
+    @type projectName: str
+    @param projectName: name of project which will be used in search for the
+        configuration and as the name of the default database
+    """
+    # try to read from config
+    configuration = getConfigSettings('Connection', projectName)
+
+    if 'url' in configuration:
+        url = configuration.pop('url')
+        if 'sqlalchemy.url' not in configuration:
+            configuration['sqlalchemy.url'] = url
+
+    if 'sqlalchemy.url' not in configuration:
+        try:
+            from pkg_resources import Requirement, resource_filename
+            dbFile = resource_filename(Requirement.parse(projectName),
+                '%(proj)s/%(proj)s.db' % {'proj': projectName})
+        except ImportError:
+            # fall back to the directory of this file, only works for cjklib
+            libdir = os.path.dirname(os.path.abspath(__file__))
+            dbFile = os.path.join(libdir, '%(proj)s.db' % {'proj': projectName})
+
+        configuration['sqlalchemy.url'] = 'sqlite:///%s' % dbFile
+
+    if 'attach' in configuration:
+        configuration['attach'] = configuration['attach'].split('\n')
+    else:
+        configuration['attach'] = [projectName]
+
+    return configuration
+
+
+class DatabaseConnector(object):
+    """
+    Database connection object.
+
+    @see: class documentation of L{dbconnector}
+    """
     @classmethod
+    @deprecated
     def getDBConnector(cls, configuration=None, projectName='cjklib'):
         """
-        Returns a shared L{DatabaseConnector} instance.
-
-        To connect to a user specific database give
-        C{{'sqlalchemy.url': 'driver://user:pass@host/database'}} as
-        configuration.
-
-        If no configuration is passed a connection is made to the default
-        database PROJECTNAME.db in the project's folder.
-
-
-        @see: The documentation of sqlalchemy.create_engine() for more options
-        @see: the class documentation of L{DatabaseConnector}.
-
-        @param configuration: database connection options (includes settings for
-            SQLAlchemy prefixed by C{'sqlalchemy.'})
-        @type projectName: str
-        @param projectName: name of project which will be used as name of the
-            config file
+        Deprecated method, use L{dbconnector.getDBConnector()} instead.
         """
-        # allow single string and interpret as url
-        if isinstance(configuration, basestring):
-            configuration = {'sqlalchemy.url': configuration}
-
-        elif not configuration:
-            # try to read from config
-            configuration = cls.getDefaultConfiguration(projectName)
-
-        # if settings changed, remove old instance
-        if (not cls._dbconnectInstSettings
-            or cls._dbconnectInstSettings != configuration):
-            cls._dbconnectInst = None
-
-        if not cls._dbconnectInst:
-            databaseSettings = configuration.copy()
-
-            cls._dbconnectInst = DatabaseConnector(databaseSettings)
-            cls._dbconnectInstSettings = databaseSettings
-
-        return cls._dbconnectInst
+        return getDBConnector(configuration, projectName)
 
     @classmethod
+    @deprecated
     def getDefaultConfiguration(cls, projectName='cjklib'):
         """
-        Gets the default configuration for the given project. Settings are read
-        from a configuration file.
-
-        By default an URL to a database PROJECTNAME.db in the project's folder
-        is returned and the project's default directories are searched for
-        attachable databases.
-
-        @type projectName: str
-        @param projectName: name of project which will be used in search for the
-            configuration and as the name of the default database
+        Deprecated method, use L{dbconnector.getDefaultConfiguration()} instead.
         """
-        # try to read from config
-        configuration = getConfigSettings('Connection', projectName)
-
-        if 'url' in configuration:
-            url = configuration.pop('url')
-            if 'sqlalchemy.url' not in configuration:
-                configuration['sqlalchemy.url'] = url
-
-        if 'sqlalchemy.url' not in configuration:
-            try:
-                from pkg_resources import Requirement, resource_filename
-                dbFile = resource_filename(Requirement.parse(projectName),
-                    '%(proj)s/%(proj)s.db' % {'proj': projectName})
-            except ImportError:
-                # fall back to the directory of this file, only works for cjklib
-                libdir = os.path.dirname(os.path.abspath(__file__))
-                dbFile = os.path.join(libdir,
-                    '%(proj)s.db' % {'proj': projectName})
-
-            configuration['sqlalchemy.url'] = 'sqlite:///%s' % dbFile
-
-        if 'attach' in configuration:
-            configuration['attach'] = configuration['attach'].split('\n')
-        else:
-            configuration['attach'] = [projectName]
-
-        return configuration
+        return getDefaultConfiguration(projectName)
 
     def __init__(self, configuration):
         """
@@ -307,7 +326,7 @@ class DatabaseConnector:
 
             elif '/' not in name and '\\' not in name:
                 # project name
-                configuration = self.getDefaultConfiguration(name)
+                configuration = getDefaultConfiguration(name)
 
                 # first add main database
                 attachable.append(configuration['sqlalchemy.url'])

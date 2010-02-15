@@ -176,6 +176,37 @@ TonelessWildcardReadingSearchStrategy())
 @todo Impl: Allow simple FTS3 searching as build support is already provided.
 """
 
+__all__ = [
+    # access methods
+    "getDictionaryClasses", "getAvailableDictionaries", "getDictionaryClass",
+    "getDictionary",
+    # entry factories
+    "TupleEntryFactory", "NamedTupleFactory", "UnifiedHeadwordEntryFactory",
+    # format strategies
+    "BaseFormatStrategy", "ReadingConversionStrategy",
+    # base search strategies
+    "ExactSearchStrategy", "WildcardSearchStrategy",
+    # translation search strategies
+    "SingleEntryTranslationSearchStrategy", "WildcardTranslationSearchStrategy",
+    "SimpleTranslationSearchStrategy",
+    "SimpleWildcardTranslationSearchStrategy",
+    "CEDICTTranslationSearchStrategy",
+    "CEDICTWildcardTranslationSearchStrategy",
+    "HanDeDictTranslationSearchStrategy",
+    "HanDeDictWildcardTranslationSearchStrategy",
+    # reading search strategies
+    "SimpleReadingSearchStrategy", "SimpleWildcardReadingSearchStrategy",
+    "TonelessWildcardReadingSearchStrategy",
+    # mixed reading search strategies
+    "MixedWildcardReadingSearchStrategy",
+    "MixedTonelessWildcardReadingSearchStrategy",
+    # base dictionary classes
+    "BaseDictionary", "EDICTStyleDictionary",
+    "EDICTStyleEnhancedReadingDictionary",
+    # dictionaries
+    "EDICT", "CEDICTGR", "CEDICT", "HanDeDict", "CFDICT"
+    ]
+
 import re
 import types
 
@@ -184,7 +215,7 @@ from sqlalchemy.sql import and_, or_
 from sqlalchemy.sql.expression import func
 
 from cjklib.reading import ReadingFactory
-from cjklib.dbconnector import DatabaseConnector
+from cjklib import dbconnector
 from cjklib import exception
 from cjklib.util import cross
 
@@ -215,6 +246,72 @@ def _escapeWildcards(string, escape='\\'):
             r'(%s|[_%%])' % re.escape(escape))
     # insert escape
     return _wildcardRegexCache[escape].sub(r'%s\1' % re.escape(escape), string)
+
+#{ Access methods
+
+def getDictionaryClasses():
+    """
+    Gets all classes in module that implement L{BaseDictionary}.
+
+    @rtype: set
+    @return: list of all classes inheriting form L{BaseDictionary}
+    """
+    dictionaryModule = __import__("cjklib.dictionary")
+    # get all classes that inherit from BaseDictionary
+    return set([clss \
+        for clss in dictionaryModule.dictionary.__dict__.values() \
+        if type(clss) == types.TypeType \
+        and issubclass(clss, dictionaryModule.dictionary.BaseDictionary) \
+        and clss.PROVIDES])
+
+def getAvailableDictionaries(dbConnectInst=None):
+    """
+    Returns a list of available dictionaries for the given database
+    connection.
+
+    @type dbConnectInst: instance
+    @param dbConnectInst: optional instance of a L{DatabaseConnector}
+    @rtype: list of class
+    @return: list of dictionary class objects
+    """
+    dbConnectInst = dbConnectInst or dbconnector.getDBConnector()
+    available = []
+    for dictionaryClass in getDictionaryClasses():
+        if dictionaryClass.available(dbConnectInst):
+            available.append(dictionaryClass)
+
+    return available
+
+_dictionaryMap = None
+def getDictionaryClass(dictionaryName):
+    """
+    Get a dictionary class by dictionary name.
+
+    @type dictionaryName: str
+    @param dictionaryName: dictionary name
+    @rtype: type
+    @return: dictionary class
+    """
+    global _dictionaryMap
+    if _dictionaryMap is None:
+        _dictionaryMap = dict([(dictCls.PROVIDES, dictCls)
+            for dictCls in getDictionaryClasses()])
+
+    if dictionaryName not in _dictionaryMap:
+        raise ValueError('Not a supported dictionary')
+    return _dictionaryMap[dictionaryName]
+
+def getDictionary(dictionaryName, **options):
+    """
+    Get a dictionary instance by dictionary name.
+
+    @type dictionaryName: str
+    @param dictionaryName: dictionary name
+    @rtype: type
+    @return: dictionary instance
+    """
+    dictCls = getDictionaryClass(dictionaryName)
+    return dictCls(**options)
 
 #{ Entry factories
 
@@ -1768,7 +1865,7 @@ class BaseDictionary(object):
             self.db = options['dbConnectInst']
         else:
             databaseUrl = options.pop('databaseUrl', None)
-            self.db = DatabaseConnector.getDBConnector(databaseUrl)
+            self.db = dbconnector.getDBConnector(databaseUrl)
             """L{DatabaseConnector} instance"""
 
         if 'entryFactory' in options:
@@ -1817,68 +1914,6 @@ class BaseDictionary(object):
             """Strategy for searching translations."""
         if hasattr(self.translationSearchStrategy, 'setDictionaryInstance'):
             self.translationSearchStrategy.setDictionaryInstance(self)
-
-    @staticmethod
-    def getDictionaryClasses():
-        """
-        Gets all classes in module that implement L{BaseDictionary}.
-
-        @rtype: set
-        @return: list of all classes inheriting form L{BaseDictionary}
-        """
-        dictionaryModule = __import__("cjklib.dictionary")
-        # get all classes that inherit from BaseDictionary
-        return set([clss \
-            for clss in dictionaryModule.dictionary.__dict__.values() \
-            if type(clss) == types.TypeType \
-            and issubclass(clss, dictionaryModule.dictionary.BaseDictionary) \
-            and clss.PROVIDES])
-
-    @staticmethod
-    def getAvailableDictionaries(dbConnectInst=None):
-        """
-        Returns a list of available dictionaries for the given database
-        connection.
-
-        @type dbConnectInst: instance
-        @param dbConnectInst: optional instance of a L{DatabaseConnector}
-        @rtype: list of class
-        @return: list of dictionary class objects
-        """
-        dbConnectInst = dbConnectInst or DatabaseConnector.getDBConnector()
-        available = []
-        for dictionaryClass in BaseDictionary.getDictionaryClasses():
-            if dictionaryClass.available(dbConnectInst):
-                available.append(dictionaryClass)
-
-        return available
-
-    @classmethod
-    def getDictionaryClass(cls, dictionaryName):
-        """
-        Get a dictionary class by dictionary name.
-
-        @rtype: type
-        @return: dictionary class
-        """
-        if not hasattr(cls, '_dictionaryMap'):
-            cls._dictionaryMap = dict([(dictCls.PROVIDES, dictCls)
-                for dictCls in cls.getDictionaryClasses()])
-
-        if dictionaryName not in cls._dictionaryMap:
-            raise ValueError('Not a supported dictionary')
-        return cls._dictionaryMap[dictionaryName]
-
-    @classmethod
-    def getDictionary(cls, dictionaryName, **options):
-        """
-        Get a dictionary instance by dictionary name.
-
-        @rtype: type
-        @return: dictionary instance
-        """
-        dictCls = cls.getDictionaryClass(dictionaryName)
-        return dictCls(**options)
 
     @classmethod
     def available(cls, dbConnectInst):

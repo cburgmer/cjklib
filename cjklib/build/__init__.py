@@ -52,6 +52,8 @@ in favour of 'CombinedCharacterResidualStrokeCountBuilder'
         './cjklib/data/jyutpingsyllables.csv'
 """
 
+__all__ = ["DatabaseBuilder"]
+
 import types
 import locale
 import sys
@@ -117,7 +119,7 @@ class DatabaseBuilder:
         if 'dbConnectInst' in options:
             self.db = options.pop('dbConnectInst')
         else:
-            self.db = dbconnector.DatabaseConnector.getDBConnector(
+            self.db = dbconnector.getDBConnector(
                 {'sqlalchemy.url': databaseUrl})
             """L{DatabaseConnector} instance"""
 

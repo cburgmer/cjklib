@@ -31,7 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 from sqlalchemy import select, union
 
-from cjklib.dbconnector import DatabaseConnector
+from cjklib import dbconnector
 from cjklib import characterlookup
 
 characterSet = 'GB2312Set'
@@ -43,7 +43,7 @@ fullyDecomposedCharacters = set()
 Set of characters with decomposed components completely contained in
 minimalBasicComponents.
 """
-db = DatabaseConnector.getDBConnector()
+db = dbconnector.getDBConnector()
 decompositionTable = db.tables['CharacterDecomposition']
 strokeOrderTable = db.tables['StrokeOrder']
 charsetTable = db.tables[characterSet]

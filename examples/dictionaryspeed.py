@@ -77,7 +77,7 @@ from sqlalchemy.exc import OperationalError
 import cjklib
 from cjklib import dictionary
 from cjklib.reading import ReadingFactory
-from cjklib.dbconnector import DatabaseConnector
+from cjklib import dbconnector
 
 # Several example search requests, spanning headwords, readings and translations
 SEARCH_REQUESTS = ['Beijing', '%Beijing%', 'Bei3jing1', 'Tokyo', 'Tiananmen',
@@ -98,7 +98,7 @@ def runTests(tests, databases, registerUnicode, iteration=10):
         connection = {'sqlalchemy.url': 'sqlite:///%s' % databases[no],
                       'attach': ['cjklib'],
                       'registerUnicode': registerUnicode[no]}
-        db = DatabaseConnector.getDBConnector(connection)
+        db = dbconnector.getDBConnector(connection)
         availableDicts = [dictClass.DICTIONARY_TABLE for dictClass
                           in dictionary.BaseDictionary\
                              .getAvailableDictionaries(db)]
@@ -212,7 +212,7 @@ def buildParser():
 def recreateIndex(database, registerUnicode=False):
     connection = {'sqlalchemy.url': 'sqlite:///%s' % database,
                   'attach': ['cjklib'], 'registerUnicode': registerUnicode}
-    db = DatabaseConnector.getDBConnector(connection)
+    db = dbconnector.getDBConnector(connection)
     availableDicts = [dictClass.DICTIONARY_TABLE for dictClass
                         in dictionary.BaseDictionary\
                             .getAvailableDictionaries(db)]

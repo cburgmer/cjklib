@@ -31,7 +31,7 @@ import sys
 
 from sqlalchemy import select
 
-from cjklib.dbconnector import DatabaseConnector
+from cjklib import dbconnector
 from cjklib import exception
 
 # get local language and output encoding
@@ -40,7 +40,7 @@ language, default_encoding = locale.getdefaultlocale()
 def main():
     # get cjklib database table
     databaseTable = {}
-    db = DatabaseConnector.getDBConnector()
+    db = dbconnector.getDBConnector()
     table = db.tables['RadicalEquivalentCharacter']
     entries = db.selectRows(
         select([table.c.Form, table.c.EquivalentForm, table.c.Locale]))
