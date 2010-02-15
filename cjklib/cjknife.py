@@ -494,17 +494,17 @@ class CharacterInfo:
                 and self.readingFactory.isReadingConversionSupported(
                     dictObj.READING, self.reading)):
                 options['columnFormatStrategies'] = {
-                    'Reading': dictionary.ReadingConversionStrategy(
+                    'Reading': dictionary.format.ReadingConversion(
                         self.reading)}
 
             # handle multiple headwords
             if issubclass(dictObj, dictionary.CEDICT):
                 if self.locale == 'C':
                     options['entryFactory'] \
-                        = dictionary.UnifiedHeadwordEntryFactory('s')
+                        = dictionary.entry.UnifiedHeadword('s')
                 else:
                     options['entryFactory'] \
-                        = dictionary.UnifiedHeadwordEntryFactory('t')
+                        = dictionary.entry.UnifiedHeadword('t')
 
             # create dictionary
             self._dictInstance = dictObj(dbConnectInst=self.db, **options)
