@@ -14,10 +14,9 @@ Additional software
   documentation.
 * nosetests from http://somethingaboutorange.com/mrl/projects/nose is used
   for unit testing.
-* pylint from http://www.logilab.org/857, a tool tool that checks if a
-  module satisfies the Python coding standard and can find simple
-  programming errors. Use the config pylintrc to adapt pylint to settings of
-  cjklib.
+* pylint from http://www.logilab.org/857, a tool that checks if a module
+  satisfies the Python coding standard and can find simple programming errors.
+  Use the config pylintrc to adapt pylint to settings of cjklib.
 * stdeb from http://github.com/astraw/stdeb, Python to Debian source package
   conversion utility.
 
@@ -92,10 +91,9 @@ $ cd cjklib-read-only
 
 Create the database:
 $ wget ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
-$ python -m cjklib.build.cli build cjklibData --wideBuild=True \
-    --database=sqlite:///cjklib/cjklib.db
-$ python -c \
-    "from cjklib.build import DatabaseBuilder; DatabaseBuilder().optimize()"
+$ python -m cjklib.build.cli build cjklibData \
+    --database=sqlite:///cjklib/cjklib.db --attach=
+$ sqlite3 cjklib/cjklib.db "VACUUM"
 
 Continue with the following distribution specific sections.
 
@@ -121,3 +119,8 @@ Debian
 Create a binary package:
 $ python -c "import stdeb; execfile('setup.py')" bdist_deb \
     --debian-version 1 --extra-cfg-file=cjklib.egg-info/debian_stdeb.cfg
+
+Win32
+-----
+Create executable installer (works under Unix as source-only):
+$ python setup.py bdist_wininst

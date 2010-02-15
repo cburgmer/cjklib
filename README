@@ -55,8 +55,9 @@ for the Mandarin Chinese language.
 SQLite
 ------
 Currently only characters from the Basic Multilingual Plane (BMP) of Unicode
-are supported, due to missing support in MySQL (see below). To enable full
-support set wideBuild to "True" in cjklib.conf.
+are supported, due to missing support in MySQL (see below) and Windows versions
+of Python. To enable full support set wideBuild to "True" in cjklib.conf or
+pass "--wideBuild=True" to buildcjkdb.
 
 SQLite offers a full-text search with extension FTS3 which needs to be
 compiled in to used. Cjknife can use the full-text capabilities for the
