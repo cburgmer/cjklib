@@ -31,6 +31,8 @@ import ConfigParser
 from optparse import Option, OptionValueError
 import csv
 
+from sqlalchemy.types import String, Text
+
 def getConfigSettings(section, projectName='cjklib'):
     """
     Reads the configuration from the given section of the project's config file.
@@ -407,6 +409,69 @@ class ExtendedOption(Option):
                 self, action, dest, opt, value, values, parser)
 
 
+#{ SQLAlchemy column types
+
+class _CollationMixin(object):
+    def __init__(self, collation=None, **kwargs):
+        """
+        @param collation: Optional, a column-level collation for this string
+          value.
+        """
+        self.collation = kwargs.get('collate', collation)
+
+    def _extend(self, spec):
+        """
+        Extend a string-type declaration with standard SQL COLLATE annotation.
+        """
+
+        if self.collation:
+            collation = 'COLLATE %s' % self.collation
+        else:
+            collation = None
+
+        return ' '.join([c for c in (spec, collation) if c is not None])
+
+    def get_search_list(self):
+        return tuple()
+
+class CollationString(_CollationMixin, String):
+    def __init__(self, length=None, collation=None, **kwargs):
+        """
+        Construct a VARCHAR.
+
+        @param collation: Optional, a column-level collation for this string
+          value.
+        """
+        String.__init__(self, length, kwargs.get('convert_unicode', False),
+            kwargs.get('assert_unicode', None))
+        _CollationMixin.__init__(self, collation, **kwargs)
+
+    def get_col_spec(self):
+        if self.length:
+            return self._extend("VARCHAR(%d)" % self.length)
+        else:
+            return self._extend("VARCHAR")
+
+
+class CollationText(_CollationMixin, Text):
+    def __init__(self, length=None, collation=None, **kwargs):
+        """
+        Construct a TEXT.
+
+        @param collation: Optional, a column-level collation for this string
+          value.
+        """
+        Text.__init__(self, length, kwargs.get('convert_unicode', False),
+            kwargs.get('assert_unicode', None))
+        _CollationMixin.__init__(self, collation, **kwargs)
+
+    def get_col_spec(self):
+        if self.length:
+            return self._extend("TEXT(%d)" % self.length)
+        else:
+            return self._extend("TEXT")
+
+
 if sys.version_info >= (2, 5):
     class LazyDict(dict):
         """A dict that will load entries on-demand."""
@@ -415,8 +480,8 @@ if sys.version_info >= (2, 5):
             self.creator = creator
 
         def __missing__(self, key):
-            self[key] = self.creator(key)
-            return self[key]
+            self[key] = value = self.creator(key)
+            return value
 else:
     class LazyDict(dict):
         """A dict that will load entries on-demand."""
@@ -428,8 +493,8 @@ else:
             try:
                 return dict.__getitem__(self, key)
             except KeyError:
-                self[key] = self.creator(key)
-                return self[key]
+                self[key] = value = self.creator(key)
+                return value
 
 if sys.version_info >= (2, 6):
     from collections import MutableMapping

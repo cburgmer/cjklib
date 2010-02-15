@@ -6,6 +6,9 @@ SVN
   for these functions instead.
 - Index tables (e.g. CEDICT_Words) are deprecated and will not be generated
   anymore.
+- Dictionaries are now built with a case-insensitive collation for SQLite and
+  MySQL. For case-insensitive searches via cjklib.dictionary these dictionaries
+  need to be newly created.
 - cjklib.conf needs any SQLAlchemy options to start with string 'sqlalchemy.',
   e.g. 'sqlalchemy.echo = True'. Option 'url' is the only possible exception.
 - The precedence of config files changed: .cjklib.conf in '~' will now have a

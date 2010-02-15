@@ -64,6 +64,18 @@ class DatabaseConnector:
     DatabaseConnector is tested on SQLite and MySQL but should support most
     other database systems through I{SQLAlchemy}.
 
+    SQLite and Unicode
+    ==================
+    SQLite be default only provides letter case folding for alphabetic
+    characters A-Z from ASCII. If SQLite is built against I{ICU}, Unicode
+    methods are used instead for C{LIKE} and C{upper()/lower()}. If I{ICU} is
+    not compiled into the database system L{DatabaseConnector} can register own
+    methods. As this has negative impact on performance, it is disabled by
+    default. Compatibility support can be enabled by setting option
+    C{'registerUnicode'} to C{True} when given as configuration to L{__init__()}
+    or L{getDBConnector()} or alternatively can be set as default in
+    C{cjklib.conf}.
+
     Multiple database support
     =========================
     A DatabaseConnector instance is attached to a main database. Further
@@ -128,7 +140,9 @@ class DatabaseConnector:
         If no configuration is passed a connection is made to the default
         database PROJECTNAME.db in the project's folder.
 
-        See the documentation of sqlalchemy.create_engine() for more options.
+
+        @see: The documentation of sqlalchemy.create_engine() for more options
+        @see: the class documentation of L{DatabaseConnector}.
 
         @param configuration: database connection options (includes settings for
             SQLAlchemy prefixed by C{'sqlalchemy.'})
@@ -209,11 +223,11 @@ class DatabaseConnector:
         configuration. Further databases can be attached by passing a list
         of URLs or names for keyword C{'attach'}, see L{DatabaseConnector}.
 
-        See the documentation of sqlalchemy.create_engine() for more options.
+        @see: The documentation of sqlalchemy.create_engine() for more options
+        @see: the class documentation of L{DatabaseConnector}.
 
         @type configuration: dict
         @param configuration: database connection options for SQLAlchemy
-        @todo Fix: Do we need to register views?
         """
         configuration = configuration or {}
         if isinstance(configuration, basestring):
@@ -232,6 +246,11 @@ class DatabaseConnector:
 
         self.databaseUrl = configuration['sqlalchemy.url']
         """Database url"""
+        registerUnicode = configuration.pop('registerUnicode', False)
+        if isinstance(registerUnicode, basestring):
+            registerUnicode = (registerUnicode.lower()
+                in ['1', 'yes', 'true', 'on'])
+        self.registerUnicode = registerUnicode
 
         self.engine = engine_from_config(configuration, prefix='sqlalchemy.')
         """SQLAlchemy engine object"""
@@ -258,6 +277,11 @@ class DatabaseConnector:
         searchPaths = self.engine.name == 'sqlite'
         for url in self._findAttachableDatabases(attach, searchPaths):
             self.attachDatabase(url)
+
+        # register unicode functions
+        self.compatibilityUnicodeSupport = False
+        if self.registerUnicode:
+            self._registerUnicode()
 
         # register views
         self._registerViews()
@@ -307,6 +331,23 @@ class DatabaseConnector:
                     % name)
 
         return attachable
+
+    def _registerUnicode(self):
+        """
+        Register functions and collations to bring Unicode support to certain
+        engines.
+        """
+        if self.engine.name == 'sqlite':
+            uUmlaut = self.selectScalar(text(u"SELECT lower('Ü');"))
+            if uUmlaut != u'ü':
+                # register own Unicode aware functions
+                con = self.connection.connection
+                con.create_function("lower", 1, lambda s: s and s.lower())
+                con.create_collation("NOCASE",
+                    lambda a, b: cmp(a.decode('utf8').lower(),
+                        b.decode('utf8').lower()))
+
+                self.compatibilityUnicodeSupport = True
 
     def _registerViews(self):
         """

@@ -39,7 +39,7 @@ from sqlalchemy.exceptions import IntegrityError, OperationalError
 from cjklib import characterlookup
 from cjklib import exception
 from cjklib.build import warn
-from cjklib.util import UnicodeCSVFileIterator
+from cjklib.util import UnicodeCSVFileIterator, CollationString, CollationText
 
 # pylint: disable-msg=E1101
 #  member variables are set by setattr()
@@ -2953,6 +2953,9 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
     FILTER = None
     """Filter to apply to the read entry before writing to table."""
 
+    DEFAULT_COLLATION = {'mysql': 'utf8_unicode_ci', 'sqlite': 'NOCASE'}
+    COLUMNS_WITH_COLLATION = ['Translation']
+
     def __init__(self, **options):
         """
         Constructs the EDICTFormatBuilder.
@@ -2971,15 +2974,45 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         """
         super(EDICTFormatBuilder, self).__init__(**options)
 
+        if not self.collation:
+            self.collation = self.DEFAULT_COLLATION.get(self.db.engine.name,
+                None)
+
+        if self.useCollation and self.collation:
+            self._setCollation()
+
         if self.fileType and self.fileType not in ('.zip', '.tar', '.tar.bz2',
             '.tar.gz', '.gz', '.txt'):
             raise ValueError('Unknown file type "%s"' % self.fileType)
+
+    def _setCollation(self):
+        """
+        Tries to set the proper collations for the given columns.
+        """
+        def mapClass(column):
+            if isinstance(column, Text):
+                return CollationText(collation=self.collation)
+            elif isinstance(column, String):
+                #if isinstance(typeobj, type):
+                    #self.COLUMN_TYPES[col] = CollationString(
+                        #collation=collation)
+                #else:
+                length = column.length
+                return CollationString(length, collation=self.collation)
+            else:
+                return column
+
+        if self.db.engine.name not in self.DEFAULT_COLLATION:
+            return
+
+        for col in self.COLUMNS_WITH_COLLATION:
+            self.COLUMN_TYPES[col] = mapClass(self.COLUMN_TYPES[col])
 
     @classmethod
     def getDefaultOptions(cls):
         options = super(EDICTFormatBuilder, cls).getDefaultOptions()
         options.update({'enableFTS3': False, 'filePath': None,
-            'fileType': None})
+            'fileType': None, 'useCollation': True, 'collation': None})
 
         return options
 
@@ -2992,7 +3025,12 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
             'fileType': {'type': 'choice',
                 'choices': ('.zip', '.tar', '.tar.bz2', '.tar.gz', '.gz',
                     '.txt'),
-                'description': "file extension, overrides file type guessing"}}
+                'description': "file extension, overrides file type guessing"},
+            'useCollation': {'type': 'bool',
+                'description': "use collations for dictionary entries"},
+            'collation': {'type': 'string',
+                'description': "collation for dictionary entries"},
+                }
 
         if option in optionsMetaData:
             return optionsMetaData[option]
@@ -3393,7 +3431,6 @@ class CEDICTFormatBuilder(EDICTFormatBuilder):
     Two column will be provided for the headword (one for traditional and
     simplified writings each), one for the reading (e.g. in CEDICT Pinyin) and
     one for the translation.
-    @todo Impl: Proper collation for Translation and Reading columns.
     """
     COLUMNS = ['HeadwordTraditional', 'HeadwordSimplified', 'Reading',
         'Translation']
@@ -3401,6 +3438,7 @@ class CEDICTFormatBuilder(EDICTFormatBuilder):
     COLUMN_TYPES = {'HeadwordTraditional': String(255),
         'HeadwordSimplified': String(255), 'Reading': String(255),
         'Translation': Text()}
+    COLUMNS_WITH_COLLATION = ['Reading', 'Translation']
 
     ENTRY_REGEX = re.compile(
         r'\s*(\S+)(?:\s+(\S+))?\s*\[([^\]]*)\]\s*(/.*/)\s*$')
@@ -3455,6 +3493,7 @@ class CEDICTGRBuilder(EDICTFormatBuilder):
     PROVIDES = 'CEDICTGR'
     FILE_NAMES = ['cedictgr.zip', 'cedictgr.b5']
     ENCODING = 'big5hkscs'
+    COLUMNS_WITH_COLLATION = ['Reading', 'Translation']
 
     def getArchiveContentName(self, nameList, filePath):
         return 'cedictgr.b5'

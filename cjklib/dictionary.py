@@ -93,8 +93,23 @@ will find all entries with headwords whose middle character out of three is
 X{'不'} and whose left character is read X{'dui4'} while the right character is
 read X{'qi3'}.
 
+Case insensitivity & Collations
+===============================
+Case insensitive searching is done through collations in the underlying database
+system and for databases without collation support by employing function
+C{lower()}. A default case independent collation is chosen in the appropriate
+build method in L{cjklib.build.builder}.
+
+I{SQLite} by default has no Unicode support for string operations. Optionally
+the I{ICU} library can be compiled in for handling alphabetic non-ASCII
+characters. The I{DatabaseConnector} can register own Unicode functions if ICU
+support is missing. Queries with C{LIKE} will then use function C{lower()}. This
+compatible mode has a negative impact on performance and as it is not needed for
+dictionaries like EDICT or CEDICT it is disabled by default.
+
 Examples
 ========
+
 - Create a dictionary instance:
 
     >>> from cjklib.dictionary import CEDICT
@@ -155,7 +170,6 @@ TonelessWildcardReadingSearchStrategy())
     >>> search('_taijiu', 'Pinyin')
     茅台酒（茅臺酒） máo tái jiǔ /maotai (a Chinese liquor)/CL:杯[bei1],瓶[ping2]/
 
-@todo Fix: letter case
 @todo Impl: Use Iterators?
 @todo Impl: Pass entry factories directly to search method in DatabaseConnector
 @todo Fix:  Don't "correct" non-reading entities in HanDeDict in builder
@@ -167,6 +181,7 @@ import types
 
 from sqlalchemy import select
 from sqlalchemy.sql import and_, or_
+from sqlalchemy.sql.expression import func
 
 from cjklib.reading import ReadingFactory
 from cjklib.dbconnector import DatabaseConnector
@@ -398,6 +413,8 @@ class UnifiedHeadwordEntryFactory(NamedTupleFactory):
         return map(augmentedEntry, results)
 
     def setDictionaryInstance(self, dictInstance):
+        super(UnifiedHeadwordEntryFactory, self).setDictionaryInstance(
+            dictInstance)
         if not hasattr(dictInstance, 'COLUMNS'):
             raise ValueError('Incompatible dictionary')
 
@@ -474,7 +491,76 @@ class ReadingConversionStrategy(BaseFormatStrategy):
 #}
 #{ Common search classes
 
-class ExactSearchStrategy(object):
+class _CaseInsensitiveBase(object):
+    """Base class providing methods for case insensitive searches."""
+    def __init__(self, caseInsensitive=False, sqlCollation=None, **options):
+        """
+        Initialises the _CaseInsensitiveBase.
+
+        @type caseInsensitive: bool
+        @param caseInsensitive: if C{True}, latin characters match their
+            upper/lower case equivalent, if C{False} case sensitive matches
+            will be made (default)
+        @type sqlCollation: str
+        @param sqlCollation: optional collation to use on columns in SQL queries
+        """
+        self._caseInsensitive = caseInsensitive
+        self._sqlCollation = sqlCollation
+
+    def setDictionaryInstance(self, dictInstance):
+        compatibilityUnicodeSupport = getattr(dictInstance.db,
+            'compatibilityUnicodeSupport', False)
+
+        # Don't depend on collations, but use ILIKE (PostgreSQL) or
+        #   "lower() LIKE lower()" (others)
+        self._needsIlike = (compatibilityUnicodeSupport or
+            dictInstance.db.engine.name not in ('sqlite', 'mysql'))
+        # "lower() LIKE lower()" for DB other than SQLite and MySQL
+        self._needsIEquals = (dictInstance.db.engine.name
+            not in ('sqlite', 'mysql'))
+
+    def _equals(self, column, query):
+        if self._sqlCollation:
+            column = column.collate(self._sqlCollation)
+
+        if self._needsIEquals:
+            return column.lower() == func.lower(query)
+        else:
+            return column == query
+
+    def _contains(self, column, query, escape=None):
+        escape = escape or self.escape
+        if self._sqlCollation:
+            column = column.collate(self._sqlCollation)
+
+        if self._needsIlike:
+            # Uses ILIKE for PostgreSQL and falls back to "lower() LIKE lower()"
+            #   for other engines
+            return column.ilike('%' + query + '%')
+        else:
+            return column.contains(query)
+
+    def _like(self, column, query, escape=None):
+        escape = escape or self.escape
+        if self._sqlCollation:
+            column = column.collate(self._sqlCollation)
+
+        if self._needsIlike:
+            # Uses ILIKE for PostgreSQL and falls back to "lower() LIKE lower()"
+            #   for other engines
+            return column.ilike(query)
+        else:
+            return column.like(query)
+
+    def _compileRegex(self, regexString):
+        if self._caseInsensitive:
+            regexString = '(?ui)^' + regexString
+        else:
+            regexString = '(?u)^' + regexString
+        return re.compile(regexString)
+
+
+class ExactSearchStrategy(_CaseInsensitiveBase):
     """Simple search strategy class."""
     def getWhereClause(self, column, searchStr):
         """
@@ -488,7 +574,7 @@ class ExactSearchStrategy(object):
         @param searchStr: search string
         @return: SQLAlchemy clause
         """
-        return column == searchStr
+        return self._equals(column, searchStr)
 
     def getMatchFunction(self, searchStr):
         """
@@ -504,7 +590,11 @@ class ExactSearchStrategy(object):
         @rtype: function
         @return: function that returns C{True} if the entry is a match
         """
-        return lambda cell: searchStr == cell
+        if self._caseInsensitive:
+            searchStr = searchStr.lower()
+            return lambda cell: searchStr == cell.lower()
+        else:
+            return lambda cell: searchStr == cell
 
 
 class _WildcardBase(object):
@@ -529,7 +619,7 @@ class _WildcardBase(object):
         REGEX_PATTERN = '.*'
 
     def __init__(self, singleCharacter='_', multipleCharacters='%',
-        escape='\\'):
+        escape='\\', **options):
         self.singleCharacter = singleCharacter
         self.multipleCharacters = multipleCharacters
         self.escape = escape
@@ -602,15 +692,20 @@ class _WildcardBase(object):
         return ''.join(entityList)
 
     def _getWildcardRegex(self, searchStr):
-        return re.compile('^' + self._prepareWildcardRegex(searchStr) + '$')
+        return self._compileRegex('^' + self._prepareWildcardRegex(searchStr)
+            + '$')
 
 
 class WildcardSearchStrategy(ExactSearchStrategy, _WildcardBase):
     """Basic headword search strategy with support for wildcards."""
+    def __init__(self, **options):
+        ExactSearchStrategy.__init__(self, **options)
+        _WildcardBase.__init__(self, **options)
+
     def getWhereClause(self, column, searchStr, **options):
         if self._hasWildcardCharacters(searchStr):
             wildcardSearchStr = self._getWildcardQuery(searchStr)
-            return column.like(wildcardSearchStr, escape=self.escape)
+            return self._like(column, wildcardSearchStr)
         else:
             # simple routine is faster
             return ExactSearchStrategy.getWhereClause(self, column, searchStr)
@@ -629,22 +724,36 @@ class WildcardSearchStrategy(ExactSearchStrategy, _WildcardBase):
 
 class SingleEntryTranslationSearchStrategy(ExactSearchStrategy):
     """Basic translation search strategy."""
+    def __init__(self, caseInsensitive=True, **options):
+        ExactSearchStrategy.__init__(self, caseInsensitive=caseInsensitive,
+            **options)
+
     def getWhereClause(self, column, searchStr):
-        return column.contains(_escapeWildcards(searchStr), escape='\\')
+        return self._contains(column, _escapeWildcards(searchStr), escape='\\')
 
     def getMatchFunction(self, searchStr):
-        return lambda translation: searchStr in translation.split('/')
+        if self._caseInsensitive:
+            searchStr = searchStr.lower()
+            return (lambda translation:
+                    searchStr in translation.lower().split('/'))
+        else:
+            return lambda translation: searchStr in translation.split('/')
 
 
 class WildcardTranslationSearchStrategy(SingleEntryTranslationSearchStrategy,
     _WildcardBase):
     """Basic translation search strategy with support for wildcards."""
+    def __init__(self, *args, **options):
+        SingleEntryTranslationSearchStrategy.__init__(self, *args, **options)
+        _WildcardBase.__init__(self, *args, **options)
+
     def _getWildcardRegex(self, searchStr):
-        return re.compile('/' + self._prepareWildcardRegex(searchStr) + '/')
+        return self._compileRegex('/' + self._prepareWildcardRegex(searchStr)
+            + '/')
 
     def getWhereClause(self, column, searchStr):
         wildcardSearchStr = self._getWildcardQuery(searchStr)
-        return column.contains(wildcardSearchStr, escape=self.escape)
+        return self._contains(column, wildcardSearchStr)
 
     def getMatchFunction(self, searchStr):
         if self._hasWildcardCharacters(searchStr):
@@ -666,8 +775,8 @@ class SimpleTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
         # start with a slash '/', make sure any opening parenthesis is
         #   closed and match search string. Finish with other content in
         #   parantheses and a slash
-        regex = re.compile('/' + '(\s+|\([^\)]+\))*' + re.escape(searchStr)
-            + '(\s+|\([^\)]+\))*' + '/')
+        regex = self._compileRegex('/' + '(\s+|\([^\)]+\))*'
+            + re.escape(searchStr) + '(\s+|\([^\)]+\))*' + '/')
 
         return lambda translation: (translation is not None
             and regex.search(translation) is not None)
@@ -689,6 +798,10 @@ class SimpleWildcardTranslationSearchStrategy(SimpleTranslationSearchStrategy,
     Simple translation search strategy with support for wildcards. Takes into
     account additions put in parentheses.
     """
+    def __init__(self, *args, **options):
+        SimpleTranslationSearchStrategy.__init__(self, *args, **options)
+        _SimpleTranslationWildcardBase.__init__(self, *args, **options)
+
     def _getWildcardRegex(self, searchStr):
         # TODO '* Tokyo' finds "/(n) Tokyo (current capital of Japan)/(P)/"
         #   but should probably disregard that
@@ -698,11 +811,11 @@ class SimpleWildcardTranslationSearchStrategy(SimpleTranslationSearchStrategy,
         if not searchStr.endswith('%'):
             regexStr = regexStr + '(\s+|\([^\)]+\))*'
 
-        return re.compile('/' + regexStr + '/')
+        return self._compileRegex('/' + regexStr + '/')
 
     def getWhereClause(self, column, searchStr):
         wildcardSearchStr = self._getWildcardQuery(searchStr)
-        return column.contains(wildcardSearchStr, escape=self.escape)
+        return self._contains(column, wildcardSearchStr)
 
     def getMatchFunction(self, searchStr):
         if self._hasWildcardCharacters(searchStr):
@@ -724,8 +837,8 @@ class CEDICTTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
         # start with a slash '/', make sure any opening parenthesis is
         #   closed and match search string. Finish with other content in
         #   parantheses and a slash
-        regex = re.compile('/' + '(\s+|\([^\)]+\))*' + re.escape(searchStr)
-            + '(\s+|\([^\)]+\))*' + '[/,]')
+        regex = self._compileRegex('/' + '(\s+|\([^\)]+\))*'
+            + re.escape(searchStr) + '(\s+|\([^\)]+\))*' + '[/,]')
 
         return lambda translation: (translation is not None
             and regex.search(translation) is not None)
@@ -738,6 +851,10 @@ class CEDICTWildcardTranslationSearchStrategy(CEDICTTranslationSearchStrategy,
     into account additions put in parentheses and appended information separated
     by a comma.
     """
+    def __init__(self, *args, **options):
+        CEDICTTranslationSearchStrategy.__init__(self, *args, **options)
+        _SimpleTranslationWildcardBase.__init__(self, *args, **options)
+
     def _getWildcardRegex(self, searchStr):
         # TODO '* Tokyo' finds "/(n) Tokyo (current capital of Japan)/(P)/"
         #   but should probably disregard that
@@ -747,11 +864,11 @@ class CEDICTWildcardTranslationSearchStrategy(CEDICTTranslationSearchStrategy,
         if not searchStr.endswith('%'):
             regexStr = regexStr + '(\s+|\([^\)]+\))*'
 
-        return re.compile('/' + regexStr + '[/,]')
+        return self._compileRegex('/' + regexStr + '[/,]')
 
     def getWhereClause(self, column, searchStr):
         wildcardSearchStr = self._getWildcardQuery(searchStr)
-        return column.contains(wildcardSearchStr, escape=self.escape)
+        return self._contains(column, wildcardSearchStr)
 
     def getMatchFunction(self, searchStr):
         if self._hasWildcardCharacters(searchStr):
@@ -775,7 +892,7 @@ class HanDeDictTranslationSearchStrategy(SingleEntryTranslationSearchStrategy):
         #   closed, end any other entry with a punctuation mark, and match
         #   search string. Finish with other content in parantheses and
         #   a slash or punctuation mark
-        regex = re.compile('/((\([^\)]+\)|[^\(])+'
+        regex = self._compileRegex('/((\([^\)]+\)|[^\(])+'
             + '(?!; Bsp.: [^/]+?--[^/]+)[\,\;\.\?\!])?' + '(\s+|\([^\)]+\))*'
             + re.escape(searchStr) + '(\s+|\([^\)]+\))*' + '[/\,\;\.\?\!]')
 
@@ -790,6 +907,10 @@ class HanDeDictWildcardTranslationSearchStrategy(
     Takes into account additions put in parentheses and appended information
     separated by a comma.
     """
+    def __init__(self, *args, **options):
+        HanDeDictTranslationSearchStrategy.__init__(self, *args, **options)
+        _SimpleTranslationWildcardBase.__init__(self, *args, **options)
+
     def _getWildcardRegex(self, searchStr):
         # TODO '* Tokyo' finds "/(n) Tokyo (current capital of Japan)/(P)/"
         #   but should probably disregard that
@@ -799,13 +920,13 @@ class HanDeDictWildcardTranslationSearchStrategy(
         if not searchStr.endswith('%'):
             regexStr = regexStr + '(\s+|\([^\)]+\))*'
 
-        return re.compile('/((\([^\)]+\)|[^\(])+'
+        return self._compileRegex('/((\([^\)]+\)|[^\(])+'
             + '(?!; Bsp.: [^/]+?--[^/]+)[\,\;\.\?\!])?' + regexStr
             + '[/\,\;\.\?\!]')
 
     def getWhereClause(self, column, searchStr):
         wildcardSearchStr = self._getWildcardQuery(searchStr)
-        return column.contains(wildcardSearchStr, escape=self.escape)
+        return self._contains(column, wildcardSearchStr)
 
     def getMatchFunction(self, searchStr):
         if self._hasWildcardCharacters(searchStr):
@@ -826,10 +947,14 @@ class SimpleReadingSearchStrategy(ExactSearchStrategy):
     reading and separates entities by space.
     @todo Fix: How to handle non-reading entities?
     """
-    def __init__(self):
+    def __init__(self, caseInsensitive=True, **options):
+        ExactSearchStrategy.__init__(self, caseInsensitive=caseInsensitive,
+            **options)
         self._getReadingsOptions = None
 
     def setDictionaryInstance(self, dictInstance):
+        super(SimpleReadingSearchStrategy, self).setDictionaryInstance(
+            dictInstance)
         self._dictInstance = dictInstance
         self._readingFactory = ReadingFactory(
             dbConnectInst=self._dictInstance.db)
@@ -879,15 +1004,21 @@ class SimpleReadingSearchStrategy(ExactSearchStrategy):
     def getWhereClause(self, column, searchStr, **options):
         decompEntities = self._getReadings(searchStr, **options)
 
-        return or_(*[column == ' '.join(entities)
+        return or_(*[self._equals(column, ' '.join(entities))
             for entities in decompEntities])
 
     def getMatchFunction(self, searchStr, **options):
+        if self._caseInsensitive:
+            # assume that conversion of lower case results in lower case
+            searchStr = searchStr.lower()
         decompEntities = self._getReadings(searchStr, **options)
 
         matchSet = set([' '.join(entities) for entities in decompEntities])
 
-        return lambda reading: reading in matchSet
+        if self._caseInsensitive:
+            return lambda reading: reading.lower() in matchSet
+        else:
+            return lambda reading: reading in matchSet
 
 
 class _SimpleReadingWildcardBase(_WildcardBase):
@@ -1033,9 +1164,15 @@ class _SimpleReadingWildcardBase(_WildcardBase):
 
             return False
 
+        if self._caseInsensitive:
+            # assume that conversion of lower case results in lower case
+            searchStr = searchStr.lower()
         wildcardForms = self._getWildcardForms(searchStr, **options)
 
-        return matchReadingEntities
+        if self._caseInsensitive:
+            return lambda reading: matchReadingEntities(reading.lower())
+        else:
+            return matchReadingEntities
 
 
 class SimpleWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
@@ -1051,8 +1188,7 @@ class SimpleWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
     def getWhereClause(self, column, searchStr, **options):
         if self._hasWildcardCharacters(searchStr):
             queries = self._getWildcardQuery(searchStr, **options)
-            return or_(*[column.like(query, escape=self.escape)
-                for query in queries])
+            return or_(*[self._like(column, query) for query in queries])
         else:
             # simple routine is faster
             return SimpleReadingSearchStrategy.getWhereClause(self, column,
@@ -1188,8 +1324,16 @@ class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
         return simpleReadings
 
     def _getSimpleMatchFunction(self, searchStr, **options):
+        if self._caseInsensitive:
+            searchStr = searchStr.lower()
         simpleForms = self._getWildcardForms(searchStr, **options)
-        return lambda reading: self._getReadingEntities(reading) in simpleForms
+
+        if self._caseInsensitive:
+            return (lambda reading: self._getReadingEntities(reading.lower())
+                in simpleForms)
+        else:
+            return (lambda reading: self._getReadingEntities(reading)
+                in simpleForms)
 
 
 class TonelessWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
@@ -1217,7 +1361,8 @@ readingSearchStrategy=dictionary.TonelessWildcardReadingSearchStrategy())
         _TonelessReadingWildcardBase.__init__(self, **options)
 
     def setDictionaryInstance(self, dictInstance):
-        SimpleReadingSearchStrategy.setDictionaryInstance(self, dictInstance)
+        super(TonelessWildcardReadingSearchStrategy,
+            self).setDictionaryInstance(dictInstance)
         if not self._hasTonlessSupport():
             raise ValueError(
                 "Dictionary's reading not supported for toneless searching")
@@ -1240,12 +1385,11 @@ readingSearchStrategy=dictionary.TonelessWildcardReadingSearchStrategy())
     def getWhereClause(self, column, searchStr, **options):
         if self._hasWildcardForms(searchStr, **options):
             queries = self._getWildcardQuery(searchStr, **options)
-            return or_(*[column.like(query, escape=self.escape)
-                for query in queries])
+            return or_(*[self._like(column, query) for query in queries])
         else:
             # exact lookup
             queries = self._getSimpleQuery(searchStr, **options)
-            return or_(*[column == query for query in queries])
+            return or_(*[self._equals(column, query) for query in queries])
 
     def getMatchFunction(self, searchStr, **options):
         if self._hasWildcardForms(searchStr, **options):
@@ -1416,9 +1560,15 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
 
             return False
 
+        if self._caseInsensitive:
+            # assume that conversion of lower case results in lower case
+            searchStr = searchStr.lower()
         searchPairs = self._getWildcardForms(searchStr, **options)
 
-        return matchHeadwordReadingPair
+        if self._caseInsensitive:
+            return lambda h, r: matchHeadwordReadingPair(h, r.lower())
+        else:
+            return matchHeadwordReadingPair
 
 
 class MixedWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
@@ -1454,8 +1604,8 @@ class MixedWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
         queries = self._getWildcardQuery(searchStr, **options)
         if queries:
             return or_(*[
-                    and_(headwordColumn.like(headwordQuery, escape=self.escape),
-                        readingColumn.like(readingQuery, escape=self.escape))
+                    and_(self._like(headwordColumn, headwordQuery),
+                        self._like(readingColumn, readingQuery))
                     for headwordQuery, readingQuery in queries])
         else:
             return None
@@ -1579,8 +1729,8 @@ class MixedTonelessWildcardReadingSearchStrategy(SimpleReadingSearchStrategy,
         queries = self._getWildcardQuery(searchStr, **options)
         if queries:
             return or_(*[
-                    and_(headwordColumn.like(headwordQuery, escape=self.escape),
-                        readingColumn.like(readingQuery, escape=self.escape))
+                    and_(self._like(headwordColumn, headwordQuery),
+                        self._like(readingColumn, readingQuery))
                     for headwordQuery, readingQuery in queries])
         else:
             return None
@@ -1824,7 +1974,7 @@ class EDICTStyleDictionary(BaseDictionary):
 
         return [headwordClause], [(['Headword'], headwordMatchFunc)]
 
-    def getForHeadword(self, headwordStr, limit=None, orderBy=None):
+    def getForHeadword(self, headwordStr, limit=None, orderBy=None, **options):
         clauses, filters = self._getHeadwordSearch(headwordStr)
 
         return self._search(or_(*clauses), filters, limit, orderBy)
@@ -1877,7 +2027,8 @@ class EDICTStyleDictionary(BaseDictionary):
 
         return [translationClause], [(['Translation'], translationMatchFunc)]
 
-    def getForTranslation(self, translationStr, limit=None, orderBy=None):
+    def getForTranslation(self, translationStr, limit=None, orderBy=None,
+        **options):
         clauses, filters = self._getTranslationSearch(translationStr)
 
         return self._search(or_(*clauses), filters, limit, orderBy)

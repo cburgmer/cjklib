@@ -243,6 +243,8 @@ format --BuilderName-option or --TableName-option, e.g.
             options['databaseUrl'] = config['sqlalchemy.url']
         if 'attach' in config:
             options['attach'] = config['attach']
+        if 'registerUnicode' in config:
+            options['registerUnicode'] = config['registerUnicode']
 
         # build specific options
         options.update(cls.getBuilderConfigSettings())
@@ -282,6 +284,11 @@ There is NO WARRANTY, to the extent permitted by law.""" \
         parser.add_option("--attach", action="appendResetDefault",
             metavar="URL", dest="attach", default=defaults.get("attach", []),
             help="attachable databases [default: %default]")
+        parser.add_option("--registerUnicode", action="store", type='bool',
+            metavar="BOOL", dest="registerUnicode",
+            default=defaults.get("registerUnicode", False),
+            help=("register own Unicode functions if no ICU support available"
+                " [default: %default]"))
 
         optionSet = set(['rebuildExisting', 'rebuildDepending', 'quiet',
             'databaseUrl', 'attach', 'prefer'])
@@ -450,6 +457,8 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             configuration['sqlalchemy.url'])
         configuration['attach'] = [attach for attach in
             options.pop('attach', configuration.get('attach', [])) if attach]
+        if 'registerUnicode' in options:
+            configuration['registerUnicode'] = options.pop('registerUnicode')
         try:
             db = DatabaseConnector(configuration)
         except ValueError, e:
