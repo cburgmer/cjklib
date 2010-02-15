@@ -1835,16 +1835,17 @@ class BaseDictionary(object):
             and clss.PROVIDES])
 
     @staticmethod
-    def getAvailableDictionaries(dbConnectInst):
+    def getAvailableDictionaries(dbConnectInst=None):
         """
         Returns a list of available dictionaries for the given database
         connection.
 
         @type dbConnectInst: instance
-        @param dbConnectInst: instance of a L{DatabaseConnector}
+        @param dbConnectInst: optional instance of a L{DatabaseConnector}
         @rtype: list of class
         @return: list of dictionary class objects
         """
+        dbConnectInst = dbConnectInst or DatabaseConnector.getDBConnector()
         available = []
         for dictionaryClass in BaseDictionary.getDictionaryClasses():
             if dictionaryClass.available(dbConnectInst):
@@ -1867,6 +1868,17 @@ class BaseDictionary(object):
         if dictionaryName not in cls._dictionaryMap:
             raise ValueError('Not a supported dictionary')
         return cls._dictionaryMap[dictionaryName]
+
+    @classmethod
+    def getDictionary(cls, dictionaryName, **options):
+        """
+        Get a dictionary instance by dictionary name.
+
+        @rtype: type
+        @return: dictionary instance
+        """
+        dictCls = cls.getDictionaryClass(dictionaryName)
+        return dictCls(**options)
 
     @classmethod
     def available(cls, dbConnectInst):
