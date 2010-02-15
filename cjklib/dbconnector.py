@@ -283,9 +283,6 @@ class DatabaseConnector:
         if self.registerUnicode:
             self._registerUnicode()
 
-        # register views
-        self._registerViews()
-
     def _findAttachableDatabases(self, attachList, searchPaths=False):
         """
         Returns URLs for databases that can be attached to a given database.
@@ -349,40 +346,45 @@ class DatabaseConnector:
 
                 self.compatibilityUnicodeSupport = True
 
-    def _registerViews(self):
+    #{ Multiple database support
+
+    def _getViews(self):
         """
-        Registers all views and makes them accessible through the same methods
-        as tables in SQLAlchemy.
+        Returns all views.
 
         @rtype: list of str
-        @return: List of registered views
+        @return: list of views
         @attention: Currently only works for MySQL and SQLite.
-        @todo Impl: registering for all attached databases
         """
+        # get views that are currently not (well) supported by SQLalchemy
+        #   http://www.sqlalchemy.org/trac/ticket/812
+        schemas = [self._mainSchema] + self.attached.values()
+
         if self.engine.name == 'mysql':
-            dbName = self.engine.url.database
-            viewList = self.execute(
-                text("SELECT table_name FROM Information_schema.views"
-                    " WHERE table_schema = :dbName"),
-                dbName=dbName).fetchall()
+            views = []
+            for schema in schemas:
+                viewList = self.execute(
+                    text("SELECT table_name FROM Information_schema.views"
+                        " WHERE table_schema = :schema"),
+                    schema=schema).fetchall()
+                views.extend([view for view, in viewList if view not in views])
         elif self.engine.name == 'sqlite':
-            viewList = self.execute(
-                text("SELECT name FROM sqlite_master WHERE type IN ('view')"))\
-                .fetchall()
+            views = []
+            identifier_preparer = self.engine.dialect.identifier_preparer
+            for schema in schemas:
+                qschema = identifier_preparer.quote_identifier(schema)
+                s = ("SELECT name FROM %s.sqlite_master "
+                        "WHERE type='view' ORDER BY name") % qschema
+
+                viewList = self.execute(text(s)).fetchall()
+                views.extend([view for view, in viewList if view not in views])
         else:
             logging.warning("Don't know how to get all views from database."
                 " Unable to register."
                 " Views will not show up in list of available tables.")
-            return
+            return []
 
-        for viewName, in viewList:
-            # add views that are currently not (well) supported by SQLalchemy
-            #   http://www.sqlalchemy.org/trac/ticket/812
-            Table(viewName, self.metadata, autoload=True)
-
-        return [viewName for viewName, in viewList]
-
-    #{ Multiple database support
+        return views
 
     def attachDatabase(self, databaseUrl):
         """
@@ -428,7 +430,7 @@ class DatabaseConnector:
         @rtype: iterable
         @return: all tables and views
         """
-        tables = set(self._registerViews())
+        tables = set(self._getViews())
         tables.update(self.engine.table_names(schema=self._mainSchema))
         for schema in self.attached.values():
             tables.update(self.engine.table_names(schema=schema))
