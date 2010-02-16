@@ -1064,7 +1064,9 @@ class ReadingFactory(object):
 
     def getTonalEntity(self, plainEntity, tone, readingN, **options):
         """
-        Gets the entity with tone mark for the given plain entity and tone.
+        Gets the entity with tone mark for the given plain entity and tone. The
+        letter case of the given plain entity might not be fully conserved for
+        mixed case strings.
 
         @type plainEntity: str
         @param plainEntity: entity without tonal information
@@ -1086,7 +1088,8 @@ class ReadingFactory(object):
     def splitEntityTone(self, entity, readingN, **options):
         """
         Splits the entity into an entity without tone mark (plain entity) and
-        the entity's tone.
+        the entity's tone. The letter case of the given entity might not be
+        fully conserved for mixed case strings.
 
         @type entity: str
         @param entity: entity with tonal information

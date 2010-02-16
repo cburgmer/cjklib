@@ -696,7 +696,9 @@ class TonalFixedEntityOperator(ReadingOperator):
 
     def getTonalEntity(self, plainEntity, tone):
         """
-        Gets the entity with tone mark for the given plain entity and tone.
+        Gets the entity with tone mark for the given plain entity and tone. The
+        letter case of the given plain entity might not be fully conserved for
+        mixed case strings.
 
         The base class' implementation will raise a NotImplementedError.
 
@@ -714,7 +716,8 @@ class TonalFixedEntityOperator(ReadingOperator):
     def splitEntityTone(self, entity):
         """
         Splits the entity into an entity without tone mark (plain entity) and
-        the entity's tone.
+        the entity's tone. The letter case of the given entity might not be
+        fully conserved for mixed case strings.
 
         The base class' implementation will raise a NotImplementedError.
 
@@ -3339,7 +3342,7 @@ class GROperator(TonalRomanisationOperator):
             raise UnsupportedError("Not supported for '" + plainEntity + "'")
 
         # split syllable into CVC parts
-        c1, v, c2 = self.splitPlainSyllableCVC(plainEntity)
+        c1, v, c2 = self.splitPlainSyllableCVC(plainEntity.lower())
         # get tonal of etymological syllable
         baseTone = self.getBaseTone(tone)
 
@@ -3439,6 +3442,9 @@ class GROperator(TonalRomanisationOperator):
         elif tone.endswith('Optional5th'):
             tonalEntity = self.optionalNeutralToneMarker + tonalEntity
 
+        if plainEntity.isupper(): tonalEntity = tonalEntity.upper()
+        elif plainEntity.istitle(): tonalEntity = tonalEntity.title()
+
         return tonalEntity
 
     def splitEntityTone(self, entity):
@@ -3449,15 +3455,20 @@ class GROperator(TonalRomanisationOperator):
                     tonalEntity = self.getTonalEntity(plainEntity, tone)
                     self._syllableToneLookup[tonalEntity] = (plainEntity, tone)
 
-        if entity not in self._syllableToneLookup:
+        try:
+            plainEntity, tone = self._syllableToneLookup[entity.lower()]
+        except KeyError:
             # don't work for Erlhuah forms
             if self.isReadingEntity(entity):
-                raise UnsupportedError("Not supported for '" + entity + "'")
+                raise UnsupportedError("Not supported for '%s'" % entity)
             else:
-                raise InvalidEntityError("Invalid entity given for '" \
-                    + entity + "'")
+                raise InvalidEntityError("Invalid entity given for '%s'"
+                    % entity)
 
-        return self._syllableToneLookup[entity]
+        if entity.isupper(): plainEntity = plainEntity.upper()
+        elif entity.istitle(): plainEntity = plainEntity.title()
+
+        return plainEntity, tone
 
     def isRhotacisedReadingEntity(self, entity):
         """
@@ -4124,7 +4135,7 @@ class MandarinBrailleOperator(ReadingOperator):
             raise InvalidEntityError(
                 "Invalid tone information given for '%s': '%s'"
                     % (plainEntity, unicode(tone)))
-        
+
         if self.toneMarkType == 'none' or tone == None:
             return plainEntity
         else:
