@@ -29,6 +29,8 @@ The script's output depends on the following:
 @copyright: Copyright (C) 2006-2009 cjklib developers
 """
 
+__all__ = ["CharacterInfo"]
+
 import sys
 import getopt
 import locale
@@ -48,7 +50,9 @@ from cjklib import exception
 from cjklib.util import getConfigSettings
 
 # work around http://bugs.python.org/issue2517
-if sys.version_info[0:2] == (2, 5):
+if sys.version_info < (2, 5):
+    getExceptionString = lambda e: unicode(e.args[0])
+elif sys.version_info < (2, 6):
     getExceptionString = lambda e: unicode(e.message)
 else:
     getExceptionString = lambda e: unicode(e)
