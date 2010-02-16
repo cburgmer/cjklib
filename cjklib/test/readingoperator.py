@@ -349,7 +349,8 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
         returns the original value for all entities returned by
         C{getReadingEntities()}.
         """
-        if not hasattr(self.readingOperatorClass, "getPlainReadingEntities"):
+        if not (hasattr(self.readingOperatorClass, "getTonalEntity")
+            and hasattr(self.readingOperatorClass, "splitEntityTone")):
             return
 
         forms = []
@@ -378,6 +379,34 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
                         % repr(entity) \
                         + ' (reading %s, dialect %s)' \
                             % (self.READING_NAME, dialect))
+
+
+            if (not hasattr(self, 'testUpperCase')
+                or self.testUpperCase(dialect)):
+                for entity in entities:
+                    entityUpper = entity.upper()
+                    if entity == entityUpper:
+                        continue
+                    try:
+                        plainEntity, tone = self.f.splitEntityTone(
+                            entityUpper, self.READING_NAME, **dialect)
+
+                        self.assertEquals(
+                            self.f.getTonalEntity(plainEntity, tone,
+                                self.READING_NAME, **dialect),
+                            entity.upper(),
+                            ("Entity %s not preserved in composition"
+                                % repr(entityUpper)) \
+                                + " of getTonalEntity() and splitEntityTone()" \
+                                + ' (reading %s, dialect %s)' \
+                                    % (self.READING_NAME, dialect))
+                    except exception.UnsupportedError:
+                        pass
+                    except exception.InvalidEntityError:
+                        self.fail("Entity %s raised InvalidEntityError" \
+                            % repr(entityUpper) \
+                            + ' (reading %s, dialect %s)' \
+                                % (self.READING_NAME, dialect))
 
     @attr('quiteslow')
     def testSplitEntityToneReturnsValidInformation(self):
@@ -650,6 +679,10 @@ class CanoneseIPAOperatorConsistencyTest(ReadingOperatorConsistencyTest,
             {'toneMarkType': 'none'}],
         [{}, {'stopTones': 'general'}, {'stopTones': 'explicit'}],
         )
+
+    @staticmethod
+    def testUpperCase(dialect):
+        return False
 
     def cleanDecomposition(self, decomposition, reading, **options):
         return [entity for entity in decomposition if entity != '.']
@@ -1963,6 +1996,10 @@ class GROperatorConsistencyTest(ReadingOperatorConsistencyTest,
         [{}, {'case': 'lower'}],
         )
 
+    @staticmethod
+    def testUpperCase(dialect):
+        return dialect.get('case', None) != 'lower'
+
     def cleanDecomposition(self, decomposition, reading, **options):
         if not hasattr(self, '_operators'):
             self._operators = []
@@ -2546,6 +2583,10 @@ class MandarinIPAOperatorConsistencyTest(ReadingOperatorConsistencyTest,
             #{'toneMarkType': 'diacritics', 'missingToneMark': 'ignore'},
             {'toneMarkType': 'none'}],
         )
+
+    @staticmethod
+    def testUpperCase(dialect):
+        return False
 
     def cleanDecomposition(self, decomposition, reading, **options):
         return [entity for entity in decomposition if entity != '.']
