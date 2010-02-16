@@ -59,7 +59,6 @@ def getConfigSettings(section, projectName='cjklib'):
         if 'APPDATA' in os.environ:
             configFiles += [
                 os.path.join(os.environ["APPDATA"], projectName),
-                os.path.join(homeDir, '%s.conf' % projectName),
                 ]
         # OSX
         if platform.system() == 'Darwin':
@@ -72,6 +71,7 @@ def getConfigSettings(section, projectName='cjklib'):
         configFiles += [
             os.path.join('/', 'etc', '%s.conf' % projectName),
             os.path.join(homeDir, '.%s.conf' % projectName),
+            os.path.join(homeDir, '%s.conf' % projectName),
             ]
 
         config.read(configFiles)
@@ -134,6 +134,11 @@ def getSearchPaths(projectName='cjklib'):
         from pkg_resources import Requirement, resource_filename
         libdir = resource_filename(Requirement.parse(projectName), projectName)
     except ImportError:
+        if projectName != 'cjklib':
+            import warnings
+            warnings.warn(("Module 'pkg_resources' not available"
+                ", cannot locate packaged files for project '%s'")
+                % projectName)
         # fall back to the directory of this file, only works for cjklib
         libdir = os.path.dirname(os.path.abspath(__file__))
 
@@ -160,7 +165,7 @@ def getDataPath():
 
     return dataDir
 
-#{ Unicode enhancement
+#{ Unicode support enhancement
 
 # define our own titlecase methods, as the Python implementation is currently
 #   buggy (http://bugs.python.org/issue6412), see also
@@ -490,14 +495,8 @@ if sys.version_info >= (2, 5):
         when the function is used."""
         @functools.wraps(func)
         def new_func(*args, **kwargs):
-            warnings.warn_explicit(
-                "Call to deprecated function %(funcname)s." % {
-                    'funcname': func.__name__,
-                },
-                category=DeprecationWarning,
-                filename=func.func_code.co_filename,
-                lineno=func.func_code.co_firstlineno + 1
-            )
+            warnings.warn("Call to deprecated function %s." % func.__name__,
+                category=DeprecationWarning, stacklevel=2)
             return func(*args, **kwargs)
         return new_func
 else:
@@ -509,7 +508,7 @@ else:
         when the function is used."""
         def new_func(*args, **kwargs):
             warnings.warn("Call to deprecated function %s." % func.__name__,
-                category=DeprecationWarning)
+                category=DeprecationWarning, stacklevel=2)
             return func(*args, **kwargs)
         new_func.__name__ = func.__name__
         new_func.__doc__ = func.__doc__

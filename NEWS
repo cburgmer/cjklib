@@ -11,5 +11,5 @@ SVN
   need to be newly created.
 - cjklib.conf needs any SQLAlchemy options to start with string 'sqlalchemy.',
   e.g. 'sqlalchemy.echo = True'. Option 'url' is the only possible exception.
-- The precedence of config files changed: .cjklib.conf in '~' will now have a
-  heigher weight over /etc/cjklib.conf.
+- The precedence of config files changed: .cjklib.conf (or cjklib.conf) in '~'
+  will now have a heigher weight over /etc/cjklib.conf.
