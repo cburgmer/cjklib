@@ -760,7 +760,7 @@ class SimpleWildcardReading(SimpleReading,
     string to the dictionary reading and separates entities by space.
     """
     def __init__(self, **options):
-        SimpleReading.__init__(self)
+        SimpleReading.__init__(self, **options)
         _SimpleReadingWildcardBase.__init__(self, **options)
 
     def getWhereClause(self, column, searchStr, **options):
@@ -933,7 +933,7 @@ class TonelessWildcardReading(SimpleReading,
         for missing tone
     """
     def __init__(self, **options):
-        SimpleReading.__init__(self)
+        SimpleReading.__init__(self, **options)
         _TonelessReadingWildcardBase.__init__(self, **options)
 
     def setDictionaryInstance(self, dictInstance):
@@ -1158,9 +1158,9 @@ class MixedWildcardReading(SimpleReading,
     This strategy complements the basic search strategy. It is not built to
     return results for plain reading or plain headword strings.
     """
-    def __init__(self, supportWildcards=True):
-        SimpleReading.__init__(self)
-        _MixedReadingWildcardBase.__init__(self, supportWildcards)
+    def __init__(self, supportWildcards=True, **options):
+        SimpleReading.__init__(self, **options)
+        _MixedReadingWildcardBase.__init__(self, supportWildcards, **options)
 
     def getWhereClause(self, headwordColumn, readingColumn, searchStr,
         **options):
@@ -1283,9 +1283,10 @@ class MixedTonelessWildcardReading(SimpleReading,
     This strategy complements the basic search strategy. It is not built to
     return results for plain reading or plain headword strings.
     """
-    def __init__(self, supportWildcards=True):
-        SimpleReading.__init__(self)
-        _MixedTonelessReadingWildcardBase.__init__(self, supportWildcards)
+    def __init__(self, supportWildcards=True, **options):
+        SimpleReading.__init__(self, **options)
+        _MixedTonelessReadingWildcardBase.__init__(self, supportWildcards,
+            **options)
 
     def getWhereClause(self, headwordColumn, readingColumn, searchStr,
         **options):
