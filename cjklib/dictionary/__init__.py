@@ -418,11 +418,12 @@ class EDICTStyleDictionary(BaseDictionary):
         if orderBy is not None:
             if type(orderBy) != type([]):
                 orderBy = [orderBy]
-            try:
-                orderByCols = [dictionaryTable.c[col] for col in orderBy]
-            except KeyError:
-                raise ValueError("Invalid 'ORDER BY' columns specified: '%s'"
-                    % "', '".join(orderBy))
+
+            for col in orderBy:
+                if isinstance(col, basestring):
+                    orderByCols.append(dictionaryTable.c[col])
+                else:
+                    orderByCols.append(col)
 
         # lookup in db
         results = self.db.selectRows(
