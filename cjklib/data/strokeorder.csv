@@ -28,6 +28,9 @@
 #          character
 #   * 'A': Alternative stroke order
 #
+# Note that some forms are seemingly double. These probably are radical forms
+# that are separately encoded in Unicode.
+#
 # TODO: Alternative stroke order ('A') should be attributed to an existing
 #   glyph, not add another one.
 #
@@ -275,3 +278,9 @@
 "襾","H-S-HZG-S-S-H",0,
 "⾑","H-S-HZG-S-S-H",0,
 "镸","H-S-H-H-H-PZ-D",0,
+"木","H-S-P-N",0,
+"木","H-S-P-D",1,
+"禾","P-H-S-P-N",0,
+"禾","P-H-S-P-D",1,
+"火","D-D-SP-N",0,
+"火","D-D-SP-D",1,
