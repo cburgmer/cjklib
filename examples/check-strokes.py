@@ -81,7 +81,8 @@ class StrokeChecker(object):
 
         sys.stdout.write('\n')
 
-        _, default_encoding = locale.getdefaultlocale()
+        output_encoding = sys.stdout.encoding or locale.getpreferredencoding() \
+            or 'ascii'
 
         print 'Total characters: %d' % charCount
         print 'Characters with full stroke data: %d (%d%%)' % (charFullCount,
@@ -103,7 +104,8 @@ class StrokeChecker(object):
         missingSingleCharacters.extend(lowProductivityComponentChars)
 
         print 'Missing single characters:',
-        print ''.join(missingSingleCharacters).encode(default_encoding)
+        print ''.join(missingSingleCharacters).encode(output_encoding,
+            'replace')
 
         # remove characters that we already placed in "single"
         _missingSingleCharacters = set(missingSingleCharacters)
@@ -132,11 +134,11 @@ class StrokeChecker(object):
         print 'Missing in-domain components:',
         print ', '.join(['%s (%s)' % (component, ''.join(chars)) \
             for component, chars in inDomainComponentList])\
-            .encode(default_encoding)
+            .encode(output_encoding, 'replace')
         print 'Missing out-domain components:',
         print ', '.join(['%s (%s)' % (component, ''.join(chars)) \
             for component, chars in outDomainComponentList])\
-            .encode(default_encoding)
+            .encode(output_encoding, 'replace')
 
     def checkStrokeOrder(self, char, glyph=None):
         try:
