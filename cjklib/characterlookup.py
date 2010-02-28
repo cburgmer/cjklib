@@ -2145,7 +2145,8 @@ class CharacterLookup(object):
         return cls.isBinaryIDSOperator(char) or cls.isTrinaryIDSOperator(char)
 
     def getCharactersForComponents(self, componentList,
-        includeEquivalentRadicalForms=True, resultIncludeRadicalForms=False):
+        includeEquivalentRadicalForms=True, resultIncludeRadicalForms=False,
+        includeAllGlyphs=False):
         u"""
         Gets all characters that contain the given components.
 
@@ -2162,6 +2163,10 @@ class CharacterLookup(object):
         @type resultIncludeRadicalForms: bool
         @param resultIncludeRadicalForms: if C{True} the result will include
             I{Unicode radical forms} and I{Unicode radical variants}
+        @type includeAllGlyphs: bool
+        @param includeAllGlyphs: if C{True} all matches will be returned, if
+            C{False} only those with glyphs matching the locale's default one
+            will be returned
         @rtype: list of tuple
         @return: list of pairs of matching characters and their I{glyphs}
         @todo Impl: Table of same character glyphs, including special radical
@@ -2211,7 +2216,8 @@ class CharacterLookup(object):
                 equivCharTable.append([component])
 
         return self.getCharactersForEquivalentComponents(equivCharTable,
-            resultIncludeRadicalForms=resultIncludeRadicalForms)
+            resultIncludeRadicalForms=resultIncludeRadicalForms,
+            includeAllGlyphs=includeAllGlyphs)
 
     def getCharactersForEquivalentComponents(self, componentConstruct,
         resultIncludeRadicalForms=False, includeAllGlyphs=False):
