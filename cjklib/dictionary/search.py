@@ -23,6 +23,7 @@ Provides search strategies for dictionaries.
 """
 
 __all__ = [
+    "setDefaultWildcards",
     # base search strategies
     "Exact", "Wildcard",
     # translation search strategies
@@ -66,6 +67,15 @@ def _escapeWildcards(string, escape='\\'):
             r'(%s|[_%%])' % re.escape(escape))
     # insert escape
     return _wildcardRegexCache[escape].sub(r'%s\1' % re.escape(escape), string)
+
+defaultSingleCharacter = '_'
+defaultMultipleCharacters = '%'
+
+def setDefaultWildcards(singleCharacter='_', multipleCharacters='%'):
+    """Convenience method to change the default wildcard characters globally."""
+    global defaultSingleCharacter, defaultMultipleCharacters
+    defaultSingleCharacter = singleCharacter
+    defaultMultipleCharacters = multipleCharacters
 
 #{ Common search classes
 
@@ -196,10 +206,11 @@ class _WildcardBase(object):
         SQL_LIKE_STATEMENT = '%'
         REGEX_PATTERN = '.*'
 
-    def __init__(self, singleCharacter='_', multipleCharacters='%',
+    def __init__(self, singleCharacter=None, multipleCharacters=None,
         escape='\\', **options):
-        self.singleCharacter = singleCharacter
-        self.multipleCharacters = multipleCharacters
+        self.singleCharacter = singleCharacter or defaultSingleCharacter
+        self.multipleCharacters = (multipleCharacters
+            or defaultMultipleCharacters)
         self.escape = escape
         if len(self.escape) != 1:
             raise ValueError("Escape character %s needs to have length 1"

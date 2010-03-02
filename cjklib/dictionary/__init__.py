@@ -542,6 +542,7 @@ class EDICT(EDICTStyleDictionary):
     @see: L{EDICTBuilder}
     """
     PROVIDES = 'EDICT'
+    READING = 'Kana'
     DICTIONARY_TABLE = 'EDICT'
 
 
