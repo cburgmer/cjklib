@@ -142,9 +142,9 @@ class _CaseInsensitiveBase(object):
 
     def _compileRegex(self, regexString):
         if self._caseInsensitive:
-            regexString = '(?ui)^' + regexString
+            regexString = '(?ui)' + regexString
         else:
-            regexString = '(?u)^' + regexString
+            regexString = '(?u)' + regexString
         return re.compile(regexString)
 
 
