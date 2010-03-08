@@ -50,8 +50,8 @@ Examples how to use this module:
         []
         >>> d = CEDICT(readingSearchStrategy=search.TonelessWildcardReading())
         >>> d.getForReading('nihao', reading='Pinyin', toneMarkType='numbers')
-        [EntryTuple(HeadwordSimplified=u'\u4f60\u597d',\
- HeadwordTraditional=u'\u4f60\u597d', Reading=u'n\u01d0 h\u01ceo',\
+        [EntryTuple(HeadwordTraditional=u'\u4f60\u597d',\
+ HeadwordSimplified=u'\u4f60\u597d', Reading=u'n\u01d0 h\u01ceo',\
  Translation=u'/hello/hi/how are you?/')]
 
     - Apply a formatting strategy to remove all initial and final slashes on
@@ -66,8 +66,8 @@ Examples how to use this module:
         ...     columnFormatStrategies={'Translation':\
  TranslationFormatStrategy()})
         >>> d.getFor(u'东京')
-        [EntryTuple(HeadwordSimplified=u'\u4e1c\u4eac',\
- HeadwordTraditional=u'\u6771\u4eac', Reading=u'D\u014dng j\u012bng',\
+        [EntryTuple(HeadwordTraditional=u'\u6771\u4eac',\
+ HeadwordSimplified=u'\u4e1c\u4eac', Reading=u'D\u014dng j\u012bng',\
  Translation=u'T\u014dky\u014d, capital of Japan')]
 
     - A simple dictionary lookup tool:
@@ -608,7 +608,7 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
     """
     PROVIDES = 'CEDICT'
     DICTIONARY_TABLE = 'CEDICT'
-    COLUMNS = ['HeadwordSimplified', 'HeadwordTraditional', 'Reading',
+    COLUMNS = ['HeadwordTraditional', 'HeadwordSimplified', 'Reading',
         'Translation']
 
     READING = 'Pinyin'
