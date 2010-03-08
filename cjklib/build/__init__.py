@@ -100,8 +100,8 @@ class DatabaseBuilder:
         if 'dataPath' not in options:
             # look for data underneath the build module
             from pkg_resources import Requirement, resource_filename
-            options['dataPath'] \
-                = resource_filename(Requirement.parse("cjklib"), "cjklib/data")
+            options['dataPath'] = [resource_filename(
+                Requirement.parse("cjklib"), "cjklib/data")]
         elif isinstance(options['dataPath'], basestring):
             # wrap as list
             options['dataPath'] = [options['dataPath']]
