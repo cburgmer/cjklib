@@ -485,6 +485,18 @@ class CollationText(_CollationMixin, Text):
 
 #{ Decorators
 
+def cachedproperty(fget):
+    def fget_wrapper(self):
+        try: return fget_wrapper._cached
+        except AttributeError:
+            fget_wrapper._cached = value = fget(self)
+            return value
+    def fdel(self):
+        try: del fget_wrapper._cached
+        except AttributeError: pass
+    return property(fget_wrapper, fdel=fdel, doc=fget.__doc__)
+
+
 if sys.version_info >= (2, 5):
     import warnings
     import functools

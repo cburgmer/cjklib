@@ -28,60 +28,11 @@ import unittest
 from cjklib.reading import ReadingFactory
 from cjklib import characterlookup
 from cjklib import exception
-from cjklib.test import NeedsDatabaseTest, attr
+from cjklib.test import (NeedsDatabaseTest, attr, DatabaseConnectorMock,
+    EngineMock)
 
 class CharacterLookupTest(NeedsDatabaseTest):
     """Base class for testing the L{characterlookup.CharacterLookup} class."""
-    class CacheDict(dict):
-        def __init__(self, cachedDict, *args, **options):
-            dict.__init__(self, *args, **options)
-            self.cachedDict = cachedDict
-        def __getitem__(self, key):
-            try:
-                return dict.__getitem__(self, key)
-            except KeyError:
-                return self.cachedDict.__getitem__(key)
-
-    class DatabaseConnectorMock(object):
-        """
-        Serves as a normal database connector engine, but fakes existance of
-        some tables.
-        """
-        def __init__(self, dbConnectInst, mockTables=None,
-            mockTableDefinition=None, mockNonTables=None):
-
-            self._dbConnectInst = dbConnectInst
-            self._dbConnectInst.engine = CharacterLookupTest.EngineMock(
-                self._dbConnectInst.engine, mockTables, mockNonTables)
-
-            self.mockTables = mockTables or []
-            self.mockTableDefinition = mockTableDefinition or {}
-
-        def __getattr__(self, attr):
-            if attr == 'tables':
-                return CharacterLookupTest.CacheDict(
-                    self.mockTableDefinition, self._dbConnectInst.tables)
-            return getattr(self._dbConnectInst, attr)
-
-    class EngineMock(object):
-        """
-        Serves as a normal SQLAlchemy engine, but fakes existence of some
-        tables.
-        """
-        def __init__(self, engine, mockTables=None, mockNonTables=None):
-            self._engine = engine
-            self.mockTables = mockTables or []
-            self.mockNonTables = mockNonTables or []
-        def has_table(self, table, *args, **kwargs):
-            if table in self.mockTables:
-                return True
-            elif table in self.mockNonTables:
-                return False
-            else:
-                return self._engine.has_table(table, *args, **kwargs)
-        def __getattr__(self, attr):
-            return getattr(self._engine, attr)
-
     def setUp(self):
         NeedsDatabaseTest.setUp(self)
         self.characterLookup = characterlookup.CharacterLookup('T',
@@ -117,15 +68,14 @@ class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
         domain = 'MyDomain'
         tableObj = Table(domain + 'Set', self.db.metadata,
             Column('ChineseCharacter', String))
-        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
+        mydb = DatabaseConnectorMock(self.db,
             mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
         characterlookup.CharacterLookup('T', domain, dbConnectInst=mydb)
         self.db.metadata.remove(tableObj)
 
         # test if character domain is rejected
         domain = 'MyDomain'
-        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
-            mockNonTables=[domain + 'Set'])
+        mydb = DatabaseConnectorMock(self.db, mockNonTables=[domain + 'Set'])
         self.assertRaises(ValueError, characterlookup.CharacterLookup, 'T',
             domain, dbConnectInst=mydb)
 
@@ -133,7 +83,7 @@ class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
         domain = 'MyOtherDomain'
         tableObj = Table(domain + 'Set', self.db.metadata,
             Column('SomeColumn', String))
-        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
+        mydb = DatabaseConnectorMock(self.db,
             mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
         self.assertRaises(ValueError, characterlookup.CharacterLookup, 'T',
             domain, dbConnectInst=mydb)
@@ -150,7 +100,7 @@ class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
         domain = 'MyDomain'
         tableObj = Table(domain + 'Set', self.db.metadata,
             Column('ChineseCharacter', String))
-        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
+        mydb = DatabaseConnectorMock(self.db,
             mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
         cjk = characterlookup.CharacterLookup('T', dbConnectInst=mydb)
         self.assert_(domain in cjk.getAvailableCharacterDomains())
@@ -158,7 +108,7 @@ class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
 
         # test domain not included
         domain = 'MyDomain'
-        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
+        mydb = DatabaseConnectorMock(self.db,
             mockNonTables=[domain + 'Set'])
         cjk = characterlookup.CharacterLookup('T', dbConnectInst=mydb)
         self.assert_(domain not in cjk.getAvailableCharacterDomains())
@@ -167,7 +117,7 @@ class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
         domain = 'MyOtherDomain'
         tableObj = Table(domain + 'Set', self.db.metadata,
             Column('SomeColumn', String))
-        mydb = CharacterLookupTest.DatabaseConnectorMock(self.db,
+        mydb = DatabaseConnectorMock(self.db,
             mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
         cjk = characterlookup.CharacterLookup('T', dbConnectInst=mydb)
         self.assert_(domain not in cjk.getAvailableCharacterDomains())
@@ -281,7 +231,7 @@ class CharacterLookupReadingMethodsTest(CharacterLookupTest, unittest.TestCase):
         #   characterLookup.CHARARACTER_READING_MAPPING
         tables = [table for table, _ \
             in self.characterLookup.CHARARACTER_READING_MAPPING.values()]
-        self.characterLookup.db.engine = CharacterLookupTest.EngineMock(
+        self.characterLookup.db.engine = EngineMock(
                 self.characterLookup.db.engine, mockTables=tables)
 
         for reading in self.characterLookup.CHARARACTER_READING_MAPPING:
