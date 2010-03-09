@@ -831,13 +831,6 @@ class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
                     **self._dictInstance.READING_OPTIONS)
             return cache[entity]
 
-        def isPlainReadingEntity(entity, cache={}):
-            if entity not in cache:
-                cache[entity] = self._readingFactory.isPlainReadingEntity(
-                    entity, self._dictInstance.READING,
-                    **self._dictInstance.READING_OPTIONS)
-            return cache[entity]
-
         def splitEntityTone(entity, cache={}):
             if entity not in cache:
                 try:
@@ -1235,13 +1228,6 @@ class _MixedTonelessReadingWildcardBase(_MixedReadingWildcardBase,
         return self.TonelessReadingWildcard(plainEntity, self.escape)
 
     def _getWildcardForms(self, readingStr, **options):
-        def isReadingEntity(entity, cache={}):
-            if entity not in cache:
-                cache[entity] = self._readingFactory.isReadingEntity(entity,
-                    self._dictInstance.READING,
-                    **self._dictInstance.READING_OPTIONS)
-            return cache[entity]
-
         if self._getWildcardFormsOptions != (readingStr, options):
             self._getWildcardFormsOptions = (readingStr, options)
 
