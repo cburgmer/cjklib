@@ -486,13 +486,19 @@ class CollationText(_CollationMixin, Text):
 #{ Decorators
 
 def cachedproperty(fget):
+    """
+    Decorates a property to memoize its value.
+    """
     def fget_wrapper(self):
-        try: return fget_wrapper._cached
+        name = '_%s_cached' % fget.__name__
+        try: return getattr(self, name)
         except AttributeError:
-            fget_wrapper._cached = value = fget(self)
+            value = fget(self)
+            setattr(self, name, value)
             return value
     def fdel(self):
-        try: del fget_wrapper._cached
+        name = '_%s_cached' % fget.__name__
+        try: delattr(self, name)
         except AttributeError: pass
     return property(fget_wrapper, fdel=fdel, doc=fget.__doc__)
 

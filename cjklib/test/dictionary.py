@@ -126,8 +126,7 @@ class DictionaryResultTest(DictionaryTest):
             return '[' + "\n".join(repr(self.INSTALL_CONTENT[index])
                 for index in sorted(indices)) + ']'
 
-        for key, requests in self.ACCESS_RESULTS.items():
-            methodName, options = key
+        for methodName, options, requests in self.ACCESS_RESULTS:
             options = dict(options) or {}
             method = getattr(self.dictionary, methodName)
             for request, targetResultIndices in requests:
@@ -177,12 +176,65 @@ class EDICTMetaTest(DictionaryMetaTest, unittest.TestCase):
 class EDICTAccessTest(DictionaryAccessTest, unittest.TestCase):
     DICTIONARY = 'EDICT'
 
+class EDICTDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
+    DICTIONARY = 'EDICT'
+
+    INSTALL_CONTENT = [
+        (u'東京', u'とうきょう', u'/(n) Tokyo (current capital of Japan)/(P)/'),
+        (u'東京語', u'とうきょうご', u'/(n) Tokyo dialect (esp. historical)/'),
+        (u'東京都', u'とうきょうと', u'/(n) Tokyo Metropolitan area/'),
+        (u'頭胸部', u'とうきょうぶ', u'/(n) cephalothorax/'),
+        #(u'', u'', u''),
+        ]
+
+    ACCESS_RESULTS = [
+        ('getForHeadword', (), [(u'東京', [0])]),
+        ('getFor', (), [(u'とうきょう_', [1, 2, 3])]),
+        ('getForHeadword', (), [(u'Tokyo', [])]),
+        ('getForHeadword', (), [(u'東%', [0, 1, 2])]),
+        ('getFor', (), [(u'Tokyo', [0])]),
+        ('getFor', (), [(u'_Tokyo', [])]),
+        ('getForTranslation', (), [(u'tokyo%', [0, 1, 2])]),
+    ]
+
 
 class CEDICTMetaTest(DictionaryMetaTest, unittest.TestCase):
     DICTIONARY = 'CEDICT'
 
 class CEDICTAccessTest(DictionaryAccessTest, unittest.TestCase):
     DICTIONARY = 'CEDICT'
+
+class CEDICTDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
+    DICTIONARY = 'CEDICT'
+
+    INSTALL_CONTENT = [
+        (u'知道', u'知道', u'zhi1 dao5', u'/to know/to be aware of/'),
+        (u'執導', u'执导', u'zhi2 dao3', u'/to direct (a film, play etc)/'),
+        (u'直搗', u'直捣', u'zhi2 dao3', u'/to storm/to attack directly/'),
+        (u'直到', u'直到', u'zhi2 dao4', u'/until/'),
+        (u'指導', u'指导', u'zhi3 dao3', u'/to guide/to give directions/to direct/to coach/guidance/tuition/CL:個|个[ge4]/'),
+        (u'制導', u'制导', u'zhi4 dao3', u'/to control (the course of sth)/to guide (a missile)/'),
+        (u'指導教授', u'指导教授', u'zhi3 dao3 jiao4 shou4', u'/adviser/advising professor/'),
+        (u'指導課', u'指导课', u'zhi3 dao3 ke4', u'/tutorial/period of tuition for one or two students/'),
+        (u'個', u'个', u'ge4', u'/individual/this/that/size/classifier for people or objects in general/'),
+        (u'西安', u'西安', u'Xi1 an1', u"/Xi'an city, subprovincial city and capital of Shaanxi 陝西省|陕西省[Shan3 xi1 sheng3] in northwest China/see 西安區|西安区[Xi1 an1 qu1]/"),
+        (u'仙', u'仙', u'xian1', u'/immortal/'),
+        #(u'', u'', u'', u''),
+        ]
+
+    ACCESS_RESULTS = [
+        ('getFor', (('toneMarkType', 'numbers'),),
+            [(u'zhidao', [0, 1, 2, 3, 4, 5])]),
+        ('getFor', (('toneMarkType', 'numbers'),), [(u'zhi2dao', [1, 2, 3])]),
+        ('getFor', (), [(u'to %', [0, 1, 2, 4, 5])]),
+        ('getForTranslation', (), [(u'to guide', [4, 5])]),
+        ('getForReading', (('toneMarkType', 'numbers'),),
+            [(u'zhi导', [1, 4, 5])]),
+        ('getForReading', (('toneMarkType', 'numbers'),),
+            [(u'zhi导%', [1, 4, 5, 6, 7])]),
+        ('getFor', (), [(u'個', [8])]),
+        ('getFor', (('toneMarkType', 'numbers'),), [(u'xian1', [9, 10])]),
+        ]
 
 
 class CEDICTGRMetaTest(DictionaryMetaTest, unittest.TestCase):
@@ -198,6 +250,35 @@ class HanDeDictMetaTest(DictionaryMetaTest, unittest.TestCase):
 class HanDeDictAccessTest(DictionaryAccessTest, unittest.TestCase):
     DICTIONARY = 'HanDeDict'
 
+class HanDeDictDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
+    DICTIONARY = 'HanDeDict'
+
+    INSTALL_CONTENT = [
+        (u'對不起', u'对不起', u'dui4 bu5 qi3', u'/Entschuldigung (u.E.) (S)/sorry (u.E.)/'),
+        (u'自由大學', u'自由大学', 'zi4 you2 da4 xue2', u'/Freie Universität, FU (meist FU Berlin) (u.E.) (Eig)/'),
+        (u'西柏林', u'西柏林', u'xi1 bo2 lin2', u'/West-Berlin (u.E.) (Eig, Geo)/'),
+        (u'柏林', u'柏林', u'bo2 lin2', u'/Berlin (u.E.) (Eig, Geo)/'),
+        (u'北', u'北', u'bei3', u'/Norden (S)/nördlich (Adj)/nordwärts, nach Norden, gen Norden (Adv)/Nord-; Bsp.: 北風 北风 -- Nordwind/'),
+        (u'朔風', u'朔风', u'shuo4 feng1', u'/Nordwind (u.E.) (S)/'),
+        #(u'', u'', u'', u''),
+        ]
+
+    ACCESS_RESULTS = [
+        ('getFor', (), [(u'对不起', [0])]),
+        ('getFor', (), [(u'對不起', [0])]),
+        ('getFor', (), [(u'对_起', [0])]),
+        ('getFor', (), [(u'duì bu qǐ', [0])]),
+        ('getFor', (), [(u'duì_qǐ', [0])]),
+        ('getForReading', (('toneMarkType', 'numbers'),),
+            [(u'dui4bu5qi3', [0])]),
+        ('getFor', (), [(u'Sorry', [0])]),
+        ('getForTranslation', (), [(u'Entschuldigung', [0])]),
+        ('getForTranslation', (), [(u'Berlin', [3])]),
+        ('getForTranslation', (), [(u'%Berlin', [2, 3])]),
+        ('getFor', (), [(u'Nordwind', [5])]),
+        ('getFor', (), [(u'%Nordwind%', [4, 5])]),
+        ]
+
 
 class CFDICTMetaTest(DictionaryMetaTest, unittest.TestCase):
     DICTIONARY = 'CFDICT'
@@ -209,16 +290,20 @@ class CFDICTDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
     DICTIONARY = 'CFDICT'
 
     INSTALL_CONTENT = [
-        (u'对不起', u'對不起', u'dui4 bu5 qi3', u'Excusez-moi'),
+        (u'對不起', u'对不起', u'dui4 bu5 qi3', u'/Excusez-moi!/'),
         #(u'', u'', u'', u''),
         ]
 
-    ACCESS_RESULTS = {
-        ('getFor', ()): [(u'对不起', [0])],
-        ('getFor', ()): [(u'對不起', [0])],
-        ('getFor', ()): [(u'duì bu qǐ', [0])],
-        ('getForReading', (('toneMarkType', 'numbers'),)): [
-            (u'dui4bu5qi3', [0])],
-        ('getFor', ()): [(u'excusez-moi', [0])],
-        ('getForTranslation', ()): [(u'Excusez-moi', [0])],
-        }
+    ACCESS_RESULTS = [
+        ('getFor', (), [(u'对不起', [0])]),
+        ('getFor', (), [(u'對不起', [0])]),
+        ('getFor', (), [(u'对_起', [0])]),
+        ('getFor', (), [(u'duì bu qǐ', [0])]),
+        ('getFor', (), [(u'duì_qǐ', [0])]),
+        ('getForReading', (('toneMarkType', 'numbers'),),
+            [(u'dui4bu5qi3', [0])]),
+        ('getFor', (), [(u'excusez-moi', [0])]),
+        ('getForTranslation', (), [(u'Excusez-moi', [0])]),
+        ('getForTranslation', (), [(u'excusez-moi!', [0])]),
+        ('getForTranslation', (), [(u'%-moi', [0])]),
+        ]
