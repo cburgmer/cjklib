@@ -17,15 +17,15 @@ your system:
 
 $ python setup.py install
 
-CJK-dictionaries are not included by default. If you want to install any of
+CJK dictionaries are not included by default. If you want to install any of
 those do the following (with an Internet connection):
 $ cd files
 $ make CEDICT
 $ sudo make install
 
 This will download CEDICT, create a SQLite database file and install it to
-/usr/local/share/cjklib. Substitute CEDICT with any other dictionary. Currently
-supported are EDICT, CEDICT, HanDeDict, CFDICT, CEDICTGR.
+/usr/local/share/cjklib. Just substitute CEDICT for any other supported
+dictionary (i.e. EDICT, CEDICT, HanDeDict, CFDICT, CEDICTGR).
 
 Documentation
 =============
@@ -41,7 +41,7 @@ library's functions. See "cjknife --help" for an overview.
 Database
 ========
 Packaged versions of the library will ship with a pre-build SQLite database
-file. If you want to, you can rebuild the database.
+file. You can easily rebuild the database.
 
 First download the newest Unihan file:
 $ wget ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
@@ -56,14 +56,21 @@ SQLite
 ------
 Currently only characters from the Basic Multilingual Plane (BMP) of Unicode
 are supported, due to missing support in MySQL (see below) and Windows versions
-of Python. To enable full support set wideBuild to "True" in cjklib.conf or
-pass "--wideBuild=True" to buildcjkdb.
+of Python. To enable full support set wideBuild to "True" in cjklib.conf before
+rebuilding or pass "--wideBuild=True" to buildcjkdb.
 
-SQLite offers a full-text search with extension FTS3 which needs to be
-compiled in to used. Cjknife can use the full-text capabilities for the
-dictionary search and performs a full table scan in fuzzy search if this
-extension is not available. To enable it set enableFTS3 to True in
-cjklib.conf. No full-text support is currently given for MySQL.
+SQLite by default has no Unicode support for string operations. Optionally the
+ICU library can be compiled in for handling alphabetic non-ASCII characters.
+Cjklib can register own Unicode functions if ICU support is missing. Queries
+with LIKE will then use function lower(). This compatible mode has negative
+impact on performance and as it is not needed for dictionaries like EDICT or
+CEDICT it is disabled by default.
+
+SQLite offers full-text search with extension FTS3 which needs to be compiled in
+to be used. Cjknife can use the full-text capabilities for the dictionary search
+and performs a full table scan in fuzzy search if this extension is not
+available. To enable it set enableFTS3 to True in cjklib.conf before rebuilding.
+No full-text support is currently given for MySQL.
 
 MySQL
 -----
@@ -84,8 +91,8 @@ characters outside the Basic Multilingual Plane (BMP) can't be encoded. Building
 the Unihan database thus might result in warnings, characters above 0x20000
 can't be built at all.
 
-Contributing
-============
+Development
+===========
 If you are interested in the development of cjklib, join
 cjklib-devel@googlegroups.com (http://groups.google.com/group/cjklib-devel).
 
