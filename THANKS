@@ -2,6 +2,9 @@ The following people made especially gracious contributions of their
 time and energy in helping to track down bugs, add new features, and
 generally assist in the maintainership process:
 
+Gavin Grover <gvgrover@yahoo.com>
+        for character decomposition data
+
 Max Bolingbroke <omega.theta@gmail.com>
         for fixes of and speed experiments with the build system
 
