@@ -503,6 +503,51 @@ class YaleJyutpingReferenceTest(ReadingConverterReferenceTest,
         ]
 
 
+class PinyinICUTest(NeedsDatabaseTest, unittest.TestCase):
+    """Test Pinyin tonemark conversion on ICU transformation rule."""
+    CONVERSION_DIRECTION = ('Pinyin', 'Pinyin')
+
+    def setUp(self):
+        NeedsDatabaseTest.setUp(self)
+        self.f = ReadingFactory(dbConnectInst=self.db)
+
+        try:
+            import PyICU
+
+            self.toNumeric = PyICU.Transliterator.createInstance(
+                "Latin-NumericPinyin", PyICU.UTransDirection.UTRANS_FORWARD)
+            self.fromNumeric = self.toNumeric.createInverse()
+        except ImportError:
+            pass
+
+    def testToneMarkPlacement(self):
+        """Test Pinyin tonemark conversion on ICU transformation rule."""
+        if not hasattr(self, 'toNumeric'):
+            return
+
+        for readingEntity in self.f.getReadingEntities('Pinyin'):
+            if readingEntity in (u'hn\u0304g', u'h\u0144g', u'h\u0148g',
+                u'h\u01f9g', u'n\u0304g', u'\u0144g', u'\u0148g',
+                u'\u01f9g'):
+                continue
+            targetEntity = self.f.convert(readingEntity, 'Pinyin', 'Pinyin',
+                targetOptions={'toneMarkType': 'numbers',
+                    'missingToneMark': 'fifth'})
+            self.assertEquals(targetEntity,
+                self.toNumeric.transliterate(readingEntity))
+
+        for readingEntity in self.f.getReadingEntities('Pinyin',
+            toneMarkType='numbers', missingToneMark='fifth'):
+            if readingEntity in ('hng1', 'hng2', 'hng3', 'hng4', 'ng1', 'ng2',
+                'ng3', 'ng4', u'ê1', u'ê2', u'ê3', u'ê4'):
+                continue
+            targetEntity = self.f.convert(readingEntity, 'Pinyin', 'Pinyin',
+                sourceOptions={'toneMarkType': 'numbers',
+                    'missingToneMark': 'fifth'})
+            self.assertEquals(targetEntity,
+                self.fromNumeric.transliterate(readingEntity))
+
+
 class PinyinDialectConsistencyTest(ReadingConverterConsistencyTest,
     unittest.TestCase):
     CONVERSION_DIRECTION = ('Pinyin', 'Pinyin')
