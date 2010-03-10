@@ -99,9 +99,14 @@ class DatabaseBuilder:
         """
         if 'dataPath' not in options:
             # look for data underneath the build module
-            from pkg_resources import Requirement, resource_filename
-            options['dataPath'] = [resource_filename(
-                Requirement.parse("cjklib"), "cjklib/data")]
+            try:
+                from pkg_resources import Requirement, resource_filename
+                options['dataPath'] = [resource_filename(
+                    Requirement.parse("cjklib"), "cjklib/data")]
+            except ImportError:
+                options['dataPath'] = os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)), '../data')
+
         elif isinstance(options['dataPath'], basestring):
             # wrap as list
             options['dataPath'] = [options['dataPath']]
