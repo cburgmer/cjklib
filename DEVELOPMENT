@@ -107,8 +107,8 @@ Swap "karmic" for "jaunty" if building for the latter, swap "cburgmer" for
 your own launchpad account.
 
 Create a source package and upload it to a launchpad ppa:
-$ python -c "import stdeb; execfile('setup.py')" sdist_dsc \
-    --debian-version 1 --extra-cfg-file=cjklib.egg-info/karmic_stdeb.cfg
+$ python setup.py --command-packages=stdeb.command sdist_dsc \
+    --debian-version 1 --extra-cfg-file=karmic_stdeb.cfg
 $ cd deb_dist/cjklib-0.2~karmic/
 $ dpkg-buildpackage -S
 $ cd ..
@@ -118,7 +118,7 @@ Debian
 ------
 Create a binary package:
 $ python -c "import stdeb; execfile('setup.py')" bdist_deb \
-    --debian-version 1 --extra-cfg-file=cjklib.egg-info/debian_stdeb.cfg
+    --debian-version 1 --extra-cfg-file=debian_stdeb.cfg
 
 Win32
 -----
