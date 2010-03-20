@@ -110,6 +110,20 @@ L{format.ReadingConversion} provides an easy way to convert the reading given
 by the dictionary into the user defined reading. Other columns can also be
 formatted by applying a strategy, see the example above.
 
+A hybrid approach makes it possible to apply strategies on single cells, giving
+a mapping from the cell name to the strategy, or a strategy that operates on the
+entire result entry, by giving a mapping from C{None} to the strategy. In the
+latter case the formatting strategy needs to deal with the dictionary specific
+entry structure:
+
+        >>> from cjklib.dictionary import *
+        >>> d = CEDICT(columnFormatStrategies={
+        ...     'Translation': format.TranslationFormatStrategy()})
+        >>> d = CEDICT(columnFormatStrategies={
+        ...     None: format.NonReadingEntityWhitespace()})
+
+Formatting strategies can be chained together using the L{format.Chain} class.
+
 Search strategies
 =================
 Searching in natural language data is a difficult process and highly depends on
@@ -314,11 +328,8 @@ class BaseDictionary(object):
         if hasattr(self.entryFactory, 'setDictionaryInstance'):
             self.entryFactory.setDictionaryInstance(self)
 
-        self.columnFormatStrategies = options.get('columnFormatStrategies', {})
-        """Strategies for formatting columns."""
-        for column in self.columnFormatStrategies.values():
-            if hasattr(column, 'setDictionaryInstance'):
-                column.setDictionaryInstance(self)
+        columnFormatStrategies = options.get('columnFormatStrategies', {})
+        self.setSolumnFormatStrategies(columnFormatStrategies)
 
         if 'headwordSearchStrategy' in options:
             self.headwordSearchStrategy = options['headwordSearchStrategy']
@@ -353,6 +364,30 @@ class BaseDictionary(object):
             """Strategy for searching translations."""
         if hasattr(self.translationSearchStrategy, 'setDictionaryInstance'):
             self.translationSearchStrategy.setDictionaryInstance(self)
+
+    def getSolumnFormatStrategies(self):
+        """Strategies for formatting columns."""
+        return self._columnFormatStrategies
+
+    def setSolumnFormatStrategies(self, columnFormatStrategies):
+        self._columnFormatStrategies = columnFormatStrategies
+        self._formatStrategies = []
+        if columnFormatStrategies:
+            for strategy in columnFormatStrategies.values():
+                if hasattr(strategy, 'setDictionaryInstance'):
+                    strategy.setDictionaryInstance(self)
+
+            fullRowStrategy = columnFormatStrategies.pop(None, None)
+            for column, strategy in columnFormatStrategies.items():
+                columnIdx = self.COLUMNS.index(column)
+
+                self._formatStrategies.append(
+                    formatstrategy.SingleColumnAdapter(strategy, columnIdx))
+            if fullRowStrategy:
+                self._formatStrategies.append(fullRowStrategy)
+
+    columnFormatStrategies = property(getSolumnFormatStrategies,
+        setSolumnFormatStrategies)
 
     @classmethod
     def available(cls, dbConnectInst):
@@ -435,12 +470,11 @@ class EDICTStyleDictionary(BaseDictionary):
             results = filter(_getFilterFunction(filters), results)
 
         # format readings and translations
-        for column, formatStrategy in self.columnFormatStrategies.items():
-            columnIdx = self.COLUMNS.index(column)
-            for idx in range(len(results)):
-                rowList = list(results[idx])
-                rowList[columnIdx] = formatStrategy.format(rowList[columnIdx])
-                results[idx] = tuple(rowList)
+        if self.columnFormatStrategies:
+            results = map(list, results)
+            for strategy in self._formatStrategies:
+                results = map(strategy.format, results)
+            results = map(tuple, results)
 
         # format results
         entries = self.entryFactory.getEntries(results)
@@ -563,6 +597,9 @@ class EDICTStyleEnhancedReadingDictionary(EDICTStyleDictionary):
             columnFormatStrategies['Reading'] \
                 = formatstrategy.ReadingConversion()
             options['columnFormatStrategies'] = columnFormatStrategies
+        if None not in columnFormatStrategies:
+            columnFormatStrategies[None] \
+                = formatstrategy.NonReadingEntityWhitespace()
         if 'readingSearchStrategy' not in options:
             options['readingSearchStrategy'] \
                 = searchstrategy.SimpleWildcardReading()
@@ -612,7 +649,7 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
         'Translation']
 
     READING = 'Pinyin'
-    READING_OPTIONS = {'toneMarkType': 'numbers'}
+    READING_OPTIONS = {'toneMarkType': 'numbers', 'yVowel': 'u:'}
 
     def __init__(self, **options):
         """

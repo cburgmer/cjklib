@@ -20,9 +20,13 @@ Provides format strategies for dictionary entries.
 """
 
 __all__ = [
+    # meta
+    "Base", "Chain", "SingleColumnAdapter",
     # format strategies
-    "Base", "ReadingConversion",
+    "ReadingConversion", "NonReadingEntityWhitespace",
     ]
+
+import string
 
 from cjklib.reading import ReadingFactory
 from cjklib import exception
@@ -44,6 +48,38 @@ class Base(object):
         @return: formatted column
         """
         raise NotImplementedError()
+
+
+class Chain(Base):
+    """
+    Executes a list of formatting strategies, with the first strategy being
+    applied first, then the second, and so forth.
+    """
+    def __init__(self, *args):
+        self.args = args
+
+    def format(self, *args):
+        for strategy in self.args:
+            string = strategy.format(*args)
+        return string
+
+
+class SingleColumnAdapter(Base):
+    """
+    Adapts a formatting strategy for a single column for multi-column input.
+    """
+    def __init__(self, strategy, columnIndex):
+        self.strategy = strategy
+        self.columnIndex = columnIndex
+
+    def format(self, columns):
+        columns = columns[:]
+        columns[self.columnIndex] = self.strategy.format(
+            columns[self.columnIndex])
+        return columns
+
+    def __getattr__(self, name):
+        return getattr(self.strategy, name)
 
 
 class ReadingConversion(Base):
@@ -93,3 +129,36 @@ class ReadingConversion(Base):
         except (exception.DecompositionError, exception.CompositionError,
             exception.ConversionError):
             return None
+
+
+class NonReadingEntityWhitespace(Base):
+    """
+    Removes spaces between non-reading entities, e.g. C{U S B diàn lǎn} to
+    C{USB diàn lǎn} for CEDICT style dictionaries.
+    """
+    FULL_WIDTH_MAP = dict((halfWidth, unichr(ord(halfWidth) + 65248))
+        for halfWidth in string.ascii_uppercase)
+
+    def format(self, columns):
+        headword, headwordSimplified, reading, translation = columns
+
+        readingEntities = []
+        precedingIsNonReading = False
+        for idx, entity in enumerate(reading.split(' ')):
+            if idx < len(headword) and (entity == headword[idx]
+                or self.FULL_WIDTH_MAP.get(entity, None) == headword[idx]):
+                # for entities showing up in both strings, omit spaces
+                #   (e.g. "IC卡", "I C kǎ")
+                if not precedingIsNonReading and idx != 0:
+                    readingEntities.append(' ')
+
+                precedingIsNonReading = True
+            elif idx != 0:
+                readingEntities.append(' ')
+                precedingIsNonReading = False
+
+            readingEntities.append(entity)
+
+        reading = ''.join(readingEntities)
+
+        return [headword, headwordSimplified, reading, translation]

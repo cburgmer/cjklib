@@ -18,7 +18,7 @@
 """
 Provides search strategies for dictionaries.
 
-@todo Fix:  Don't "correct" non-reading entities in HanDeDict in builder
+@todo Fix: "USB shou指" should find "ＵＳＢ手指 [U S B shǒu zhǐ]" for CEDICT
 @todo Impl: Allow simple FTS3 searching as build support is already provided.
 """
 

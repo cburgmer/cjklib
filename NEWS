@@ -9,6 +9,9 @@ SVN
 - Dictionaries are now built with a case-insensitive collation for SQLite and
   MySQL. For case-insensitive searches via cjklib.dictionary these dictionaries
   need to be newly created.
+- Whitespace and 'u:' vowel correction for HanDeDict and CEDICT are not done
+  at build time anymore, now leaving the source data untouched. For correct
+  searches in reading information these dictionaries need to be newly created.
 - cjklib.conf needs any SQLAlchemy options to start with string 'sqlalchemy.',
   e.g. 'sqlalchemy.echo = True'. Option 'url' is the only possible exception.
 - The precedence of config files changed: .cjklib.conf (or cjklib.conf) in '~'

@@ -3495,29 +3495,11 @@ class CEDICTBuilder(CEDICTFormatBuilder):
     """
     Builds the CEDICT dictionary.
     """
-    def filterUmlaut(self, entry):
-        """
-        Converts the C{'u:'} to C{'ü'}.
-
-        @type entry: tuple
-        @param entry: a dictionary entry
-        @rtype: tuple
-        @return: the given entry with corrected ü-voul
-        """
-        if type(entry) == type({}):
-            entry['Reading'] = entry['Reading'].replace('u:', u'ü')
-            return entry
-        else:
-            trad, simp, reading, translation = entry
-            reading = reading.replace('u:', u'ü')
-            return [trad, simp, reading, translation]
-
     PROVIDES = 'CEDICT'
     FILE_NAMES = ['cedict_1_0_ts_utf-8_mdbg.zip',
         'cedict_1_0_ts_utf-8_mdbg.txt.gz', 'cedictu8.zip', 'cedict_ts.u8',
         'cedict_1_0_ts_utf-8_mdbg.txt']
     ENCODING = 'utf-8'
-    FILTER = filterUmlaut
 
     def getArchiveContentName(self, nameList, filePath):
         return 'cedict_ts.u8'
@@ -3635,49 +3617,9 @@ class HanDeDictBuilder(TimestampedCEDICTFormatBuilder):
     """
     Builds the HanDeDict dictionary.
     """
-    def filterSpacing(self, entry):
-        """
-        Converts wrong spacing in readings of entries in HanDeDict.
-
-        @type entry: tuple
-        @param entry: a dictionary entry
-        @rtype: tuple
-        @return: the given entry with corrected spacing
-        """
-        if type(entry) == type({}):
-            headword = entry['HeadwordTraditional']
-            reading = entry['Reading']
-        else:
-            headword, headwordSimplified, reading, translation = entry
-
-        readingEntities = []
-        precedingIsNonReading = False
-        for idx, entity in enumerate(reading.split(' ')):
-            if idx < len(headword) and entity == headword[idx]:
-                # for entities showing up in both strings, omit spaces
-                #   (e.g. "IC卡", "I C kǎ")
-                if not precedingIsNonReading:
-                    readingEntities.append(' ')
-
-                precedingIsNonReading = True
-            elif idx != 0:
-                readingEntities.append(' ')
-                precedingIsNonReading = False
-
-            readingEntities.append(entity)
-
-        reading = ''.join(readingEntities)
-
-        if type(entry) == type({}):
-            entry['Reading'] = reading
-            return entry
-        else:
-            return [headword, headwordSimplified, reading, translation]
-
     PROVIDES = 'HanDeDict'
     FILE_NAMES = ['handedict-*.zip', 'handedict-*.tar.bz2', 'handedict.u8']
     ENCODING = 'utf-8'
-    FILTER = filterSpacing
 
     EXTRACT_TIMESTAMP = r'handedict-(\d{8})\.'
     ARCHIVE_CONTENT_PATTERN = r'handedict-(\d{8})/handedict.u8'
