@@ -4,6 +4,13 @@ all=edict cedict cedictgr handedict cfdict
 
 all: $(all)
 
+EDICT: edict
+CEDICT: cedict
+CEDICTGR: cedictgr
+HanDeDict: handedict
+HANDEDICT: handedict
+CFDICT: cfdict
+
 edict: build/edict.db
 cedict: build/cedict.db
 cedictgr: build/cedictgr.db
