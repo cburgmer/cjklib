@@ -2,6 +2,7 @@ include cjklib/data/*.csv
 include cjklib/data/*.sql
 include cjklib/*.py
 include cjklib/reading/*.py
+include cjklib/dictionary/*.py
 include cjklib/build/*.py
 include cjklib/test/*.py
 include cjklib/cjklib.db
