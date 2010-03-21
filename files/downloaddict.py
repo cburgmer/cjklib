@@ -130,8 +130,20 @@ try:
         pbar.update(min(i, total/chunkSize+1))
 
 except ImportError:
+    progressTick = 0
     def progress(i, chunkSize, total):
-        print '#',
+        global progressTick
+        terminalWidth = 80
+        if i == 0:
+            progressTick = 0
+            tick = 0
+        else:
+            tick = min(int(terminalWidth * (i * chunkSize) / total),
+                terminalWidth)
+        while progressTick < tick:
+            sys.stdout.write('#')
+            progressTick += 1
+        sys.stdout.flush()
 
 CLASS_DICT = {'CEDICT': CEDICTDownloader, 'HanDeDict': HanDeDictDownloader,
     'CFDICT': CFDICTDownloader, 'CEDICTGR': CEDICTGRDownloader,

@@ -7,6 +7,7 @@ include cjklib/test/*.py
 include cjklib/cjklib.db
 include setup.py
 include files/*.py
+include files/*.bat
 include files/Makefile
 include test/*.py
 include test/Makefile
