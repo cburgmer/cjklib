@@ -1,5 +1,8 @@
-Cjklib is a library providing Han character related methods for CJKV languages
-(Chinese, Japanese, Korean and Vietnamese).
+===========================
+Installing and Using Cjklib
+===========================
+
+.. contents::
 
 Introduction
 ============
@@ -15,24 +18,24 @@ Installing
 
 Windows
 -------
-Install cjklib using the provided .exe installer.
+Install cjklib using the provided ``.exe`` installer.
 
-Two scripts cjknife.exe and buildcjkdb.exe will be added to the Python "Scripts"
-sub-directory. Add this directory to your PATH environment variable to access
-these programs from the command line.
+Two scripts ``cjknife.exe`` and ``buildcjkdb.exe`` will be added to the Python
+``Scripts`` sub-directory. Add this directory to your ``PATH`` environment
+variable to access these programs from the command line.
 
 CJK dictionaries are not included by default. If you want to install any of
 those run the following (with an Internet connection) from the root directory
-of the source package:
+of the source package::
 
-$ cd files
-$ install.bat CEDICT
+    $ cd files
+    $ install.bat CEDICT
 
 This will download CEDICT, create a SQLite database file and install it under
-the directory given by the APPDATA environment variable, e.g.
-"C:\windows\profiles\MY_USER\Application Data\cjklib". Just substitute CEDICT
-for any other supported dictionary (i.e. EDICT, CEDICT, HanDeDict, CFDICT,
-CEDICTGR).
+the directory given by the ``APPDATA`` environment variable, e.g.
+``C:\windows\profiles\MY_USER\Application Data\cjklib``. Just substitute
+``CEDICT`` for any other supported dictionary (i.e. EDICT, CEDICT, HanDeDict,
+CFDICT, CEDICTGR).
 
 DEB or RPM based systems
 ------------------------
@@ -42,33 +45,34 @@ dictionaries.
 Linux
 -----
 If you are installing from the source package you need to deploy the library on
-your system:
+your system::
 
-$ python setup.py install
+    $ python setup.py install
 
 CJK dictionaries are not included by default. If you want to install any of
 those run the following (with an Internet connection):
 
-$ cd files
-$ make CEDICT
-$ sudo make install
+    $ cd files
+    $ make CEDICT
+    $ sudo make install
 
 This will download CEDICT, create a SQLite database file and install it to
-/usr/local/share/cjklib. Just substitute CEDICT for any other supported
+``/usr/local/share/cjklib``. Just substitute ``CEDICT`` for any other supported
 dictionary (i.e. EDICT, CEDICT, HanDeDict, CFDICT, CEDICTGR).
 
 
 Documentation
 =============
-The API under http://cburgmer.nfshost.com/cjklib/ includes a lot of
-documentation. Also see the project page.
+The API_ includes a lot of documentation. Also see the `project page`_.
 
+.. _API: http://cburgmer.nfshost.com/cjklib/
+.. _project page: http://code.google.com/p/cjklib/
 
 Usage
 =====
-The main components of this package are accessible through a Python library.
-There is a small command line tool 'cjknife' that offers some of the library's
-functions. See "cjknife --help" for an overview.
+The main components of this package are accessible through the cjklib Python
+library. There is a small command line tool ``cjknife`` that offers some of the
+library's functions. See ``cjknife --help`` for an overview.
 
 
 Database
@@ -76,55 +80,59 @@ Database
 Packaged versions of the library will ship with a pre-built SQLite database
 file. You can easily rebuild the database yourself.
 
-First download the newest Unihan file:
-$ wget ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
+First download the newest Unihan file::
 
-Then start the build process:
-$ buildcjkdb build cjklibData
+    $ wget ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
+
+Then start the build process::
+
+    $ buildcjkdb build cjklibData
 
 SQLite
 ------
 Currently only characters from the Basic Multilingual Plane (BMP) of Unicode
-are supported, due to missing support in Windows versions of Python and MySQL
-(see below). To enable full support set wideBuild to "True" in cjklib.conf
-before rebuilding or pass "--wideBuild=True" to buildcjkdb.
+are supported out of the box, due to missing support in Windows versions of
+Python and MySQL (see below). To enable full support set wideBuild to ``True``
+in ``cjklib.conf`` before rebuilding or pass ``--wideBuild=True`` to
+``buildcjkdb``.
 
 SQLite by default has no Unicode support for string operations. Optionally the
 ICU library can be compiled in for handling alphabetic non-ASCII characters.
 Cjklib can register own Unicode functions if ICU support is missing. Queries
-with LIKE will then use function lower(). This compatible mode has negative
-impact on performance and as it is not needed for dictionaries like EDICT or
-CEDICT it is disabled by default. See cjklib.conf for enabling.
+with ``LIKE`` will then use function ``lower()``. This compatible mode has
+negative impact on performance and as it is not needed for dictionaries like
+EDICT or CEDICT it is disabled by default. See ``cjklib.conf`` for enabling.
 
 SQLite offers full-text search with extension FTS3 which needs to be compiled in
 to be used. Cjknife can use the full-text capabilities for the dictionary search
 and performs a full table scan in fuzzy search if this extension is not
-available. To enable it set enableFTS3 to True in cjklib.conf before rebuilding.
-No full-text support is currently given for MySQL.
+available. To enable it set ``enableFTS3`` to ``True`` in ``cjklib.conf`` before
+rebuilding. No full-text support is currently given for MySQL.
 
 MySQL
 -----
-With MySQL 5 the following CREATE command creates a database with utf8 as
-character set using the general Unicode collation:
+With MySQL 5 the following ``CREATE`` command creates a database with ``utf8``
+as character set using the general Unicode collation::
 
-CREATE DATABASE cjklib DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+    CREATE DATABASE cjklib DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
-You might need to set access rights, too (substitute user_name and
-host_name):
+You might need to set access rights, too (substitute ``user_name`` and
+``host_name``)::
 
-GRANT ALL ON cjklib.* TO 'user_name'@'host_name';
+    GRANT ALL ON cjklib.* TO 'user_name'@'host_name';
 
-Now you need to change cjklib.conf to tell cjklib to use MySQL.
+Now adapt ``cjklib.conf`` to make cjklib use MySQL.
 
 MySQL < 6 doesn't support true UTF-8, and uses a version with max 3 bytes, so
 characters outside the Basic Multilingual Plane (BMP) can't be encoded. Building
-the Unihan database thus might result in warnings, characters above 0x20000
+the Unihan database thus might result in warnings, characters above ``0x20000``
 can't be built at all.
 
 
 Contact
 =======
-For help or discussions on cjklib, join cjklib-devel@googlegroups.com
-(http://groups.google.com/group/cjklib-devel).
+For help or discussions on cjklib, join `cjklib-devel@googlegroups.com
+<http://groups.google.com/group/cjklib-devel>`_.
 
-Please report bugs to http://code.google.com/p/cjklib/issues/list.
+Please report bugs to the `project's bug tracker
+<http://code.google.com/p/cjklib/issues/list>`_.
