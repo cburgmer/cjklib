@@ -61,7 +61,7 @@ Profiling
 Profiling is mostly used to learn about the runtime behaviour of a program
 and find inefficient parts of the code. It also allows epydoc to generate call
 graphs for inclusion in the API documentation:
-  $  -m profile -o unittest.pstat /usr/bin/nosetests cjklib/test/*.py
+$ python -m profile -o unittest.pstat /usr/bin/nosetests cjklib/test/*.py
 
 generates the file unittest.pstat that is used for further processing.
 
@@ -103,22 +103,27 @@ python setup.py sdist
 
 Ubuntu
 ------
-Swap "karmic" for "jaunty" if building for the latter, swap "cburgmer" for
+Swap "lucid" for "karmic"/"jaunty" if building for those, swap "cburgmer" for
 your own launchpad account.
 
 Create a source package and upload it to a launchpad ppa:
 $ python setup.py --command-packages=stdeb.command sdist_dsc \
-    --debian-version 1 --extra-cfg-file=karmic_stdeb.cfg
-$ cd deb_dist/cjklib-0.2~karmic/
+    --debian-version 1 --extra-cfg-file=lucid_stdeb.cfg
+$ cd deb_dist/cjklib-0.3~lucid/
 $ dpkg-buildpackage -S
 $ cd ..
-$ dput -U ppa:cburgmer/ppa cjklib_0.2~karmic-1_source.changes
+$ dput -U ppa:cburgmer/ppa cjklib_0.3~lucid-1_source.changes
 
 Debian
 ------
 Create a binary package:
-$ python -c "import stdeb; execfile('setup.py')" bdist_deb \
+$ python setup.py --command-packages=stdeb.command bdist_deb \
     --debian-version 1 --extra-cfg-file=debian_stdeb.cfg
+
+RPM
+---
+Create a binary package:
+$ python setup.py bdist_rpm
 
 Win32
 -----
