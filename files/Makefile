@@ -40,23 +40,23 @@ build/tmp/cfdict.tar.bz2:
 
 build/edict.db: build/tmp/edict.gz
 	mkdir -p build/
-	python -m cjklib.build.cli -r build EDICT --filePath=build/tmp/edict.gz --database=sqlite:///build/edict.db
+	python -m cjklib.build.cli -r build EDICT --filePath=build/tmp/edict.gz --database=sqlite:///build/edict.db --attach=
 
 build/cedict.db: build/tmp/cedict.gz
 	mkdir -p build
-	python -m cjklib.build.cli -r build CEDICT --filePath=build/tmp/cedict.gz --database=sqlite:///build/cedict.db
+	python -m cjklib.build.cli -r build CEDICT --filePath=build/tmp/cedict.gz --database=sqlite:///build/cedict.db --attach=
 
 build/cedictgr.db: build/tmp/cedictgr.zip
 	mkdir -p build
-	python -m cjklib.build.cli -r build CEDICTGR --filePath=build/tmp/cedictgr.zip --database=sqlite:///build/cedictgr.db
+	python -m cjklib.build.cli -r build CEDICTGR --filePath=build/tmp/cedictgr.zip --database=sqlite:///build/cedictgr.db --attach=
 
 build/handedict.db: build/tmp/handedict.tar.bz2
 	mkdir -p build
-	python -m cjklib.build.cli -r build HanDeDict --filePath=build/tmp/handedict.tar.bz2 --database=sqlite:///build/handedict.db
+	python -m cjklib.build.cli -r build HanDeDict --filePath=build/tmp/handedict.tar.bz2 --database=sqlite:///build/handedict.db --attach=
 
 build/cfdict.db: build/tmp/cfdict.tar.bz2
 	mkdir -p build
-	python -m cjklib.build.cli -r build CFDICT --filePath=build/tmp/cfdict.tar.bz2 --database=sqlite:///build/cfdict.db
+	python -m cjklib.build.cli -r build CFDICT --filePath=build/tmp/cfdict.tar.bz2 --database=sqlite:///build/cfdict.db --attach=
 
 files := $(wildcard build/*.db)
 install: $(files)
