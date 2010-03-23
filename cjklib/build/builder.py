@@ -79,7 +79,7 @@ import xml.sax
 import itertools
 import logging
 
-from sqlalchemy import Table, Column, Integer, String, Text, Index
+from sqlalchemy import Table, Column, Integer, String, DateTime, Text, Index
 from sqlalchemy import select, union
 from sqlalchemy.sql import text, func
 from sqlalchemy.sql import or_
@@ -3450,6 +3450,17 @@ class WordIndexBuilder(EntryGeneratorBuilder):
             select([table.c[self.HEADWORD_SOURCE], table.c.Reading,
                 table.c.Translation]))
         return WordIndexBuilder.WordEntryGenerator(entries).generator()
+
+
+class VersionBuilder(EntryGeneratorBuilder):
+    """Table for keeping track of version of installed dictionary."""
+    PROVIDES = 'Version'
+    COLUMNS = ['TableName', 'ReleaseDate']
+    PRIMARY_KEYS = ['TableName']
+    COLUMN_TYPES = {'TableName': String(255), 'ReleaseDate': DateTime()}
+
+    def getGenerator(self):
+        return iter([])
 
 
 class EDICTBuilder(EDICTFormatBuilder):

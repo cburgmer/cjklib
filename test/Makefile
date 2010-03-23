@@ -12,23 +12,33 @@ kanjidic2: downloads/kanjidic2.xml.gz
 
 downloads/EDICT:
 	mkdir -p downloads
-	cd downloads && python ../../files/downloaddict.py --softLink EDICT
+	rm downloads/edict.gz
+	python -m cjklib.dictionary.install --download EDICT --targetPath=downloads
+	cd downloads && ln -s edict.gz EDICT
 
 downloads/CEDICT:
 	mkdir -p downloads
-	cd downloads && python ../../files/downloaddict.py --softLink CEDICT
+	rm downloads/cedict_1_0_ts_utf-8_mdbg.txt.gz
+	python -m cjklib.dictionary.install --download CEDICT --targetPath=downloads
+	cd downloads && ln -s cedict_1_0_ts_utf-8_mdbg.txt.gz CEDICT
 
 downloads/CEDICTGR:
 	mkdir -p downloads
-	cd downloads && python ../../files/downloaddict.py --softLink CEDICTGR
+	rm downloads/cedictgr.zip
+	python -m cjklib.dictionary.install --download CEDICTGR --targetPath=downloads
+	cd downloads && ln -s cedictgr.zip CEDICTGR
 
 downloads/HanDeDict:
 	mkdir -p downloads
-	cd downloads && python ../../files/downloaddict.py --softLink HanDeDict
+	rm downloads/handedict-????????.tar.bz2
+	python -m cjklib.dictionary.install --download HanDeDict --targetPath=downloads
+	cd downloads && ln -s handedict-????????.tar.bz2 HanDeDict
 
 downloads/CFDICT:
 	mkdir -p downloads
-	cd downloads && python ../../files/downloaddict.py --softLink CFDICT
+	rm downloads/cfdict-????????.tar.bz2
+	python -m cjklib.dictionary.install --download CFDICT --targetPath=downloads
+	cd downloads && ln -s cfdict-????????.tar.bz2 CFDICT
 
 downloads/Unihan.zip:
 	mkdir -p downloads

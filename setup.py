@@ -26,6 +26,7 @@ setup(name='cjklib',
     entry_points={
         'console_scripts': [
             'buildcjkdb = cjklib.build.cli:main',
+            'installcjkdict = cjklib.dictionary.install:main',
             'cjknife = cjklib.cjknife:main',
         ],
     },

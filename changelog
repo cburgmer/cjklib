@@ -4,6 +4,8 @@ SVN
 ===
 - easy dictionary access for EDICT, CEDICT and others
 - multiple database support
+- easy dictionary installation
+- support for Win32, improved package installation
 - pronunciation information from Unihan's kMandarin is not used anymore due to
   unknown provenance, see thread under
   http://www.unicode.org/mail-arch/unicode-ml/y2010-m01/0246.html

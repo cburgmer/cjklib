@@ -20,16 +20,16 @@ Windows
 -------
 Install cjklib using the provided ``.exe`` installer.
 
-Two scripts ``cjknife.exe`` and ``buildcjkdb.exe`` will be added to the Python
-``Scripts`` sub-directory. Add this directory to your ``PATH`` environment
-variable to access these programs from the command line.
+Three scripts ``cjknife.exe``, ``buildcjkdb.exe``, and ``installcjkdict.exe``
+will be added to the Python ``Scripts`` sub-directory. Add this directory to
+your ``PATH`` environment variable to access these programs from the command
+line.
 
 CJK dictionaries are not included by default. If you want to install any of
 those run the following (with an Internet connection) from the root directory
 of the source package::
 
-    $ cd files
-    $ install.bat CEDICT
+    $ installcjkdict CEDICT
 
 This will download CEDICT, create a SQLite database file and install it under
 the directory given by the ``APPDATA`` environment variable, e.g.
@@ -47,14 +47,12 @@ Linux
 If you are installing from the source package you need to deploy the library on
 your system::
 
-    $ python setup.py install
+    $ sudo python setup.py install
 
 CJK dictionaries are not included by default. If you want to install any of
 those run the following (with an Internet connection):
 
-    $ cd files
-    $ make CEDICT
-    $ sudo make install
+    $ sudo installcjkdict CEDICT
 
 This will download CEDICT, create a SQLite database file and install it to
 ``/usr/local/share/cjklib``. Just substitute ``CEDICT`` for any other supported
@@ -86,7 +84,7 @@ First download the newest Unihan file::
 
 Then start the build process::
 
-    $ buildcjkdb build cjklibData
+    $ sudo buildcjkdb build cjklibData
 
 SQLite
 ------
@@ -121,7 +119,7 @@ You might need to set access rights, too (substitute ``user_name`` and
 
     GRANT ALL ON cjklib.* TO 'user_name'@'host_name';
 
-Now adapt ``cjklib.conf`` to make cjklib use MySQL.
+Now update the settings in  ``cjklib.conf``.
 
 MySQL < 6 doesn't support true UTF-8, and uses a version with max 3 bytes, so
 characters outside the Basic Multilingual Plane (BMP) can't be encoded. Building
