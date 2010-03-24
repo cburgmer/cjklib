@@ -17,6 +17,7 @@
 
 """
 Provides a command line interface (I{CLI}) to the build functionality of cjklib.
+@bug: "Prefer" system does not work for additional builders
 """
 
 import sys
@@ -251,7 +252,7 @@ format --BuilderName-option or --TableName-option, e.g.
         return options
 
     def buildParser(self):
-        usage = "%prog [options] [build | list]"
+        usage = "%prog [options] [list | build TABLE [TABLE_2 ...]]"
         description = self.DESCRIPTION
         version = """%%prog %s
 Copyright (C) 2006-2010 cjklib developers

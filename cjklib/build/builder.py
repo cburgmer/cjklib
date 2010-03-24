@@ -3314,14 +3314,12 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         hasFTS3 = self.enableFTS3 and self.db.engine.name == 'sqlite' \
             and self.testFTS3()
         if not hasFTS3:
-            if not self.quiet:
-                if not self.enableFTS3:
-                    reason = 'deactivated by user.'
-                elif self.db.engine.name != 'sqlite':
+            if not self.quiet and self.enableFTS3:
+                if self.db.engine.name != 'sqlite':
                     reason = 'not supported by database engine.'
                 else:
                     reason = 'extension not found.'
-                warn("SQLite FTS3 fulltext search disabled: %s" % reason)
+                warn("SQLite FTS3 fulltext search unsupported: %s" % reason)
             # get create statement
             table = self.buildTableObject(self.PROVIDES, self.COLUMNS,
                 self.COLUMN_TYPES, self.PRIMARY_KEYS)

@@ -376,6 +376,7 @@ class DatabaseBuilder:
                         + "dependencies")
                 try:
                     instance.remove()
+                    self._instancesUnrequestedTable.remove(instance)
                 except OperationalError:
                     pass
                 # remove old metadata
