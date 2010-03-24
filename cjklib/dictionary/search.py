@@ -18,7 +18,6 @@
 """
 Provides search strategies for dictionaries.
 
-@todo Fix: "USB shou指" should find "ＵＳＢ手指 [U S B shǒu zhǐ]" for CEDICT
 @todo Impl: Allow simple FTS3 searching as build support is already provided.
 """
 
@@ -38,6 +37,7 @@ __all__ = [
     ]
 
 import re
+import string
 
 from sqlalchemy.sql import and_, or_
 from sqlalchemy.sql.expression import func
@@ -67,6 +67,18 @@ def _escapeWildcards(string, escape='\\'):
             r'(%s|[_%%])' % re.escape(escape))
     # insert escape
     return _wildcardRegexCache[escape].sub(r'%s\1' % re.escape(escape), string)
+
+_FULL_WIDTH_MAP = dict((ord(halfWidth), unichr(ord(halfWidth) + 65248))
+    for halfWidth in (string.ascii_uppercase + string.ascii_lowercase))
+"""Mapping of halfwidth characters to fullwidth."""
+
+def _mapToFullwidth(string):
+    u"""Maps halfwidth characters to fullwidth, e.g. C{U} to C{Ｕ}."""
+    global _FULL_WIDTH_MAP
+    if isinstance(string, str):
+        return string
+    else:
+        return string.translate(_FULL_WIDTH_MAP)
 
 defaultSingleCharacter = '_'
 defaultMultipleCharacters = '%'
@@ -150,6 +162,14 @@ class _CaseInsensitiveBase(object):
 
 class Exact(_CaseInsensitiveBase):
     """Simple search strategy class."""
+    def __init__(self, fullwidthCharacters=False, **options):
+        """
+        @param fullwidthCharacters: if C{True} if C{True} alphabetic halfwidth
+            characters are converted to fullwidth.
+        """
+        _CaseInsensitiveBase.__init__(self, **options)
+        self._fullwidthCharacters = fullwidthCharacters
+
     def getWhereClause(self, column, searchStr):
         """
         Returns a SQLAlchemy clause that is the necessary condition for a
@@ -162,6 +182,9 @@ class Exact(_CaseInsensitiveBase):
         @param searchStr: search string
         @return: SQLAlchemy clause
         """
+        if self._fullwidthCharacters:
+            searchStr = _mapToFullwidth(searchStr)
+
         return self._equals(column, searchStr)
 
     def getMatchFunction(self, searchStr):
@@ -178,6 +201,9 @@ class Exact(_CaseInsensitiveBase):
         @rtype: function
         @return: function that returns C{True} if the entry is a match
         """
+        if self._fullwidthCharacters:
+            searchStr = _mapToFullwidth(searchStr)
+
         if self._caseInsensitive:
             searchStr = searchStr.lower()
             return lambda cell: searchStr == cell.lower()
@@ -287,12 +313,19 @@ class _WildcardBase(object):
 
 class Wildcard(Exact, _WildcardBase):
     """Basic headword search strategy with support for wildcards."""
-    def __init__(self, **options):
-        Exact.__init__(self, **options)
+    def __init__(self, fullwidthCharacters=False, **options):
+        """
+        @param fullwidthCharacters: if C{True} if C{True} alphabetic halfwidth
+            characters are converted to fullwidth.
+        """
+        Exact.__init__(self, fullwidthCharacters, **options)
         _WildcardBase.__init__(self, **options)
 
     def getWhereClause(self, column, searchStr, **options):
         if self._hasWildcardCharacters(searchStr):
+            if self._fullwidthCharacters:
+                searchStr = _mapToFullwidth(searchStr)
+
             wildcardSearchStr = self._getWildcardQuery(searchStr)
             return self._like(column, wildcardSearchStr)
         else:
@@ -301,6 +334,9 @@ class Wildcard(Exact, _WildcardBase):
 
     def getMatchFunction(self, searchStr, **options):
         if self._hasWildcardCharacters(searchStr):
+            if self._fullwidthCharacters:
+                searchStr = _mapToFullwidth(searchStr)
+
             regex = self._getWildcardRegex(searchStr)
             return lambda headword: (headword is not None
                 and regex.search(headword) is not None)
@@ -985,7 +1021,13 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
     """
     Wildcard search base class for readings mixed with headword characters.
     """
-    class SingleWildcard:
+    class WildcardPairBase(object):
+        def __unicode__(self):
+            return '<%s %s, %s>' % (self.__class__.__name__,
+                repr(self.SQL_LIKE_STATEMENT_HEADWORD),
+                repr(self.SQL_LIKE_STATEMENT))
+
+    class SingleWildcard(WildcardPairBase):
         """
         Wildcard matching one arbitrary reading entity and headword character.
         """
@@ -994,7 +1036,7 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
         def match(self, entity):
             return entity is not None
 
-    class MultipleWildcard:
+    class MultipleWildcard(WildcardPairBase):
         """
         Wildcard matching zero, one or multiple reading entities and headword
         characters.
@@ -1004,7 +1046,7 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
         def match(self, entity):
             return True
 
-    class HeadwordWildcard:
+    class HeadwordWildcard(WildcardPairBase):
         """
         Wildcard matching an exact headword character and one arbitrary reading
         entity.
@@ -1022,7 +1064,7 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
             headwordEntity, _ = entity
             return headwordEntity == self._headwordEntity
 
-    class ReadingWildcard:
+    class ReadingWildcard(WildcardPairBase):
         """
         Wildcard matching an exact reading entity and one arbitrary headword
         character.
@@ -1040,9 +1082,11 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
             _, readingEntity = entity
             return readingEntity == self._readingEntity
 
-    def __init__(self, supportWildcards=True, **options):
+    def __init__(self, supportWildcards=True, headwordFullwidthCharacters=False,
+        **options):
         _SimpleReadingWildcardBase.__init__(self, **options)
         self._supportWildcards = supportWildcards
+        self._headwordFullwidthCharacters = headwordFullwidthCharacters
 
     def _createReadingWildcard(self, headwordEntity):
         return self.ReadingWildcard(headwordEntity, self.escape)
@@ -1057,6 +1101,9 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
         for entity in entities:
             if isinstance(entity, basestring):
                 # single entity, assume belonging to headword
+                if self._headwordFullwidthCharacters:
+                    # map to fullwidth if applicable
+                    entity = _FULL_WIDTH_MAP.get(ord(entity), entity)
                 newEntities.append(self._createHeadwordWildcard(entity))
             else:
                 newEntities.append(entity)
@@ -1146,7 +1193,7 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
         searchPairs = self._getWildcardForms(searchStr, **options)
 
         if self._caseInsensitive:
-            return lambda h, r: matchHeadwordReadingPair(h, r.lower())
+            return lambda h, r: matchHeadwordReadingPair(h.lower(), r.lower())
         else:
             return matchHeadwordReadingPair
 
@@ -1162,9 +1209,17 @@ class MixedWildcardReading(SimpleReading,
     This strategy complements the basic search strategy. It is not built to
     return results for plain reading or plain headword strings.
     """
-    def __init__(self, supportWildcards=True, **options):
+    def __init__(self, supportWildcards=True, headwordFullwidthCharacters=False,
+        **options):
+        """
+        @param supportWildcards: if C{True} wildcard characters are
+            interpreted (default).
+        @param headwordFullwidthCharacters: if C{True} halfwidth characters
+            are converted to fullwidth if found in headword.
+        """
         SimpleReading.__init__(self, **options)
-        _MixedReadingWildcardBase.__init__(self, supportWildcards, **options)
+        _MixedReadingWildcardBase.__init__(self, supportWildcards,
+            headwordFullwidthCharacters, **options)
 
     def getWhereClause(self, headwordColumn, readingColumn, searchStr,
         **options):
@@ -1200,7 +1255,7 @@ class _MixedTonelessReadingWildcardBase(_MixedReadingWildcardBase,
     Wildcard search base class for readings missing tonal information mixed with
     headword characters.
     """
-    class TonelessReadingWildcard:
+    class TonelessReadingWildcard(_MixedReadingWildcardBase.WildcardPairBase):
         """
         Wildcard matching an exact toneless reading entity and one arbitrary
         headword character.
@@ -1219,10 +1274,11 @@ class _MixedTonelessReadingWildcardBase(_MixedReadingWildcardBase,
             return (readingEntity == self._plainEntity
                 or readingEntity[:-1] == self._plainEntity)
 
-    def __init__(self, supportWildcards=True, **options):
-        _MixedReadingWildcardBase.__init__(self, **options)
+    def __init__(self, supportWildcards=True, headwordFullwidthCharacters=False,
+        **options):
+        _MixedReadingWildcardBase.__init__(self, supportWildcards,
+            headwordFullwidthCharacters, **options)
         _TonelessReadingWildcardBase.__init__(self, **options)
-        self._supportWildcards = supportWildcards
 
     def _createTonelessReadingWildcard(self, plainEntity):
         return self.TonelessReadingWildcard(plainEntity, self.escape)
@@ -1280,10 +1336,17 @@ class MixedTonelessWildcardReading(SimpleReading,
     This strategy complements the basic search strategy. It is not built to
     return results for plain reading or plain headword strings.
     """
-    def __init__(self, supportWildcards=True, **options):
+    def __init__(self, supportWildcards=True, headwordFullwidthCharacters=False,
+        **options):
+        """
+        @keyword supportWildcards: if C{True} wildcard characters are
+            interpreted (default).
+        @keyword headwordFullwidthCharacters: if C{True} halfwidth characters
+            are converted to fullwidth if found in headword.
+        """
         SimpleReading.__init__(self, **options)
         _MixedTonelessReadingWildcardBase.__init__(self, supportWildcards,
-            **options)
+            headwordFullwidthCharacters, **options)
 
     def getWhereClause(self, headwordColumn, readingColumn, searchStr,
         **options):

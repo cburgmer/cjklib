@@ -612,9 +612,6 @@ class EDICTStyleEnhancedReadingDictionary(EDICTStyleDictionary):
             columnFormatStrategies['Reading'] \
                 = formatstrategy.ReadingConversion()
             options['columnFormatStrategies'] = columnFormatStrategies
-        if None not in columnFormatStrategies:
-            columnFormatStrategies[None] \
-                = formatstrategy.NonReadingEntityWhitespace()
         if 'readingSearchStrategy' not in options:
             options['readingSearchStrategy'] \
                 = searchstrategy.SimpleWildcardReading()
@@ -685,6 +682,15 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
             C{'t'} if the traditional headword is used as default, C{'b'} if
             both are tried.
         """
+        columnFormatStrategies = options.get('columnFormatStrategies', {})
+        if None not in columnFormatStrategies:
+            columnFormatStrategies[None] \
+                = formatstrategy.NonReadingEntityWhitespace()
+            options['columnFormatStrategies'] = columnFormatStrategies
+
+        if 'headwordSearchStrategy' not in options:
+            options['headwordSearchStrategy'] = searchstrategy.Wildcard(
+                fullwidthCharacters=True)
         if 'translationSearchStrategy' not in options:
             options['translationSearchStrategy'] \
                 = searchstrategy.CEDICTWildcardTranslation()
@@ -693,7 +699,8 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
                 = searchstrategy.TonelessWildcardReading()
         if 'mixedReadingSearchStrategy' not in options:
             options['mixedReadingSearchStrategy'] \
-                = searchstrategy.MixedTonelessWildcardReading()
+                = searchstrategy.MixedTonelessWildcardReading(
+                    headwordFullwidthCharacters=True)
         super(CEDICT, self).__init__(**options)
 
         headword = options.get('headword', 'b')
@@ -776,6 +783,17 @@ class HanDeDict(CEDICT):
     DICTIONARY_TABLE = 'HanDeDict'
 
     def __init__(self, **options):
+        columnFormatStrategies = options.get('columnFormatStrategies', {})
+        if None not in columnFormatStrategies:
+            columnFormatStrategies[None] \
+                = formatstrategy.NonReadingEntityWhitespace()
+            options['columnFormatStrategies'] = columnFormatStrategies
+
+        if 'headwordSearchStrategy' not in options:
+            options['headwordSearchStrategy'] = searchstrategy.Wildcard()
+        if 'mixedReadingSearchStrategy' not in options:
+            options['mixedReadingSearchStrategy'] \
+                = searchstrategy.MixedTonelessWildcardReading()
         if 'translationSearchStrategy' not in options:
             options['translationSearchStrategy'] \
                 = searchstrategy.HanDeDictWildcardTranslation()

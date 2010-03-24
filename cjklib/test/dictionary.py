@@ -111,13 +111,11 @@ class DictionaryResultTest(DictionaryTest):
     def resultIndexMap(self):
         content = self.INSTALL_CONTENT[:]
 
-        columnFormatStrategies = self.dictionary.columnFormatStrategies
-        for column, formatStrategy in columnFormatStrategies.items():
-            columnIdx = self.dictionary.COLUMNS.index(column)
-            for idx in range(len(content)):
-                rowList = list(content[idx])
-                rowList[columnIdx] = formatStrategy.format(rowList[columnIdx])
-                content[idx] = tuple(rowList)
+        content = map(list, content)
+        for strategy in self.dictionary._formatStrategies:
+            content = map(strategy.format, content)
+        content = map(tuple, content)
+
         return dict((row, idx) for idx, row in enumerate(content))
 
     def testResults(self):
@@ -219,6 +217,8 @@ class CEDICTDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
         (u'個', u'个', u'ge4', u'/individual/this/that/size/classifier for people or objects in general/'),
         (u'西安', u'西安', u'Xi1 an1', u"/Xi'an city, subprovincial city and capital of Shaanxi 陝西省|陕西省[Shan3 xi1 sheng3] in northwest China/see 西安區|西安区[Xi1 an1 qu1]/"),
         (u'仙', u'仙', u'xian1', u'/immortal/'),
+        (u'Ｃ盤', u'Ｃ盘', u'C pan2', u'/C drive or default startup drive (computing)/'),
+        (u'ＵＳＢ手指', u'ＵＳＢ手指', u'U S B shou3 zhi3', u'/USB flash drive/'),
         #(u'', u'', u'', u''),
         ]
 
@@ -234,6 +234,13 @@ class CEDICTDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
             [(u'zhi导%', [1, 4, 5, 6, 7])]),
         ('getFor', (), [(u'個', [8])]),
         ('getFor', (('toneMarkType', 'numbers'),), [(u'xian1', [9, 10])]),
+        ('getFor', (('toneMarkType', 'numbers'),), [(u'C pan', [11])]),
+        ('getFor', (('toneMarkType', 'numbers'),), [(u'Ｃpan', [11])]),
+        ('getFor', (('toneMarkType', 'numbers'),), [(u'Ｃ pan', [11])]),
+        ('getFor', (), [(u'Ｃ盘', [11])]),
+        ('getFor', (), [(u'C盘', [11])]),
+        ('getForReading', (('toneMarkType', 'numbers'),),
+            [(u'USB shou指', [12])]),
         ]
 
 
@@ -260,6 +267,8 @@ class HanDeDictDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
         (u'柏林', u'柏林', u'bo2 lin2', u'/Berlin (u.E.) (Eig, Geo)/'),
         (u'北', u'北', u'bei3', u'/Norden (S)/nördlich (Adj)/nordwärts, nach Norden, gen Norden (Adv)/Nord-; Bsp.: 北風 北风 -- Nordwind/'),
         (u'朔風', u'朔风', u'shuo4 feng1', u'/Nordwind (u.E.) (S)/'),
+        (u'IC卡', u'IC卡', u'I C ka3', u'/Chipkarte (S)/'),
+        (u'USB電纜', u'USB电缆', u'U S B dian4 lan3', u'/USB-Kabel (u.E.) (S)/'),
         #(u'', u'', u'', u''),
         ]
 
@@ -277,6 +286,9 @@ class HanDeDictDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
         ('getForTranslation', (), [(u'%Berlin', [2, 3])]),
         ('getFor', (), [(u'Nordwind', [5])]),
         ('getFor', (), [(u'%Nordwind%', [4, 5])]),
+        ('getForReading', (('toneMarkType', 'numbers'),), [(u'IC ka', [6])]),
+        ('getForReading', (('toneMarkType', 'numbers'),),
+            [(u'USB dian纜', [7])]),
         ]
 
 

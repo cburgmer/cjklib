@@ -138,6 +138,7 @@ class NonReadingEntityWhitespace(Base):
     """
     FULL_WIDTH_MAP = dict((halfWidth, unichr(ord(halfWidth) + 65248))
         for halfWidth in string.ascii_uppercase)
+    """Mapping of halfwidth characters to fullwidth."""
 
     def format(self, columns):
         headword, headwordSimplified, reading, translation = columns
