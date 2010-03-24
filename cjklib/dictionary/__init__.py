@@ -211,11 +211,13 @@ __all__ = [
 
 import types
 
-from sqlalchemy import select
+from sqlalchemy import select, Table
 from sqlalchemy.sql import or_
+from sqlalchemy.exc import NoSuchTableError
 
 from cjklib import dbconnector
 from cjklib import exception
+from cjklib.util import cachedproperty
 
 from cjklib.dictionary import entry as entryfactory
 from cjklib.dictionary import format as formatstrategy
@@ -430,6 +432,19 @@ class EDICTStyleDictionary(BaseDictionary):
     def available(cls, dbConnectInst):
         return (cls.DICTIONARY_TABLE
             and dbConnectInst.hasTable(cls.DICTIONARY_TABLE))
+
+    @cachedproperty
+    def version(self):
+        """Version (date) of the dictionary. C{None} if not available."""
+        try:
+            versionTable = Table('Version', self.db.metadata, autoload=True,
+                autoload_with=self.db.engine,
+                schema=self.db.tables[self.DICTIONARY_TABLE].schema)
+
+            return self.db.selectScalar(select([versionTable.c.ReleaseDate],
+                versionTable.c.TableName == self.DICTIONARY_TABLE))
+        except NoSuchTableError:
+            pass
 
     def _search(self, whereClause, filters, limit, orderBy):
         def _getFilterFunction(filterList):
