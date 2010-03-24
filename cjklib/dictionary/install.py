@@ -15,8 +15,25 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+u"""
 Installs dictionaries at runtime.
+
+Example:
+
+    - Download and update a dictionary (here CFDICT):
+
+        >>> from cjklib.dbconnector import getDBConnector
+        >>> db = getDBConnector({'sqlalchemy.url': 'sqlite://',\
+ 'attach': ['cjklib']})
+        >>> from cjklib.dictionary.install import DictionaryInstaller
+        >>> installer = DictionaryInstaller()
+        >>> installer.install('CFDICT', dbConnectInst=db)
+        >>> from cjklib.dictionary import CFDICT
+        >>> CFDICT(dbConnectInst=db).getFor(u'朋友')
+        [EntryTuple(HeadwordTraditional=u'\u670b\u53cb',\
+ HeadwordSimplified=u'\u670b\u53cb', Reading=u'p\xe9ng you',\
+ Translation=u'/ami (n.v.) (n)/')]
+
 """
 
 __all__ = [
@@ -159,10 +176,7 @@ class DownloaderBase(object):
     @cachedproperty
     def version(self):
         """
-        Gets the version of the online available dictionary.
-
-        @rtype: instance
-        @return: DateTime instance
+        Version of the online available dictionary.
         """
         link = self.downloadLink
 
@@ -360,33 +374,60 @@ class DictionaryInstaller(object):
         return 'sqlite:///%s' % filePath
 
     def install(self, dictionaryName, **options):
+        """
+        Installs the given dictionary to a database.
+
+        Different installation methods are possible:
+            - by default a global installation is done, a single database file
+              if installed for SQLite, for other engines the database is
+              installed to the same database as cjklib's,
+            - if C{local} is set, the database file for SQLite is installed to
+              the user's home directory,
+            - C{databaseUrl} can be speficied for a user defined database,
+            - C{dbConnectInst} can be given to write to an open database
+              instance.
+
+        @param options: extra options
+        @keyword databaseUrl: database connection setting in the format
+            C{driver://user:pass@host/database}.
+        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        @keyword local: if C{True} the SQLite file will be installed in the
+            user's home directory.
+        @keyword prefix: installation prefix for a global install (Unix only).
+        @keyword forceUpdate: dictionary will be installed even if a newer
+            version already exists
+        @keyword quiet: if C{True} no status information will be printed to
+            stdout
+        """
         # get database connection
         configuration = {}
 
         local = options.pop('local', False)
         prefix = options.pop('prefix', None)
-        if 'databaseUrl' in options:
-            configuration['sqlalchemy.url'] = options.pop('databaseUrl')
+        configuration['sqlalchemy.url'] = options.pop('databaseUrl', None)
+
+        if 'dbConnectInst' in options:
+            db = options.pop('dbConnectInst')
         else:
-            configuration['sqlalchemy.url'] = self.getDefaultDatabaseUrl(
-                dictionaryName, local=local, prefix=prefix)
+            if not configuration['sqlalchemy.url']:
+                configuration['sqlalchemy.url'] = self.getDefaultDatabaseUrl(
+                    dictionaryName, local=local, prefix=prefix)
 
-        # for sqlite check if directory exists
-        url = make_url(configuration['sqlalchemy.url'])
-        if url.drivername == 'sqlite':
-            databaseFile = url.database
-            directory, _ = os.path.split(databaseFile)
-            if not os.path.exists(directory):
-                os.makedirs(directory)
+            # for sqlite check if directory exists
+            url = make_url(configuration['sqlalchemy.url'])
+            if url.drivername == 'sqlite':
+                if url.database:
+                    databaseFile = url.database
+                    directory, _ = os.path.split(databaseFile)
+                    if not os.path.exists(directory):
+                        os.makedirs(directory)
 
-        configuration['attach'] = options.pop('attach', [])
-        if 'registerUnicode' in options:
-            configuration['registerUnicode'] = options.pop('registerUnicode')
-        try:
+            configuration['attach'] = options.pop('attach', [])
+            if 'registerUnicode' in options:
+                configuration['registerUnicode'] = options.pop(
+                    'registerUnicode')
+
             db = dbconnector.DatabaseConnector(configuration)
-        except ValueError, e:
-            if not self.quiet: warn("Error: %s" % e)
-            return None
 
         # download
         downloader = getDownloader(dictionaryName, quiet=self.quiet)
