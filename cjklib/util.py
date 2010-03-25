@@ -55,17 +55,34 @@ def getConfigSettings(section, projectName='cjklib'):
         homeDir = os.path.expanduser('~')
 
         configFiles = []
+        # Library directory
+        try:
+            from pkg_resources import Requirement, resource_filename
+            libdir = resource_filename(Requirement.parse(projectName),
+                projectName)
+        except ImportError:
+            if projectName != 'cjklib':
+                import warnings
+                warnings.warn(("Module 'pkg_resources' not available"
+                    ", cannot locate packaged files for project '%s'")
+                    % projectName)
+            # fall back to the directory of this file, only works for cjklib
+            libdir = os.path.dirname(os.path.abspath(__file__))
+        configFiles.append(os.path.join(libdir, '%s.conf' % projectName))
+
         # Windows
         if 'APPDATA' in os.environ:
             configFiles += [
-                os.path.join(os.environ["APPDATA"], projectName),
+                os.path.join(os.environ["APPDATA"], projectName,
+                    '%s.conf' % projectName),
                 ]
         # OSX
         if platform.system() == 'Darwin':
             configFiles += [
-                os.path.join("/Library", "Application Support", projectName),
+                os.path.join("/Library", "Application Support", projectName,
+                    '%s.conf' % projectName),
                 os.path.join(homeDir, "Library", "Application Support",
-                    projectName),
+                    projectName, '%s.conf' % projectName),
                 ]
         # Unix
         configFiles += [

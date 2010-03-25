@@ -22,7 +22,8 @@ setup(name='cjklib',
     packages=['cjklib', 'cjklib.reading', 'cjklib.dictionary', 'cjklib.build',
         'cjklib.test'],
     package_dir={'cjklib': 'cjklib'},
-    package_data={'cjklib': ['data/*.csv', 'data/*.sql', 'cjklib.db']},
+    package_data={'cjklib': ['data/*.csv', 'data/*.sql', 'cjklib.db',
+        'cjklib.conf']},
     entry_points={
         'console_scripts': [
             'buildcjkdb = cjklib.build.cli:main',
