@@ -65,7 +65,7 @@ import cjklib
 from cjklib import dbconnector
 from cjklib import build
 from cjklib import exception
-from cjklib.util import cachedproperty, ExtendedOption, getConfigSettings
+from cjklib.util import cachedmethod, ExtendedOption, getConfigSettings
 
 try:
     from progressbar import Percentage, Bar, ETA, FileTransferSpeed, ProgressBar
@@ -164,8 +164,7 @@ class DownloaderBase(object):
         self.quiet = quiet
         self.downloadFunc = downloadFunc
 
-    @cachedproperty
-    def downloadLink(self):
+    def getDownloadLink(self):
         """
         Gets the download link for the online dictionary.
 
@@ -173,12 +172,12 @@ class DownloaderBase(object):
         """
         raise NotImplementedError()
 
-    @cachedproperty
-    def version(self):
+    @cachedmethod
+    def getVersion(self):
         """
         Version of the online available dictionary.
         """
-        link = self.downloadLink
+        link = self.getDownloadLink()
 
         if not self.quiet: warn("Sending HEAD request to %s..." % link,
             endline=False)
@@ -208,7 +207,7 @@ class DownloaderBase(object):
             return self._download(**options)
 
     def _download(self, targetName=None, targetPath=None, temporary=False):
-        link = self.downloadLink
+        link = self.getDownloadLink()
 
         _, _, onlinePath, _, _ = urlparse.urlsplit(link)
         originalFileName = os.path.basename(onlinePath)
@@ -223,7 +222,7 @@ class DownloaderBase(object):
             fileName = originalFileName
 
         if not self.quiet:
-            version = self.version
+            version = self.getVersion()
             if version:
                 warn('Found version %s' % version)
             else:
@@ -242,8 +241,7 @@ class EDICTDownloader(DownloaderBase):
     PROVIDES = 'EDICT'
     DOWNLOAD_LINK = u'http://ftp.monash.edu.au/pub/nihongo/edict.gz'
 
-    @cachedproperty
-    def downloadLink(self):
+    def getDownloadLink(self):
         return self.DOWNLOAD_LINK
 
 
@@ -252,8 +250,7 @@ class CEDICTGRDownloader(DownloaderBase):
     PROVIDES = 'CEDICTGR'
     DOWNLOAD_LINK = u'http://home.iprimus.com.au/richwarm/gr/cedictgr.zip'
 
-    @cachedproperty
-    def downloadLink(self):
+    def getDownloadLink(self):
         return self.DOWNLOAD_LINK
 
 
@@ -267,8 +264,8 @@ class PageDownloaderBase(DownloaderBase):
     DATE_REGEX = None
     DATE_FMT = None
 
-    @cachedproperty
-    def downloadPage(self):
+    @cachedmethod
+    def getDownloadPage(self):
         if not self.quiet: warn("Getting download page %s..."
             % self.DEFAULT_DOWNLOAD_PAGE, endline=False)
         f = urllib.urlopen(self.DEFAULT_DOWNLOAD_PAGE)
@@ -278,9 +275,9 @@ class PageDownloaderBase(DownloaderBase):
 
         return downloadPage
 
-    @cachedproperty
-    def downloadLink(self):
-        matchObj = self.DOWNLOAD_REGEX.search(self.downloadPage)
+    @cachedmethod
+    def getDownloadLink(self):
+        matchObj = self.DOWNLOAD_REGEX.search(self.getDownloadPage())
         if not matchObj:
             raise IOError("'Cannot read download page '%s'"
                 % self.DEFAULT_DOWNLOAD_PAGE)
@@ -288,9 +285,9 @@ class PageDownloaderBase(DownloaderBase):
         baseUrl = matchObj.group(1)
         return urlparse.urljoin(self.DEFAULT_DOWNLOAD_PAGE, baseUrl)
 
-    @cachedproperty
-    def version(self):
-        matchObj = self.DATE_REGEX.search(self.downloadPage)
+    @cachedmethod
+    def getVersion(self):
+        matchObj = self.DATE_REGEX.search(self.getDownloadPage())
         if matchObj:
             return datetime.strptime(matchObj.group(1), self.DATE_FMT).date()
 
@@ -440,7 +437,7 @@ class DictionaryInstaller(object):
                 curVersion = db.selectScalar(select([table.c.ReleaseDate],
                     table.c.TableName==dictionaryName))
 
-                newestVersion = downloader.version
+                newestVersion = downloader.getVersion()
                 if isinstance(newestVersion, date):
                     newestVersion = datetime.combine(newestVersion, time(0))
 
@@ -465,7 +462,7 @@ class DictionaryInstaller(object):
             db.execute(table.delete().where(
                 table.c.TableName == dictionaryName))
 
-            version = downloader.version
+            version = downloader.getVersion()
             if version:
                 db.execute(table.insert().values(TableName=dictionaryName,
                     ReleaseDate=version))

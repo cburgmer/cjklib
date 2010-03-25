@@ -504,6 +504,55 @@ def cachedproperty(fget):
 
 
 if sys.version_info >= (2, 5):
+    import functools
+    class cachedmethod(object):
+        """
+        Decorate a method to memoize its return value. Only applicable for
+        methods without arguments.
+        """
+        def __init__(self, fget):
+            self.fget = fget
+            self.__doc__ = fget.__doc__
+            self.__name__ = fget.__name__
+
+        def __get__(self, obj, cls):
+            if obj is None:
+                return None
+            @functools.wraps(self.fget)
+            def oneshot(*args, **kwargs):
+                @functools.wraps(self.fget)
+                def memo(*a, **k): return result
+                result = self.fget(obj, *args, **kwargs)
+                obj.__dict__[self.__name__] = memo
+                return result
+            return oneshot
+else:
+    class cachedmethod(object):
+        """
+        Decorate a method to memoize its return value. Only applicable for
+        methods without arguments.
+        """
+        def __init__(self, fget, doc=None):
+            self.fget = fget
+            self.__doc__ = doc or fget.__doc__
+            self.__name__ = fget.__name__
+
+        def __get__(self, obj, cls):
+            if obj is None:
+                return None
+            def oneshot(*args, **kwargs):
+                result = self.fget(obj, *args, **kwargs)
+                memo = lambda *a, **k: result
+                memo.__name__ = self.__name__
+                memo.__doc__ = self.__doc__
+                obj.__dict__[self.__name__] = memo
+                return result
+            oneshot.__name__ = self.__name__
+            oneshot.__doc__ = self.__doc__
+            return oneshot
+
+
+if sys.version_info >= (2, 5):
     import warnings
     import functools
 
