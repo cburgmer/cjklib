@@ -376,12 +376,12 @@ class DatabaseBuilder:
                         + "dependencies")
                 try:
                     instance.remove()
-                    self._instancesUnrequestedTable.remove(instance)
                 except OperationalError:
                     pass
                 # remove old metadata
                 if instance.PROVIDES in self.db.tables:
                     del self.db.tables[instance.PROVIDES]
+            del self._instancesUnrequestedTable
 
     def remove(self, tables):
         """
