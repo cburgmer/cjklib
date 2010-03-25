@@ -92,7 +92,7 @@ $ cd cjklib-read-only
 Create the database:
 $ wget ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
 $ python -m cjklib.build.cli build cjklibData \
-    --database=sqlite:///cjklib/cjklib.db --attach=
+    --database=sqlite:///cjklib/cjklib.db --attach= --ignoreConfig
 $ sqlite3 cjklib/cjklib.db "VACUUM"
 
 Continue with the following distribution specific sections.

@@ -274,22 +274,24 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             help="don't rebuild build-depends tables that are not given")
         parser.add_option("-p", "--prefer", action="appendResetDefault",
             metavar="BUILDER", dest="prefer",
-            default=defaults.get("prefer", []),
             help="builder preferred where several provide the same table" \
-                + " [default: %default]")
+                + " [default: %s]" % defaults.get("prefer", []))
         parser.add_option("-q", "--quiet", action="store_true", dest="quiet",
             default=False, help="don't print anything on stdout")
         parser.add_option("--database", action="store", metavar="URL",
             dest="databaseUrl", default=defaults.get("databaseUrl", None),
             help="database url [default: %default]")
         parser.add_option("--attach", action="appendResetDefault",
-            metavar="URL", dest="attach", default=defaults.get("attach", []),
-            help="attachable databases [default: %default]")
+            metavar="URL", dest="attach",
+            help="attachable databases [default: %s]"
+                % defaults.get("attach", []))
         parser.add_option("--registerUnicode", action="store", type='bool',
             metavar="BOOL", dest="registerUnicode",
-            default=defaults.get("registerUnicode", False),
             help=("register own Unicode functions if no ICU support available"
-                " [default: %default]"))
+                " [default: %s]" % defaults.get("registerUnicode", False)))
+        parser.add_option("--ignoreConfig", action="store_true",
+            dest="ignoreConfig", default=False,
+            help="ignore settings from cjklib.conf")
 
         optionSet = set(['rebuildExisting', 'rebuildDepending', 'quiet',
             'databaseUrl', 'attach', 'prefer'])
@@ -330,7 +332,6 @@ There is NO WARRANTY, to the extent permitted by law.""" \
                 # global option, only need to add it once, DatabaseBuilder makes
                 #   sure option is consistent between builder
                 options['dest'] = option
-                options['default'] = defaults.get(option, None)
                 if option not in optionSet:
                     globalBuilderGroup.add_option('--' + option, **options)
                     optionSet.add(option)
@@ -339,12 +340,10 @@ There is NO WARRANTY, to the extent permitted by law.""" \
                 #options['help'] = optparse.SUPPRESS_HELP
                 localBuilderOption = '--%s-%s' % (builder.__name__, option)
                 options['dest'] = localBuilderOption
-                options['default'] = defaults.get(localBuilderOption, None)
                 localBuilderGroup.add_option(localBuilderOption, **options)
 
                 localTableOption = '--%s-%s' % (builder.PROVIDES, option)
                 options['dest'] = localTableOption
-                options['default'] = defaults.get(localTableOption, None)
                 localBuilderGroup.add_option(localTableOption, **options)
 
         parser.add_option_group(globalBuilderGroup)
@@ -509,7 +508,10 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             if not args[1:]:
                 parser.error("no build groups specified")
 
-            options = self.getDefaultOptions()
+            if not opts.ignoreConfig:
+                options = self.getDefaultOptions()
+            else:
+                options = {}
             # convert the Values object to a dict, not too nice, but oh well
             options.update(dict([(option, getattr(opts, option)) for option \
                 in dir(opts) if not hasattr(Values(), option) \
