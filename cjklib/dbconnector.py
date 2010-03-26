@@ -112,6 +112,8 @@ __all__ = ["getDBConnector", "getDefaultConfiguration", "DatabaseConnector"]
 import os
 import logging
 import glob
+import operator
+from itertools import imap
 
 from sqlalchemy import MetaData, Table, engine_from_config
 from sqlalchemy.sql import text
@@ -581,6 +583,16 @@ class DatabaseConnector(object):
         result = self.execute(request)
         return [self._decode(row[0]) for row in result.fetchall()]
 
+    def iterScalars(self, request):
+        """
+        Executes a select query and returns an iterator of scalars.
+
+        @param request: SQL request
+        @return: an iterator of scalars
+        """
+        result = self.execute(request)
+        return imap(self._decode, imap(operator.itemgetter(0), result))
+
     def selectRow(self, request):
         """
         Executes a select query and returns a single table row.
@@ -599,7 +611,17 @@ class DatabaseConnector(object):
         Executes a select query and returns a list of table rows.
 
         @param request: SQL request
-        @return: a list of scalars
+        @return: a list of tuples
         """
         result = self.execute(request)
         return [self._decode(tuple(row)) for row in result.fetchall()]
+
+    def iterRows(self, request):
+        """
+        Executes a select query and returns an iterator of table rows.
+
+        @param request: SQL request
+        @return: an iterator of tuples
+        """
+        result = self.execute(request)
+        return imap(self._decode, result)

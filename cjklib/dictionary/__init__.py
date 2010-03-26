@@ -191,9 +191,6 @@ characters. The I{DatabaseConnector} can register own Unicode functions if ICU
 support is missing. Queries with C{LIKE} will then use function C{lower()}. This
 compatible mode has a negative impact on performance and as it is not needed for
 dictionaries like EDICT or CEDICT it is disabled by default.
-
-@todo Impl: Use Iterators?
-@todo Impl: Pass entry factories directly to search method in DatabaseConnector
 """
 
 __all__ = [
@@ -210,6 +207,7 @@ __all__ = [
     ]
 
 import types
+from itertools import imap, ifilter
 
 from sqlalchemy import select, Table
 from sqlalchemy.sql import or_
@@ -372,6 +370,11 @@ class BaseDictionary(object):
         return self._columnFormatStrategies
 
     def setSolumnFormatStrategies(self, columnFormatStrategies):
+        # None is passed to overwrite a default formating
+        for column in columnFormatStrategies.keys():
+            if columnFormatStrategies[column] is None:
+                del columnFormatStrategies[column]
+
         self._columnFormatStrategies = columnFormatStrategies
         self._formatStrategies = []
         if columnFormatStrategies:
@@ -476,20 +479,20 @@ class EDICTStyleDictionary(BaseDictionary):
                     orderByCols.append(col)
 
         # lookup in db
-        results = self.db.selectRows(
+        results = self.db.iterRows(
             select([dictionaryTable.c[col] for col in self.COLUMNS],
                 whereClause, distinct=True).order_by(*orderByCols).limit(limit))
 
         # filter
         if filters:
-            results = filter(_getFilterFunction(filters), results)
+            results = ifilter(_getFilterFunction(filters), results)
 
         # format readings and translations
         if self.columnFormatStrategies:
-            results = map(list, results)
+            results = imap(list, results)
             for strategy in self._formatStrategies:
-                results = map(strategy.format, results)
-            results = map(tuple, results)
+                results = imap(strategy.format, results)
+            results = imap(tuple, results)
 
         # format results
         entries = self.entryFactory.getEntries(results)
@@ -497,7 +500,7 @@ class EDICTStyleDictionary(BaseDictionary):
         return entries
 
     def getAll(self, limit=None, orderBy=None):
-        return self._search(None, limit, orderBy)
+        return self._search(None, None, limit, orderBy)
 
     def _getHeadwordSearch(self, headwordStr, **options):
         dictionaryTable = self.db.tables[self.DICTIONARY_TABLE]

@@ -24,6 +24,8 @@ __all__ = [
     "Tuple", "NamedTuple", "UnifiedHeadword",
     ]
 
+from itertools import imap
+
 #{ Entry factories
 
 class Tuple(object):
@@ -32,7 +34,7 @@ class Tuple(object):
         """
         Returns the dictionary results as lists.
         """
-        return map(tuple, results)
+        return results
 
 
 class NamedTuple(object):
@@ -179,7 +181,7 @@ class NamedTuple(object):
         Returns the dictionary results as named tuples.
         """
         EntryTuple = self._getNamedTuple()
-        return map(EntryTuple._make, results)
+        return imap(EntryTuple._make, results)
 
 
 class UnifiedHeadword(NamedTuple):
@@ -218,7 +220,7 @@ class UnifiedHeadword(NamedTuple):
             return EntryTuple._make(entry)
 
         EntryTuple = self._getNamedTuple()
-        return map(augmentedEntry, results)
+        return imap(augmentedEntry, results)
 
     def setDictionaryInstance(self, dictInstance):
         super(UnifiedHeadword, self).setDictionaryInstance(
