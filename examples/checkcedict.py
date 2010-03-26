@@ -51,13 +51,13 @@ import getopt
 
 from sqlalchemy import select
 
-from cjklib import dbconnector
+from cjklib.dictionary import getDictionary
 from cjklib.reading import ReadingFactory
 from cjklib import characterlookup
 from cjklib import exception
 
 DICTIONARY_READING = {'HanDeDict': ('Pinyin', {'toneMarkType': 'numbers'}),
-    'CEDICT': ('Pinyin', {'toneMarkType': 'numbers'})}
+    'CEDICT': ('Pinyin', {'toneMarkType': 'numbers', 'yVowel': 'u:'})}
 """
 A lookup table for supported dictionaries containing the database table name and
 reading type.
@@ -82,6 +82,10 @@ def getCJK():
     if not _cjk:
         _cjk = characterlookup.CharacterLookup('T')
     return _cjk
+
+def iterDictionary(dictionary):
+    d = getDictionary(dictionary, columnFormatStrategies={'Reading': None})
+    return d.getAll()
 
 def getPlainSyllableSet(entityList, reading):
     plainEntityList = set()
@@ -131,34 +135,22 @@ def getReadingOperator(readingName, readingOptions={}):
             **readingOptions)
     return _readingOperator
 
-_dictionaryEntries = None
-def getDictionaryEntries(dictionary):
-    global _dictionaryEntries
-    if not _dictionaryEntries:
-        db = dbconnector.getDBConnector()
-        table = db.tables[dictionary]
-        _dictionaryEntries = db.selectRows(
-            select([table.c.HeadwordTraditional, table.c.HeadwordSimplified,
-                table.c.Reading], distinct=True)\
-                .order_by(table.c.HeadwordTraditional))
-    return _dictionaryEntries
-
-def checkCharacterReading(entryList, readingName, readingOptions={},
+def checkCharacterReading(dictionary, readingName, readingOptions={},
     ignoreFifthTone=False):
-    for entry in entryList:
-        headwordTrad, headwordSimp, reading = entry
-        if headwordTrad != headwordSimp:
-            headword = headwordTrad + "'/'" + headwordSimp
+    for entry in iterDictionary(dictionary):
+        if entry.HeadwordTraditional != entry.HeadwordSimplified:
+            headword = "%s/%s" % (entry.HeadwordTraditional,
+                entry.HeadwordSimplified)
         else:
-            headword = headwordTrad
+            headword = entry.HeadwordTraditional
 
         try:
             operator = getReadingOperator(readingName, readingOptions)
-            entities = operator.decompose(reading)
+            entities = operator.decompose(entry.Reading)
         except exception.DecompositionError:
-            print ("WARNING: can't parse line '" \
-                + headwordTrad + "', '" + headwordSimp + "', '" + reading \
-                + "'").encode(default_encoding)
+            print ("WARNING: can't parse line '%s', '%s', '%s'"
+                % (entry.HeadwordTraditional, entry.HeadwordSimplified,
+                    entry.Reading)).encode(default_encoding)
             continue
 
         entitiesFiltered = []
@@ -167,19 +159,20 @@ def checkCharacterReading(entryList, readingName, readingOptions={},
                 continue
             entitiesFiltered.append(entity)
 
-        if (len(entitiesFiltered) != len(headwordTrad)) \
-            or (len(entitiesFiltered) != len(headwordSimp)):
-            print ("WARNING: can't parse line '" \
-                + headwordTrad + "', '" + headwordSimp + "', '" + reading \
-                + "'").encode(default_encoding)
+        if (len(entitiesFiltered) != len(entry.HeadwordTraditional)) \
+            or (len(entitiesFiltered) != len(entry.HeadwordSimplified)):
+            print ("WARNING: can't parse line '%s', '%s', '%s'"
+                % (entry.HeadwordTraditional, entry.HeadwordSimplified,
+                    entry.Reading)).encode(default_encoding)
             continue
 
         for i, entity in enumerate(entitiesFiltered):
             if getReadingOperator(readingName).isReadingEntity(entity):
-                if headwordTrad[i] != headwordSimp[i]:
-                    charList = [headwordTrad[i], headwordSimp[i]]
+                if entry.HeadwordTraditional[i] != entry.HeadwordSimplified[i]:
+                    charList = [entry.HeadwordTraditional[i],
+                        entry.HeadwordSimplified[i]]
                 else:
-                    charList = [headwordTrad[i]]
+                    charList = [entry.HeadwordTraditional[i]]
 
                 for char in charList:
                     validReading = True
@@ -187,8 +180,8 @@ def checkCharacterReading(entryList, readingName, readingOptions={},
                         readingList = getCJK().getReadingForCharacter(char,
                             readingName, **readingOptions)
 
-                        if not hasReading(entity, readingList, readingName,
-                            ignoreFifthTone):
+                        if readingList and not hasReading(entity, readingList,
+                            readingName, ignoreFifthTone):
                             print (char + " " + entity + ", known readings: " \
                                 + ', '.join(readingList) + "; for headword '" \
                                 + headword + "'").encode(default_encoding)
@@ -198,37 +191,37 @@ def checkCharacterReading(entryList, readingName, readingOptions={},
                 # Check mapping of non-Pinyin entities. They either map
                 #   to the same character again (e.g. ellipsis: ...) or have
                 #   a different form described by table NON_PINYIN_MAPPING
-                if headwordTrad[i] != entity \
-                    and (headwordTrad[i] not in NON_PINYIN_MAPPING \
-                    or NON_PINYIN_MAPPING[headwordTrad[i]] != entity):
+                if entry.HeadwordTraditional[i] != entity \
+                    and (entry.HeadwordTraditional[i] not in NON_PINYIN_MAPPING \
+                    or NON_PINYIN_MAPPING[entry.HeadwordTraditional[i]] != entity):
                     print ("WARNING: invalid mapping of entity '" \
-                        + headwordTrad[i] + "' to '" + entity \
+                        + entry.HeadwordTraditional[i] + "' to '" + entity \
                         + "'; for headword '" + headword + "'")\
                         .encode(default_encoding)
-                elif headwordSimp[i] != entity \
-                    and (headwordSimp[i] not in NON_PINYIN_MAPPING \
-                    or NON_PINYIN_MAPPING[headwordSimp[i]] != entity):
+                elif entry.HeadwordSimplified[i] != entity \
+                    and (entry.HeadwordSimplified[i] not in NON_PINYIN_MAPPING \
+                    or NON_PINYIN_MAPPING[entry.HeadwordSimplified[i]] != entity):
                     print ("WARNING: invalid mapping of entity '" \
-                        + headwordSimp[i] + "' to '" + entity \
+                        + entry.HeadwordSimplified[i] + "' to '" + entity \
                         + "'; for headword '" + headword + "'")\
                         .encode(default_encoding)
 
-def checkCharacterVariants(entryList):
-    for entry in entryList:
-        headwordTrad, headwordSimp, reading = entry
-        if len(headwordTrad) != len(headwordSimp):
-            print ("WARNING: different string length '" \
-                + headwordTrad + "', '" + headwordSimp + "', '" + reading \
-                + "'").encode(default_encoding)
+def checkCharacterVariants(dictionary):
+    for entry in iterDictionary(dictionary):
+        if len(entry.HeadwordTraditional) != len(entry.HeadwordSimplified):
+            print ("WARNING: different string length '%s', '%s', '%s'"
+                % (entry.HeadwordTraditional, entry.HeadwordSimplified,
+                    entry.Reading)).encode(default_encoding)
             continue
 
-        for idx, char in enumerate(headwordTrad):
+        if entry.HeadwordTraditional == entry.HeadwordSimplified:
+            continue
+
+        for idx, char in enumerate(entry.HeadwordTraditional):
             mapping = getSimplifiedMapping(char)
-            if headwordSimp[idx] not in mapping:
-                if headwordTrad != headwordSimp:
-                    headword = headwordTrad + "'/'" + headwordSimp
-                else:
-                    headword = headwordTrad
+            if entry.HeadwordSimplified[idx] not in mapping:
+                headword = "%s/%s" % (entry.HeadwordTraditional,
+                    entry.HeadwordSimplified)
                 print (char + ", known mappings: " + ', '.join(mapping) \
                     + "; for headword '" + headword + "'").encode(
                         default_encoding)
@@ -303,10 +296,10 @@ def main():
     if checkReading:
         reading, readingOptions \
             = DICTIONARY_READING[dictionaryDic[dictionary.lower()]]
-        checkCharacterReading(getDictionaryEntries(dictionary), reading,
+        checkCharacterReading(dictionary, reading,
             readingOptions, ignoreFifthTone)
     if checkVariants:
-        checkCharacterVariants(getDictionaryEntries(dictionary))
+        checkCharacterVariants(dictionary)
 
 if __name__ == "__main__":
     main()
