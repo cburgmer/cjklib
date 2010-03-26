@@ -412,8 +412,8 @@ class CharacterLookup(object):
         if self.getCharacterDomain() == 'Unicode':
             return util.CharacterRangeIterator(self.HAN_SCRIPT_RANGES)
         else:
-            return iter(self.db.selectScalars(select(
-                [self._characterDomainTable.c.ChineseCharacter])))
+            return self.db.iterScalars(select(
+                [self._characterDomainTable.c.ChineseCharacter]))
 
     def filterDomainCharacters(self, charList):
         """
