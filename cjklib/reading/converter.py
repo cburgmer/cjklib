@@ -74,7 +74,7 @@ from cjklib.exception import (ConversionError, AmbiguousConversionError,
 from cjklib import dbconnector
 from cjklib.reading import operator as readingoperator
 import cjklib.reading
-from cjklib.util import titlecase, istitlecase
+from cjklib.util import titlecase, istitlecase, cachedproperty
 
 class ReadingConverter(object):
     u"""
@@ -1442,10 +1442,9 @@ class GRPinyinConverter(RomanisationConverter):
         erlhuahForm = False
 
         # catch Erlhuah in GR
-        if fromReading == "GR" \
-            and self._getGROperator().isRhotacisedReadingEntity(entity):
-            baseEntities = self._getGROperator().getBaseEntitiesForRhotacised(
-                entity)
+        if (fromReading == "GR"
+            and self._grOperator.isRhotacisedReadingEntity(entity)):
+            baseEntities = self._grOperator.getBaseEntitiesForRhotacised(entity)
             if len(baseEntities) > 1:
                 raise AmbiguousConversionError(
                     "conversion for entity '%s' is ambiguous (Erlhuah)" \
@@ -1490,7 +1489,7 @@ class GRPinyinConverter(RomanisationConverter):
             if toReading == 'GR' and erlhuahForm:
                 try:
                     # lookup Erlhuah form for GR
-                    return self._getGROperator().getRhotacisedTonalEntity(
+                    return self._grOperator.getRhotacisedTonalEntity(
                         transSyllable, transTone)
                 except UnsupportedError, e:
                     # handle this as a conversion error as the there is no
@@ -1507,12 +1506,10 @@ class GRPinyinConverter(RomanisationConverter):
             #   accepted by the operator
             raise ConversionError(*e.args)
 
-    def _getGROperator(self):
-        """Creates an instance of a GROperator if needed and returns it."""
-        if not hasattr(self, '_grOperator'):
-            self._grOperator = readingoperator.GROperator(
-                **self.DEFAULT_READING_OPTIONS['GR'])
-        return self._grOperator
+    @cachedproperty
+    def _grOperator(self):
+        """GROperator instance"""
+        return readingoperator.GROperator(**self.DEFAULT_READING_OPTIONS['GR'])
 
 
 class PinyinIPAConverter(DialectSupportReadingConverter):
