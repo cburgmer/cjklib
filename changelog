@@ -14,9 +14,11 @@ SVN
 - fix stroke order calculation for scheme ⿷ that affects characters with
   radicals 匚 and ⼖
 - fix reading converters not using dbconnector of ReadingFactory
-- added BIG5HKSCS character domain for zh-HK
+- added BIG5HKSCS character domain for zh_HK
 - added JISX0208 and JISX0208_0213 character domains for ja
 - possibility to return partial stroke order information, now shown in cjknife
+- new examples check-strokes.py for showing stroke order coverage and
+  icutransliterator.py for exposing cjklib's conversions as ICU transliterators.
 
 0.2 release
 ===========

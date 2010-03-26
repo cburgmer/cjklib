@@ -68,7 +68,7 @@ u'\u31d0', u'\u31d3', u'\u31df']
     cjklib comes with absolutely no warranty; for details see B{License}.
 
     Parts of the data used by this library have their own copyright:
-        - Copyright © 1991-2007 Unicode, Inc. All rights reserved. Distributed
+        - Copyright © 1991-2009 Unicode, Inc. All rights reserved. Distributed
             under the Terms of Use in U{http://www.unicode.org/copyright.html}.
 
             Permission is hereby granted, free of charge, to any person
