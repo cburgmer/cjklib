@@ -250,10 +250,13 @@ class DatabaseConnector(object):
         @type configuration: dict
         @param configuration: database connection options for SQLAlchemy
         """
-        configuration = configuration or {}
-        if isinstance(configuration, basestring):
+        if not configuration:
+            configuration = {}
+        elif isinstance(configuration, basestring):
             # backwards compatibility to option databaseUrl
             configuration = {'sqlalchemy.url': configuration}
+        else:
+            configuration = configuration.copy()
 
         # allow 'url' as parameter, but move to 'sqlalchemy.url'
         if 'url' in configuration:
