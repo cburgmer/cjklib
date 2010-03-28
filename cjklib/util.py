@@ -533,16 +533,15 @@ if sys.version_info >= (2, 5):
             self.__name__ = fget.__name__
 
         def __get__(self, obj, cls):
-            if obj is None:
-                return None
             @functools.wraps(self.fget)
             def oneshot(*args, **kwargs):
                 @functools.wraps(self.fget)
                 def memo(*a, **k): return result
-                result = self.fget(obj, *args, **kwargs)
-                obj.__dict__[self.__name__] = memo
+                result = self.fget(*args, **kwargs)
+                # save to instance __dict__
+                args[0].__dict__[self.__name__] = memo
                 return result
-            return oneshot
+            return oneshot.__get__(obj, cls)
 else:
     class cachedmethod(object):
         """
@@ -555,18 +554,17 @@ else:
             self.__name__ = fget.__name__
 
         def __get__(self, obj, cls):
-            if obj is None:
-                return None
             def oneshot(*args, **kwargs):
-                result = self.fget(obj, *args, **kwargs)
+                result = self.fget(*args, **kwargs)
                 memo = lambda *a, **k: result
                 memo.__name__ = self.__name__
                 memo.__doc__ = self.__doc__
-                obj.__dict__[self.__name__] = memo
+                # save to instance __dict__
+                args[0].__dict__[self.__name__] = memo
                 return result
             oneshot.__name__ = self.__name__
             oneshot.__doc__ = self.__doc__
-            return oneshot
+            return oneshot.__get__(obj, cls)
 
 
 if sys.version_info >= (2, 5):

@@ -70,7 +70,8 @@ from cjklib.exception import (DecompositionError, AmbiguousDecompositionError,
     InvalidEntityError, CompositionError, UnsupportedError,
     AmbiguousConversionError)
 from cjklib import dbconnector
-from cjklib.util import titlecase, istitlecase, cross
+from cjklib.util import (titlecase, istitlecase, cross, cachedmethod,
+    cachedproperty)
 
 class ReadingOperator(object):
     """
@@ -285,6 +286,7 @@ class RomanisationOperator(ReadingOperator):
 
         return options
 
+    @cachedmethod
     def getReadingCharacters(self):
         """
         Gets a list of characters parsed by this reading operator as reading
@@ -296,7 +298,7 @@ class RomanisationOperator(ReadingOperator):
         @rtype: set
         @return: set of characters parsed by the reading operator
         """
-        return set(string.ascii_lowercase)
+        return frozenset(string.ascii_lowercase)
 
     def decompose(self, readingString):
         """
@@ -520,6 +522,16 @@ class RomanisationOperator(ReadingOperator):
         """
         return False
 
+    @cachedproperty
+    def _substringTable(self):
+        """Set of entity substrings."""
+        substrings = []
+        entities = self.getReadingEntities() | self.getFormattingEntities()
+        for entity in entities:
+            for i in range(len(entity)):
+                substrings.append(entity[0:i+1])
+        return frozenset(substrings)
+
     def _hasEntitySubstring(self, readingString):
         """
         Checks if the given string is a entity supported by this romanisation
@@ -531,14 +543,7 @@ class RomanisationOperator(ReadingOperator):
         @return: C{True} if this string is I{reading entity},
             I{formatting entity} or substring
         """
-        if not hasattr(self, '_substringSet'):
-            # build index as called for the first time
-            self._substringSet = set()
-            entities = self.getReadingEntities() | self.getFormattingEntities()
-            for entity in entities:
-                for i in range(len(entity)):
-                    self._substringSet.add(entity[0:i+1])
-        return readingString in self._substringSet
+        return readingString in self._substringTable
 
     def isReadingEntity(self, entity):
         """
@@ -559,11 +564,9 @@ class RomanisationOperator(ReadingOperator):
         if self.case == 'lower' and not entity.islower():
             return False
 
-        if not hasattr(self, '_syllableTable'):
-            # set used syllables
-            self._syllableTable = self.getReadingEntities()
-        return entity.lower() in self._syllableTable
+        return entity.lower() in self.getReadingEntities()
 
+    @cachedmethod
     def getReadingEntities(self):
         """
         Gets a set of all entities supported by the reading.
@@ -595,11 +598,9 @@ class RomanisationOperator(ReadingOperator):
         if self.case == 'lower' and entity.lower() != entity:
             return False
 
-        if not hasattr(self, '_formattingTable'):
-            # set used syllables
-            self._formattingTable = self.getFormattingEntities()
-        return entity.lower() in self._formattingTable
+        return entity.lower() in self.getFormattingEntities()
 
+    @cachedmethod
     def getFormattingEntities(self):
         """
         Gets a set of entities used by the reading to format
@@ -610,7 +611,7 @@ class RomanisationOperator(ReadingOperator):
         @rtype: set of str
         @return: set of supported I{formatting entities}
         """
-        return set()
+        return frozenset()
 
     @staticmethod
     def _treeToList(tupleTree):
@@ -681,6 +682,7 @@ class TonalFixedEntityOperator(ReadingOperator):
         """
         super(TonalFixedEntityOperator, self).__init__(**options)
 
+    @cachedmethod
     def getTones(self):
         """
         Returns a set of tones supported by the reading. These tones don't
@@ -731,6 +733,7 @@ class TonalFixedEntityOperator(ReadingOperator):
         """
         raise NotImplementedError
 
+    @cachedmethod
     def getReadingEntities(self):
         """
         Gets a set of all entities supported by the reading.
@@ -740,16 +743,18 @@ class TonalFixedEntityOperator(ReadingOperator):
         @rtype: list of str
         @return: list of supported syllables
         """
-        syllableSet = set()
+        syllables = []
+        tones = self.getTones()
         for syllable in self.getPlainReadingEntities():
-            for tone in self.getTones():
+            for tone in tones:
                 try:
-                    syllableSet.add(self.getTonalEntity(syllable, tone))
+                    syllables.append(self.getTonalEntity(syllable, tone))
                 except InvalidEntityError:
                     # not all combinations of entities and tones are valid
                     pass
-        return syllableSet
+        return frozenset(syllables)
 
+    @cachedmethod
     def getPlainReadingEntities(self):
         """
         Gets the list of plain entities supported by this reading. Different to
@@ -774,10 +779,7 @@ class TonalFixedEntityOperator(ReadingOperator):
         @return: C{True} if string is an entity of the reading, C{False}
             otherwise.
         """
-        if not hasattr(self, '_plainEntityTable'):
-            # set used syllables
-            self._plainEntityTable = self.getPlainReadingEntities()
-        return entity in self._plainEntityTable
+        return entity in self.getPlainReadingEntities()
 
     def isReadingEntity(self, entity):
         # reimplement to keep memory footprint small
@@ -818,6 +820,7 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
         """
         super(TonalRomanisationOperator, self).__init__(**options)
 
+    @cachedmethod
     def getReadingEntities(self):
         """
         Gets a set of all entities supported by the reading.
@@ -949,6 +952,7 @@ class TonalIPAOperator(TonalFixedEntityOperator):
 
         return options
 
+    @cachedmethod
     def getTones(self):
         tones = self.TONES[:]
         if self.missingToneMark == 'noinfo' or self.toneMarkType == 'none':
@@ -1067,6 +1071,28 @@ class TonalIPAOperator(TonalFixedEntityOperator):
 
         raise InvalidEntityError("Invalid entity given for '" + entity + "'")
 
+    @cachedproperty
+    def _toneMarkLookup(self):
+        """Returns a mapping of tone marks to tone."""
+        toneMarkLookup = {}
+        for tone in self.TONE_MARK_MAPPING[self.toneMarkType]:
+            if tone == None:
+                continue
+            mark = self.TONE_MARK_MAPPING[self.toneMarkType][tone]
+            # fill lookup with tone mark, overwrite if another tone mark
+            #   was already entered but the current tone mark is prefered
+            if mark not in toneMarkLookup \
+                or (mark in self.TONE_MARK_PREFER[self.toneMarkType] \
+                and self.TONE_MARK_PREFER[self.toneMarkType][mark] == tone):
+                toneMarkLookup[mark] = tone
+            elif mark not in self.TONE_MARK_PREFER[self.toneMarkType]:
+                # not specifying a preference mapping for more than two
+                #   possible tones will result in undefined mapping
+                raise Exception(
+                    "Ambiguous tone mark '%s' found" % mark \
+                    + ", but no preference mapping defined.")
+        return toneMarkLookup
+
     def getToneForToneMark(self, toneMark):
         """
         Gets the tone for the given tone mark.
@@ -1077,33 +1103,16 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         @return: tone
         @raise InvalidEntityError: if the toneMark does not exist.
         """
-        if not hasattr(self, '_toneMarkLookup'):
-            # create lookup dict
-            self._toneMarkLookup = {}
-            for tone in self.TONE_MARK_MAPPING[self.toneMarkType]:
-                if tone == None:
-                    continue
-                mark = self.TONE_MARK_MAPPING[self.toneMarkType][tone]
-                # fill lookup with tone mark, overwrite if another tone mark
-                #   was already entered but the current tone mark is prefered
-                if mark not in self._toneMarkLookup \
-                    or (mark in self.TONE_MARK_PREFER[self.toneMarkType] \
-                    and self.TONE_MARK_PREFER[self.toneMarkType][mark] == tone):
-                    self._toneMarkLookup[mark] = tone
-                elif mark not in self.TONE_MARK_PREFER[self.toneMarkType]:
-                    # not specifying a preference mapping for more than two
-                    #   possible tones will result in undefined mapping
-                    raise Exception(
-                        "Ambiguous tone mark '%s' found" % mark \
-                        + ", but no preference mapping defined.")
-
-        if toneMark in self._toneMarkLookup:
-            return self._toneMarkLookup[toneMark]
-        elif toneMark == '' and self.missingToneMark == 'noinfo':
-            return None
-        else:
-            raise InvalidEntityError("Invalid tone mark given with '" \
-                + toneMark + "'")
+        # get outside try block, will be evaluated on first call
+        toneMarkLookup = self._toneMarkLookup
+        try:
+            return toneMarkLookup[toneMark]
+        except KeyError:
+            if toneMark == '' and self.missingToneMark == 'noinfo':
+                return None
+            else:
+                raise InvalidEntityError("Invalid tone mark given with '%s'"
+                    % toneMark)
 
 
 class SimpleEntityOperator(ReadingOperator):
@@ -1619,6 +1628,7 @@ class PinyinOperator(TonalRomanisationOperator):
             'pinyinApostrophe': pinyinApostrophe, 'erhua': erhua,
             'shortenedLetters': shortenedLetters}
 
+    @cachedmethod
     def getReadingCharacters(self):
         characters = set(string.ascii_lowercase + u'üêŋẑĉŝ')
         characters.update(list(self.yVowel))
@@ -1633,8 +1643,9 @@ class PinyinOperator(TonalRomanisationOperator):
         for diacritic in self.pinyinDiacritics:
             # make sure that combinations of two and more diacritics work
             characters.update(list(diacritic))
-        return characters
+        return frozenset(characters)
 
+    @cachedmethod
     def getTones(self):
         tones = range(1, 6)
         if self.toneMarkType == 'none' \
@@ -1654,8 +1665,7 @@ class PinyinOperator(TonalRomanisationOperator):
         @rtype: str
         @return: composed entities
         """
-        if not hasattr(self, '_readingCharacters'):
-            self._readingCharacters = self.getReadingCharacters()
+        readingCharacters = self.getReadingCharacters()
 
         newReadingEntities = []
         precedingEntity = None
@@ -1670,9 +1680,9 @@ class PinyinOperator(TonalRomanisationOperator):
                 # allow tone digits to separate
                 if precedingEntity[-1] not in ['1', '2', '3', '4', '5'] \
                     and ((precedingEntityIsReading and not entityIsReading \
-                        and entity[0] in self._readingCharacters) \
+                        and entity[0] in readingCharacters) \
                     or (not precedingEntityIsReading and entityIsReading \
-                        and precedingEntity[-1] in self._readingCharacters)):
+                        and precedingEntity[-1] in readingCharacters)):
 
                     if precedingEntityIsReading:
                         offendingEntity = entity
@@ -1782,6 +1792,17 @@ class PinyinOperator(TonalRomanisationOperator):
 
         return True
 
+    @cachedproperty
+    def _plainSubstringTable(self):
+        """Returns a set of plain entity substrings."""
+        entities = self.getPlainReadingEntities()
+
+        substrings = []
+        for syllable in entities:
+            for i in range(len(syllable)):
+                substrings.append(syllable[0:i+1])
+        return frozenset(substrings)
+
     def _hasEntitySubstring(self, readingString):
         # reimplement to allow for misplaced tone marks
         def stripDiacritic(strng):
@@ -1792,17 +1813,8 @@ class PinyinOperator(TonalRomanisationOperator):
             return unicodedata.normalize("NFC", unicode(strng))
 
         if self.toneMarkType == 'diacritics':
-            if not hasattr(self, '_substringSet'):
-                # Build index as called for the first time.  We remove
-                #   diacritics, so plain entities suffice
-                entities = self.getPlainReadingEntities()
-
-                self._substringSet = set()
-                for syllable in entities:
-                    for i in range(len(syllable)):
-                        self._substringSet.add(syllable[0:i+1])
-
-            return stripDiacritic(readingString) in self._substringSet
+            # We remove diacritics, so plain entities suffice
+            return stripDiacritic(readingString) in self._plainSubstringTable
         else:
             return super(PinyinOperator, self)._hasEntitySubstring(
                 readingString)
@@ -1948,6 +1960,7 @@ class PinyinOperator(TonalRomanisationOperator):
         # compose Unicode string (used for ê) and return with tone
         return unicodedata.normalize("NFC", plainEntity), tone
 
+    @cachedmethod
     def getPlainReadingEntities(self):
         u"""
         Gets the list of plain entities supported by this reading. Different to
@@ -2006,26 +2019,28 @@ class PinyinOperator(TonalRomanisationOperator):
 
             plainSyllables = shortendSyllables
 
-        return plainSyllables
+        return frozenset(plainSyllables)
 
+    @cachedmethod
     def getReadingEntities(self):
         # overwrite default implementation to specify a special tone mark for
         #   syllable 'r' used to support two syllable Erhua.
         syllables = self.getPlainReadingEntities()
         syllableSet = set()
+        allTones = self.getTones()
         for syllable in syllables:
             if syllable == 'r':
                 # r is included to support Erhua and is marked with the
                 #   fifth tone as it is not pronounced separetly.
                 tones = [5]
-                if None in self.getTones():
+                if None in allTones:
                     tones.append(None)
             else:
-                tones = self.getTones()
+                tones = allTones
             # check if we accept syllables without tone mark
             for tone in tones:
                 syllableSet.add(self.getTonalEntity(syllable, tone))
-        return syllableSet
+        return frozenset(syllableSet)
 
     def isReadingEntity(self, entity):
         # overwrite to check tone of entity 'r' (Erhua)
@@ -2039,8 +2054,9 @@ class PinyinOperator(TonalRomanisationOperator):
         except InvalidEntityError:
             return False
 
+    @cachedmethod
     def getFormattingEntities(self):
-        return set([self.pinyinApostrophe])
+        return frozenset([self.pinyinApostrophe])
 
     def convertPlainEntity(self, plainEntity, targetOptions=None):
         """
@@ -2057,11 +2073,8 @@ class PinyinOperator(TonalRomanisationOperator):
         @rtype: str
         @return: converted entity
         """
-        # shortenedLetters lookup
-        if not hasattr(self, '_initialShortendDict'):
-            self._initialShortendDict = {'zh': u'ẑ', 'ch': u'ĉ', 'sh': u'ŝ'}
-            self._reverseShortendDict = dict([(short, letter) \
-                for letter, short in self._initialShortendDict.items()])
+        initialShortendDict = {'zh': u'ẑ', 'ch': u'ĉ', 'sh': u'ŝ'}
+        reverseShortendDict = {u'ẑ': 'zh', u'ĉ': 'ch', u'ŝ': 'sh'}
 
         targetOptions = targetOptions or {}
         defaultTargetOptions = PinyinOperator.getDefaultOptions()
@@ -2077,9 +2090,9 @@ class PinyinOperator(TonalRomanisationOperator):
                 plainEntity = plainEntity.replace(u'Ŋ', 'Ng')
             else:
                 plainEntity = plainEntity.replace(u'Ŋ', 'NG')
-            if plainEntity[0].lower() in self._reverseShortendDict:
+            if plainEntity[0].lower() in reverseShortendDict:
                 shortend = plainEntity[0].lower()
-                full = self._reverseShortendDict[shortend]
+                full = reverseShortendDict[shortend]
                 plainEntity = plainEntity.replace(shortend, full)
                 # upper- vs. titlecase
                 if plainEntity.isupper():
@@ -2108,7 +2121,7 @@ class PinyinOperator(TonalRomanisationOperator):
             matchObj = re.match('(?i)[zcs]h', plainEntity)
             if matchObj:
                 form = matchObj.group(0)
-                shortend = self._initialShortendDict[form.lower()]
+                shortend = initialShortendDict[form.lower()]
                 # letter case
                 if plainEntity.isupper() or plainEntity.istitle():
                     shortend = shortend.upper()
@@ -2561,6 +2574,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
             'diacriticE': diacriticE, 'zeroFinal': zeroFinal,
             'umlautU': umlautU, 'useInitialSz': useInitialSz}
 
+    @cachedmethod
     def getReadingCharacters(self):
         characters = set(string.ascii_lowercase + u'üêŭ')
         userSpecified = [self.diacriticE, self.zeroFinal, self.umlautU]
@@ -2572,8 +2586,9 @@ class WadeGilesOperator(TonalRomanisationOperator):
         characters.update(['0', '1', '2', '3', '4', '5', u'⁰', u'¹', u'²', u'³',
             u'⁴', u'⁵'])
         characters.add(self.wadeGilesApostrophe)
-        return characters
+        return frozenset(characters)
 
+    @cachedmethod
     def getTones(self):
         tones = range(1, 6)
         if self.toneMarkType == 'none' \
@@ -2592,8 +2607,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
         @rtype: str
         @return: composed entities
         """
-        if not hasattr(self, '_readingCharacters'):
-            self._readingCharacters = self.getReadingCharacters()
+        readingCharacters = self.getReadingCharacters()
 
         newReadingEntities = []
         precedingEntity = None
@@ -2615,12 +2629,11 @@ class WadeGilesOperator(TonalRomanisationOperator):
                     if precedingEntity[-1] not in ['1', '2', '3', '4', '5',
                             u'¹', u'²', u'³', u'⁴', u'⁵'] \
                         and ((precedingEntityIsReading and not entityIsReading \
-                            and entity[0] in self._readingCharacters) \
+                            and entity[0] in readingCharacters) \
                         or (not precedingEntityIsReading and entityIsReading \
-                            and precedingEntity[-1] \
-                                in self._readingCharacters) \
+                            and precedingEntity[-1] in readingCharacters) \
                         or (precedingEntity == self.wadeGilesApostrophe \
-                            and entity[0] in self._readingCharacters \
+                            and entity[0] in readingCharacters \
                             and precedingEntity != entity)):
 
                         if precedingEntityIsReading:
@@ -2726,6 +2739,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
         return plainEntity, tone
 
+    @cachedmethod
     def getPlainReadingEntities(self):
         """
         Gets the list of plain entities supported by this reading. Different to
@@ -2781,7 +2795,7 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
             plainSyllables = translatedSyllables
 
-        return plainSyllables
+        return frozenset(plainSyllables)
 
     def checkPlainEntity(self, plainEntity, option):
         u"""
@@ -2840,8 +2854,9 @@ class WadeGilesOperator(TonalRomanisationOperator):
         else:
             return 'lost'
 
+    @cachedmethod
     def getFormattingEntities(self):
-        return set(['-'])
+        return frozenset(['-'])
 
     def convertPlainEntity(self, plainEntity, targetOptions=None):
         """
@@ -3176,12 +3191,14 @@ class GROperator(TonalRomanisationOperator):
             'grSyllableSeparatorApostrophe': apostrophe,
             'optionalNeutralToneMarker': optionalNeutralToneMarker}
 
+    @cachedmethod
     def getReadingCharacters(self):
         characters = set(string.ascii_lowercase)
         characters.update([u'.', self.optionalNeutralToneMarker])
         characters.add(self.grRhotacisedFinalApostrophe)
-        return characters
+        return frozenset(characters)
 
+    @cachedmethod
     def getTones(self):
         return self.TONES[:]
 
@@ -3195,8 +3212,7 @@ class GROperator(TonalRomanisationOperator):
         @rtype: str
         @return: composed entities
         """
-        if not hasattr(self, '_readingCharacters'):
-            self._readingCharacters = self.getReadingCharacters()
+        readingCharacters = self.getReadingCharacters()
 
         newReadingEntities = []
         precedingEntity = None
@@ -3215,10 +3231,10 @@ class GROperator(TonalRomanisationOperator):
                 # check if composition won't combine reading and non-reading e.
                 #   also disallow cases like ['jie', "'", 'l']
                 elif ((precedingEntityIsReading and not entityIsReading \
-                        and entity[0] in self._readingCharacters \
+                        and entity[0] in readingCharacters \
                         and entity != separator) \
                     or (not precedingEntityIsReading and entityIsReading \
-                        and precedingEntity[-1] in self._readingCharacters \
+                        and precedingEntity[-1] in readingCharacters \
                         and precedingEntity != separator) \
                     or (precedingEntity == self.grRhotacisedFinalApostrophe \
                         and not entityIsReading and entity[0] == 'l')):
@@ -3447,16 +3463,21 @@ class GROperator(TonalRomanisationOperator):
 
         return tonalEntity
 
-    def splitEntityTone(self, entity):
-        if not hasattr(self, '_syllableToneLookup'):
-            self._syllableToneLookup = {}
-            for plainEntity in self.getPlainReadingEntities():
-                for tone in self.getTones():
-                    tonalEntity = self.getTonalEntity(plainEntity, tone)
-                    self._syllableToneLookup[tonalEntity] = (plainEntity, tone)
+    @cachedproperty
+    def _syllableToneLookup(self):
+        """Mapping of tonal entities to plain entities and tone."""
+        syllableToneLookup = {}
+        allTones = self.getTones()
+        for plainEntity in self.getPlainReadingEntities():
+            for tone in allTones:
+                tonalEntity = self.getTonalEntity(plainEntity, tone)
+                syllableToneLookup[tonalEntity] = (plainEntity, tone)
+        return syllableToneLookup
 
+    def splitEntityTone(self, entity):
+        syllableToneLookup = self._syllableToneLookup
         try:
-            plainEntity, tone = self._syllableToneLookup[entity.lower()]
+            plainEntity, tone = syllableToneLookup[entity.lower()]
         except KeyError:
             # don't work for Erlhuah forms
             if self.isReadingEntity(entity):
@@ -3484,6 +3505,26 @@ class GROperator(TonalRomanisationOperator):
             and entity not in ['el', 'erl', 'eel', 'ell'] \
             and self.isReadingEntity(entity)
 
+    @cachedproperty
+    def _rhotacisedFinals(self):
+        """Mapping of entity final to rhotacised final."""
+        table = self.db.tables['GRRhotacisedFinals']
+
+        finalTypes = [column.name for column in table.c \
+            if column.name != 'GRFinal']
+
+        rhotacisedFinals = dict([(final, {}) for final in finalTypes])
+
+        columns = [table.c.GRFinal]
+        columns.extend([table.c[final] for final in finalTypes])
+        for row in self.db.selectRows(select(columns)):
+            nonRhotacisedFinal = row[0]
+            for idx, column in enumerate(finalTypes):
+                if row[idx + 1]:
+                    rhotacisedFinals[column][nonRhotacisedFinal] = row[idx + 1]
+
+        return rhotacisedFinals
+
     def getRhotacisedTonalEntity(self, plainEntity, tone):
         """
         Gets the r-coloured entity (Erlhuah form) with tone mark for the given
@@ -3499,24 +3540,6 @@ class GROperator(TonalRomanisationOperator):
         @raise UnsupportedError: if the given entity is an Erlhuah form or the
             syllable is not supported in this given tone.
         """
-        # build lookup table, don't query db for every call
-        if not hasattr(self, '_rhotacisedFinals'):
-            table = self.db.tables['GRRhotacisedFinals']
-
-            finalTypes = [column.name for column in table.c \
-                if column.name != 'GRFinal']
-
-            self._rhotacisedFinals = dict([(final, {}) for final in finalTypes])
-
-            columns = [table.c.GRFinal]
-            columns.extend([table.c[final] for final in finalTypes])
-            for row in self.db.selectRows(select(columns)):
-                nonRhotacisedFinal = row[0]
-                for idx, column in enumerate(finalTypes):
-                    if row[idx + 1]:
-                        self._rhotacisedFinals[column][nonRhotacisedFinal] \
-                            = row[idx + 1]
-
         if tone not in self.getTones():
             raise InvalidEntityError(
                 "Invalid tone information given for '%s': '%s'"
@@ -3524,7 +3547,7 @@ class GROperator(TonalRomanisationOperator):
 
         # no Erlhuah for e and er
         if plainEntity in ['e', 'el']:
-            raise UnsupportedError("Not supported for '" + plainEntity + "'")
+            raise UnsupportedError("Not supported for '%s'" % plainEntity)
 
         # split syllable into CVC parts
         c1, v, c2 = self.splitPlainSyllableCVC(plainEntity)
@@ -3544,11 +3567,12 @@ class GROperator(TonalRomanisationOperator):
         else:
             column = self.DB_RHOTACISED_FINAL_MAPPING[baseTone]
 
-        table = self.db.tables['GRRhotacisedFinals']
-        if v + c2 not in self._rhotacisedFinals[column]:
-            raise UnsupportedError("No Erlhuah form for '" \
-                + plainEntity + "' and tone '" + tone + "'")
-        tonalFinal = self._rhotacisedFinals[column][v + c2]
+        rhotacisedFinals = self._rhotacisedFinals
+
+        if v + c2 not in rhotacisedFinals[column]:
+            raise UnsupportedError(
+                "No Erlhuah form for '%s' and tone '%s'" % (plainEntity, tone))
+        tonalFinal = rhotacisedFinals[column][v + c2]
 
         # use selected apostrophe
         if self.grRhotacisedFinalApostrophe \
@@ -3565,6 +3589,19 @@ class GROperator(TonalRomanisationOperator):
 
         return tonalEntity
 
+    @cachedproperty
+    def _rhotacisedColumnToneLookup(self):
+        """Mapping of rhotacised to base form."""
+        rhotacisedColumnToneLookup = {}
+
+        columnList = self.DB_RHOTACISED_FINAL_MAPPING_ZEROINITIAL.items()
+        columnList.extend(self.DB_RHOTACISED_FINAL_MAPPING.items())
+        for tone, columnName in columnList:
+            if columnName in rhotacisedColumnToneLookup:
+                assert(rhotacisedColumnToneLookup[columnName] == tone)
+            rhotacisedColumnToneLookup[columnName] = tone
+        return rhotacisedColumnToneLookup
+
     def getBaseEntitiesForRhotacised(self, tonalEntity):
         """
         Gets a list of base entities as plain entity/tone pair for a given
@@ -3580,16 +3617,6 @@ class GROperator(TonalRomanisationOperator):
         @return: list of plain entities with tone
         @raise InvalidEntityError: if the entity is invalid.
         """
-        if not hasattr(self, '_rhotacisedColumnToneLookup'):
-            self._rhotacisedColumnToneLookup = {}
-
-            columnList = self.DB_RHOTACISED_FINAL_MAPPING_ZEROINITIAL.items()
-            columnList.extend(self.DB_RHOTACISED_FINAL_MAPPING.items())
-            for tone, columnName in columnList:
-                if columnName in self._rhotacisedColumnToneLookup:
-                    assert(self._rhotacisedColumnToneLookup[columnName] == tone)
-                self._rhotacisedColumnToneLookup[columnName] = tone
-
         if tonalEntity.startswith('.'):
             baseTone = '5th'
             baseTonalEntity = tonalEntity[1:]
@@ -3630,13 +3657,15 @@ class GROperator(TonalRomanisationOperator):
             raise InvalidEntityError(
                 "Invalid rhotacised entity given for '%s'" % tonalEntity)
 
+        rhotacisedColumnToneLookup = self._rhotacisedColumnToneLookup
+
         for row in results:
             nonRhotacisedFinal = row[0]
             # match tone
             for idx, col in enumerate(row[1:]):
                 if col == baseTonalFinal:
                     column = finalTypes[idx]
-                    toneIndex = self._rhotacisedColumnToneLookup[column]
+                    toneIndex = rhotacisedColumnToneLookup[column]
                     break
             else:
                 assert(False)
@@ -3659,6 +3688,7 @@ class GROperator(TonalRomanisationOperator):
 
         return entityList
 
+    @cachedmethod
     def getAbbreviatedEntities(self):
         """
         Gets a list of abbreviated GR entities. This returns single entities
@@ -3677,7 +3707,7 @@ class GROperator(TonalRomanisationOperator):
         abbreviatedEntites.update(['x', 'v', '.x', '.v',
             self.optionalNeutralToneMarker + u'x',
             self.optionalNeutralToneMarker + u'v'])
-        return abbreviatedEntites
+        return frozenset(abbreviatedEntites)
 
     def isAbbreviatedEntity(self, entity):
         """
@@ -3695,11 +3725,9 @@ class GROperator(TonalRomanisationOperator):
         if self.case == 'lower' and not entity.islower():
             return False
 
-        if not hasattr(self, '_abbreviatedSyllableTable'):
-            # set syllables
-            self._abbreviatedSyllableTable = self.getAbbreviatedEntities()
-        return entity.lower() in self._abbreviatedSyllableTable
+        return entity.lower() in self.getAbbreviatedEntities()
 
+    @cachedmethod
     def getAbbreviatedForms(self):
         """
         Gets a list of abbreviated forms used in GR.
@@ -3712,7 +3740,7 @@ class GROperator(TonalRomanisationOperator):
         @rtype: list
         @return: a list of abbreviated forms
         """
-        return set(self._getAbbreviatedLookup().keys())
+        return frozenset(self._abbreviatedLookup.keys())
 
     def getAbbreviatedFormData(self, entities):
         u"""
@@ -3745,48 +3773,44 @@ class GROperator(TonalRomanisationOperator):
             abbreviate as -tz)") and p. 55 ("suffix -tz (<tzyy)")
         """
         entities = tuple([entity.lower() for entity in entities])
-        if entities not in self._getAbbreviatedLookup():
+        if entities not in self._abbreviatedLookup:
             raise ValueError('Given entities %s are not an abbreviated form' \
                 % repr(entities))
 
         # return copy
-        return self._getAbbreviatedLookup()[entities][:]
+        return self._abbreviatedLookup[entities][:]
 
-    def _getAbbreviatedLookup(self):
-        """
-        Gets the abbreviated form lookup table.
+    @cachedproperty
+    def _abbreviatedLookup(self):
+        """Abbreviated form lookup table."""
+        abbrConversionLookup = {}
 
-        @rtype: dict
-        @return: lookup table of abbreviated forms
-        """
-        if not hasattr(self, '_abbrConversionLookup'):
-            self._abbrConversionLookup = {}
+        fullEntities = self.getFullReadingEntities()
 
-            fullEntities = self.getFullReadingEntities()
+        table = self.db.tables['GRAbbreviation']
+        result = self.db.selectRows(
+            select([table.c.TraditionalChinese, table.c.GR,
+                table.c.GRAbbreviation, table.c.Specialised]))
+        for chars, original, abbreviated, specialised in result:
+            specialisedInformation = set(specialised)
 
-            table = self.db.tables['GRAbbreviation']
-            result = self.db.selectRows(
-                select([table.c.TraditionalChinese, table.c.GR,
-                    table.c.GRAbbreviation, table.c.Specialised]))
-            for chars, original, abbreviated, specialised in result:
-                specialisedInformation = set(specialised)
+            abbreviatedEntities = tuple(abbreviated.split(' '))
+            for entity in abbreviatedEntities:
+                if entity not in fullEntities:
+                    break
+            else:
+                specialisedInformation.add('F') # is full entity/-ies
 
-                abbreviatedEntities = tuple(abbreviated.split(' '))
-                for entity in abbreviatedEntities:
-                    if entity not in fullEntities:
-                        break
-                else:
-                    specialisedInformation.add('F') # is full entity/-ies
+            originalEntities = original.split(' ')
+            if abbreviatedEntities not in abbrConversionLookup:
+                abbrConversionLookup[abbreviatedEntities] = []
 
-                originalEntities = original.split(' ')
-                if abbreviatedEntities not in self._abbrConversionLookup:
-                    self._abbrConversionLookup[abbreviatedEntities] = []
+            abbrConversionLookup[abbreviatedEntities].append(
+                (chars, originalEntities, specialisedInformation))
 
-                self._abbrConversionLookup[abbreviatedEntities].append(
-                    (chars, originalEntities, specialisedInformation))
+        return abbrConversionLookup
 
-        return self._abbrConversionLookup
-
+    @cachedmethod
     def getPlainReadingEntities(self):
         """
         Gets the list of plain entities supported by this reading without
@@ -3797,8 +3821,9 @@ class GROperator(TonalRomanisationOperator):
         @return: set of supported syllables
         """
         table = self.db.tables['GRSyllables']
-        return set(self.db.selectScalars(select([table.c.GR])))
+        return frozenset(self.db.selectScalars(select([table.c.GR])))
 
+    @cachedmethod
     def getFullReadingEntities(self):
         """
         Gets a set of full entities supported by the reading excluding
@@ -3807,44 +3832,44 @@ class GROperator(TonalRomanisationOperator):
         @rtype: set of str
         @return: set of supported syllables
         """
-        # cache results as this method is used twice locally
-        if not hasattr(self, '_syllableSet'):
-            plainSyllables = self.getPlainReadingEntities()
+        plainSyllables = self.getPlainReadingEntities()
 
-            self._syllableSet = set()
-            for syllable in plainSyllables:
-                for tone in self.getTones():
-                    self._syllableSet.add(self.getTonalEntity(syllable, tone))
+        fullReadingEntities = set()
+        allTones = self.getTones()
+        for syllable in plainSyllables:
+            for tone in allTones:
+                fullReadingEntities.add(self.getTonalEntity(syllable, tone))
 
-            # Erlhuah
-            for syllable in plainSyllables:
-                for tone in self.getTones():
-                    try:
-                        erlhuahSyllable = self.getRhotacisedTonalEntity(
-                            syllable, tone)
-                        self._syllableSet.add(erlhuahSyllable)
-                    except UnsupportedError:
-                        # ignore errors about tone combinations that don't exist
-                        pass
+        # Erlhuah
+        for syllable in plainSyllables:
+            for tone in allTones:
+                try:
+                    erlhuahSyllable = self.getRhotacisedTonalEntity(
+                        syllable, tone)
+                    fullReadingEntities.add(erlhuahSyllable)
+                except UnsupportedError:
+                    # ignore errors about tone combinations that don't exist
+                    pass
+        return frozenset(fullReadingEntities)
 
-        return self._syllableSet.copy()
-
+    @cachedmethod
     def getReadingEntities(self):
-        syllableSet = self.getFullReadingEntities()
+        syllableSet = set(self.getFullReadingEntities())
         if self.abbreviations:
             syllableSet.update(self.getAbbreviatedEntities())
 
-        return syllableSet
+        return frozenset(syllableSet)
 
     def isReadingEntity(self, entity):
         # overwrite default method, use lookup dictionary, otherwise we would
         #   end up in a recursive call
         return RomanisationOperator.isReadingEntity(self, entity)
 
+    @cachedmethod
     def getFormattingEntities(self):
         # Include space as repetition markers can be separated by whitespace
         #   from their target syllable.
-        return set([self.grSyllableSeparatorApostrophe, ' '])
+        return frozenset([self.grSyllableSeparatorApostrophe, ' '])
 
 
 class MandarinIPAOperator(TonalIPAOperator):
@@ -3921,6 +3946,7 @@ class MandarinIPAOperator(TonalIPAOperator):
             #'5thToneMiddle': '', '5thToneHalfLow': '', '5thToneLow': ''}
         }
 
+    @cachedmethod
     def getPlainReadingEntities(self):
         """
         Gets the list of plain entities supported by this reading. These
@@ -3930,7 +3956,7 @@ class MandarinIPAOperator(TonalIPAOperator):
         @return: set of supported syllables
         """
         table = self.db.tables['MandarinIPAInitialFinal']
-        return set(self.db.selectScalars(select([table.c.IPA])))
+        return frozenset(self.db.selectScalars(select([table.c.IPA])))
 
     def getOnsetRhyme(self, plainSyllable):
         """
@@ -4034,6 +4060,7 @@ class MandarinBrailleOperator(ReadingOperator):
 
         return options
 
+    @cachedmethod
     def getTones(self):
         """
         Returns a set of tones supported by the reading.
@@ -4267,11 +4294,13 @@ class JyutpingOperator(TonalRomanisationOperator):
 
         return options
 
+    @cachedmethod
     def getReadingCharacters(self):
-        characters = set(string.ascii_lowercase)
-        characters.update(['1', '2', '3', '4', '5', '6'])
-        return characters
+        characters = (list(string.ascii_lowercase)
+            + ['1', '2', '3', '4', '5', '6'])
+        return frozenset(characters)
 
+    @cachedmethod
     def getTones(self):
         tones = range(1, 7)
         if self.missingToneMark != 'ignore' or self.toneMarkType == 'none':
@@ -4279,8 +4308,7 @@ class JyutpingOperator(TonalRomanisationOperator):
         return tones
 
     def compose(self, readingEntities):
-        if not hasattr(self, '_readingCharacters'):
-            self._readingCharacters = self.getReadingCharacters()
+        readingCharacters = self.getReadingCharacters()
 
         # check if composition won't combine reading and non-reading entities
         precedingEntity = None
@@ -4292,9 +4320,9 @@ class JyutpingOperator(TonalRomanisationOperator):
                 # allow tone digits to separate
                 if precedingEntity[-1] not in ['1', '2', '3', '4', '5'] \
                     and ((precedingEntityIsReading and not entityIsReading \
-                        and entity[0] in self._readingCharacters) \
+                        and entity[0] in readingCharacters) \
                     or (not precedingEntityIsReading and entityIsReading \
-                        and precedingEntity[-1] in self._readingCharacters)):
+                        and precedingEntity[-1] in readingCharacters)):
 
                     if precedingEntityIsReading:
                         offendingEntity = entity
@@ -4363,8 +4391,9 @@ class JyutpingOperator(TonalRomanisationOperator):
 
         return not self.hasStopTone(plainEntity) or tone in [1, 3, 6, None]
 
+    @cachedmethod
     def getPlainReadingEntities(self):
-        return set(self.db.selectScalars(
+        return frozenset(self.db.selectScalars(
             select([self.db.tables['JyutpingSyllables'].c.Jyutping])))
 
     def getOnsetRhyme(self, plainSyllable):
@@ -4384,11 +4413,14 @@ class JyutpingOperator(TonalRomanisationOperator):
             same vowels. What semantics/view do we want to provide on the
             syllable parts?
         """
-        if plainSyllable.lower() not in self._getSyllableData():
-            raise InvalidEntityError("'" + plainSyllable \
-                + "' not a valid plain Jyutping syllable'")
-
-        return self._getSyllableData()[plainSyllable.lower()]
+        # get outside try block, will be evaluated on first call
+        syllableData = self._syllableData
+        try:
+            return syllableData[plainSyllable.lower()]
+        except KeyError:
+            raise InvalidEntityError(
+                "'%s' not a valid plain Jyutping syllable'"
+                    % plainSyllable)
 
     def hasStopTone(self, plainEntity):
         """
@@ -4404,22 +4436,20 @@ class JyutpingOperator(TonalRomanisationOperator):
         _, final = self.getOnsetRhyme(plainEntity)
         return final and final[-1] in ['p', 't', 'k']
 
-    def _getSyllableData(self):
+    @cachedproperty
+    def _syllableData(self):
         """
         Gets the table information about syllable structure from the database.
 
         @rtype: dict
         @return: dict containing the intial, nucleus and coda for each syllable
         """
-        if not hasattr(self, '_syllableData'):
-            table = self.db.tables['JyutpingInitialFinal']
-            result = self.db.selectRows(
-                select([table.c.Jyutping, table.c.JyutpingInitial,
-                    table.c.JyutpingFinal]))
+        table = self.db.tables['JyutpingInitialFinal']
+        result = self.db.selectRows(
+            select([table.c.Jyutping, table.c.JyutpingInitial,
+                table.c.JyutpingFinal]))
 
-            self._syllableData = dict([(s, (i, f)) for s, i, f in result])
-
-        return self._syllableData
+        return dict([(s, (i, f)) for s, i, f in result])
 
 
 class CantoneseYaleOperator(TonalRomanisationOperator):
@@ -4685,6 +4715,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
         return {'toneMarkType': toneMarkType}
 
+    @cachedmethod
     def getReadingCharacters(self):
         characters = set(string.ascii_lowercase)
         # add NFC vowels, strip off combining diacritical marks
@@ -4692,8 +4723,9 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             if len(c) == 1])
         characters.update([u'\u0304', u'\u0301', u'\u0300'])
         characters.update(['0', '1', '2', '3', '4', '5', '6'])
-        return characters
+        return frozenset(characters)
 
+    @cachedmethod
     def getTones(self):
         tones = self.TONES[:]
         if (self.missingToneMark == 'noinfo' \
@@ -4703,8 +4735,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         return tones
 
     def compose(self, readingEntities):
-        if not hasattr(self, '_readingCharacters'):
-            self._readingCharacters = self.getReadingCharacters()
+        readingCharacters = self.getReadingCharacters()
 
         # check if composition won't combine reading and non-reading entities
         precedingEntity = None
@@ -4716,9 +4747,9 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
                 # allow tone digits to separate
                 if precedingEntity[-1] not in ['1', '2', '3', '4', '5'] \
                     and ((precedingEntityIsReading and not entityIsReading \
-                        and entity[0] in self._readingCharacters) \
+                        and entity[0] in readingCharacters) \
                     or (not precedingEntityIsReading and entityIsReading \
-                        and precedingEntity[-1] in self._readingCharacters)):
+                        and precedingEntity[-1] in readingCharacters)):
 
                     if precedingEntityIsReading:
                         offendingEntity = entity
@@ -4731,6 +4762,21 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             precedingEntity = entity
 
         return "".join(readingEntities)
+
+    @cachedproperty
+    def _plainSubstringTable(self):
+        """Set of plain entity substrings."""
+        plainEntities = self.getPlainReadingEntities()
+        # Extend with low tone indicator 'h'.
+        entities = list(plainEntities)
+        for entity in plainEntities:
+            entities.append(self.getTonalEntity(entity, '6thTone'))
+
+        substrings = []
+        for syllable in entities:
+            for i in range(len(syllable)):
+                substrings.append(syllable[0:i+1])
+        return frozenset(substrings)
 
     def _hasEntitySubstring(self, readingString):
         # reimplement to allow for misplaced tone marks
@@ -4748,20 +4794,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             return unicodedata.normalize("NFC", strng)
 
         if self.toneMarkType == 'diacritics':
-            if not hasattr(self, '_substringSet'):
-                # Build index as called for the first time.  We remove
-                #   diacritics, so plain entities suffice.
-                entities = self.getPlainReadingEntities()
-                # Extend with low tone indicator 'h'.
-                for entity in entities.copy():
-                    entities.add(self.getTonalEntity(entity, '6thTone'))
-
-                self._substringSet = set()
-                for syllable in entities:
-                    for i in range(len(syllable)):
-                        self._substringSet.add(syllable[0:i+1])
-
-            return stripDiacritic(readingString) in self._substringSet
+            # We remove diacritics, so plain entities suffice.
+            return stripDiacritic(readingString) in self._plainSubstringTable
         else:
             return super(CantoneseYaleOperator, self)._hasEntitySubstring(
                 readingString)
@@ -4903,8 +4937,9 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         return not self.hasStopTone(plainEntity) or tone in ['1stToneLevel',
             '3rdTone', '6thTone', None]
 
+    @cachedmethod
     def getPlainReadingEntities(self):
-        return set(self.db.selectScalars(select(
+        return frozenset(self.db.selectScalars(select(
             [self.db.tables['CantoneseYaleSyllables'].c.CantoneseYale])))
 
     def getOnsetRhyme(self, plainSyllable):
@@ -4946,11 +4981,14 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
             finals with same vowels. What semantics/view do we want to provide
             on the syllable parts?
         """
-        if plainSyllable.lower() not in self._getSyllableData():
-            raise InvalidEntityError("'" + plainSyllable \
-                + "' not a valid plain Cantonese Yale syllable'")
-
-        return self._getSyllableData()[plainSyllable.lower()]
+        # get outside try block, will be evaluated on first call
+        syllableData = self._syllableData
+        try:
+            return syllableData[plainSyllable.lower()]
+        except KeyError:
+            raise InvalidEntityError(
+                "'%s' not a valid plain Cantonese Yale syllable'"
+                    % plainSyllable)
 
     def hasStopTone(self, plainEntity):
         """
@@ -4966,22 +5004,15 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         _, _, coda = self.getOnsetNucleusCoda(plainEntity)
         return coda in ['p', 't', 'k']
 
-    def _getSyllableData(self):
-        """
-        Gets the table information about syllable structure from the database.
+    @cachedproperty
+    def _syllableData(self):
+        """Table information about syllable structure from the database."""
+        table = self.db.tables['CantoneseYaleInitialNucleusCoda']
+        result = self.db.selectRows(select([table.c.CantoneseYale,
+            table.c.CantoneseYaleInitial, table.c.CantoneseYaleNucleus,
+            table.c.CantoneseYaleCoda]))
 
-        @rtype: dict
-        @return: dict containing the intial, nucleus and coda for each syllable
-        """
-        if not hasattr(self, '_syllableData'):
-            table = self.db.tables['CantoneseYaleInitialNucleusCoda']
-            result = self.db.selectRows(select([table.c.CantoneseYale,
-                table.c.CantoneseYaleInitial, table.c.CantoneseYaleNucleus,
-                table.c.CantoneseYaleCoda]))
-
-            self._syllableData = dict([(s, (i, n, c)) for s, i, n, c in result])
-
-        return self._syllableData
+        return dict([(s, (i, n, c)) for s, i, n, c in result])
 
 
 class CantoneseIPAOperator(TonalIPAOperator):
@@ -5155,6 +5186,7 @@ class CantoneseIPAOperator(TonalIPAOperator):
 
         return options
 
+    @cachedmethod
     def getTones(self):
         tones = self.TONES[:]
         if self.stopTones == 'general':
@@ -5167,8 +5199,9 @@ class CantoneseIPAOperator(TonalIPAOperator):
 
         return tones
 
+    @cachedmethod
     def getPlainReadingEntities(self):
-        return set(self.db.selectScalars(select(
+        return frozenset(self.db.selectScalars(select(
             [self.db.tables['CantoneseIPAInitialFinal'].c.IPA])))
 
     def getOnsetRhyme(self, plainSyllable):
@@ -5271,7 +5304,7 @@ class CantoneseIPAOperator(TonalIPAOperator):
                         return False
                     # we need to check the syllable length
                     _, length = self.STOP_TONES_EXPLICIT[tone]
-                    return length == self._getUnreleasedFinalData()[plainEntity]
+                    return length == self._unreleasedFinalData[plainEntity]
         else:
             return tone == None or tone in self.TONES
 
@@ -5286,7 +5319,7 @@ class CantoneseIPAOperator(TonalIPAOperator):
         @return: C{True} if given syllable can occur with stop tones, C{False}
             otherwise
         """
-        return plainEntity in self._getUnreleasedFinalData()
+        return plainEntity in self._unreleasedFinalData
 
     @classmethod
     def getBaseTone(cls, tone):
@@ -5328,7 +5361,7 @@ class CantoneseIPAOperator(TonalIPAOperator):
         if baseTone in self._stopToneLookup:
             # check if we have an unreleased final consonant
             if self.hasStopTone(plainEntity):
-                vowelLength = self._getUnreleasedFinalData()[plainEntity]
+                vowelLength = self._unreleasedFinalData[plainEntity]
                 return self._stopToneLookup[baseTone][vowelLength]
             elif baseTone in self.STOP_TONES:
                 # baseTone is a general stop tone but entity doesn't support
@@ -5353,18 +5386,10 @@ class CantoneseIPAOperator(TonalIPAOperator):
         # tone might be a explicit tone
         return self.getBaseTone(tone)
 
-    def _getUnreleasedFinalData(self):
-        """
-        Gets the table information about unreleased finals from the database.
-
-        @rtype: dict
-        @return: dict containing the length information of syllables with
-            unreleased finals
-        """
-        if not hasattr(self, '_unreleasedFinalData'):
-            table = self.db.tables['CantoneseIPAInitialFinal']
-            self._unreleasedFinalData = dict(self.db.selectRows(
-                select([table.c.IPA, table.c.VowelLength],
-                    table.c.UnreleasedFinal == 'U')))
-
-        return self._unreleasedFinalData
+    @cachedproperty
+    def _unreleasedFinalData(self):
+        """Table information about unreleased finals from the database."""
+        table = self.db.tables['CantoneseIPAInitialFinal']
+        return dict(self.db.selectRows(
+            select([table.c.IPA, table.c.VowelLength],
+                table.c.UnreleasedFinal == 'U')))
