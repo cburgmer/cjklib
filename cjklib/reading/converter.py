@@ -174,8 +174,9 @@ class ReadingConverter(object):
 
         for option, defaultValue in self.getDefaultOptions().items():
             optionValue = options.get(option, defaultValue)
-            if option not in ['sourceOperators', 'targetOperators'] \
-                and not hasattr(optionValue, '__call__'):
+            if option in ('sourceOperators', 'targetOperators'):
+                setattr(self, option, copy.copy(optionValue))
+            elif hasattr(optionValue, '__call__'):
                 setattr(self, option, copy.deepcopy(optionValue))
             else:
                 setattr(self, option, optionValue)
