@@ -350,7 +350,8 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
         C{getReadingEntities()}.
         """
         if not (hasattr(self.readingOperatorClass, "getTonalEntity")
-            and hasattr(self.readingOperatorClass, "splitEntityTone")):
+            and hasattr(self.readingOperatorClass, "splitEntityTone")
+            and hasattr(self.readingOperatorClass, "getReadingEntities")):
             return
 
         forms = []
