@@ -17,6 +17,7 @@ SVN
 - added BIG5HKSCS character domain for zh_HK
 - added JISX0208 and JISX0208_0213 character domains for ja
 - possibility to return partial stroke order information, now shown in cjknife
+- show character domains for option '-i' in cjknife
 - new examples check-strokes.py for showing stroke order coverage and
   icutransliterator.py for exposing cjklib's conversions as ICU transliterators.
 

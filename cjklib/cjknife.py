@@ -704,6 +704,18 @@ class CharacterInfo:
         except exception.NoInformationError:
             pass
 
+        # character domains
+        domains = self.characterLookup.getAvailableCharacterDomains()
+        infoDict['domains'] = ['Unicode']
+        for characterDomain in domains:
+            if characterDomain == 'Unicode':
+                continue
+            # TODO wasting instances here
+            charLookup = characterlookup.CharacterLookup('T', characterDomain,
+                dbConnectInst=self.db)
+            if charLookup.isCharacterInDomain(char):
+                infoDict['domains'].append(characterDomain)
+
         return infoDict
 
 
@@ -1002,6 +1014,7 @@ def main():
                 print "Unicode codepoint: " + infoDict['codepoint hex'] + " (" \
                     + infoDict['codepoint dec'] + ", "+ infoDict['type'] \
                     + " form)"
+                print "In character domains: " + ', '.join(infoDict['domains'])
                 if 'equivalent form' in infoDict:
                     print ("Equivalent character form: " \
                         + infoDict['equivalent form'])\
