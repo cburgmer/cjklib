@@ -67,9 +67,9 @@ class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
         from sqlalchemy import Table, Column, String
         domain = 'MyDomain'
         tableObj = Table(domain + 'Set', self.db.metadata,
-            Column('ChineseCharacter', String))
+            Column('ChineseCharacter', String), useexisting=True)
         mydb = DatabaseConnectorMock(self.db,
-            mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
+            mockTables=[domain + 'Set'], mockTableDefinition=[tableObj])
         characterlookup.CharacterLookup('T', domain, dbConnectInst=mydb)
         self.db.metadata.remove(tableObj)
 
@@ -82,9 +82,9 @@ class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
         # test if character domain is rejected
         domain = 'MyOtherDomain'
         tableObj = Table(domain + 'Set', self.db.metadata,
-            Column('SomeColumn', String))
+            Column('SomeColumn', String), useexisting=True)
         mydb = DatabaseConnectorMock(self.db,
-            mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
+            mockTables=[domain + 'Set'], mockTableDefinition=[tableObj])
         self.assertRaises(ValueError, characterlookup.CharacterLookup, 'T',
             domain, dbConnectInst=mydb)
         self.db.metadata.remove(tableObj)
@@ -99,9 +99,9 @@ class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
         from sqlalchemy import Table, Column, String
         domain = 'MyDomain'
         tableObj = Table(domain + 'Set', self.db.metadata,
-            Column('ChineseCharacter', String))
+            Column('ChineseCharacter', String), useexisting=True)
         mydb = DatabaseConnectorMock(self.db,
-            mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
+            mockTables=[domain + 'Set'], mockTableDefinition=[tableObj])
         cjk = characterlookup.CharacterLookup('T', dbConnectInst=mydb)
         self.assert_(domain in cjk.getAvailableCharacterDomains())
         self.db.metadata.remove(tableObj)
@@ -116,9 +116,9 @@ class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
         # test domain not included
         domain = 'MyOtherDomain'
         tableObj = Table(domain + 'Set', self.db.metadata,
-            Column('SomeColumn', String))
+            Column('SomeColumn', String), useexisting=True)
         mydb = DatabaseConnectorMock(self.db,
-            mockTables=[domain + 'Set'], mockTableDefinition=tableObj)
+            mockTables=[domain + 'Set'], mockTableDefinition=[tableObj])
         cjk = characterlookup.CharacterLookup('T', dbConnectInst=mydb)
         self.assert_(domain not in cjk.getAvailableCharacterDomains())
         self.db.metadata.remove(tableObj)
@@ -388,7 +388,7 @@ class CharacterLookupGetReadingForCharacterReferenceTest(
         (('T', ), [
             ((u'中', 'Pinyin'), {}, [u'zhōng', u'zhòng']),
             ((u'漢', 'Hangul'), {}, [u'한']),
-            ((u'漢', 'MandarinBraille'), {}, [u'⠓⠧⠆', u'⠞⠧⠁']),
+            ((u'漢', 'MandarinBraille'), {}, [u'⠓⠧⠆']),
             ]),
         ]
 
@@ -399,7 +399,7 @@ class CharacterLookupGetCharactersForReadingReferenceTest(
 
     REFERENCE_LIST = [
         (('T', 'GB2312'), [
-            ((u'èr', 'Pinyin'), {}, [u'二', u'佴', u'贰', u'铒']),
+            ((u'èr', 'Pinyin'), {}, [u'二', u'佴', u'贰']),
             ]),
         (('T', 'BIG5'), [
             ((u'm\u0300h', 'CantoneseYale'), {}, [u'唔', u'嘸']),
