@@ -2283,7 +2283,7 @@ class CharacterLookup(object):
         # constrain to selected character domain
         if self.getCharacterDomain() != 'Unicode':
             fromObject = fromObject.join(self._characterDomainTable,
-                joinTables[-1].c.ChineseCharacter \
+                joinTables[0].c.ChineseCharacter \
                     == self._characterDomainTable.c.ChineseCharacter)
 
         sel = select([joinTables[0].c.ChineseCharacter,
