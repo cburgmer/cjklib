@@ -119,8 +119,8 @@ from sqlalchemy import MetaData, Table, engine_from_config
 from sqlalchemy.sql import text
 from sqlalchemy.engine.url import make_url
 
-from cjklib.util import (getConfigSettings, getSearchPaths, deprecated,
-    LazyDict, OrderedDict)
+from cjklib.util import (locateProjectFile, getConfigSettings, getSearchPaths,
+    deprecated, LazyDict, OrderedDict)
 
 _dbconnectInst = None
 # Cached instance of a DatabaseConnector used for connections with settings of
@@ -193,11 +193,10 @@ def getDefaultConfiguration(projectName='cjklib'):
             configuration['sqlalchemy.url'] = url
 
     if 'sqlalchemy.url' not in configuration:
-        try:
-            from pkg_resources import Requirement, resource_filename
-            dbFile = resource_filename(Requirement.parse(projectName),
-                '%(proj)s/%(proj)s.db' % {'proj': projectName})
-        except ImportError:
+        dbFile = locateProjectFile(
+            '%(proj)s/%(proj)s.db' % {'proj': projectName},
+            projectName)
+        if not dbFile:
             # fall back to the directory of this file, only works for cjklib
             libdir = os.path.dirname(os.path.abspath(__file__))
             dbFile = os.path.join(libdir, '%(proj)s.db' % {'proj': projectName})

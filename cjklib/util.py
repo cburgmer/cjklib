@@ -35,6 +35,28 @@ from sqlalchemy.types import String, Text
 
 #{ Configuration and file access
 
+def locateProjectFile(relPath, projectName='cjklib'):
+    """
+    Locates a project file relative to the project's directory. Returns C{None}
+    if module C{pkg_resources} is not installed or package information is not
+    available.
+
+    @type relPath: str
+    @param relPath: path relative to project directory
+    @type projectName: str
+    @param projectName: name of project which will be used as name of the
+        config file
+    """
+    try:
+        from pkg_resources import (Requirement, resource_filename,
+            DistributionNotFound)
+    except ImportError:
+        return
+    try:
+        return resource_filename(Requirement.parse(projectName), relPath)
+    except DistributionNotFound:
+        pass
+
 def getConfigSettings(section, projectName='cjklib'):
     """
     Reads the configuration from the given section of the project's config file.
@@ -56,15 +78,11 @@ def getConfigSettings(section, projectName='cjklib'):
 
         configFiles = []
         # Library directory
-        try:
-            from pkg_resources import Requirement, resource_filename
-            libdir = resource_filename(Requirement.parse(projectName),
-                projectName)
-        except ImportError:
+        libdir = locateProjectFile(projectName, projectName)
+        if not libdir:
             if projectName != 'cjklib':
                 import warnings
-                warnings.warn(("Module 'pkg_resources' not available"
-                    ", cannot locate packaged files for project '%s'")
+                warnings.warn("Cannot locate packaged files for project '%s'"
                     % projectName)
             # fall back to the directory of this file, only works for cjklib
             libdir = os.path.dirname(os.path.abspath(__file__))
@@ -147,14 +165,11 @@ def getSearchPaths(projectName='cjklib'):
         searchPath += os.environ[env].strip().split(os.path.pathsep)
 
     # Library directory
-    try:
-        from pkg_resources import Requirement, resource_filename
-        libdir = resource_filename(Requirement.parse(projectName), projectName)
-    except ImportError:
+    libdir = locateProjectFile(projectName, projectName)
+    if not libdir:
         if projectName != 'cjklib':
             import warnings
-            warnings.warn(("Module 'pkg_resources' not available"
-                ", cannot locate packaged files for project '%s'")
+            warnings.warn("Cannot locate packaged files for project '%s'"
                 % projectName)
         # fall back to the directory of this file, only works for cjklib
         libdir = os.path.dirname(os.path.abspath(__file__))
@@ -170,11 +185,8 @@ def getDataPath():
     @rtype: str
     @return: path
     """
-    try:
-        from pkg_resources import Requirement, resource_filename
-        dataDir = resource_filename(Requirement.parse('cjklib'),
-            'cjklib/data')
-    except ImportError:
+    dataDir = locateProjectFile('cjklib/data', 'cjklib')
+    if not dataDir:
         buildModule = __import__("cjklib.build")
         buildModulePath = os.path.dirname(os.path.abspath(
             buildModule.__file__))

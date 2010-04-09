@@ -63,6 +63,7 @@ from sqlalchemy.exceptions import OperationalError
 
 from cjklib import dbconnector
 from cjklib import exception
+from cjklib.util import locateProjectFile
 
 class DatabaseBuilder:
     """
@@ -99,13 +100,11 @@ class DatabaseBuilder:
         """
         if 'dataPath' not in options:
             # look for data underneath the build module
-            try:
-                from pkg_resources import Requirement, resource_filename
-                options['dataPath'] = [resource_filename(
-                    Requirement.parse("cjklib"), "cjklib/data")]
-            except ImportError:
-                options['dataPath'] = os.path.join(
+            projectDataPath = locateProjectFile('cjklib/data', 'cjklib')
+            if not projectDataPath:
+                projectDataPath = os.path.join(
                     os.path.dirname(os.path.abspath(__file__)), '../data')
+            options['dataPath'] = [projectDataPath]
 
         elif isinstance(options['dataPath'], basestring):
             # wrap as list
