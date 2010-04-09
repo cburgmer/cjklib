@@ -1064,14 +1064,15 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
         MULT_HEX_INDEX_FIND_REGEX = re.compile(ur"U\+([0-9A-F]+)(?: |(?=$))")
         SEMANTIC_REGEX = re.compile(ur"(U\+[0-9A-F]+(<\S+)?( |(?=$)))+$")
         SEMANTIC_FIND_REGEX = re.compile(ur"U\+([0-9A-F]+)(?:<\S+)?(?: |(?=$))")
-        ZVARIANT_REGEX = re.compile(ur"\s*U\+([0-9A-F]+)(?:\:\S+)?\s*$")
+        #ZVARIANT_REGEX = re.compile(ur"\s*U\+([0-9A-F]+)(?:\:\S+)?\s*$")
 
         VARIANT_REGEX_MAPPING = {'C': (HEX_INDEX_REGEX, HEX_INDEX_REGEX),
             'M': (SEMANTIC_REGEX, SEMANTIC_FIND_REGEX),
             'S': (MULT_HEX_INDEX_REGEX, MULT_HEX_INDEX_FIND_REGEX),
             'P': (SEMANTIC_REGEX, SEMANTIC_FIND_REGEX),
             'T': (MULT_HEX_INDEX_REGEX, MULT_HEX_INDEX_FIND_REGEX),
-            'Z': (ZVARIANT_REGEX, ZVARIANT_REGEX)}
+            #'Z': (ZVARIANT_REGEX, ZVARIANT_REGEX)} # < 5.2.0?
+            'Z': (SEMANTIC_REGEX, SEMANTIC_FIND_REGEX)}
         """
         Mapping of entry types to regular expression describing the entry's
         pattern.
