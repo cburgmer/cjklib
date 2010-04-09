@@ -1406,8 +1406,40 @@ class CharacterLookup(object):
                     if self.isBinaryIDSOperator(character):
                         # check for IDS operators we can't make any order
                         # assumption about
-                        if character in [u'⿴', u'⿻', u'⿷']:
+                        if character in [u'⿻']:
                             return None, index
+                        # ⿴ should only occur for 囗
+                        elif character == u'⿴':
+                            so, newindex = getFromEntry(subTree, index+1)
+                            if not so: return None, index
+                            strokes = [order.replace(' ', '-').split('-')
+                                for order in so]
+                            if strokes != [['S', 'HZ', 'H']]:
+                                import warnings
+                                warnings.warn(
+                                    "Invalid decomposition entry %r" % subTree)
+                                return None, index
+                            strokeOrder.append('S-HZ')
+                            so, index = getFromEntry(subTree, newindex+1)
+                            if not so: return None, index
+                            strokeOrder.extend(so)
+                            strokeOrder.append('H')
+                        # ⿷ should only occur for ⼕ and ⼖
+                        elif character == u'⿷':
+                            so, newindex = getFromEntry(subTree, index+1)
+                            if not so: return None, index
+                            strokes = [order.replace(' ', '-').split('-')
+                                for order in so]
+                            if strokes not in ([['H', 'SZ']], [['H', 'SW']]):
+                                import warnings
+                                warnings.warn(
+                                    "Invalid decomposition entry %r" % subTree)
+                                return None, index
+                            strokeOrder.append(strokes[0][0])
+                            so, index = getFromEntry(subTree, newindex+1)
+                            if not so: return None, index
+                            strokeOrder.extend(so)
+                            strokeOrder.append(strokes[0][1])
                         else:
                             if character in [u'⿺', u'⿶']:
                                 # IDS operators with order right one first
