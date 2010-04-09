@@ -226,7 +226,25 @@ format --BuilderName-option or --TableName-option, e.g.
         return options
 
     @classmethod
-    def getDefaultOptions(cls):
+    def getConnectionConfigSettings(cls):
+        """
+        Gets the connections settings from cjklib.conf.
+
+        @rtype: dict
+        @return: dictionary of connection options
+        """
+        options = {}
+        config = dbconnector.getDefaultConfiguration()
+        if 'sqlalchemy.url' in config:
+            options['databaseUrl'] = config['sqlalchemy.url']
+        if 'attach' in config:
+            options['attach'] = config['attach']
+        if 'registerUnicode' in config:
+            options['registerUnicode'] = config['registerUnicode']
+        return options
+
+    @classmethod
+    def getDefaultOptions(cls, includeConfig=True):
         """
         Gets default options that always overwrite those specified in the build
         module.
@@ -238,17 +256,11 @@ format --BuilderName-option or --TableName-option, e.g.
         options['dataPath'] = ['.', getDataPath()]
         # prefer
         options['prefer'] = cls.DB_PREFER_BUILDERS[:]
-        # databaseUrl
-        config = dbconnector.getDefaultConfiguration()
-        if 'sqlalchemy.url' in config:
-            options['databaseUrl'] = config['sqlalchemy.url']
-        if 'attach' in config:
-            options['attach'] = config['attach']
-        if 'registerUnicode' in config:
-            options['registerUnicode'] = config['registerUnicode']
 
-        # build specific options
-        options.update(cls.getBuilderConfigSettings())
+        if includeConfig:
+            options.update(cls.getConnectionConfigSettings())
+            options.update(cls.getBuilderConfigSettings())
+
         return options
 
     def buildParser(self):
@@ -508,10 +520,8 @@ There is NO WARRANTY, to the extent permitted by law.""" \
             if not args[1:]:
                 parser.error("no build groups specified")
 
-            if not opts.ignoreConfig:
-                options = self.getDefaultOptions()
-            else:
-                options = {}
+            options = self.getDefaultOptions(
+                includeConfig=not opts.ignoreConfig)
             # convert the Values object to a dict, not too nice, but oh well
             options.update(dict([(option, getattr(opts, option)) for option \
                 in dir(opts) if not hasattr(Values(), option) \
