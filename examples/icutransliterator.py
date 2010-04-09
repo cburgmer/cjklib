@@ -27,17 +27,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import sys
 import urllib
-import PyICU
+import PyICU as icu
 
 from cjklib.reading import ReadingFactory
 
-class ReadingTransliterator(PyICU.Transliterator):
+class ReadingTransliterator(icu.Transliterator):
     def __init__(self, fromReading, toReading, variant=None, **options):
         self.id = '%s-%s' % (fromReading, toReading)
 
         if variant: self.id += '/' + variant
 
-        PyICU.Transliterator.__init__(self, self.id)
+        icu.Transliterator.__init__(self, self.id)
 
         self._conv = ReadingFactory().createReadingConverter(fromReading,
             toReading, **options)
@@ -59,7 +59,7 @@ class ReadingTransliterator(PyICU.Transliterator):
         **options):
         trans = ReadingTransliterator(fromReading, toReading, variant=variant,
             **options)
-        PyICU.Transliterator.registerInstance(trans)
+        icu.Transliterator.registerInstance(trans)
 
         if registerInverse:
             inverseOptions = options.copy()
@@ -68,7 +68,7 @@ class ReadingTransliterator(PyICU.Transliterator):
 
             invTrans = ReadingTransliterator(toReading, fromReading,
                 variant=variant, **inverseOptions)
-            PyICU.Transliterator.registerInstance(invTrans)
+            icu.Transliterator.registerInstance(invTrans)
 
         return trans.id
 
@@ -86,9 +86,9 @@ def main():
         registerInverse=True)
     print "Registered transform %s" % _id
 
-    #r = PyICU.Transliterator.createInstance("NumericPinyin-Latin",
-    r = PyICU.Transliterator.createInstance(_id,
-        PyICU.UTransDirection.UTRANS_FORWARD)
+    #r = icu.Transliterator.createInstance("NumericPinyin-Latin",
+    r = icu.Transliterator.createInstance(_id,
+        icu.UTransDirection.UTRANS_FORWARD)
 
     print ("In:  %s" % text).encode(encoding)
     print ("Out: %s" % r.transliterate(text)).encode(encoding)
