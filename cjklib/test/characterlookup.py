@@ -388,7 +388,7 @@ class CharacterLookupGetReadingForCharacterReferenceTest(
         (('T', ), [
             ((u'中', 'Pinyin'), {}, [u'zhōng', u'zhòng']),
             ((u'漢', 'Hangul'), {}, [u'한']),
-            ((u'漢', 'MandarinBraille'), {}, [u'⠓⠧⠆']),
+            ((u'漢', 'MandarinBraille'), {}, [u'⠓⠧⠆', u'⠞⠧⠁']),
             ]),
         ]
 
