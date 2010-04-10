@@ -12,31 +12,31 @@ kanjidic2: downloads/kanjidic2.xml.gz
 
 downloads/EDICT:
 	mkdir -p downloads
-	rm downloads/edict.gz
+	rm -f downloads/edict.gz
 	python -m cjklib.dictionary.install --download EDICT --targetPath=downloads
 	cd downloads && ln -s edict.gz EDICT
 
 downloads/CEDICT:
 	mkdir -p downloads
-	rm downloads/cedict_1_0_ts_utf-8_mdbg.txt.gz
+	rm -f downloads/cedict_1_0_ts_utf-8_mdbg.txt.gz
 	python -m cjklib.dictionary.install --download CEDICT --targetPath=downloads
 	cd downloads && ln -s cedict_1_0_ts_utf-8_mdbg.txt.gz CEDICT
 
 downloads/CEDICTGR:
 	mkdir -p downloads
-	rm downloads/cedictgr.zip
+	rm -f downloads/cedictgr.zip
 	python -m cjklib.dictionary.install --download CEDICTGR --targetPath=downloads
 	cd downloads && ln -s cedictgr.zip CEDICTGR
 
 downloads/HanDeDict:
 	mkdir -p downloads
-	rm downloads/handedict-????????.tar.bz2
+	rm -f downloads/handedict-????????.tar.bz2
 	python -m cjklib.dictionary.install --download HanDeDict --targetPath=downloads
 	cd downloads && ln -s handedict-????????.tar.bz2 HanDeDict
 
 downloads/CFDICT:
 	mkdir -p downloads
-	rm downloads/cfdict-????????.tar.bz2
+	rm -f downloads/cfdict-????????.tar.bz2
 	python -m cjklib.dictionary.install --download CFDICT --targetPath=downloads
 	cd downloads && ln -s cfdict-????????.tar.bz2 CFDICT
 
