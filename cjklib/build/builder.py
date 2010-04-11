@@ -420,8 +420,8 @@ class UnihanGenerator:
                     unicodeHexCodePoint, key, value = resultObj.group(1, 2, 3)
                     redIndex = int(unicodeHexCodePoint, 16)
                     # skip characters outside the BMP, i.e. for Chinese
-                    #   characters >= 0x20000 unless wideBuild is specified
-                    if not self.wideBuild and redIndex >= int('20000', 16):
+                    #   characters >= 0x10000 unless wideBuild is specified
+                    if not self.wideBuild and redIndex >= int('10000', 16):
                         continue
                     # if we have a limited target key set, check if the current
                     #   one is to be included
@@ -756,7 +756,7 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
 
             for entry in entryList:
                 if self.wideBuild or 'ChineseCharacter' not in entry \
-                    or ord(entry['ChineseCharacter']) < int('20000', 16):
+                    or ord(entry['ChineseCharacter']) < int('10000', 16):
                     yield(entry)
 
     PROVIDES = 'Kanjidic'
@@ -1114,7 +1114,7 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
                             for unicodeHexIndex in variantIndices:
                                 codePoint = int(unicodeHexIndex, 16)
                                 if self.wideBuild \
-                                    or codePoint < int('20000', 16):
+                                    or codePoint < int('10000', 16):
                                     variant = unichr(codePoint)
                                     yield(character, variant, variantType)
                         elif not self.quiet:
@@ -2084,8 +2084,7 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
                     pass
                 except IndexError:
                     if not self.quiet:
-                        warn("malformed IDS for character '" + char \
-                            + "'")
+                        warn("malformed IDS for character %r" % char)
 
     PROVIDES = 'StrokeCount'
     DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Strokes']
@@ -2583,7 +2582,7 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
                             layout, position = layoutStack.pop()
                         except IndexError:
                             raise ValueError(
-                                "malformed IDS for character '%s'" % char)
+                                "malformed IDS for character %r" % char)
 
                         if type(entry) != types.TupleType:
                             # ideographic description character found, derive
