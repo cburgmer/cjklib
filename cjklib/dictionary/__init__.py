@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 u"""
-Provides higher level dictionary access.
+High level dictionary access.
 
 This module provides classes for easy access to well known CJK dictionaries.
 Queries can be done using a headword, reading or translation.
@@ -189,8 +189,8 @@ I{SQLite} by default has no Unicode support for string operations. Optionally
 the I{ICU} library can be compiled in for handling alphabetic non-ASCII
 characters. The I{DatabaseConnector} can register own Unicode functions if ICU
 support is missing. Queries with C{LIKE} will then use function C{lower()}. This
-compatible mode has a negative impact on performance and as it is not needed for
-dictionaries like EDICT or CEDICT it is disabled by default.
+compatibility mode has a negative impact on performance and as it is not needed
+for dictionaries like EDICT or CEDICT it is disabled by default.
 """
 
 __all__ = [
@@ -450,6 +450,11 @@ class EDICTStyleDictionary(BaseDictionary):
             pass
 
     def _search(self, whereClause, filters, limit, orderBy):
+        """
+        Does the actual search for a given where clause and then narrows the
+        result set given a list of filters. The results are then formatted
+        given the instance's rules.
+        """
         def _getFilterFunction(filterList):
             """Creates a function for filtering search results."""
             def anyFunc(row):
@@ -500,6 +505,15 @@ class EDICTStyleDictionary(BaseDictionary):
         return entries
 
     def getAll(self, limit=None, orderBy=None):
+        """
+        Get all dictionary entries.
+
+        @type limit: int
+        @param limit: limiting number of returned entries
+        @type orderBy: list
+        @param orderBy: list of column names or SQLAlchemy column objects giving
+            the order of returned entries
+        """
         return self._search(None, None, limit, orderBy)
 
     def _getHeadwordSearch(self, headwordStr, **options):
@@ -514,6 +528,16 @@ class EDICTStyleDictionary(BaseDictionary):
         return [headwordClause], [(['Headword'], headwordMatchFunc)]
 
     def getForHeadword(self, headwordStr, limit=None, orderBy=None, **options):
+        """
+        Get dictionary entries whose headword matches the given string.
+
+        @type limit: int
+        @param limit: limiting number of returned entries
+        @type orderBy: list
+        @param orderBy: list of column names or SQLAlchemy column objects giving
+            the order of returned entries
+        @bug: Specifying a C{limit} might yield less results then possible.
+        """
         clauses, filters = self._getHeadwordSearch(headwordStr)
 
         return self._search(or_(*clauses), filters, limit, orderBy)
@@ -550,6 +574,18 @@ class EDICTStyleDictionary(BaseDictionary):
         return clauses, filters
 
     def getForReading(self, readingStr, limit=None, orderBy=None, **options):
+        """
+        Get dictionary entries whose reading matches the given string.
+
+        @type limit: int
+        @param limit: limiting number of returned entries
+        @type orderBy: list
+        @param orderBy: list of column names or SQLAlchemy column objects giving
+            the order of returned entries
+        @raise ConversionError: if search string cannot be converted to the
+            dictionary's reading.
+        @bug: Specifying a C{limit} might yield less results then possible.
+        """
         # TODO document: raises conversion error
         clauses, filters = self._getReadingSearch(readingStr, **options)
 
@@ -568,11 +604,32 @@ class EDICTStyleDictionary(BaseDictionary):
 
     def getForTranslation(self, translationStr, limit=None, orderBy=None,
         **options):
+        """
+        Get dictionary entries whose translation matches the given string.
+
+        @type limit: int
+        @param limit: limiting number of returned entries
+        @type orderBy: list
+        @param orderBy: list of column names or SQLAlchemy column objects giving
+            the order of returned entries
+        @bug: Specifying a C{limit} might yield less results then possible.
+        """
         clauses, filters = self._getTranslationSearch(translationStr)
 
         return self._search(or_(*clauses), filters, limit, orderBy)
 
     def getFor(self, searchStr, limit=None, orderBy=None, **options):
+        """
+        Get dictionary entries whose headword, reading or translation matches
+        the given string.
+
+        @type limit: int
+        @param limit: limiting number of returned entries
+        @type orderBy: list
+        @param orderBy: list of column names or SQLAlchemy column objects giving
+            the order of returned entries
+        @bug: Specifying a C{limit} might yield less results then possible.
+        """
         clauseList = []
         filterList = []
         for searchFunc in (self._getHeadwordSearch, self._getReadingSearch,

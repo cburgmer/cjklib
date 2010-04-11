@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides the building methods for the cjklib package.
+Methods for building the library's database.
 
 Some L{TableBuilder} implementations aren't used by the CJK library but are
 provided here for additional usage.

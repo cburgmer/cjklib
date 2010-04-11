@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides the build class for the cjklib package.
+Builds the library's database.
 
 Each table that needs to be created has to be implemented by subclassing a
 L{TableBuilder}. The L{DatabaseBuilder} is the central instance for managing the

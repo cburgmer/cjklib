@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides simple read access to SQL databases.
+Simple read access to (multiple) SQL databases.
 
 A DatabaseConnector connects to one or more SQL databases. It provides four
 simple methods for retrieving scalars or rows of data:

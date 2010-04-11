@@ -16,7 +16,8 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 u"""
-Provides the Chinese character reading based functions.
+Character reading based functions (transliterations, romanizations, ...).
+
 This includes L{ReadingOperator}s used to handle basic operations like
 decomposing strings written in a reading into their basic entities (e.g.
 syllables) and for some languages getting tonal information, syllable onset and

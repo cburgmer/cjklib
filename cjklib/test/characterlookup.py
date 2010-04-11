@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides the library's unit tests for L{characterlookup.CharacterLookup}.
+Unit tests for L{characterlookup}.
 """
 
 # pylint: disable-msg=E1101

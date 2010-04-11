@@ -59,24 +59,38 @@ This will download CEDICT, create a SQLite database file and install it to
 dictionary (i.e. EDICT, CEDICT, HanDeDict, CFDICT, CEDICTGR).
 
 
-Documentation
-=============
-The API_ includes a lot of documentation. Also see the `project page`_.
+Documentation & Usage
+=====================
+The API_ includes a lot of documentation. Also see the `project page`_. There is
+a small command line tool ``cjknife`` that offers some of the library's
+functions. See ``cjknife --help`` for an overview.
 
 .. _API: http://cburgmer.nfshost.com/cjklib/
 .. _project page: http://code.google.com/p/cjklib/
 
-Usage
-=====
-The main components of this package are accessible through the cjklib Python
-library. There is a small command line tool ``cjknife`` that offers some of the
-library's functions. See ``cjknife --help`` for an overview.
+Examples
+--------
+
+- Get stroke order of characters::
+
+    >>> from cjklib import characterlookup
+    >>> cjk = characterlookup.CharacterLookup('C')
+    >>> cjk.getStrokeOrder(u'说')
+    [u'㇔', u'㇊', u'㇔', u'㇒', u'㇑', u'㇕', u'㇐', u'㇓', u'㇟']
+
+- Access a dictionary (here using Jim Breen's EDICT)::
+
+    >>> from cjklib.dictionary import EDICT
+    >>> d = EDICT()
+    >>> d.getForTranslation('Tokyo')
+    [EntryTuple(Headword=u'東京', Reading=u'とうきょう',
+    Translation=u'/(n) Tokyo (current capital of Japan)/(P)/')]
 
 
 Database
 ========
 Packaged versions of the library will ship with a pre-built SQLite database
-file. You can easily rebuild the database yourself.
+file. You can however easily rebuild the database yourself.
 
 First download the newest Unihan file::
 
@@ -97,7 +111,7 @@ in ``cjklib.conf`` before rebuilding or pass ``--wideBuild=True`` to
 SQLite by default has no Unicode support for string operations. Optionally the
 ICU library can be compiled in for handling alphabetic non-ASCII characters.
 Cjklib can register own Unicode functions if ICU support is missing. Queries
-with ``LIKE`` will then use function ``lower()``. This compatible mode has
+with ``LIKE`` will then use function ``lower()``. This compatibility mode has
 negative impact on performance and as it is not needed for dictionaries like
 EDICT or CEDICT it is disabled by default. See ``cjklib.conf`` for enabling.
 

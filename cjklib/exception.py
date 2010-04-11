@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Provides the error classes raised by the functions of the cjklib module.
+Error classes.
 
 @group Exceptions: *Error
 """

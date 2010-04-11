@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides format strategies for dictionary entries.
+Format strategies for dictionary entries.
 """
 
 __all__ = [

@@ -16,8 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-cjknife is a tool that makes the functions offered by L{cjklib} available to the
-command line.
+Command line interface (I{CLI}) to the library's functionality.
 
 Check what this script offers on the command line with C{cjknife -h}.
 
@@ -26,7 +25,7 @@ The script's output depends on the following:
     - user locale settings are checked to guess appropriate values for the
         character locale and the default input and output readings
 
-@copyright: Copyright (C) 2006-2009 cjklib developers
+@copyright: Copyright (C) 2006-2010 cjklib developers
 """
 
 __all__ = ["CharacterInfo"]

@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides entry factories for dictionaries.
+Entry factories for dictionaries.
 """
 
 __all__ = [

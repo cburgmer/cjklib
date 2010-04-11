@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides the library's unit tests for the L{reading.converter} classes.
+Unit tests for L{reading.converter}.
 
 @todo Impl: Add second dimension to consistency check for converting between
     dialect forms for all entities. Use cartesian product option_list x dialects

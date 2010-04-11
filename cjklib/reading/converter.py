@@ -16,8 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 u"""
-Provides L{ReadingConverter}s, classes to convert strings written in a character
-reading to another reading.
+Conversion between character readings.
 
 Examples
 ========

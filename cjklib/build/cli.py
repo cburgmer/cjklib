@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides a command line interface (I{CLI}) to the build functionality of cjklib.
+Command line interface (I{CLI}) to the library's build functionality.
 @bug: "Prefer" system does not work for additional builders
 """
 

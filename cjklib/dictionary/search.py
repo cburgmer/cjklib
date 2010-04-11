@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides search strategies for dictionaries.
+Search strategies for dictionaries.
 
 @todo Impl: Allow simple FTS3 searching as build support is already provided.
 """

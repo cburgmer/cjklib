@@ -16,8 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 u"""
-Provides L{ReadingOperator}s, classes to handle strings written in a character
-reading.
+Operation on character readings.
 
 Examples
 ========
@@ -4438,12 +4437,7 @@ class JyutpingOperator(TonalRomanisationOperator):
 
     @cachedproperty
     def _syllableData(self):
-        """
-        Gets the table information about syllable structure from the database.
-
-        @rtype: dict
-        @return: dict containing the intial, nucleus and coda for each syllable
-        """
+        """Syllable structure information"""
         table = self.db.tables['JyutpingInitialFinal']
         result = self.db.selectRows(
             select([table.c.Jyutping, table.c.JyutpingInitial,

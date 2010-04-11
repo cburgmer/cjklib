@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides the central Chinese character based functions.
+Chinese character based functions.
 """
 __all__ = ["CharacterLookup"]
 

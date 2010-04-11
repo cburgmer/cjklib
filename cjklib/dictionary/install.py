@@ -704,7 +704,11 @@ There is NO WARRANTY, to the extent permitted by law.""" \
 
 
 def main():
-    if not CommandLineInstaller().run():
+    try:
+        if not CommandLineInstaller().run():
+            sys.exit(1)
+    except KeyboardInterrupt:
+        print >> sys.stderr, "Keyboard interrupt."
         sys.exit(1)
 
 if __name__ == "__main__":

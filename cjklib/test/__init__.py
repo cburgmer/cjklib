@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides unit tests.
+Unit tests.
 """
 
 __all__ = ['readingoperator', 'readingconverter', 'characterlookup',

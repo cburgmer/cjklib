@@ -19,7 +19,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Provides utilities.
+Utilities.
 """
 
 import sys
