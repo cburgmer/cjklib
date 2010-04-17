@@ -17,30 +17,6 @@
 
 u"""
 Operation on character readings.
-
-Examples
-========
-Decompose a reading string in I{Gwoyeu Romatzyh} into single entities:
-
-    >>> from cjklib.reading import ReadingFactory
-    >>> f = ReadingFactory()
-    >>> f.decompose('"Hannshyue" .de mingcheng duey Jonggwo [...]', 'GR')
-    ['"', 'Hann', 'shyue', '" ', '.de', ' ', 'ming', 'cheng', ' ', 'duey', \
-' ', 'Jong', 'gwo', ' [...]']
-
-The same can be done by directly using the operator's instance:
-
-    >>> from cjklib.reading import operator
-    >>> cy = operator.CantoneseYaleOperator()
-    >>> cy.decompose(u'gwóngjàuwá')
-    [u'gw\xf3ng', u'j\xe0u', u'w\xe1']
-
-Composing will reverse the process, using a I{Pinyin} string:
-
-    >>> f.compose([u'xī', u'ān'], 'Pinyin')
-    u"x\u012b'\u0101n"
-
-For more complex operators, see L{PinyinOperator} or L{MandarinIPAOperator}.
 """
 
 # pylint: disable-msg=E1101
@@ -48,7 +24,8 @@ For more complex operators, see L{PinyinOperator} or L{MandarinIPAOperator}.
 
 __all__ = [
     # abstract
-    "ReadingOperator", "RomanisationOperator", "TonalFixedEntityOperator", "TonalRomanisationOperator", "TonalIPAOperator", "SimpleEntityOperator",
+    "ReadingOperator", "RomanisationOperator", "TonalFixedEntityOperator",
+    "TonalRomanisationOperator", "TonalIPAOperator", "SimpleEntityOperator",
     # specific
     "HangulOperator", "HiraganaOperator", "KatakanaOperator", "KanaOperator",
     "PinyinOperator", "WadeGilesOperator", "GROperator", "MandarinIPAOperator",
@@ -74,34 +51,16 @@ from cjklib.util import (titlecase, istitlecase, cross, cachedmethod,
 
 class ReadingOperator(object):
     """
-    Defines an abstract operator on text written in a I{character reading}.
-
-    The two basic methods are L{decompose()} and L{compose()}. L{decompose()}
-    breaks down a text into the basic entities of that reading (additional non
-    reading substrings are accepted though). L{compose()} joins these entities
-    together again and applies formating rules needed by the reading.
-
-    Additionally methods L{isReadingEntity()} and L{isFormattingEntity()} are
-    provided to check which of the strings returned by L{decompose()} are
-    supported entities for the given reading. While a X{reading entity}
-    expresses an entity of the language (in most cases a X{syllable}), a
-    X{formatting entity} merely exists for the convenience of the written form,
-    e.g. punctuation marks or syllable separators.
-
-    The methods L{getDefaultOptions()} will return the reading default dialect.
-
-    The class itself can't be used directly, it has to be subclassed and its
-    methods need to be extended.
+    Defines an abstract operator on text written in a *character reading*.
     """
     READING_NAME = None
     """Unique name of reading"""
 
     def __init__(self, **options):
         """
-        Creates an instance of the ReadingOperator.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
         """
         if 'dbConnectInst' in options:
@@ -125,8 +84,8 @@ class ReadingOperator(object):
         'dbConnectInst' is not regarded a configuration option of the operator
         and is thus not included in the dict returned.
 
-        @rtype: dict
-        @return: the reading operator's default options.
+        :rtype: dict
+        :return: the reading operator's default options.
         """
         return {}
 
@@ -143,11 +102,11 @@ class ReadingOperator(object):
 
         The base class' implementation will raise a NotImplementedError.
 
-        @type readingString: str
-        @param readingString: reading string
-        @rtype: list of str
-        @return: a list of basic entities of the input string
-        @raise DecompositionError: if the string can not be decomposed.
+        :type readingString: str
+        :param readingString: reading string
+        :rtype: list of str
+        :return: a list of basic entities of the input string
+        :raise DecompositionError: if the string can not be decomposed.
         """
         raise NotImplementedError
 
@@ -155,122 +114,81 @@ class ReadingOperator(object):
         """
         Composes the given list of basic entities to a string.
 
-        Composing entities can raise a L{CompositionError} if a non-reading
-        entity is about to be joined with a reading entity and will result in
-        a string that is impossible to decompose.
+        Composing entities can raise a :exc:`~cjklib.exception.CompositionError`
+        if a non-reading entity is about to be joined with a reading entity
+        and will result in a string that is impossible to decompose.
 
         The base class' implementation will raise a NotImplementedError.
 
-        @type readingEntities: list of str
-        @param readingEntities: list of basic entities or other content
-        @rtype: str
-        @return: composed entities
-        @raise CompositionError: if the given entities can not be composed.
+        :type readingEntities: list of str
+        :param readingEntities: list of basic entities or other content
+        :rtype: str
+        :return: composed entities
+        :raise CompositionError: if the given entities can not be composed.
         """
         raise NotImplementedError
 
     def isReadingEntity(self, entity):
         """
-        Returns C{True} if the given entity is a valid I{reading entity}
+        Returns ``True`` if the given entity is a valid *reading entity*
         recognised by the reading operator, i.e. it will be returned by
-        L{decompose()}.
+        :meth:`~cjklib.reading.operator.ReadingOperator.decompose`.
 
         The base class' implementation will raise a NotImplementedError.
 
-        @type entity: str
-        @param entity: entity to check
-        @rtype: bool
-        @return: C{True} if string is an entity of the reading, false otherwise.
+        :type entity: str
+        :param entity: entity to check
+        :rtype: bool
+        :return: ``True`` if string is an entity of the reading, false
+            otherwise.
         """
         raise NotImplementedError
 
     def isFormattingEntity(self, entity):
         """
-        Returns C{True} if the given entity is a valid I{formatting entity}
+        Returns ``True`` if the given entity is a valid *formatting entity*
         recognised by the reading operator.
 
         The base class' implementation will always return False.
 
-        @type entity: str
-        @param entity: entity to check
-        @rtype: bool
-        @return: C{True} if string is a formatting entity of the reading.
+        :type entity: str
+        :param entity: entity to check
+        :rtype: bool
+        :return: ``True`` if string is a formatting entity of the reading.
         """
         return False
 
 
 class RomanisationOperator(ReadingOperator):
     """
-    Defines an abstract L{ReadingOperator} on text written in a I{romanisation},
-    i.e. text written in the Latin alphabet or written in the Cyrillic alphabet.
+    Defines an abstract :class:`~cjklib.reading.operator.ReadingOperator` on
+    text written in a *romanisation*, i.e. text written in the Latin alphabet
+    or written in the Cyrillic alphabet.
 
-    Additional to L{decompose()} provided by the class L{ReadingOperator} this
-    class offers a method L{getDecompositions()} that returns several possible
-    decompositions in an ambiguous case.
-
-    This class itself can't be used directly, it has to be subclassed and
-    extended.
-
-    X{Decomposition}
-    ================
-    Transcriptions into the Latin alphabet generate the problem that syllable
-    boundaries or boundaries of entities belonging to single Chinese characters
-    aren't clear anymore once entities are grouped together.
-
-    Therefore it is important to have methods at hand to separate this strings
-    and to split them into single entities. This though cannot always be done
-    in a clear and unambiguous way as several different decompositions might be
-    possible thus leading to the general case of X{ambiguous decomposition}s.
-
-    Many romanisations do provide a way to tackle this problem. Pinyin for
-    example requires the use of an apostrophe (C{'}) when the reverse process
-    of splitting the string into syllables gets ambiguous. The Wade-Giles
-    romanisation in its strict implementation asks for a hyphen used between all
-    syllables. The LSHK's Jyutping when written with tone marks will always be
-    clearly decomposable.
-
-    The method L{isStrictDecomposition()} can be implemented to check if one
-    possible decomposition is the X{strict decomposition} offered by the
-    romanisation's protocol. This method should guarantee that under all
-    circumstances only one decomposed version will be regarded as strict.
-
-    If no strict version is yielded and different decompositions exist an
-    X{unambiguous decomposition} can not be made. These decompositions can be
-    accessed through method L{getDecompositions()}, even in a cases where a
-    strict decomposition exists.
-
-    X{Letter case}
-    ==============
-    Romanisations are special to other readings as their entities can be written
-    in upper or lower X{case}, or in a mix of them. By default operators will
-    recognise both, this behaviour can be changed with option C{'case'} which
-    can alternatively be changed to C{'lower'}. Upper case is not explicitly
-    supported. If such a writing is needed, this behaviour can be implemented
-    by choosing lower case and converting strings to and from the operator
-    manually. Method L{getReadingEntities()} will by default return lower case
-    entities.
-
-    @todo Impl: Optimise decompose() as to incorporate segment() and prune the
-        tree while it is created. Does this though yield significant
-        improvement? Would at least be O(n).
+    .. todo::
+        * Impl: Optimise decompose() as to incorporate segment() and prune the
+          tree while it is created. Does this though yield significant
+          improvement? Would at least be O(n).
     """
     _readingEntityRegex = re.compile(u"([A-Za-z]+)")
     """Regular Expression for finding romanisation entities in input."""
 
     def __init__(self, **options):
         """
-        Creates an instance of the RomanisationOperator.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
-        @keyword strictSegmentation: if C{True} segmentation (using
-            L{segment()}) and thus decomposition (using L{decompose()}) will
-            raise an exception if an alphabetic string is parsed which can not
-            be segmented into single reading entities. If C{False} the aforesaid
-            string will be returned unsegmented.
-        @keyword case: if set to C{'lower'}, only lower case will be supported,
-            if set to C{'both'} a mix of upper and lower case will be supported.
+        :keyword strictSegmentation: if ``True`` segmentation (using
+            :meth:`~cjklib.reading.operator.RomanisationOperator.segment`)
+            and thus decomposition (using
+            :meth:`~cjklib.reading.operator.RomanisationOperator.decompose`)
+            will raise an exception if an alphabetic string is parsed which
+            can not be segmented into single reading entities. If ``False``
+            the aforesaid string will be returned unsegmented.
+        :keyword case: if set to ``'lower'``, only lower case will be supported,
+            if set to ``'both'`` a mix of upper and lower case will be
+            supported.
         """
         super(RomanisationOperator, self).__init__(**options)
 
@@ -291,11 +209,11 @@ class RomanisationOperator(ReadingOperator):
         Gets a list of characters parsed by this reading operator as reading
         entities. For alphabetic characters, lower case is returned.
 
-        Separators like the apostrophe (C{'}) in Pinyin are not part of reading
+        Separators like the apostrophe (``'``) in Pinyin are not part of reading
         entities and as such not included.
 
-        @rtype: set
-        @return: set of characters parsed by the reading operator
+        :rtype: set
+        :return: set of characters parsed by the reading operator
         """
         return frozenset(string.ascii_lowercase)
 
@@ -308,19 +226,20 @@ class RomanisationOperator(ReadingOperator):
         shorter entities can be disregarded. Furthermore it is assumed that the
         reading provides rules to mark entity borders and that these rules can
         be checked, so that the decomposition that abides by this rules will be
-        prefered. This check is done by calling L{isStrictDecomposition()}.
+        prefered. This check is done by calling
+        :meth:`~cjklib.reading.operator.RomanisationOperator.isStrictDecomposition`.
 
         The given input string can contain other characters not supported by the
         reading, e.g. punctuation marks. The returned list then contains a mix
         of basic reading entities and other characters e.g. spaces and
         punctuation marks.
 
-        @type readingString: str
-        @param readingString: reading string
-        @rtype: list of str
-        @return: a list of basic entities of the input string
-        @raise AmbiguousDecompositionError: if decomposition is ambiguous.
-        @raise DecompositionError: if the given string has a wrong format.
+        :type readingString: str
+        :param readingString: reading string
+        :rtype: list of str
+        :return: a list of basic entities of the input string
+        :raise AmbiguousDecompositionError: if decomposition is ambiguous.
+        :raise DecompositionError: if the given string has a wrong format.
         """
         decompositionParts = self.getDecompositionTree(readingString)
 
@@ -360,12 +279,12 @@ class RomanisationOperator(ReadingOperator):
         one Chinese character each for all possible decompositions and returns
         the possible decompositions as a lattice.
 
-        @type readingString: str
-        @param readingString: reading string
-        @rtype: list
-        @return: a list of all possible decompositions consisting of basic
+        :type readingString: str
+        :param readingString: reading string
+        :rtype: list
+        :return: a list of all possible decompositions consisting of basic
             entities as a lattice construct.
-        @raise DecompositionError: if the given string has a wrong format.
+        :raise DecompositionError: if the given string has a wrong format.
         """
         # break string into pieces with alphabet and non alphabet parts
         decompositionParts = []
@@ -386,17 +305,18 @@ class RomanisationOperator(ReadingOperator):
         """
         Decomposes the given string into basic entities that can be mapped to
         one Chinese character each for all possible decompositions. This method
-        is a more general version of L{decompose()}.
+        is a more general version of
+        :meth:`~cjklib.reading.operator.RomanisationOperator.decompose`.
 
         The returned list construction consists of two entity types: entities of
         the romanisation and other strings.
 
-        @type readingString: str
-        @param readingString: reading string
-        @rtype: list of list of str
-        @return: a list of all possible decompositions consisting of basic
+        :type readingString: str
+        :param readingString: reading string
+        :rtype: list of list of str
+        :return: a list of all possible decompositions consisting of basic
             entities.
-        @raise DecompositionError: if the given string has a wrong format.
+        :raise DecompositionError: if the given string has a wrong format.
         """
         decompositionParts = self.getDecompositionTree(readingString)
         # merge segmentations to decomposition
@@ -416,22 +336,24 @@ class RomanisationOperator(ReadingOperator):
         Takes a string written in the romanisation and returns the possible
         segmentations as a list of syllables.
 
-        In contrast to L{decompose()} this method merely segments continuous
+        In contrast to
+        :meth:`~cjklib.reading.operator.RomanisationOperator.decompose` this
+        method merely segments continuous
         entities of the romanisation. Characters not part of the romanisation
         will not be dealt with, this is the task of the more general decompose
         method.
 
-        Option C{'strictSegmentation'} controls the behaviour of this method for
-        strings that cannot be parsed. If set to C{True} segmentation will raise
-        an exception, if set to C{False} the given string will be returned
-        unsegmented.
+        Option ``'strictSegmentation'`` controls the behaviour of this method
+        for strings that cannot be parsed. If set to ``True`` segmentation will
+        raise an exception, if set to ``False`` the given string will be
+        returned unsegmented.
 
-        @type readingString: str
-        @param readingString: reading string
-        @rtype: list of list of str
-        @return: a list of possible segmentations (several if ambiguous) into
+        :type readingString: str
+        :param readingString: reading string
+        :rtype: list of list of str
+        :return: a list of possible segmentations (several if ambiguous) into
             single syllables
-        @raise DecompositionError: if the given string has an invalid format.
+        :raise DecompositionError: if the given string has an invalid format.
         """
         segmentationTree = self._recursiveSegmentation(readingString)
         if readingString != '' and len(segmentationTree) == 0:
@@ -451,12 +373,12 @@ class RomanisationOperator(ReadingOperator):
         Takes a string written in the romanisation and returns the possible
         segmentations as a tree of syllables.
 
-        The tree is represented by tuples C{(syllable, subtree)}.
+        The tree is represented by tuples ``(syllable, subtree)``.
 
-        @type readingString: str
-        @param readingString: reading string
-        @rtype: list of tuple
-        @return: a tree of possible segmentations (if ambiguous) into single
+        :type readingString: str
+        :param readingString: reading string
+        :rtype: list of tuple
+        :return: a tree of possible segmentations (if ambiguous) into single
             syllables
         """
         segmentationParts = []
@@ -483,14 +405,14 @@ class RomanisationOperator(ReadingOperator):
         which together make up a new entity.
 
         Segmentation can give several results with some possible syllables being
-        even further subdivided (e.g. I{tian} to I{ti'an} in Pinyin). These
+        even further subdivided (e.g. *tian* to *ti'an* in Pinyin). These
         segmentations are only secondary and the segmentation with the longer
         syllables will be the one to take.
 
-        @type decomposition: list of str
-        @param decomposition: decomposed reading string
-        @rtype: bool
-        @return: True if following syllables make up a syllable
+        :type decomposition: list of str
+        :param decomposition: decomposed reading string
+        :rtype: bool
+        :return: True if following syllables make up a syllable
         """
         for startIndex in range(0, len(decomposition)-1):
             endIndex = startIndex + 2
@@ -514,10 +436,10 @@ class RomanisationOperator(ReadingOperator):
         with this protocol has to be implemented here. Thus this method can only
         return true for one and only one possible decomposition for all strings.
 
-        @type decomposition: list of str
-        @param decomposition: decomposed reading string
-        @rtype: bool
-        @return: False, as this methods needs to be implemented by the sub class
+        :type decomposition: list of str
+        :param decomposition: decomposed reading string
+        :rtype: bool
+        :return: False, as this methods needs to be implemented by the sub class
         """
         return False
 
@@ -536,11 +458,11 @@ class RomanisationOperator(ReadingOperator):
         Checks if the given string is a entity supported by this romanisation
         or a substring of one.
 
-        @type readingString: str
-        @param readingString: reading string
-        @rtype: bool
-        @return: C{True} if this string is I{reading entity},
-            I{formatting entity} or substring
+        :type readingString: str
+        :param readingString: reading string
+        :rtype: bool
+        :return: ``True`` if this string is *reading entity*,
+            *formatting entity* or substring
         """
         return readingString in self._substringTable
 
@@ -551,12 +473,12 @@ class RomanisationOperator(ReadingOperator):
         segmentation method.
 
         Letter case of characters will be handled depending on the setting for
-        option C{'case'}.
+        option ``'case'``.
 
-        @type entity: str
-        @param entity: entity to check
-        @rtype: bool
-        @return: C{True} if string is an entity of the reading, C{False}
+        :type entity: str
+        :param entity: entity to check
+        :rtype: bool
+        :return: ``True`` if string is an entity of the reading, ``False``
             otherwise.
         """
         # check capitalisation
@@ -575,23 +497,23 @@ class RomanisationOperator(ReadingOperator):
 
         Returned entities are in lowercase.
 
-        @rtype: set of str
-        @return: set of supported I{reading entities}
+        :rtype: set of str
+        :return: set of supported *reading entities*
         """
         raise NotImplementedError
 
     def isFormattingEntity(self, entity):
         """
-        Returns C{True} if the given entity is a valid I{formatting entity}
+        Returns ``True`` if the given entity is a valid *formatting entity*
         recognised by the romanisation operator.
 
         Letter case of characters will be handled depending on the setting for
-        option C{'case'}.
+        option ``'case'``.
 
-        @type entity: str
-        @param entity: entity to check
-        @rtype: bool
-        @return: C{True} if string is a formatting entity of the reading.
+        :type entity: str
+        :param entity: entity to check
+        :rtype: bool
+        :return: ``True`` if string is a formatting entity of the reading.
         """
         # check capitalisation
         if self.case == 'lower' and entity.lower() != entity:
@@ -603,12 +525,12 @@ class RomanisationOperator(ReadingOperator):
     def getFormattingEntities(self):
         """
         Gets a set of entities used by the reading to format
-        I{reading entities}.
+        *reading entities*.
 
         The base class' implementation will return an empty set.
 
-        @rtype: set of str
-        @return: set of supported I{formatting entities}
+        :rtype: set of str
+        :return: set of supported *formatting entities*
         """
         return frozenset()
 
@@ -618,18 +540,18 @@ class RomanisationOperator(ReadingOperator):
         Converts a tree to a list containing all full paths from root to leaf
         node.
 
-        The tree is given by tuples C{(leaf node element, subtree)}.
+        The tree is given by tuples ``(leaf node element, subtree)``.
 
         Example:
             >>> RomanisationOperator._treeToList(
             ...     ('A', [('B', None), ('C', [('D', None), ('E', None)])]))
             [['A', 'B'], ['A', 'C', 'D'], ['A', 'C', 'E']]
 
-        @type tupleTree: tuple
-        @param tupleTree: a tree realised through a tuple of a node and a
+        :type tupleTree: tuple
+        :param tupleTree: a tree realised through a tuple of a node and a
             subtree
-        @rtype: list of list
-        @return: a list of all paths contained by the given tree
+        :rtype: list of list
+        :return: a list of all paths contained by the given tree
         """
         resultList = []
         root, pathList = tupleTree
@@ -646,38 +568,12 @@ class RomanisationOperator(ReadingOperator):
 
 class TonalFixedEntityOperator(ReadingOperator):
     """
-    Provides an abstract L{ReadingOperator} for tonal languages for a reading
-    based on a fixed set of reading entities.
-
-    It provides two methods L{getTonalEntity()} and L{splitEntityTone()} to
-    cope with tonal information in text.
-
-    The class itself can't be used directly, it has to be subclassed and its
-    methods need to be extended.
-
-    Tones
-    =====
-    Operators are free to handle X{tone}s according to their needs. No data type
-    constraint is given so that some will handle tones as integers, while others
-    will handle strings. Even the count of tones between different operators for
-    the same language may vary as one system might be more specific about tonal
-    features.
-
-    Plain entities
-    ==============
-    While some operators have a fixed set of accepted entities, the more
-    specific subgroup for tonal languages has a set of basic entities, such
-    entity here being called X{plain entity}, which can be annotated with tonal
-    information to yield a regular reading entity. Some I{plain entities} might
-    themselves be normal reading entities, while others might be not. No
-    requirements are made that the set of plain entity in cross product with
-    the set of tones will fully span the set of reading entities.
+    Provides an abstract :class:`~cjklib.reading.operator.ReadingOperator`
+    for tonal languages for a reading based on a fixed set of reading entities.
     """
     def __init__(self, **options):
         """
-        Creates an instance of the TonalFixedEntityOperator.
-
-        @param options: extra options
+        :param options: extra options
         """
         super(TonalFixedEntityOperator, self).__init__(**options)
 
@@ -690,8 +586,8 @@ class TonalFixedEntityOperator(ReadingOperator):
 
         The base class' implementation will raise a NotImplementedError.
 
-        @rtype: list
-        @return: list of supported tone marks.
+        :rtype: list
+        :return: list of supported tone marks.
         """
         raise NotImplementedError
 
@@ -703,13 +599,13 @@ class TonalFixedEntityOperator(ReadingOperator):
 
         The base class' implementation will raise a NotImplementedError.
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @param tone: tone
-        @rtype: str
-        @return: entity with appropriate tone
-        @raise InvalidEntityError: if the entity is invalid.
-        @raise UnsupportedError: if the operation is not supported for the given
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :param tone: tone
+        :rtype: str
+        :return: entity with appropriate tone
+        :raise InvalidEntityError: if the entity is invalid.
+        :raise UnsupportedError: if the operation is not supported for the given
             form.
         """
         raise NotImplementedError
@@ -722,12 +618,12 @@ class TonalFixedEntityOperator(ReadingOperator):
 
         The base class' implementation will raise a NotImplementedError.
 
-        @type entity: str
-        @param entity: entity with tonal information
-        @rtype: tuple
-        @return: plain entity without tone mark and entity's tone
-        @raise InvalidEntityError: if the entity is invalid.
-        @raise UnsupportedError: if the operation is not supported for the given
+        :type entity: str
+        :param entity: entity with tonal information
+        :rtype: tuple
+        :return: plain entity without tone mark and entity's tone
+        :raise InvalidEntityError: if the entity is invalid.
+        :raise UnsupportedError: if the operation is not supported for the given
             form.
         """
         raise NotImplementedError
@@ -739,8 +635,8 @@ class TonalFixedEntityOperator(ReadingOperator):
 
         The list is used in the segmentation process to find entity boundaries.
 
-        @rtype: list of str
-        @return: list of supported syllables
+        :rtype: list of str
+        :return: list of supported syllables
         """
         syllables = []
         tones = self.getTones()
@@ -757,12 +653,13 @@ class TonalFixedEntityOperator(ReadingOperator):
     def getPlainReadingEntities(self):
         """
         Gets the list of plain entities supported by this reading. Different to
-        L{getReadingEntities()} these entities will carry no tone mark.
+        :meth:`~TonalFixedEntityOperator.getReadingEntities`
+        these entities will carry no tone mark.
 
         The base class' implementation will raise a NotImplementedError.
 
-        @rtype: set of str
-        @return: set of supported syllables
+        :rtype: set of str
+        :return: set of supported syllables
         """
         raise NotImplementedError
 
@@ -772,10 +669,10 @@ class TonalFixedEntityOperator(ReadingOperator):
         recognised by the romanisation operator, i.e. it is a valid entity of
         the reading returned by the segmentation method.
 
-        @type entity: str
-        @param entity: entity to check
-        @rtype: bool
-        @return: C{True} if string is an entity of the reading, C{False}
+        :type entity: str
+        :param entity: entity to check
+        :rtype: bool
+        :return: ``True`` if string is an entity of the reading, ``False``
             otherwise.
         """
         return entity in self.getPlainReadingEntities()
@@ -793,29 +690,27 @@ class TonalFixedEntityOperator(ReadingOperator):
 
 class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
     """
-    Provides an abstract L{RomanisationOperator} for tonal languages
-    incorporating methods from L{TonalFixedEntityOperator}.
-
-    It provides two methods L{getTonalEntity()} and L{splitEntityTone()} to
-    cope with tonal information in text.
-
-    The class itself can't be used directly, it has to be subclassed and its
-    methods need to be extended.
+    Provides an abstract :class:`~cjklib.reading.operator.RomanisationOperator`
+    for tonal languages incorporating methods from
+    :class:`~cjklib.reading.operator.TonalFixedEntityOperator`.
     """
     def __init__(self, **options):
         """
-        Creates an instance of the TonalRomanisationOperator.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
-        @keyword strictSegmentation: if C{True} segmentation (using
-            L{segment()}) and thus decomposition (using L{decompose()}) will
+        :keyword strictSegmentation: if ``True`` segmentation (using
+            :meth:`~cjklib.reading.operator.RomanisationOperator.segment`)
+            and thus decomposition (using
+            :meth:`~cjklib.reading.operator.RomanisationOperator.decompose`)
+            will
             raise an exception if an alphabetic string is parsed which can not
-            be segmented into single reading entities. If C{False} the aforesaid
-            string will be returned unsegmented.
-        @keyword case: if set to C{'lower'}, only lower case will be supported,
-            if set to C{'both'} a mix of upper and lower case will be supported.
+            be segmented into single reading entities. If ``False`` the
+            aforesaid string will be returned unsegmented.
+        :keyword case: if set to ``'lower'``, only lower case will be supported,
+            if set to ``'both'`` a mix of upper and lower case will be
+            supported.
         """
         super(TonalRomanisationOperator, self).__init__(**options)
 
@@ -828,8 +723,8 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
 
         Returned entities are in lowercase.
 
-        @rtype: list of str
-        @return: list of supported syllables
+        :rtype: list of str
+        :return: list of supported syllables
         """
         return TonalFixedEntityOperator.getReadingEntities(self)
 
@@ -840,12 +735,12 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
         the reading returned by the segmentation method.
 
         Case of characters will be handled depending on the setting for option
-        C{'case'}.
+        ``'case'``.
 
-        @type entity: str
-        @param entity: entity to check
-        @rtype: bool
-        @return: C{True} if string is an entity of the reading, C{False}
+        :type entity: str
+        :param entity: entity to check
+        :rtype: bool
+        :return: ``True`` if string is an entity of the reading, ``False``
             otherwise.
         """
         # check for special capitalisation
@@ -862,28 +757,30 @@ class TonalRomanisationOperator(RomanisationOperator, TonalFixedEntityOperator):
 class TonalIPAOperator(TonalFixedEntityOperator):
     u"""
     Defines an operator on strings of a tonal language written in the
-    X{International Phonetic Alphabet} (X{IPA}).
+    *International Phonetic Alphabet* (*IPA*).
 
     TonalIPAOperator does not supply the same closed set of syllables as
-    other L{ReadingOperator}s as IPA provides different ways to represent
-    pronunciation. Because of that a user defined IPA syllable will not easily
-    map to another transcription system and thus only basic support is provided
+    other :class:`ReadingOperators <cjklib.reading.operator.ReadingOperator>`
+    as IPA provides different ways to represent pronunciation.
+    Because of that a user defined IPA syllable will not easily map
+    to another transcription system and thus only basic support is provided
     for this direction.
 
-    Tones
-    =====
     Tones in IPA can be expressed using different schemes. The following schemes
     are implemented here:
-        - Numbers, tone numbers ,
-        - ChaoDigits, numbers displaying the levels of Chao tone contours,
-        - IPAToneBar, IPA modifying tone bar characters, e.g. ɛw˥˧,
-        - Diacritics, diacritical marks and finally
-        - None, no support for tone marks
 
-    @todo Lang: Shed more light on representations of tones in IPA.
-    @todo Impl: Get all diacritics used in IPA as tones for L{TONE_MARK_REGEX}.
-    @todo Fix:  What about CompositionError? All romanisations raise it, but
-        they have a distinct set of characters that belong to the reading.
+    - Numbers, tone numbers ,
+    - ChaoDigits, numbers displaying the levels of Chao tone contours,
+    - IPAToneBar, IPA modifying tone bar characters, e.g. ɛw˥˧,
+    - Diacritics, diacritical marks and finally
+    - None, no support for tone marks
+
+    .. todo::
+        * Lang: Shed more light on representations of tones in IPA.
+        * Impl: Get all diacritics used in IPA as tones for
+          :attr:`~cjklib.reading.operator.TonalIPAOperator.TONE_MARK_REGEX`.
+        * Fix: What about CompositionError? All romanisations raise it, but
+          they have a distinct set of characters that belong to the reading.
     """
     TONE_MARK_REGEX = {'numbers': re.compile(r'(\d)$'),
         'chaoDigits': re.compile(r'([12345]+)$'),
@@ -913,20 +810,19 @@ class TonalIPAOperator(TonalFixedEntityOperator):
 
     def __init__(self, **options):
         """
-        Creates an instance of the TonalIPAOperator.
-
         By default no tone marks will be shown.
 
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
-        @keyword toneMarkType: type of tone marks, one out of C{'numbers'},
-            C{'chaoDigits'}, C{'ipaToneBar'}, C{'diacritics'}, C{'none'}
-        @keyword missingToneMark: if set to C{'noinfo'} no tone information
-            will be deduced when no tone mark is found (takes on value C{None}),
-            if set to C{'ignore'} this entity will not be valid. Either
-            behaviour only becomes effective if the chosen C{'toneMarkType'}
-            makes no use of empty tone marks.
+        :keyword toneMarkType: type of tone marks, one out of ``'numbers'``,
+            ``'chaoDigits'``, ``'ipaToneBar'``, ``'diacritics'``, ``'none'``
+        :keyword missingToneMark: if set to ``'noinfo'`` no tone information
+            will be deduced when no tone mark is found (takes on value
+            ``None``), if set to ``'ignore'`` this entity will not be valid.
+            Either behaviour only becomes effective if the chosen
+            ``'toneMarkType'`` makes no use of empty tone marks.
         """
         super(TonalIPAOperator, self).__init__(**options)
 
@@ -968,12 +864,13 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         characters e.g. spaces and punctuation marks.
 
         Single syllables can only be found if distinguished by a period or
-        whitespace, such as L{compose()} would return.
+        whitespace, such as
+        :meth:`~cjklib.reading.operator.TonalIPAOperator.compose` would return.
 
-        @type readingString: str
-        @param readingString: reading string
-        @rtype: list of str
-        @return: a list of basic entities of the input string
+        :type readingString: str
+        :param readingString: reading string
+        :rtype: list of str
+        :return: a list of basic entities of the input string
         """
         return self._splitRegex.split(readingString)
 
@@ -982,10 +879,10 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         Composes the given list of basic entities to a string. IPA syllables are
         separated by a period.
 
-        @type readingEntities: list of str
-        @param readingEntities: list of basic entities or other content
-        @rtype: str
-        @return: composed entities
+        :type readingEntities: list of str
+        :param readingEntities: list of basic entities or other content
+        :rtype: str
+        :return: composed entities
         """
         newReadingEntities = []
         if len(readingEntities) > 0:
@@ -1009,18 +906,19 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         Gets the entity with tone mark for the given plain entity and tone.
 
         The plain entity returned will always be in Unicode's
-        I{Normalization Form C} (NFC, see
-        U{http://www.unicode.org/reports/tr15/}).
+        *Normalization Form C* (NFC, see http://www.unicode.org/reports/tr15/).
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @type tone: str
-        @param tone: tone
-        @rtype: str
-        @return: entity with appropriate tone
-        @raise InvalidEntityError: if the entity is invalid.
-        @todo Impl: Place diacritics on main vowel, derive from IPA
-            representation.
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :type tone: str
+        :param tone: tone
+        :rtype: str
+        :return: entity with appropriate tone
+        :raise InvalidEntityError: if the entity is invalid.
+
+        .. todo::
+            * Impl: Place diacritics on main vowel, derive from IPA
+              representation.
         """
         if tone not in self.getTones():
             raise InvalidEntityError(
@@ -1040,16 +938,15 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         entity's tone.
 
         The plain entity returned will always be in Unicode's
-        I{Normalization Form C} (NFC, see
-        U{http://www.unicode.org/reports/tr15/}).
+        *Normalization Form C* (NFC, see http://www.unicode.org/reports/tr15/).
 
-        @type entity: str
-        @param entity: entity with tonal information
-        @rtype: tuple
-        @return: plain entity without tone mark and additionally the tone
-        @raise InvalidEntityError: if the entity is invalid.
+        :type entity: str
+        :param entity: entity with tonal information
+        :rtype: tuple
+        :return: plain entity without tone mark and additionally the tone
+        :raise InvalidEntityError: if the entity is invalid.
         """
-        # get decomposed Unicode string, e.g. C{'â'} to C{'u\u0302'}
+        # get decomposed Unicode string, e.g. ``'â'`` to ``'u\u0302'``
         entity = unicodedata.normalize("NFD", unicode(entity))
 
         if self.toneMarkType == 'none':
@@ -1096,11 +993,11 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         """
         Gets the tone for the given tone mark.
 
-        @type toneMark: str
-        @param toneMark: tone mark representation of the tone
-        @rtype: str
-        @return: tone
-        @raise InvalidEntityError: if the toneMark does not exist.
+        :type toneMark: str
+        :param toneMark: tone mark representation of the tone
+        :rtype: str
+        :return: tone
+        :raise InvalidEntityError: if the toneMark does not exist.
         """
         # get outside try block, will be evaluated on first call
         toneMarkLookup = self._toneMarkLookup
@@ -1138,7 +1035,7 @@ class SimpleEntityOperator(ReadingOperator):
 
 
 class HangulOperator(SimpleEntityOperator):
-    """Provides an operator on Korean text written in X{Hangul}."""
+    """Provides an operator on Korean text written in *Hangul*."""
     READING_NAME = "Hangul"
 
     def isReadingEntity(self, entity):
@@ -1146,7 +1043,7 @@ class HangulOperator(SimpleEntityOperator):
 
 
 class HiraganaOperator(SimpleEntityOperator):
-    """Provides an operator on Japanese text written in X{Hiragana}."""
+    """Provides an operator on Japanese text written in *Hiragana*."""
     READING_NAME = "Hiragana"
 
     def isReadingEntity(self, entity):
@@ -1154,7 +1051,7 @@ class HiraganaOperator(SimpleEntityOperator):
 
 
 class KatakanaOperator(SimpleEntityOperator):
-    """Provides an operator on Japanese text written in X{Katakana}."""
+    """Provides an operator on Japanese text written in *Katakana*."""
     READING_NAME = "Katakana"
 
     def isReadingEntity(self, entity):
@@ -1163,8 +1060,8 @@ class KatakanaOperator(SimpleEntityOperator):
 
 class KanaOperator(SimpleEntityOperator):
     """
-    Provides an operator on Japanese text written in a mix of X{Hiragana} and
-    X{Katakana}.
+    Provides an operator on Japanese text written in a mix of *Hiragana* and
+    *Katakana*.
     """
     READING_NAME = "Kana"
 
@@ -1174,149 +1071,32 @@ class KanaOperator(SimpleEntityOperator):
 
 class PinyinOperator(TonalRomanisationOperator):
     ur"""
-    Provides an operator for the Mandarin romanisation X{Hanyu Pinyin}.
-    It can be configured to cope with different representations (I{"dialects"})
-    of X{Pinyin}. For conversion between different representations the
-    L{PinyinDialectConverter} can be used.
+    Provides an operator for the Mandarin romanisation Hanyu Pinyin.
+    It can be configured to cope with different representations (*"dialects"*)
+    of Pinyin. For conversion between different representations the
+    :class:`~cjklib.reading.converter.PinyinDialectConverter` can be used.
 
-    Features:
-        - tones marked by either diacritics or numbers,
-        - flexible handling of misplaced tone marks on input,
-        - flexible handling of wrong diacritics (e.g. breve instead of caron),
-        - correct placement of apostrophes to separate syllables,
-        - alternative representation of I{ü}-character,
-        - alternatively shortend letters I{ŋ}, I{ẑ}, I{ĉ}, I{ŝ},
-        - guessing of input form (I{reading dialect}),
-        - support for Erhua and
-        - splitting of syllables into onset and rhyme.
-
-    Apostrophes
-    ===========
-    Pinyin syllables need to be separated by an X{apostrophe} in case their
-    decomposition will get ambiguous. A famous example might be the city
-    I{Xi'an}, which if written I{xian} would be read as one syllable, meaning
-    e.g. 'fresh'. Another example would be I{Chang'an} which could be read
-    I{chan'gan} if no delimiter is used in at least one of both cases.
-
-    Different rules exist where to place apostrophes. A simple yet sufficient
-    rule is implemented in L{aeoApostropheRule()} which is used as default in
-    this class. Syllables starting with one of the three vowels I{a}, I{e}, I{o}
-    will be separated. Remember that vowels [i], [u], [y] are represented as
-    I{yi}, I{wu}, I{yu} respectively, thus making syllable boundaries clear.
-    L{compose()} will place apostrophes where required when composing the
-    reading string.
-
-    An alternative rule can be specified to the constructor passing a function
-    as an option C{pinyinApostropheFunction}. A possible function could be a
-    rule separating all syllables by an apostrophe thus simplifying the reading
-    process for beginners.
-
-    On decomposition of strings it is important to check which of the possibly
-    several choices will be the one actually meant. E.g. syllable I{xian} given
-    above should always be segmented into one syllable, solution I{xi'an} is not
-    an option in this case. Therefore an alternative to L{aeoApostropheRule()}
-    should make sure it guarantees proper decomposition, which is tested through
-    L{isStrictDecomposition()}.
-
-    Last but not least C{compose(decompose(string))} will only be the identity
-    if apostrophes are applied properly according to the rule as wrongly
-    placed apostrophes will be kept when composing. Use L{removeApostrophes()}
-    to remove separating apostrophes.
-
-    Example
-    -------
-
-        >>> def noToneApostropheRule(opInst, precedingEntity, followingEntity):
-        ...     return precedingEntity and precedingEntity[0].isalpha() \
-        ...         and not precedingEntity[-1].isdigit() \
-        ...         and followingEntity[0].isalpha()
-        ...
-        >>> from cjklib.reading import ReadingFactory
-        >>> f = ReadingFactory()
-        >>> f.convert('an3ma5mi5ba5ni2mou1', 'Pinyin', 'Pinyin',
-        ...     sourceOptions={'toneMarkType': 'numbers'},
-        ...     targetOptions={'toneMarkType': 'numbers',
-        ...         'missingToneMark': 'fifth',
-        ...         'pinyinApostropheFunction': noToneApostropheRule})
-        u"an3ma'mi'ba'ni2mou1"
-
-    R-colouring
-    ===========
-    The phenomenon X{Erhua} (兒化音/儿化音, Erhua yin), i.e. the X{r-colouring} of
-    syllables, is found in the northern Chinese dialects and results from
-    merging the formerly independent sound I{er} with the preceding syllable. In
-    written form a word is followed by the character 兒/儿, e.g. 頭兒/头儿.
-
-    In Pinyin the Erhua sound is quite often expressed by appending a single
-    I{r} to the syllable of the character preceding 兒/儿, e.g. I{tóur} for
-    頭兒/头儿, to stress the monosyllabic nature and in contrast to words like
-    兒子/儿子 I{ér'zi} where 兒/儿 I{ér} constitutes a single syllable.
-
-    For decomposing syllables in Pinyin it is thus important to decide if the
-    I{r} marking r-colouring should be an entity on its own account stressing
-    the representation in the character string with an own character or rather
-    stressing the monosyllabic nature and being part of a syllable of the
-    foregoing character. This can be configured at instantiation time. By
-    default the two-syllable form is chosen, which is more general as both
-    examples are allowed: C{banr} and C{ban r} (i.e. one without delimiter, one
-    with; both though being two entities in this representation).
-
-    Placement of tones
-    ==================
-    Tone marks, if using the standard form with diacritics, are placed according
-    to official Pinyin rules (see L{_placeNucleusToneMark()}). The
-    PinyinOperator by default tries to work around misplaced tone marks though,
-    e.g. I{*tīan'ānmén} (correct: I{tiān'ānmén}), to ease handling of malformed
-    input. There are cases though, where this generous behaviour leads to a
-    different segmentation compared to the strict interpretation, as for
-    I{*hónglùo} which can fall into I{hóng *lùo} (correct: I{hóng luò}) or
-    I{hóng lù o} (also, using the first example, I{tī an ān mén}). As the latter
-    result also stems from a wrong transcription, no means are implemented to
-    disambiguate between both solutions. The general behaviour is controlled
-    with option C{'strictDiacriticPlacement'}.
-
-    X{Shortened letters}
-    ====================
-    Pinyin allows to shorten two-letter pairs I{ng}, I{zh}, I{ch} and I{sh} to
-    I{ŋ}, I{ẑ}, I{ĉ} and I{ŝ}. This behaviour can be controlled by option
-    C{'shortenedLetters'}.
-
-    Source
-    ======
-    - Yǐn Bīnyōng (尹斌庸), Mary Felley (傅曼丽): Chinese romanization:
-        Pronunciation and Orthography (汉语拼音和正词法). Sinolingua, Beijing,
-        1990, ISBN 7-80052-148-6, ISBN 0-8351-1930-0.
-    - Ireneus László Legeza: Guide to transliterated Chinese in the modern
-        Peking dialect. Conversion tables of the currently used international
-        and European systems with comparative tables of initials and finals.
-        E. J. Brill, Leiden, 1968.
-
-    @see:
-        - Pinyin: U{http://www.pinyin.info/rules/where.html},
-            U{http://www.pinyin.info/romanization/hanyu/apostrophes.html},
-            U{http://www.pinyin.info/rules/initials_finals.html}
-        - Erhua sound: U{http://en.wikipedia.org/wiki/Erhua}
-
-    @todo Impl: ISO 7098 asks for conversion of C{。、·「」} to C{.,-«»}. What
-        about C{，？《》：－}? Implement a method for conversion to be optionally
-        used.
-    @todo Impl: Special marker for neutral tone: 'mȧ' (u'm\\u0227', reported by
-        Ching-song Gene Hsiao: A Manual of Transcription Systems For Chinese,
-        中文拼音手册. Far Eastern Publications, Yale University, New Haven,
-        Connecticut, 1985, ISBN 0-88710-141-0. Seems like left over from Pinjin,
-        1956), and '·ma' (u'\\xb7ma', check!: 现代汉语词典（第5版）[Xiàndài Hànyǔ
-        Cídiǎn 5. Edition]. 商务印书馆 [Shāngwù Yìnshūguǎn], Beijing, 2005,
-        ISBN 7-100-04385-9.)
-    @todo Impl: Consider handling C{*nue} and C{*lue}.
+    .. todo::
+        * Impl: ISO 7098 asks for conversion of ``。、·「」`` to ``.,-«»``. What
+          about ``，？《》：－``? Implement a method for conversion to be
+          optionally used.
+        * Impl: Special marker for neutral tone: 'mȧ' (u'm\\u0227', reported by
+          Ching-song Gene Hsiao: A Manual of Transcription Systems For
+          Chinese, 中文拼音手册. Far Eastern Publications, Yale University,
+          New Haven, Connecticut, 1985, ISBN 0-88710-141-0. Seems like
+          left over from Pinjin, 1956), and '·ma' (u'\\xb7ma', check!:
+          现代汉语词典（第5版）[Xiàndài Hànyǔ Cídiǎn 5. Edition].
+          商务印书馆 [Shāngwù Yìnshūguǎn], Beijing, 2005, ISBN 7-100-04385-9.)
+        * Impl: Consider handling ``\*nue`` and ``\*lue``.
     """
     READING_NAME = 'Pinyin'
 
     TONEMARK_VOWELS = [u'a', u'e', u'i', u'o', u'u', u'ü', u'n', u'm', u'r',
         u'ê', u'ŋ']
     """
-    List of characters of the nucleus possibly carrying the tone mark. I{n} is
-    included in standalone syllables I{n} and I{ng}. I{r} is used for supporting
-    I{Erhua} in a two syllable form, I{ŋ} is the shortened form of I{ng}.
+    List of characters of the nucleus possibly carrying the tone mark. *n* is
+    included in standalone syllables *n* and *ng*. *r* is used for supporting
+    *Erhua* in a two syllable form, *ŋ* is the shortened form of *ng*.
     """
 
     PINYIN_SOUND_REGEX \
@@ -1334,10 +1114,9 @@ class PinyinOperator(TonalRomanisationOperator):
         3: [u'\u030c', u'\u0306', u'\u0302'], 4: [u'\u0300']}
     """
     Dictionary of diacritics per tone used in guessing routine.
-    Only diacritics with X{canonical combining class} 230 supported
+    Only diacritics with *canonical combining class* 230 supported
     (unicodedata.combining() == 230, see Unicode 3.11, or
-    U{http://unicode.org/Public/UNIDATA/UCD.html\
-#Canonical_Combining_Class_Values}),
+    http://unicode.org/Public/UNIDATA/UCD.html#Canonical_Combining_Class_Values),
     due to implementation of how ü and ê, ẑ, ĉ, ŝ are handled.
     """
 
@@ -1346,61 +1125,61 @@ class PinyinOperator(TonalRomanisationOperator):
 
     def __init__(self, **options):
         u"""
-        Creates an instance of the PinyinOperator.
-
-        The class instance can be configured by different optional options given
-        as keywords.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
-        @keyword strictSegmentation: if C{True} segmentation (using
-            L{segment()}) and thus decomposition (using L{decompose()}) will
+        :keyword strictSegmentation: if ``True`` segmentation (using
+            :meth:`~PinyinOperator.segment`) and thus decomposition (using
+            :meth:`~PinyinOperator.decompose`) will
             raise an exception if an alphabetic string is parsed which can not
-            be segmented into single reading entities. If C{False} the aforesaid
-            string will be returned unsegmented.
-        @keyword case: if set to C{'lower'}, only lower case will be supported,
-            if set to C{'both'} a mix of upper and lower case will be supported.
-        @keyword toneMarkType: if set to C{'diacritics'} tones will be marked
-            using diacritic marks, if set to C{'numbers'} appended numbers from
-            1 to 5 will be used to mark tones, if set to C{'none'} no tone marks
-            will be used and no tonal information will be supplied at all.
-        @keyword missingToneMark: if set to C{'fifth'} no tone mark is set to
-            indicate the fifth tone (I{qingsheng}, e.g. C{'wo3men'} stands for
-            C{'wo3men5'}), if set to C{'noinfo'}, no tone information will be
-            deduced when no tone mark is found (takes on value C{None}), if set
-            to C{'ignore'} this entity will not be valid and for segmentation
-            the behaviour defined by C{'strictSegmentation'} will take affect.
-            This option only has effect for the tone mark type C{'numbers'}.
-        @keyword strictDiacriticPlacement: if set to C{True} syllables have to
-            follow the diacritic placement rule of Pinyin strictly (see
-            L{_placeNucleusToneMark()}). Wrong placement will result in
-            L{splitEntityTone()} raising an L{InvalidEntityError}. Defaults to
-            C{False}. In either way, diacritics must be placed on one of the
+            be segmented into single reading entities. If ``False`` the
+            aforesaid string will be returned unsegmented.
+        :keyword case: if set to ``'lower'``, only lower case will be supported,
+            if set to ``'both'`` a mix of upper and lower case will be
+            supported.
+        :keyword toneMarkType: if set to ``'diacritics'`` tones will be marked
+            using diacritic marks, if set to ``'numbers'`` appended numbers from
+            1 to 5 will be used to mark tones, if set to ``'none'`` no tone
+            marks will be used and no tonal information will be supplied at all.
+        :keyword missingToneMark: if set to ``'fifth'`` no tone mark is set to
+            indicate the fifth tone (*qingsheng*, e.g. ``'wo3men'`` stands for
+            ``'wo3men5'``), if set to ``'noinfo'``, no tone information will be
+            deduced when no tone mark is found (takes on value ``None``), if set
+            to ``'ignore'`` this entity will not be valid and for segmentation
+            the behaviour defined by ``'strictSegmentation'`` will take affect.
+            This option only has effect for the tone mark type ``'numbers'``.
+        :keyword strictDiacriticPlacement: if set to ``True`` syllables have to
+            follow the diacritic placement rule of Pinyin strictly.
+            Wrong placement will result in
+            :meth:`~PinyinOperator.splitEntityTone` raising an
+            :exc:`~cjklib.exception.InvalidEntityError`. Defaults to
+            ``False``. In either way, diacritics must be placed on one of the
             vowels (nasal semi-vowels being an exception).
-        @keyword pinyinDiacritics: a 4-tuple of diacritic marks for tones one
+        :keyword pinyinDiacritics: a 4-tuple of diacritic marks for tones one
             to for. If a circumflex (U+0302) is contained as diacritic mark,
-            special vowel I{ê} will not be supported and the given string will
-            be interpreted as tonal version of vowel I{e}.
-        @keyword yVowel: a character (or string) that is taken as alternative
-            for I{ü} which depicts (among others) the close front rounded vowel
+            special vowel *ê* will not be supported and the given string will
+            be interpreted as tonal version of vowel *e*.
+        :keyword yVowel: a character (or string) that is taken as alternative
+            for *ü* which depicts (among others) the close front rounded vowel
             [y] (IPA) in Pinyin and includes an umlaut. Changes forms of
-            syllables I{nü, nüe, lü, lüe}. This option is not valid for the
-            tone mark type C{'diacritics'}.
-        @keyword shortenedLetters: if set to C{True} final letter I{ng} will be
-            shortend to I{ŋ}, and initial letters I{zh}, I{ch}, I{sh} will be
-            shortend to I{ẑ}, I{ĉ}, I{ŝ}.
-        @keyword pinyinApostrophe: an alternate apostrophe that is taken instead
+            syllables *nü, nüe, lü, lüe*. This option is not valid for the
+            tone mark type ``'diacritics'``.
+        :keyword shortenedLetters: if set to ``True`` final letter *ng* will be
+            shortend to *ŋ*, and initial letters *zh*, *ch*, *sh* will be
+            shortend to *ẑ*, *ĉ*, *ŝ*.
+        :keyword pinyinApostrophe: an alternate apostrophe that is taken instead
             of the default one.
-        @keyword pinyinApostropheFunction: a function that indicates when a
-            syllable combination needs to be split by an I{apostrophe}, see
-            L{aeoApostropheRule()} for the default implementation.
-        @keyword erhua: if set to C{'ignore'} no special support will be
-            provided for retroflex -r at syllable end (I{Erhua}), i.e. I{zher}
-            will raise an exception. If set to C{'twoSyllables'} syllables with
+        :keyword pinyinApostropheFunction: a function that indicates when a
+            syllable combination needs to be split by an *apostrophe*, see
+            :meth:`~PinyinOperator.aeoApostropheRule` for the default
+            implementation.
+        :keyword erhua: if set to ``'ignore'`` no special support will be
+            provided for retroflex -r at syllable end (*Erhua*), i.e. *zher*
+            will raise an exception. If set to ``'twoSyllables'`` syllables with
             an append r are given/will be segmented into two syllables, the -r
-            suffix making up one syllable itself as C{'r'}. If set to
-            C{'oneSyllable'} syllables with an appended r are given/will be
+            suffix making up one syllable itself as ``'r'``. If set to
+            ``'oneSyllable'`` syllables with an appended r are given/will be
             segmented into one syllable only.
         """
         super(PinyinOperator, self).__init__(**options)
@@ -1484,11 +1263,11 @@ class PinyinOperator(TonalRomanisationOperator):
         u"""
         Gets a list of Pinyin vowels with diacritical marks for tones.
 
-        The alternative for vowel I{ü} does not need diacritical forms as the
+        The alternative for vowel *ü* does not need diacritical forms as the
         standard form doesn't allow changing the vowel.
 
-        @rtype: list of str
-        @return: list of Pinyin vowels with diacritical marks
+        :rtype: list of str
+        :return: list of Pinyin vowels with diacritical marks
         """
         # no need to take care of user specified ü, as this is not possible for
         #   tone mark type 'diacritics' by convention
@@ -1503,23 +1282,24 @@ class PinyinOperator(TonalRomanisationOperator):
         u"""
         Takes a string written in Pinyin and guesses the reading dialect.
 
-        The basic options C{'toneMarkType'}, C{'pinyinDiacritics'}, C{'yVowel'},
-        C{'erhua'}, C{'pinyinApostrophe'} and C{'shortenedLetters'} are guessed.
-        Unless C{'includeToneless'} is set to C{True} only the tone mark types
-        C{'diacritics'} and C{'numbers'} are considered as the latter one can
+        The basic options ``'toneMarkType'``, ``'pinyinDiacritics'``,
+        ``'yVowel'``, ``'erhua'``, ``'pinyinApostrophe'`` and
+        ``'shortenedLetters'`` are guessed.
+        Unless ``'includeToneless'`` is set to ``True`` only the tone mark types
+        ``'diacritics'`` and ``'numbers'`` are considered as the latter one can
         also represent the state of missing tones. Strings tested for
-        C{'yVowel'} are C{ü}, C{v} and C{u:}. C{'erhua'} is set to
-        C{'twoSyllables'} by default and only tested when C{'toneMarkType'} is
-        assumed to be set to C{'numbers'}.
+        ``'yVowel'`` are ``ü``, ``v`` and ``u:``. ``'erhua'`` is set to
+        ``'twoSyllables'`` by default and only tested when ``'toneMarkType'`` is
+        assumed to be set to ``'numbers'``.
 
-        @type readingString: str
-        @param readingString: Pinyin string
-        @type includeToneless: bool
-        @param includeToneless: if set to C{True} option C{'toneMarkType'} can
-            take on value C{'none'}, but by default (i.e. set to C{False}) is
-            covered by tone mark type set to C{'numbers'}.
-        @rtype: dict
-        @return: dictionary of basic keyword settings
+        :type readingString: str
+        :param readingString: Pinyin string
+        :type includeToneless: bool
+        :param includeToneless: if set to ``True`` option ``'toneMarkType'`` can
+            take on value ``'none'``, but by default (i.e. set to ``False``) is
+            covered by tone mark type set to ``'numbers'``.
+        :rtype: dict
+        :return: dictionary of basic keyword settings
         """
         readingStr = unicodedata.normalize("NFC", unicode(readingString))
 
@@ -1657,12 +1437,12 @@ class PinyinOperator(TonalRomanisationOperator):
         """
         Composes the given list of basic entities to a string. Applies an
         apostrophe between syllables if needed using default implementation
-        L{aeoApostropheRule()}.
+        :meth:`~PinyinOperator.aeoApostropheRule`.
 
-        @type readingEntities: list of str
-        @param readingEntities: list of basic syllables or other content
-        @rtype: str
-        @return: composed entities
+        :type readingEntities: list of str
+        :param readingEntities: list of basic syllables or other content
+        :rtype: str
+        :return: composed entities
         """
         readingCharacters = self.getReadingCharacters()
 
@@ -1699,10 +1479,10 @@ class PinyinOperator(TonalRomanisationOperator):
         """
         Removes apostrophes between two syllables for a given decomposition.
 
-        @type readingEntities: list of str
-        @param readingEntities: list of basic syllables or other content
-        @rtype: list of str
-        @return: the given entity list without separating apostrophes
+        :type readingEntities: list of str
+        :param readingEntities: list of basic syllables or other content
+        :rtype: list of str
+        :return: the given entity list without separating apostrophes
         """
         if len(readingEntities) == 0:
             return []
@@ -1726,21 +1506,21 @@ class PinyinOperator(TonalRomanisationOperator):
         """
         Checks if the given entities need to be separated by an apostrophe.
 
-        Returns true for syllables starting with one of the three vowels I{a},
-        I{e}, I{o} having a preceding syllable. Additionally forms I{n} and
-        I{ng} are separated from preceding syllables. Furthermore corner case
-        I{e'r} will handled to distinguish from I{er}.
+        Returns true for syllables starting with one of the three vowels *a*,
+        *e*, *o* having a preceding syllable. Additionally forms *n* and
+        *ng* are separated from preceding syllables. Furthermore corner case
+        *e'r* will handled to distinguish from *er*.
 
         This function serves as the default apostrophe rule.
 
-        @type operatorInst: instance
-        @param operatorInst: instance of the Pinyin operator
-        @type precedingEntity: str
-        @param precedingEntity: the preceding syllable or any other content
-        @type followingEntity: str
-        @param followingEntity: the following syllable or any other content
-        @rtype: bool
-        @return: true if the syllables need to be separated, false otherwise
+        :type operatorInst: instance
+        :param operatorInst: instance of the Pinyin operator
+        :type precedingEntity: str
+        :param precedingEntity: the preceding syllable or any other content
+        :type followingEntity: str
+        :param followingEntity: the following syllable or any other content
+        :rtype: bool
+        :return: true if the syllables need to be separated, false otherwise
         """
         # if both following entities are syllables they have to be separated if
         # the following syllable's first character is one of the vowels a, e, o,
@@ -1768,13 +1548,13 @@ class PinyinOperator(TonalRomanisationOperator):
         strictly for unambiguous decomposition: syllables have to be preceded by
         an apostrophe if the decomposition would be ambiguous otherwise.
 
-        The function stored given as option C{'pinyinApostropheFunction'} is
+        The function stored given as option ``'pinyinApostropheFunction'`` is
         used to check if a apostrophe should have been placed.
 
-        @type readingEntities: list of str
-        @param readingEntities: decomposed reading string
-        @rtype: bool
-        @return: true if decomposition is strict, false otherwise
+        :type readingEntities: list of str
+        :param readingEntities: decomposed reading string
+        :rtype: bool
+        :return: true if decomposition is strict, false otherwise
         """
         precedingEntity = None
 
@@ -1819,7 +1599,7 @@ class PinyinOperator(TonalRomanisationOperator):
                 readingString)
 
     def getTonalEntity(self, plainEntity, tone):
-        # get normalised Unicode string, e.g. C{'e\u0302'} to C{'ê'}
+        # get normalised Unicode string, e.g. ``'e\u0302'`` to ``'ê'``
         plainEntity = unicodedata.normalize("NFC", unicode(plainEntity))
 
         if tone != None:
@@ -1863,25 +1643,12 @@ class PinyinOperator(TonalRomanisationOperator):
         Places a tone mark on the given syllable nucleus according to the rules
         of the Pinyin standard.
 
-        @see:
-            - Pinyin.info - Where do the tone marks go?,
-                U{http://www.pinyin.info/rules/where.html}.
-            - The Unicode Consortium: The Unicode Standard, Version 5.0.0,
-                Chapter 7, European Alphabetic Scripts, 7.9 Combining Marks,
-                defined by: The Unicode Standard, Version 5.0 (Boston, MA,
-                Addison-Wesley, 2007. ISBN 0-321-48091-0),
-                U{http://www.unicode.org/versions/Unicode5.0.0/}
-            - Unicode: X{Combining Diacritical Marks}, Range: 0300-036F:
-                U{http://www.unicode.org/charts/PDF/U0300.pdf}
-            - Unicode: FAQ - Characters and Combining Marks:
-                U{http://unicode.org/faq/char_combmark.html}
-
-        @type nucleus: str
-        @param nucleus: syllable nucleus
-        @type tone: int
-        @param tone: tone index (starting with 1)
-        @rtype: str
-        @return: nucleus with appropriate tone
+        :type nucleus: str
+        :param nucleus: syllable nucleus
+        :type tone: int
+        :param tone: tone index (starting with 1)
+        :rtype: str
+        :return: nucleus with appropriate tone
         """
         # only tone mark to place for tones 0 - 3
         if tone != 5:
@@ -1907,16 +1674,15 @@ class PinyinOperator(TonalRomanisationOperator):
         entity's tone index.
 
         The plain entity returned will always be in Unicode's
-        I{Normalization Form C} (NFC, see
-        U{http://www.unicode.org/reports/tr15/}).
+        *Normalization Form C* (NFC, see http://www.unicode.org/reports/tr15/).
 
-        @type entity: str
-        @param entity: entity with tonal information
-        @rtype: tuple
-        @return: plain entity without tone mark and entity's tone index
+        :type entity: str
+        :param entity: entity with tonal information
+        :rtype: tuple
+        :return: plain entity without tone mark and entity's tone index
             (starting with 1)
         """
-        # get decomposed Unicode string, e.g. C{'ū'} to C{'u\u0304'}
+        # get decomposed Unicode string, e.g. ``'ū'`` to ``'u\u0304'``
         entity = unicodedata.normalize("NFD", unicode(entity))
         if self.toneMarkType == 'none':
             plainEntity = entity
@@ -1963,16 +1729,19 @@ class PinyinOperator(TonalRomanisationOperator):
     def getPlainReadingEntities(self):
         u"""
         Gets the list of plain entities supported by this reading. Different to
-        L{getReadingEntities()} the entities will carry no tone mark.
+        :meth:`~PinyinOperator.getReadingEntities` the entities will carry no
+        tone mark.
 
         Depending on the type of Erhua support either additional syllables with
-        an ending -r are added, or a single I{r} is included. The user specified
-        character for vowel I{ü} will be used.
+        an ending -r are added, or a single *r* is included. The user specified
+        character for vowel *ü* will be used.
 
-        @rtype: set of str
-        @return: set of supported syllables
-        @todo Fix: don't raise an ValueError here (delayed), raise an Exception
-            directly in the constructor. See also WadeGilesOperator.
+        :rtype: set of str
+        :return: set of supported syllables
+
+        .. todo::
+            * Fix: don't raise an ValueError here (delayed), raise an Exception
+              directly in the constructor. See also WadeGilesOperator.
         """
         # set used syllables
         plainSyllables = set(self.db.selectScalars(
@@ -2063,14 +1832,15 @@ class PinyinOperator(TonalRomanisationOperator):
         dialect to the given target, or by default to the standard
         representation. Erhua forms will not be converted.
 
-        Use the L{PinyinDialectConverter} for conversions in general.
+        Use the :class:`~cjklib.reading.converter.PinyinDialectConverter` for
+        conversions in general.
 
-        @type plainEntity: str
-        @param plainEntity: plain syllable in the current reading
-        @type targetOptions: dict
-        @param targetOptions: target reading options
-        @rtype: str
-        @return: converted entity
+        :type plainEntity: str
+        :param plainEntity: plain syllable in the current reading
+        :type targetOptions: dict
+        :param targetOptions: target reading options
+        :rtype: str
+        :return: converted entity
         """
         initialShortendDict = {'zh': u'ẑ', 'ch': u'ĉ', 'sh': u'ŝ'}
         reverseShortendDict = {u'ẑ': 'zh', u'ĉ': 'ch', u'ŝ': 'sh'}
@@ -2141,24 +1911,24 @@ class PinyinOperator(TonalRomanisationOperator):
 
         Pinyin can't be separated into onset and rhyme clearly within its own
         system. There are syllables with same finals written differently (e.g.
-        I{wei} and I{dui} both ending in a final that can be described by
-        I{uei}) and reduction of vowels (same example: I{dui} which is
-        pronounced with vowels I{uei}). This method will use three forms not
-        found as substrings in Pinyin (I{uei}, I{uen} and I{iou}) and
-        substitutes (pseudo) initials I{w} and I{y} with its vowel equivalents.
+        *wei* and *dui* both ending in a final that can be described by
+        *uei*) and reduction of vowels (same example: *dui* which is
+        pronounced with vowels *uei*). This method will use three forms not
+        found as substrings in Pinyin (*uei*, *uen* and *iou*) and
+        substitutes (pseudo) initials *w* and *y* with its vowel equivalents.
 
-        Furthermore final I{i} will be distinguished in three forms given by
-        the following three examples: I{yi}, I{zhi} and I{zi} to express
+        Furthermore final *i* will be distinguished in three forms given by
+        the following three examples: *yi*, *zhi* and *zi* to express
         phonological difference.
 
         Returned strings will be lowercase.
 
-        @type plainSyllable: str
-        @param plainSyllable: syllable without tone marks
-        @rtype: tuple of str
-        @return: tuple of entity onset and rhyme
-        @raise InvalidEntityError: if the entity is invalid.
-        @raise UnsupportedError: for entity I{r} when Erhua is handled as
+        :type plainSyllable: str
+        :param plainSyllable: syllable without tone marks
+        :rtype: tuple of str
+        :return: tuple of entity onset and rhyme
+        :raise InvalidEntityError: if the entity is invalid.
+        :raise UnsupportedError: for entity *r* when Erhua is handled as
             separate entity.
         """
         erhuaForm = False
@@ -2193,101 +1963,12 @@ class PinyinOperator(TonalRomanisationOperator):
 
 class WadeGilesOperator(TonalRomanisationOperator):
     u"""
-    Provides an operator for the Mandarin X{Wade-Giles} romanisation.
+    Provides an operator for the Mandarin *Wade-Giles* romanisation.
 
-    Features:
-        - tones marked by either superscript or plain digits,
-        - flexibility with derived writing, e.g. I{szu} instead of I{ssu},
-        - alternative representation of characters I{ŭ} and I{ê},
-        - handling of omissions of umlaut I{ü} with resulting ambiguity,
-        - alternative marking of neutral tone (qingsheng) with either no mark
-            or digits zero or five,
-        - configurable apostrophe for marking aspiration,
-        - placement of hyphens between syllables and
-        - guessing of input form (I{reading dialect}).
-
-    Alterations
-    ===========
-    While the Wade-Giles romanisation system itself is a modification by H. A.
-    Giles, some further alterations exist, requiring an adaptable solution to
-    parse transliterated text.
-
-    Diacritics
-    ----------
-    While non-retroflex zero final syllables I{tzŭ}, I{tz’ŭ} and I{ssŭ} carry a
-    breve on top of the I{u} in the standard realization of Wade-Giles, it is
-    often left out while creating no ambiguity. In the same fashion finals
-    I{-ê}, I{-ên} and I{-êng}, also syllable I{êrh}, carry a circumflex over the
-    I{e} which often is not written, and no ambiguity arises as no equivalent
-    forms with a plain I{e} exist. These forms can be handled by setting options
-    C{'zeroFinal'} to C{'u'} and C{'diacriticE'} to C{'e'}.
-
-    Different to that, leaving out the umlaut on the I{u} for finals I{-ü},
-    I{-üan}, I{-üeh} and I{-ün} does create forms where back-conversion for some
-    cases is not possible as an equivalent vowel I{u} form exists. Unambiguous
-    forms consist of initial I{hs-} and I{y-} (exception I{yu}) and/or finals
-    I{-üeh} and I{-üo}, the latter being dialect forms not in use today. So
-    while for example I{hsu} can be unambiguously converted back to its correct
-    form I{hsü}, it is not clear if I{ch’uan} is the wanted form or if it stems
-    from I{ch’üan}, its diacritics being mangled. This reporting is done by
-    L{checkPlainEntity()}. The omission of the umlaut can be controlled by
-    setting C{'umlautU'} to C{'u'}.
-
-    Others
-    ------
-    For the non-retroflex zero final forms I{tzŭ}, I{tz’ŭ} and I{ssŭ} the latter
-    is sometimes changed to I{szŭ}. The operator can be configured by setting
-    the Boolean option C{'useInitialSz'}.
-
-    The neutral tone by default is not marked. As sometimes the digits zero or
-    five are used, they can be set by option C{'neutralToneMark'}.
-
-    The apostrophe marking aspiration can be set by C{'wadeGilesApostrophe'}.
-
-    Tones are by default marked with superscript characters. This can be
-    controlled by option C{'toneMarkType'}.
-
-    Recovering omitted apostrophes for aspiration is not possible as for all
-    cases there exists ambiguity. No means are provided to warn for possible
-    missing apostrophes. In case of uncertainty check for initials I{p-}, I{t-},
-    I{k-}, I{ch-}, I{ts} and I{tz}.
-
-    Examples
-    --------
-    The L{WadeGilesDialectConverter} allows conversion between said forms.
-
-    Restore diacritics:
-        >>> from cjklib.reading import ReadingFactory
-        >>> f = ReadingFactory()
-        >>> f.convert(u"K’ung³-tzu³", 'WadeGiles', 'WadeGiles',
-        ...     sourceOptions={'zeroFinal': 'u'})
-        u'K\u2019ung\xb3-tz\u016d\xb3'
-        >>> f.convert(u"k’ai¹-men²-chien⁴-shan¹", 'WadeGiles', 'WadeGiles',
-        ...     sourceOptions={'diacriticE': 'e'})
-        u'k\u2019ai\xb9-m\xean\xb2-chien\u2074-shan\xb9'
-        >>> f.convert(u"hsueh²", 'WadeGiles', 'WadeGiles',
-        ...     sourceOptions={'umlautU': 'u'})
-        u'hs\xfceh\xb2'
-
-    But:
-        >>> f.convert(u"hsu⁴-ch’u³", 'WadeGiles', 'WadeGiles',
-        ...     sourceOptions={'umlautU': 'u'})
-        Traceback (most recent call last):
-        ...
-        cjklib.exception.AmbiguousConversionError: conversion for entity \
-'ch’u³' is ambiguous: ch’u³, ch’ü³
-
-    Guess non-standard form:
-        >>> from cjklib.reading import operator
-        >>> operator.WadeGilesOperator.guessReadingDialect(
-        ...     u"k'ai1-men2-chien4-shan1")
-        {'zeroFinal': u'\u016d', 'diacriticE': u'e', 'umlautU': u'\xfc', \
-'toneMarkType': 'numbers', 'useInitialSz': False, 'neutralToneMark': 'none', \
-'wadeGilesApostrophe': "'"}
-
-    @todo Lang: Asterisk (*) marking the entering tone (入聲): e.g. I{chio²*}
-        and I{chüeh²*} for 覺 used by Giles (A Chinese-English Dictionary,
-        second edition, 1912).
+    .. todo::
+        * Lang: Asterisk (\*) marking the entering tone (入聲): e.g. *chio²\**
+          and *chüeh²\** for 覺 used by Giles (A Chinese-English Dictionary,
+          second edition, 1912).
     """
     READING_NAME = 'WadeGiles'
 
@@ -2345,56 +2026,62 @@ class WadeGilesOperator(TonalRomanisationOperator):
     """
     Regex to split a string into several syllables in a crude way.
     It consists of:
-        - Initial consonants,
-        - apostrophe for aspiration,
-        - vowels,
-        - final consonants n/ng and rh (for êrh), h (for -ih, -üeh),
-        - tone numbers.
+
+    - Initial consonants,
+    - apostrophe for aspiration,
+    - vowels,
+    - final consonants n/ng and rh (for êrh), h (for -ih, -üeh),
+    - tone numbers.
     """
     del a
 
     def __init__(self, **options):
         u"""
-        Creates an instance of the WadeGilesOperator.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
-        @keyword strictSegmentation: if C{True} segmentation (using
-            L{segment()}) and thus decomposition (using L{decompose()}) will
+        :keyword strictSegmentation: if ``True`` segmentation (using
+            :meth:`~WadeGilesOperator.segment()`) and thus decomposition (using
+            :meth:`~WadeGilesOperator.decompose()`) will
             raise an exception if an alphabetic string is parsed which can not
-            be segmented into single reading entities. If C{False} the aforesaid
-            string will be returned unsegmented.
-        @keyword case: if set to C{'lower'}, only lower case will be supported,
-            if set to C{'both'} a mix of upper and lower case will be supported.
-        @keyword wadeGilesApostrophe: an alternate apostrophe that is taken
+            be segmented into single reading entities. If ``False`` the
+            aforesaid string will be returned unsegmented.
+        :keyword case: if set to ``'lower'``, only lower case will be supported,
+            if set to ``'both'`` a mix of upper and lower case will be
+            supported.
+        :keyword wadeGilesApostrophe: an alternate apostrophe that is taken
             instead of the default one.
-        @keyword toneMarkType: if set to C{'numbers'} appended numbers from 1 to
-            5 will be used to mark tones, if set to C{'superscriptNumbers'}
-            appended superscript numbers from 1 to 5 will be used to mark tones,
-            if set to C{'none'} no tone marks will be used and no tonal
-            information will be supplied at all.
-        @keyword neutralToneMark: if set to C{'none'} no tone mark is set to
-            indicate the fifth tone (I{qingsheng}, e.g. C{'chih¹tao'}, if set
-            to C{'zero'} the number zero is used, e.g. C{'chih¹tao⁰'} and if set
-            to C{'five'} the number five is used, e.g. C{'chih¹-tao⁵'}.
-        @keyword missingToneMark: if set to C{'noinfo'}, no tone information
-            will be deduced when no tone mark is found (takes on value C{None}),
-            if set to C{'ignore'} this entity will not be valid and for
-            segmentation the behaviour defined by C{'strictSegmentation'} will
-            take affect. This options only has effect for tone mark type
-            C{'numbers'} and C{'superscriptNumbers'}. This option is only valid
-            if C{'neutralToneMark'} is set to something other than C{'none'}.
-        @keyword diacriticE: character used instead of I{ê}. C{'e'} is a
+        :keyword toneMarkType: if set to ``'numbers'`` appended numbers from
+            1 to 5 will be used to mark tones, if set to
+            ``'superscriptNumbers'`` appended superscript numbers from
+            1 to 5 will be used to mark tones, if set to ``'none'`` no
+            tone marks will be used and no tonal information will be
+            supplied at all.
+        :keyword neutralToneMark: if set to ``'none'`` no tone mark is set to
+            indicate the fifth tone (*qingsheng*, e.g. ``'chih¹tao'``, if set
+            to ``'zero'`` the number zero is used, e.g. ``'chih¹tao⁰'`` and
+            if set to ``'five'`` the number five is used, e.g. ``'chih¹-tao⁵'``.
+        :keyword missingToneMark: if set to ``'noinfo'``, no tone information
+            will be deduced when no tone mark is found (takes on
+            value ``None``), if set to ``'ignore'`` this entity will not
+            be valid and for segmentation the behaviour defined by
+            ``'strictSegmentation'`` will take affect.
+            This options only has effect for tone mark type ``'numbers'``
+            and ``'superscriptNumbers'``. This option is only valid
+            if ``'neutralToneMark'`` is set to something other than ``'none'``.
+        :keyword diacriticE: character used instead of *ê*. ``'e'`` is a
             possible alternative, no ambiguities arise.
-        @keyword zeroFinal: character used instead of I{ŭ}. C{'u'} is a
+        :keyword zeroFinal: character used instead of *ŭ*. ``'u'`` is a
             possible alternative, no ambiguities arise.
-        @keyword umlautU: character used instead of I{ü}. C{'u'} is a
+        :keyword umlautU: character used instead of *ü*. ``'u'`` is a
             allowed, but ambiguities are possible.
-        @keyword useInitialSz: if set to C{True} syllable form I{szŭ} is used
-            instead of the standard I{ssŭ}.
-        @todo Impl: Raise value error on invalid values for diacriticE,
-            zeroFinal, umlautU
+        :keyword useInitialSz: if set to ``True`` syllable form *szŭ* is used
+            instead of the standard *ssŭ*.
+
+        .. todo::
+            * Impl: Raise value error on invalid values for diacriticE,
+              zeroFinal, umlautU
         """
         super(WadeGilesOperator, self).__init__(**options)
 
@@ -2437,18 +2124,19 @@ class WadeGilesOperator(TonalRomanisationOperator):
         Takes a string written in Wade-Giles and guesses the reading dialect.
 
         The following options are tested:
-            - C{'toneMarkType'}
-            - C{'wadeGilesApostrophe'}
-            - C{'neutralToneMark'}
-            - C{'diacriticE'}
-            - C{'zeroFinal'}
-            - C{'umlautU'}
-            - C{'useInitialSz'}
 
-        @type readingString: str
-        @param readingString: Wade-Giles string
-        @rtype: dict
-        @return: dictionary of basic keyword settings
+        - ``'toneMarkType'``
+        - ``'wadeGilesApostrophe'``
+        - ``'neutralToneMark'``
+        - ``'diacriticE'``
+        - ``'zeroFinal'``
+        - ``'umlautU'``
+        - ``'useInitialSz'``
+
+        :type readingString: str
+        :param readingString: Wade-Giles string
+        :rtype: dict
+        :return: dictionary of basic keyword settings
         """
         # split regex for all dialect forms
         readingString = readingString.lower()
@@ -2601,10 +2289,10 @@ class WadeGilesOperator(TonalRomanisationOperator):
         Composes the given list of basic entities to a string by applying a
         hyphen between syllables.
 
-        @type readingEntities: list of str
-        @param readingEntities: list of basic syllables or other content
-        @rtype: str
-        @return: composed entities
+        :type readingEntities: list of str
+        :param readingEntities: list of basic syllables or other content
+        :rtype: str
+        :return: composed entities
         """
         readingCharacters = self.getReadingCharacters()
 
@@ -2650,10 +2338,10 @@ class WadeGilesOperator(TonalRomanisationOperator):
         """
         Removes hyphens between two syllables for a given decomposition.
 
-        @type readingEntities: list of str
-        @param readingEntities: list of basic syllables or other content
-        @rtype: list of str
-        @return: the given entity list without separating hyphens
+        :type readingEntities: list of str
+        :param readingEntities: list of basic syllables or other content
+        :rtype: list of str
+        :return: the given entity list without separating hyphens
         """
         if len(readingEntities) == 0:
             return []
@@ -2742,12 +2430,13 @@ class WadeGilesOperator(TonalRomanisationOperator):
     def getPlainReadingEntities(self):
         """
         Gets the list of plain entities supported by this reading. Different to
-        L{getReadingEntities()} the entities will carry no tone mark.
+        :meth:`~WadeGilesOperator.getReadingEntities` the entities will carry
+        no tone mark.
 
         Syllables will use the user specified apostrophe to mark aspiration.
 
-        @rtype: set of str
-        @return: set of supported syllables
+        :rtype: set of str
+        :return: set of supported syllables
         """
         plainSyllables = set(self.db.selectScalars(
             select([self.db.tables['WadeGilesSyllables'].c.WadeGiles])))
@@ -2802,21 +2491,21 @@ class WadeGilesOperator(TonalRomanisationOperator):
         an ambiguous case.
 
         Examples:
-        While form I{*erh} can be clearly traced to I{êrh}, form I{kuei} has
-        no equivalent part with diacritcs. The former is a case of a C{'lost'}
-        vowel, the second of a C{'strict'} form. Syllable I{ch’u} though is an
-        C{'ambiguous'} case as both I{ch’u} and I{ch’ü} are valid.
+        While form *\*erh* can be clearly traced to *êrh*, form *kuei* has
+        no equivalent part with diacritcs. The former is a case of a ``'lost'``
+        vowel, the second of a ``'strict'`` form. Syllable *ch’u* though is an
+        ``'ambiguous'`` case as both *ch’u* and *ch’ü* are valid.
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @type option: str
-        @param option: one option out of C{'diacriticE'}, C{'zeroFinal'}
-            or C{'umlautU'}
-        @rtype: str
-        @return: C{'strict'} if the given form is a strict Wade-Giles form with
-            vowel u, C{'lost'} if the given form is a mangled vowel form,
-            C{'ambiguous'} if two forms exist with vowels (i.e. u and ü) each
-        @raise ValueError: if plain entity doesn't include the ambiguous vowel
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :type option: str
+        :param option: one option out of ``'diacriticE'``, ``'zeroFinal'``
+            or ``'umlautU'``
+        :rtype: str
+        :return: ``'strict'`` if the given form is a strict Wade-Giles form with
+            vowel u, ``'lost'`` if the given form is a mangled vowel form,
+            ``'ambiguous'`` if two forms exist with vowels (i.e. u and ü) each
+        :raise ValueError: if plain entity doesn't include the ambiguous vowel
             in question
         """
         plainEntity = unicodedata.normalize("NFC", unicode(plainEntity))
@@ -2863,16 +2552,17 @@ class WadeGilesOperator(TonalRomanisationOperator):
         dialect to the given target, or by default to the standard
         representation.
 
-        Use the L{WadeGilesDialectConverter} for conversions in general.
+        Use the :class:`~cjklib.reading.converter.WadeGilesDialectConverter`
+        for conversions in general.
 
-        @type plainEntity: str
-        @param plainEntity: plain syllable in the current reading in lower
+        :type plainEntity: str
+        :param plainEntity: plain syllable in the current reading in lower
             case letters
-        @type targetOptions: dict
-        @param targetOptions: target reading options
-        @rtype: str
-        @return: converted entity
-        @raise AmbiguousConversionError: if conversion is ambiguous.
+        :type targetOptions: dict
+        :param targetOptions: target reading options
+        :rtype: str
+        :return: converted entity
+        :raise AmbiguousConversionError: if conversion is ambiguous.
         """
         convertedEntity = plainEntity.lower()
         targetOptions = targetOptions or {}
@@ -2934,22 +2624,24 @@ class WadeGilesOperator(TonalRomanisationOperator):
         """
         Splits the given plain syllable into onset (initial) and rhyme (final).
 
-        Semivowels I{w-} and I{y-} will be treated specially and an empty
+        Semivowels *w-* and *y-* will be treated specially and an empty
         initial will be returned, while the final will be extended with vowel
-        I{i} or I{u}.
+        *i* or *u*.
 
-        Old forms are not supported and will raise an L{UnsupportedError}. For
-        the dialect with missing diacritics on the I{ü} an L{UnsupportedError}
-        is also raised, as it is unclear which syllable is meant.
+        Old forms are not supported and will raise an
+        :class:`~cjklib.exception.UnsupportedError`. For the dialect with
+        missing diacritics on the *ü* an
+        :class:`~cjklib.exception.UnsupportedError` is also raised, as it is
+        unclear which syllable is meant.
 
         Returned strings will be lowercase.
 
-        @type plainSyllable: str
-        @param plainSyllable: syllable without tone marks
-        @rtype: tuple of str
-        @return: tuple of entity onset and rhyme
-        @raise InvalidEntityError: if the entity is invalid.
-        @raise UnsupportedError: if the given entity is not supported
+        :type plainSyllable: str
+        :param plainSyllable: syllable without tone marks
+        :rtype: tuple of str
+        :return: tuple of entity onset and rhyme
+        :raise InvalidEntityError: if the entity is invalid.
+        :raise UnsupportedError: if the given entity is not supported
         """
         if not self.isPlainReadingEntity(plainSyllable):
             raise InvalidEntityError(
@@ -2973,96 +2665,22 @@ class WadeGilesOperator(TonalRomanisationOperator):
 
 class GROperator(TonalRomanisationOperator):
     u"""
-    Provides an operator for the Mandarin X{Gwoyeu Romatzyh} romanisation.
+    Provides an operator for the Mandarin *Gwoyeu Romatzyh* romanisation.
 
-    Features:
-        - support of abbreviated forms (zh, j, g, sherm, ...),
-        - conversion of abbreviated forms to full forms,
-        - placement of apostrophes before 0-initial syllables,
-        - support for different apostrophe characters,
-        - support for I{r-coloured} syllables (I{Erlhuah}),
-        - syllable repetition markers (x, v, vx) and
-        - guessing of input form (I{reading dialect}).
-
-    Tones
-    =====
-    Tones are transcribed rigorously as syllables in the neutral tone
-    additionally carry the original (etymological) tone information. Y.R. Chao
-    also annotates the X{optional neutral tone} (e.g. I{buh jy˳daw}) which can
-    be pronounced with either the neutral tone or the etymological one. Compared
-    to other reading operators for Mandarin, special care has to be taken to
-    cope with these special requirements.
-
-    R-colouring
-    ===========
-    Gwoyeu Romatzyh renders X{rhotacised} syllables (X{Erlhuah}) by trying to
-    give the actual pronunciation. As the effect of r-colouring looses the
-    information of the underlying etymological syllable conversion between the
-    r-coloured form back to the underlying form can not be done in an
-    unambiguous way. As furthermore finals I{i}, I{iu}, I{in}, I{iun} contrast
-    in the first and the second tone but not in the third and the forth tone
-    conversion between different tones (including the base form) cannot be made
-    in a general manner: 小鸡儿 I{sheau-jiel} is different to 小街儿
-    I{sheau-jie’l} but 几儿 I{jieel} (from jǐ) equals 姐儿 I{jieel} (from jiě),
-    see Chao.
-
-    Thus this ReadingOperator lacks the general handling of syllable renderings
-    and many methods narrow the range of syllables allowed. While original forms
-    can carry any tone (even though Mandarin doesn't make use of some
-    combinations), r-coloured forms for Erlhuah will currently be limited to
-    those given in the source by Y.R. Chao. Those not mentioned there will raise
-    an L{UnsupportedError}.
-
-    Abbreviations
-    =============
-    Yuen Ren Chao includes several X{abbreviated form}s in his books (references
-    see below). For example 個/个 which would be fully transcribed as I{.geh} or
-    I{˳geh} is abbreviated as I{g}. These forms can be accessed by
-    L{getAbbreviatedForms()} and L{getAbbreviatedFormData()}, and their usage
-    can be contolled by option C{'abbreviations'}. Use the L{GRDialectConverter}
-    to convert these abbreviations into their full forms:
-
-        >>> from cjklib.reading import ReadingFactory
-        >>> f = ReadingFactory()
-        >>> f.convert('Hairtz', 'GR', 'GR', breakUpAbbreviated='on')
-        u'Hair.tzy'
-
-    Repetition markers
-    ------------------
-    Special I{abbreviated forms} are given in form of X{repetition marker}s.
-    These take the form I{x} and I{v} or a combination I{vx} for repetition of
-    the last syllable/the second last syllable or both, e.g. I{shie.x} for
-    I{shie.shie}, I{deengiv} for I{deengideeng} and I{duey .le vx} for
-    I{duey .le duey .le}. Both forms can be preceded by a neutral tone mark,
-    e.g. I{.x} or I{˳v}.
-
-    Sources
-    =======
-    - Yuen Ren Chao: A Grammar of Spoken Chinese. University of California
-        Press, Berkeley, 1968, ISBN 0-520-00219-9.
-    - Yuen Ren Chao: Mandarin Primer: an intensive course in spoken Chinese.
-        Harvard University Press, Cambridge, 1948.
-
-    @see:
-        - GR Junction by Richard Warmington:
-            U{http://home.iprimus.com.au/richwarm/gr/gr.htm}
-        - A Guide to Gwoyeu Romatzyh Tonal Spelling of Chinese:
-            U{http://eall.hawaii.edu/chn/chn451/03-Luomazi/GR.html}
-        - Article about Gwoyeu Romatzyh on the English Wikipedia:
-            U{http://en.wikipedia.org/wiki/Gwoyeu_Romatzyh}
-
-    @todo Impl: Initial, medial, head, ending (ending1, ending2=l?)
-    @todo Lang: Y.R. Chao uses particle and interjection ㄝ è. For more see
-        'Mandarin Primer', Vocabulary and Index, pp. 301.
-    @todo Impl: Implement Erhua forms as stated in W. Simon: A Beginner's
-        Chinese-English Dictionary.
-    @todo Impl: Implement a GRIPAConverter once IPA values are obtained for
-        the PinyinIPAConverter. GRIPAConverter can work around missing Erhua
-        conversion to Pinyin.
-    @todo Lang: Special rule for non-Chinese names with initial r- to be
-        transcribed with an r- cited by Ching-song Gene Hsiao: A Manual of
-        Transcription Systems For Chinese, 中文拼音手册. Far Eastern Publications,
-        Yale University, New Haven, Connecticut, 1985, ISBN 0-88710-141-0.
+    .. todo::
+        * Impl: Initial, medial, head, ending (ending1, ending2=l?)
+        * Lang: Y.R. Chao uses particle and interjection ㄝ è. For more see
+          'Mandarin Primer', Vocabulary and Index, pp. 301.
+        * Impl: Implement Erhua forms as stated in W. Simon: A Beginner's
+          Chinese-English Dictionary.
+        * Impl: Implement a GRIPAConverter once IPA values are obtained for
+          the PinyinIPAConverter. GRIPAConverter can work around missing Erhua
+          conversion to Pinyin.
+        * Lang: Special rule for non-Chinese names with initial r- to be
+          transcribed with an r- cited by Ching-song Gene Hsiao: A Manual of
+          Transcription Systems For Chinese, 中文拼音手册. Far Eastern
+          Publications, Yale University, New Haven, Connecticut, 1985,
+          ISBN 0-88710-141-0.
     """
     READING_NAME = 'GR'
 
@@ -3102,29 +2720,31 @@ class GROperator(TonalRomanisationOperator):
 
     def __init__(self, **options):
         u"""
-        Creates an instance of the GROperator.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
-        @keyword strictSegmentation: if C{True} segmentation (using
-            L{segment()}) and thus decomposition (using L{decompose()}) will
+        :keyword strictSegmentation: if ``True`` segmentation (using
+            :meth:`~GROperator.segment`) and thus decomposition (using
+            :meth:`~GROperator.decompose`) will
             raise an exception if an alphabetic string is parsed which can not
-            be segmented into single reading entities. If C{False} the aforesaid
-            string will be returned unsegmented.
-        @keyword case: if set to C{'lower'}, only lower case will be supported,
-            if set to C{'both'} a mix of upper and lower case will be supported.
-        @keyword abbreviations: if set to C{True} abbreviated spellings will be
+            be segmented into single reading entities. If ``False`` the
+            aforesaid string will be returned unsegmented.
+        :keyword case: if set to ``'lower'``, only lower case will be supported,
+            if set to ``'both'`` a mix of upper and lower case will be
             supported.
-        @keyword grRhotacisedFinalApostrophe: an alternate apostrophe that is
+        :keyword abbreviations: if set to ``True`` abbreviated spellings will be
+            supported.
+        :keyword grRhotacisedFinalApostrophe: an alternate apostrophe that is
             taken instead of the default one for marking a longer and back vowel
             in rhotacised finals.
-        @keyword grSyllableSeparatorApostrophe: an alternate apostrophe that is
+        :keyword grSyllableSeparatorApostrophe: an alternate apostrophe that is
             taken instead of the default one for separating 0-initial syllables
             from preceding ones.
-        @keyword optionalNeutralToneMarker: character to use for marking the
+        :keyword optionalNeutralToneMarker: character to use for marking the
             optional neutral tone. Only values given in
-            L{OPTIONAL_NEUTRAL_TONE_MARKERS} are allowed.
+            :attr:`~GROperator.OPTIONAL_NEUTRAL_TONE_MARKERS`
+            are allowed.
         """
         super(GROperator, self).__init__(**options)
 
@@ -3154,19 +2774,21 @@ class GROperator(TonalRomanisationOperator):
         u"""
         Takes a string written in GR and guesses the reading dialect.
 
-        The options C{'grRhotacisedFinalApostrophe'} and
-        C{'grSyllableSeparatorApostrophe'} are guessed. Both will be set to the
+        The options ``'grRhotacisedFinalApostrophe'`` and
+        ``'grSyllableSeparatorApostrophe'`` are guessed. Both will be set to the
         same value which derives from a list of different apostrophes and
         similar characters.
 
-        @type readingString: str
-        @param readingString: GR string
-        @rtype: dict
-        @return: dictionary of basic keyword settings
-        @todo Impl: Both options C{'grRhotacisedFinalApostrophe'} and
-            C{'grSyllableSeparatorApostrophe'} can be set independantly as
-            the former one should only be found before an C{l} and the latter
-            mostly before vowels.
+        :type readingString: str
+        :param readingString: GR string
+        :rtype: dict
+        :return: dictionary of basic keyword settings
+
+        .. todo::
+            * Impl: Both options ``'grRhotacisedFinalApostrophe'`` and
+              ``'grSyllableSeparatorApostrophe'`` can be set independantly as
+              the former one should only be found before an ``l`` and the
+              latter mostly before vowels.
         """
         readingStr = unicodedata.normalize("NFC", unicode(readingString))
 
@@ -3206,10 +2828,10 @@ class GROperator(TonalRomanisationOperator):
         Composes the given list of basic entities to a string. Applies an
         apostrophe between syllables if the second syllable has a zero-initial.
 
-        @type readingEntities: list of str
-        @param readingEntities: list of basic syllables or other content
-        @rtype: str
-        @return: composed entities
+        :type readingEntities: list of str
+        :param readingEntities: list of basic syllables or other content
+        :rtype: str
+        :return: composed entities
         """
         readingCharacters = self.getReadingCharacters()
 
@@ -3268,10 +2890,10 @@ class GROperator(TonalRomanisationOperator):
         """
         Removes apostrophes between two syllables for a given decomposition.
 
-        @type readingEntities: list of str
-        @param readingEntities: list of basic syllables or other content
-        @rtype: list of str
-        @return: the given entity list without separating apostrophes
+        :type readingEntities: list of str
+        :param readingEntities: list of basic syllables or other content
+        :rtype: list of str
+        :return: the given entity list without separating apostrophes
         """
         if len(readingEntities) == 0:
             return []
@@ -3295,11 +2917,11 @@ class GROperator(TonalRomanisationOperator):
         Gets the tone number of the tone or the etymological tone if it is a
         neutral or optional neutral tone.
 
-        @type tone: str
-        @param tone: tone
-        @rtype: int
-        @return: base tone number
-        @raise InvalidEntityError: if an invalid tone is passed.
+        :type tone: str
+        :param tone: tone
+        :rtype: int
+        :return: base tone number
+        :raise InvalidEntityError: if an invalid tone is passed.
         """
         if tone not in self.getTones():
             raise InvalidEntityError("Invalid tone information given: '%s'"
@@ -3314,11 +2936,11 @@ class GROperator(TonalRomanisationOperator):
         """
         Splits the given plain syllable into consonants-vowels-consonants.
 
-        @type plainSyllable: str
-        @param plainSyllable: entity without tonal information
-        @rtype: tuple of str
-        @return: syllable CVC triple
-        @raise InvalidEntityError: if the entity is invalid.
+        :type plainSyllable: str
+        :param plainSyllable: entity without tonal information
+        :rtype: tuple of str
+        :return: syllable CVC triple
+        :raise InvalidEntityError: if the entity is invalid.
         """
         # split syllable into CVC parts
         matchObj = self.SYLLABLE_STRUCTURE.match(plainSyllable)
@@ -3335,17 +2957,17 @@ class GROperator(TonalRomanisationOperator):
         method only works for plain syllables that are not r-coloured (Erlhuah
         forms) as due to the depiction of Erlhuah in GR the information about
         the base syllable is lost and pronunciation partly varies between
-        different syllables. Use L{getRhotacisedTonalEntity()} to get the tonal
-        entity for a given etymological (base) syllable.
+        different syllables. Use :meth:`~GROperator.getRhotacisedTonalEntity`
+        to get the tonal entity for a given etymological (base) syllable.
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @type tone: str
-        @param tone: tone
-        @rtype: str
-        @return: entity with appropriate tone
-        @raise InvalidEntityError: if the entity is invalid.
-        @raise UnsupportedError: if the given entity is an Erlhuah form.
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :type tone: str
+        :param tone: tone
+        :rtype: str
+        :return: entity with appropriate tone
+        :raise InvalidEntityError: if the entity is invalid.
+        :raise UnsupportedError: if the given entity is an Erlhuah form.
         """
         if tone not in self.getTones():
             raise InvalidEntityError(
@@ -3494,10 +3116,10 @@ class GROperator(TonalRomanisationOperator):
         """
         Checks if the given entity is a r-coloured entity (Erlhuah form).
 
-        @type entity: str
-        @param entity: reading entity
-        @rtype: bool
-        @return: C{True} if the given entity is a r-coloured entity, C{False}
+        :type entity: str
+        :param entity: reading entity
+        :rtype: bool
+        :return: ``True`` if the given entity is a r-coloured entity, ``False``
             otherwise.
         """
         return entity.endswith('l') \
@@ -3529,14 +3151,14 @@ class GROperator(TonalRomanisationOperator):
         Gets the r-coloured entity (Erlhuah form) with tone mark for the given
         plain entity and tone. Not all entity-tone combinations are supported.
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @type tone: str
-        @param tone: tone
-        @rtype: str
-        @return: entity with appropriate tone
-        @raise InvalidEntityError: if the entity is invalid.
-        @raise UnsupportedError: if the given entity is an Erlhuah form or the
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :type tone: str
+        :param tone: tone
+        :rtype: str
+        :return: entity with appropriate tone
+        :raise InvalidEntityError: if the entity is invalid.
+        :raise UnsupportedError: if the given entity is an Erlhuah form or the
             syllable is not supported in this given tone.
         """
         if tone not in self.getTones():
@@ -3606,15 +3228,15 @@ class GROperator(TonalRomanisationOperator):
         Gets a list of base entities as plain entity/tone pair for a given
         r-coloured entity (Erlhuah form).
 
-        This is the counterpart of L{getRhotacisedTonalEntity()} and as
-        different syllables can have a similar rhotacised form, the back
+        This is the counterpart of :meth:`~GROperator.getRhotacisedTonalEntity`
+        and as different syllables can have a similar rhotacised form, the back
         transformation is not injective.
 
-        @type tonalEntity: str
-        @param tonalEntity: r-coloured entity
-        @rtype: set of tuple
-        @return: list of plain entities with tone
-        @raise InvalidEntityError: if the entity is invalid.
+        :type tonalEntity: str
+        :param tonalEntity: r-coloured entity
+        :rtype: set of tuple
+        :return: list of plain entities with tone
+        :raise InvalidEntityError: if the entity is invalid.
         """
         if tonalEntity.startswith('.'):
             baseTone = '5th'
@@ -3691,13 +3313,14 @@ class GROperator(TonalRomanisationOperator):
     def getAbbreviatedEntities(self):
         """
         Gets a list of abbreviated GR entities. This returns single entities
-        from L{getAbbreviatedForms()} and only returns those that don't also
-        exist as full forms. Includes repetition markers I{x} and I{v}.
+        from :meth:`~GROperator.getAbbreviatedForms` and only returns those
+        that don't also exist as full forms. Includes repetition markers
+        *x* and *v*.
 
         Returned entities are in lowercase.
 
-        @rtype: list
-        @return: list of abbreviated GR forms
+        :rtype: list
+        :return: list of abbreviated GR forms
         """
         abbreviatedEntites = set()
         for entities in self.getAbbreviatedForms():
@@ -3713,12 +3336,12 @@ class GROperator(TonalRomanisationOperator):
         Returns true if the given entity is an abbreviated spelling.
 
         Case of characters will be handled depending on the setting for option
-        C{'case'}.
+        ``'case'``.
 
-        @type entity: str
-        @param entity: entity to check
-        @rtype: bool
-        @return: C{True} if entity is an abbreviated form.
+        :type entity: str
+        :param entity: entity to check
+        :rtype: bool
+        :return: ``True`` if entity is an abbreviated form.
         """
         # check capitalisation
         if self.case == 'lower' and not entity.islower():
@@ -3733,11 +3356,11 @@ class GROperator(TonalRomanisationOperator):
 
         The returned list consists of a tuple of one or more possibly
         abbreviated reading entites in lowercase. See
-        L{getAbbreviatedFormData()} on how to get more information on these
-        forms.
+        :meth:`~GROperator.getAbbreviatedFormData` on how to get more
+        information on these forms.
 
-        @rtype: list
-        @return: a list of abbreviated forms
+        :rtype: list
+        :return: a list of abbreviated forms
         """
         return frozenset(self._abbreviatedLookup.keys())
 
@@ -3747,12 +3370,13 @@ class GROperator(TonalRomanisationOperator):
         characters, original spelling and specialised information.
 
         Some abbreviated syllables come with additional information:
-            - C{'T'}, the abbreviated form shortens the tonal information,
-            - C{'S'}, the abbreviated form shows a tone sandhi,
-            - C{'I'}, the full spelling is a non-standard pronunciation, or
-                another mapping, that can be ignored,
-            - C{'F'}, the abbreviated entity or entities also exist(s) as a full
-                form (as full forms).
+
+        - ``'T'``, the abbreviated form shortens the tonal information,
+        - ``'S'``, the abbreviated form shows a tone sandhi,
+        - ``'I'``, the full spelling is a non-standard pronunciation, or
+          another mapping, that can be ignored,
+        - ``'F'``, the abbreviated entity or entities also exist(s) as a full
+          form (as full forms).
 
         Example:
             >>> from cjklib.reading import operator
@@ -3760,16 +3384,19 @@ class GROperator(TonalRomanisationOperator):
             >>> gr.getAbbreviatedEntityData(['yi'])
             [(u'\u4e00', [u'i'], set([u'S', u'T']))]
 
-        @type entities: list of str
-        @param entities: entities abbreviated form for which information is
+        :type entities: list of str
+        :param entities: entities abbreviated form for which information is
             returned
-        @rtype: list
-        @return: list full spellings, Chinese character string and specialised
+        :rtype: list
+        :return: list full spellings, Chinese character string and specialised
             information
-        @todo Lang: I{tz} is currently mapped to I{.tzy}. Character 子 though
-            generally has 3rd tone, which then should be I{tzyy} or I{.tzyy}.
-            See 'A Grammar of Spoken Chinese', p. 36 ("-.tzy (which we
-            abbreviate as -tz)") and p. 55 ("suffix -tz (<tzyy)")
+
+        .. todo::
+            * Lang: *tz* is currently mapped to *.tzy*. Character 子 though
+              generally has 3rd tone, which then should be *tzyy* or
+              *.tzyy*. See 'A Grammar of Spoken Chinese', p. 36
+              ("-.tzy (which we abbreviate as -tz)") and p. 55
+              ("suffix -tz (<tzyy)")
         """
         entities = tuple([entity.lower() for entity in entities])
         if entities not in self._abbreviatedLookup:
@@ -3813,11 +3440,12 @@ class GROperator(TonalRomanisationOperator):
     def getPlainReadingEntities(self):
         """
         Gets the list of plain entities supported by this reading without
-        r-coloured forms (Erlhuah forms). Different to L{getReadingEntities()}
-        the entities will carry no tone mark.
+        r-coloured forms (Erlhuah forms). Different to
+        :meth:`~GROperator.getReadingEntities` the entities will carry no
+        tone mark.
 
-        @rtype: set of str
-        @return: set of supported syllables
+        :rtype: set of str
+        :return: set of supported syllables
         """
         table = self.db.tables['GRSyllables']
         return frozenset(self.db.selectScalars(select([table.c.GR])))
@@ -3828,8 +3456,8 @@ class GROperator(TonalRomanisationOperator):
         Gets a set of full entities supported by the reading excluding
         abbreviated forms.
 
-        @rtype: set of str
-        @return: set of supported syllables
+        :rtype: set of str
+        :return: set of supported syllables
         """
         plainSyllables = self.getPlainReadingEntities()
 
@@ -3874,48 +3502,7 @@ class GROperator(TonalRomanisationOperator):
 class MandarinIPAOperator(TonalIPAOperator):
     u"""
     Provides an operator on strings in Mandarin Chinese written in the
-    I{International Phonetic Alphabet} (I{IPA}).
-
-    Features:
-        - Tones can be marked either with tone numbers (1-4), tone contour
-            numbers (e.g. 214), IPA tone bar characters or IPA diacritics,
-        - support for low third tone (1/2 third tone) with tone contour 21,
-        - four levels of the neutral tone for varying stress depending on the
-            preceding syllable and
-        - splitting of syllables into onset and rhyme using method
-            L{getOnsetRhyme()}.
-
-    Tones
-    =====
-    Tones in IPA can be expressed using different schemes. The following schemes
-    are implemented here:
-        - Numbers, regular tone numbers from 1 to 5 for first tone to fifth
-            (qingsheng),
-        - ChaoDigits, numbers displaying the levels of tone contours, e.g.
-            214 for the regular third tone,
-        - IPAToneBar, IPA modifying tone bar characters, e.g. ɕi˨˩˦,
-        - Diacritics, diacritical marks and finally
-        - None, no support for tone marks
-
-    Unlike other operators for Mandarin, distinction is made for six different
-    tonal occurrences. The third tone is affected by tone sandhi and basically
-    two different tone contours exist. Therefore L{getTonalEntity()} and
-    L{splitEntityTone()} work with string representations as tones defined in
-    L{TONES}. Same behaviour as found in other operators for Mandarin can be
-    achieved by simply using the first character of the given string:
-
-        >>> from cjklib.reading import operator
-        >>> ipaOp = operator.MandarinIPAOperator(toneMarkType='ipaToneBar')
-        >>> syllable, toneName = ipaOp.splitEntityTone(u'mən˧˥')
-        >>> tone = int(toneName[0])
-
-    The implemented schemes render tone information differently. Mapping might
-    lose information so a full back-transformation can not be guaranteed.
-
-    Source
-    ======
-    - Yuen Ren Chao: A Grammar of Spoken Chinese. University of California
-        Press, Berkeley, 1968, ISBN 0-520-00219-9.
+    *International Phonetic Alphabet* (*IPA*).
     """
     READING_NAME = "MandarinIPA"
 
@@ -3951,8 +3538,8 @@ class MandarinIPAOperator(TonalIPAOperator):
         Gets the list of plain entities supported by this reading. These
         entities will carry no tone mark.
 
-        @rtype: set of str
-        @return: set of supported syllables
+        :rtype: set of str
+        :return: set of supported syllables
         """
         table = self.db.tables['MandarinIPAInitialFinal']
         return frozenset(self.db.selectScalars(select([table.c.IPA])))
@@ -3961,11 +3548,11 @@ class MandarinIPAOperator(TonalIPAOperator):
         """
         Splits the given plain syllable into onset (initial) and rhyme (final).
 
-        @type plainSyllable: str
-        @param plainSyllable: syllable in IPA without tone marks
-        @rtype: tuple of str
-        @return: tuple of syllable onset and rhyme
-        @raise InvalidEntityError: if the entity is invalid (e.g. syllable
+        :type plainSyllable: str
+        :param plainSyllable: syllable in IPA without tone marks
+        :rtype: tuple of str
+        :return: tuple of syllable onset and rhyme
+        :raise InvalidEntityError: if the entity is invalid (e.g. syllable
             nucleus or tone invalid).
         """
         table = self.db.tables['MandarinIPAInitialFinal']
@@ -3981,30 +3568,13 @@ class MandarinIPAOperator(TonalIPAOperator):
 
 class MandarinBrailleOperator(ReadingOperator):
     u"""
-    Provides an operator on strings written in the X{Braille} system.
+    Provides an operator on strings written in the *Braille* system for
+    Mandarin.
 
-    In Braille the fifth tone of Mandarin Chinese is indicated without a tone
-    mark making a pure entity ambiguous if entities without tonal information
-    are mixed in. As by default Braille seems to be frequently written omitting
-    tone marks where unnecessary, the option C{missingToneMark} controlling the
-    behaviour of absent tone marking is set to C{'extended'}, allowing the
-    mixing of entities with fifth and with no tone. If lossless conversion is
-    needed, this option should be set to C{'fifth'}, forbidding entities
-    without tonal information.
-
-    A small trick to get Braille output into an easily readable form on a normal
-    screen; do:
-
-        >>> import unicodedata
-        >>> input = u'⠅⠡ ⠝⠊ ⠙⠼ ⠊⠁⠓⠫⠰⠂'
-        >>> [unicodedata.name(char).replace('BRAILLE PATTERN DOTS-', 'P') \\
-        ...     for char in input]
-        ['P13', 'P16', 'SPACE', 'P1345', 'P24', 'SPACE', 'P145', 'P3456', \
-'SPACE', 'P24', 'P1', 'P125', 'P1246', 'P56', 'P2']
-
-    @todo Impl: Punctuation marks in isFormattingEntity() and
-        getFormattingEntities(). Then change
-        PinyinBrailleConverter.convertEntitySequence() to use these methods.
+    .. todo::
+        * Impl: Punctuation marks in isFormattingEntity() and
+          getFormattingEntities(). Then change
+          PinyinBrailleConverter.convertEntitySequence() to use these methods.
     """
     READING_NAME = "MandarinBraille"
 
@@ -4012,17 +3582,16 @@ class MandarinBrailleOperator(ReadingOperator):
 
     def __init__(self, **options):
         """
-        Creates an instance of the MandarinBrailleOperator.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
-        @keyword toneMarkType: if set to C{'braille'} tones will be marked
-            (using the Braille characters ), if set to C{'none'} no tone marks
+        :keyword toneMarkType: if set to ``'braille'`` tones will be marked
+            (using the Braille characters ), if set to ``'none'`` no tone marks
             will be used and no tonal information will be supplied at all.
-        @keyword missingToneMark: if set to C{'fifth'} missing tone marks are
+        :keyword missingToneMark: if set to ``'fifth'`` missing tone marks are
             interpreted as fifth tone (which by default lack a tone mark), if
-            set to C{'extended'} missing tonal information is allowed and takes
+            set to ``'extended'`` missing tonal information is allowed and takes
             on the same form as fifth tone, rendering conversion processes
             lossy.
         """
@@ -4064,8 +3633,8 @@ class MandarinBrailleOperator(ReadingOperator):
         """
         Returns a set of tones supported by the reading.
 
-        @rtype: set
-        @return: set of supported tone marks.
+        :rtype: set
+        :return: set of supported tone marks.
         """
         tones = range(1, 6)
         if self.missingToneMark == 'extended' or self.toneMarkType == 'none':
@@ -4084,10 +3653,10 @@ class MandarinBrailleOperator(ReadingOperator):
         The returned list contains a mix of basic reading entities and other
         characters e.g. spaces and punctuation marks.
 
-        @type readingString: str
-        @param readingString: reading string
-        @rtype: list of str
-        @return: a list of basic entities of the input string
+        :type readingString: str
+        :param readingString: reading string
+        :rtype: list of str
+        :return: a list of basic entities of the input string
         """
         def buildList(entityList):
             # further splitting of Braille and non-Braille parts/removing empty
@@ -4106,13 +3675,13 @@ class MandarinBrailleOperator(ReadingOperator):
         Composes the given list of basic entities to a string.
 
         No special treatment is given for subsequent Braille entities. Use
-        L{getSpaceSeparatedEntities()} to insert spaces between two Braille
-        syllables.
+        :meth:`~cjklib.reading.operator.MandarinBrailleOperator.getSpaceSeparatedEntities`
+        to insert spaces between two Braille syllables.
 
-        @type readingEntities: list of str
-        @param readingEntities: list of basic entities or other content
-        @rtype: str
-        @return: composed entities
+        :type readingEntities: list of str
+        :param readingEntities: list of basic entities or other content
+        :rtype: str
+        :return: composed entities
         """
         return "".join(readingEntities)
 
@@ -4125,10 +3694,10 @@ class MandarinBrailleOperator(ReadingOperator):
         reflected here and instead a space will be added between single
         syllables.
 
-        @type readingEntities: list of str
-        @param readingEntities: list of basic entities or other content
-        @rtype: list of str
-        @return: entities with spaces inserted between Braille sequences
+        :type readingEntities: list of str
+        :param readingEntities: list of basic entities or other content
+        :rtype: list of str
+        :return: entities with spaces inserted between Braille sequences
         """
         def isBrailleChar(char):
             return char >= u'⠀' and char <= u'⣿'
@@ -4149,13 +3718,13 @@ class MandarinBrailleOperator(ReadingOperator):
         """
         Gets the entity with tone mark for the given plain entity and tone.
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @type tone: str
-        @param tone: tone
-        @rtype: str
-        @return: entity with appropriate tone
-        @raise InvalidEntityError: if the entity is invalid.
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :type tone: str
+        :param tone: tone
+        :rtype: str
+        :return: entity with appropriate tone
+        :raise InvalidEntityError: if the entity is invalid.
         """
         if tone not in self.getTones():
             raise InvalidEntityError(
@@ -4172,11 +3741,11 @@ class MandarinBrailleOperator(ReadingOperator):
         Splits the entity into an entity without tone mark and the name of the
         entity's tone.
 
-        @type entity: str
-        @param entity: entity with tonal information
-        @rtype: tuple
-        @return: plain entity without tone mark and additionally the tone
-        @raise InvalidEntityError: if the entity is invalid.
+        :type entity: str
+        :param entity: entity with tonal information
+        :rtype: tuple
+        :return: plain entity without tone mark and additionally the tone
+        :raise InvalidEntityError: if the entity is invalid.
         """
         if self.toneMarkType == 'none':
             return entity, None
@@ -4216,11 +3785,11 @@ class MandarinBrailleOperator(ReadingOperator):
         """
         Splits the given plain syllable into onset (initial) and rhyme (final).
 
-        @type plainSyllable: str
-        @param plainSyllable: syllable without tone marks
-        @rtype: tuple of str
-        @return: tuple of syllable onset and rhyme
-        @raise InvalidEntityError: if the entity is invalid.
+        :type plainSyllable: str
+        :param plainSyllable: syllable without tone marks
+        :rtype: tuple of str
+        :return: tuple of syllable onset and rhyme
+        :raise InvalidEntityError: if the entity is invalid.
         """
         if len(plainSyllable) == 1:
             finalTable = self.db.tables['PinyinBrailleFinalMapping']
@@ -4240,39 +3809,36 @@ class MandarinBrailleOperator(ReadingOperator):
 
 class JyutpingOperator(TonalRomanisationOperator):
     """
-    Provides an operator for the Cantonese romanisation X{Jyutping} made by the
-    X{Linguistic Society of Hong Kong} (X{LSHK}).
-
-    @see:
-        - The Linguistic Society of Hong Kong Cantonese Romanization Scheme:
-            U{http://lshk.ctl.cityu.edu.hk/cantonese.php}
+    Provides an operator for the Cantonese romanisation *Jyutping* made by the
+    *Linguistic Society of Hong Kong* (*LSHK*).
     """
     READING_NAME = 'Jyutping'
     _readingEntityRegex = re.compile(u"([A-Za-z]+[123456]?)")
 
     def __init__(self, **options):
         """
-        Creates an instance of the JyutpingOperator.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
-        @keyword strictSegmentation: if C{True} segmentation (using
-            L{segment()}) and thus decomposition (using L{decompose()}) will
+        :keyword strictSegmentation: if ``True`` segmentation (using
+            :meth:`~JyutpingOperator.segment`) and thus decomposition (using
+            :meth:`~JyutpingOperator.decompose`) will
             raise an exception if an alphabetic string is parsed which can not
-            be segmented into single reading entities. If C{False} the aforesaid
-            string will be returned unsegmented.
-        @keyword case: if set to C{'lower'}, only lower case will be supported,
-            if set to C{'both'} a mix of upper and lower case will be supported.
-        @keyword toneMarkType: if set to C{'numbers'} the default form of
+            be segmented into single reading entities. If ``False``
+            the aforesaid string will be returned unsegmented.
+        :keyword case: if set to ``'lower'``, only lower case will be supported,
+            if set to ``'both'`` a mix of upper and lower case will
+            be supported.
+        :keyword toneMarkType: if set to ``'numbers'`` the default form of
             appended numbers from 1 to 6 will be used to mark tones, if set to
-            C{'none'} no tone marks will be used and no tonal information will
+            ``'none'`` no tone marks will be used and no tonal information will
             be supplied at all.
-        @keyword missingToneMark: if set to C{'noinfo'} no tone information
-            will be deduced when no tone mark is found (takes on value C{None}),
-            if set to C{'ignore'} this entity will not be valid and for
-            segmentation the behaviour defined by C{'strictSegmentation'} will
-            take affect.
+        :keyword missingToneMark: if set to ``'noinfo'`` no tone information
+            will be deduced when no tone mark is found (takes on value
+            ``None``), if set to ``'ignore'`` this entity will not be valid
+            and for segmentation the behaviour defined by
+            ``'strictSegmentation'`` will take affect.
         """
         super(JyutpingOperator, self).__init__(**options)
 
@@ -4374,14 +3940,15 @@ class JyutpingOperator(TonalRomanisationOperator):
         Checks if the given plain entity and tone combination is valid.
 
         Only syllables with unreleased finals occur with stop tones, other forms
-        must not (see L{hasStopTone()}).
+        must not (see
+        :meth:`~cjklib.reading.operator.JyutpingOperator.hasStopTone`).
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @type tone: str
-        @param tone: tone
-        @rtype: bool
-        @return: C{True} if given combination is valid, C{False} otherwise
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :type tone: str
+        :param tone: tone
+        :rtype: bool
+        :return: ``True`` if given combination is valid, ``False`` otherwise
         """
         if tone not in self.getTones():
             raise InvalidEntityError(
@@ -4399,18 +3966,20 @@ class JyutpingOperator(TonalRomanisationOperator):
         """
         Splits the given plain syllable into onset (initial) and rhyme (final).
 
-        The syllabic nasals I{m}, I{ng} will be regarded as being finals.
+        The syllabic nasals *m*, *ng* will be regarded as being finals.
 
         Returned strings will be lowercase.
 
-        @type plainSyllable: str
-        @param plainSyllable: syllable without tone marks
-        @rtype: tuple of str
-        @return: tuple of entity onset and rhyme
-        @raise InvalidEntityError: if the entity is invalid.
-        @todo Impl: Finals I{ing, ik, ung, uk} differ from other finals with
-            same vowels. What semantics/view do we want to provide on the
-            syllable parts?
+        :type plainSyllable: str
+        :param plainSyllable: syllable without tone marks
+        :rtype: tuple of str
+        :return: tuple of entity onset and rhyme
+        :raise InvalidEntityError: if the entity is invalid.
+
+        .. todo::
+            * Impl: Finals *ing, ik, ung, uk* differ from other finals with
+              same vowels. What semantics/view do we want to provide on the
+              syllable parts?
         """
         # get outside try block, will be evaluated on first call
         syllableData = self._syllableData
@@ -4426,10 +3995,10 @@ class JyutpingOperator(TonalRomanisationOperator):
         Checks if the given plain syllable can occur with stop tones which is
         the case for syllables with unreleased finals.
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @rtype: bool
-        @return: C{True} if given syllable can occur with stop tones, C{False}
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :rtype: bool
+        :return: ``True`` if given syllable can occur with stop tones, ``False``
             otherwise
         """
         _, final = self.getOnsetRhyme(plainEntity)
@@ -4448,55 +4017,10 @@ class JyutpingOperator(TonalRomanisationOperator):
 
 class CantoneseYaleOperator(TonalRomanisationOperator):
     u"""
-    Provides an operator for the X{Cantonese Yale} romanisation. For conversion
-    between different representations the L{CantoneseYaleDialectConverter} can
-    be used.
-
-    Features:
-        - tones marked by either diacritics or numbers,
-        - choice between high level and high falling tone for number marks,
-        - guessing of input form (reading dialect) and
-        - splitting of syllables into onset, nucleus and coda.
-
-    High Level vs. High Falling Tone
-    ================================
-    Yale distinguishes two tones often subsumed under one: the high level tone
-    with tone contour 55 as given in the commonly used pitch model by Yuen Ren
-    Chao and the high falling tone given as pitch 53 (as by Chao), 52 or 51
-    (Bauer and Benedikt, chapter 2.1.1 pp. 115).
-    Many sources state that these two tones aren't distinguishable anymore in
-    modern Hong Kong Cantonese and thus are subsumed under one tone in some
-    romanisation systems for Cantonese.
-
-    In the abbreviated form of the Yale romanisation that uses numbers to
-    represent tones this distinction is not made. The mapping of the tone number
-    C{1} to either the high level or the high falling tone can be given by the
-    user and is important when conversion is done involving this abbreviated
-    form of the Yale romanisation. By default the high level tone will be used
-    as this primary use is indicated in the given sources.
-
-    Placement of tones
-    ==================
-    Tone marks, if using the standard form with diacritics, are placed according
-    to Cantonese Yale rules (see L{getTonalEntity()}). The CantoneseYaleOperator
-    by default tries to work around misplaced tone marks though to ease handling
-    of malformed input. There are cases, where this generous behaviour leads to
-    a different segmentation compared to the strict interpretation. No means are
-    implemented to disambiguate between both solutions. The general behaviour is
-    controlled with option C{'strictDiacriticPlacement'}.
-
-    Sources
-    =======
-    - Stephen Matthews, Virginia Yip: Cantonese: A Comprehensive Grammar.
-        Routledge, 1994, ISBN 0-415-08945-X.
-    - Robert S. Bauer, Paul K. Benedikt: Modern Cantonese Phonology
-        (摩登廣州話語音學). Walter de Gruyter, 1997, ISBN 3-11-014893-5.
-
-    @see:
-        - Cantonese: A Comprehensive Grammar (Preview):
-            U{http://books.google.de/books?id=czbGJLu59S0C}
-        - Modern Cantonese Phonology (Preview):
-            U{http://books.google.de/books?id=QWNj5Yj6_CgC}
+    Provides an operator for the Cantonese Yale romanisation. For conversion
+    between different representations the
+    :class:`~cjklib.reading.converter.CantoneseYaleDialectConverter` can be
+    used.
     """
     READING_NAME = 'CantoneseYale'
 
@@ -4520,7 +4044,7 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
     Mapping of tone name to representation per tone mark type. Representations
     includes a diacritic mark and optional the letter 'h' marking a low tone.
 
-    The C{'internal'} dialect is used for conversion between different forms of
+    The ``'internal'`` dialect is used for conversion between different forms of
     Cantonese Yale. As conversion to the other dialects can lose information
     (Diacritics: missing tone, Numbers: distinction between high level and high
     rising, None: no tones at all) conversion to this dialect can retain all
@@ -4536,49 +4060,56 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
     Regex to split a string in NFD into several syllables in a crude way.
     The regular expressions works for both, diacritical and number tone marks.
     It consists of:
-        - Nasal syllables,
-        - Initial consonants,
-        - vowels including diacritics,
-        - tone mark h,
-        - final consonants,
-        - tone numbers.
+
+    - Nasal syllables,
+    - Initial consonants,
+    - vowels including diacritics,
+    - tone mark h,
+    - final consonants,
+    - tone numbers.
     """
 
     def __init__(self, **options):
         """
-        Creates an instance of the CantoneseYaleOperator.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
-        @keyword strictSegmentation: if C{True} segmentation (using
-            L{segment()}) and thus decomposition (using L{decompose()}) will
+        :keyword strictSegmentation: if ``True`` segmentation (using
+            :meth:`~cjklib.reading.operator.RomanisationOperator.segment`)
+            and thus decomposition (using
+            :meth:`~cjklib.reading.operator.RomanisationOperator.decompose`)
+            will
             raise an exception if an alphabetic string is parsed which can not
-            be segmented into single reading entities. If C{False} the aforesaid
-            string will be returned unsegmented.
-        @keyword case: if set to C{'lower'}, only lower case will be supported,
-            if set to C{'both'} a mix of upper and lower case will be supported.
-        @keyword toneMarkType: if set to C{'diacritics'} tones will be marked
-            using diacritic marks and the character I{h} for low tones, if set
-            to C{'numbers'} appended numbers from 1 to 6 will be used to mark
-            tones, if set to C{'none'} no tone marks will be used and no tonal
+            be segmented into single reading entities. If ``False``
+            the aforesaid string will be returned unsegmented.
+        :keyword case: if set to ``'lower'``, only lower case will be supported,
+            if set to ``'both'`` a mix of upper and lower case will be
+            supported.
+        :keyword toneMarkType: if set to ``'diacritics'`` tones will be marked
+            using diacritic marks and the character *h* for low tones, if set
+            to ``'numbers'`` appended numbers from 1 to 6 will be used to mark
+            tones, if set to ``'none'`` no tone marks will be used and no tonal
             information will be supplied at all.
-        @keyword missingToneMark: if set to C{'noinfo'} no tone information
-            will be deduced when no tone mark is found (takes on value C{None}),
-            if set to C{'ignore'} this entity will not be valid and for
-            segmentation the behaviour defined by C{'strictSegmentation'} will
-            take affect. This option only has effect if the value C{'numbers'}
-            is given for the option I{toneMarkType}.
-        @keyword strictDiacriticPlacement: if set to C{True} syllables have to
+        :keyword missingToneMark: if set to ``'noinfo'`` no tone information
+            will be deduced when no tone mark is found (takes on value
+            ``None``), if set to ``'ignore'`` this entity will not be valid
+            and for segmentation the behaviour defined by
+            ``'strictSegmentation'`` will take effect. This option only has
+            effect if the value ``'numbers'`` is given for the option
+            *toneMarkType*.
+        :keyword strictDiacriticPlacement: if set to ``True`` syllables have to
             follow the diacritic placement rule of Cantonese Yale strictly (see
-            L{getTonalEntity()}). Wrong placement will result in
-            L{splitEntityTone()} raising an L{InvalidEntityError}. Defaults to
-            C{False}.
-        @keyword yaleFirstTone: tone in Yale which the first tone for tone marks
-            with numbers should be mapped to. Value can be C{'1stToneLevel'} to
-            map to the level tone with contour 55 or C{'1stToneFalling'} to map
+            :meth:`~cjklib.reading.operator.CantoneseYaleOperator.getTonalEntity`).
+            Wrong placement will result in
+            :meth:`~cjklib.reading.operator.CantoneseYaleOperator.splitEntityTone`
+            raising an :class:`~cjklib.exception.InvalidEntityError`.
+            Defaults to ``False``.
+        :keyword yaleFirstTone: tone in Yale which the first tone for tone marks
+            with numbers should be mapped to. Value can be ``'1stToneLevel'`` to
+            map to the level tone with contour 55 or ``'1stToneFalling'`` to map
             to the falling tone with contour 53. This option can only be used
-            for tone mark type C{'numbers'}.
+            for tone mark type ``'numbers'``.
         """
         super(CantoneseYaleOperator, self).__init__(**options)
 
@@ -4638,10 +4169,10 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         """
         Gets a list of Cantonese Yale vowels with diacritical marks for tones.
 
-        The list includes characters I{m}, I{n} and I{h} for nasal forms.
+        The list includes characters *m*, *n* and *h* for nasal forms.
 
-        @rtype: list of str
-        @return: list of Cantonese Yale vowels with diacritical marks
+        :rtype: list of str
+        :return: list of Cantonese Yale vowels with diacritical marks
         """
         vowelList = set([])
         for nucleusFirstChar in 'aeioumnh':
@@ -4658,19 +4189,19 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         Takes a string written in Cantonese Yale and guesses the reading
         dialect.
 
-        Currently only the option C{'toneMarkType'} is guessed. Unless
-        C{'includeToneless'} is set to C{True} only the tone mark types
-        C{'diacritics'} and C{'numbers'} are considered as the latter one can
+        Currently only the option ``'toneMarkType'`` is guessed. Unless
+        ``'includeToneless'`` is set to ``True`` only the tone mark types
+        ``'diacritics'`` and ``'numbers'`` are considered as the latter one can
         also represent the state of missing tones.
 
-        @type readingString: str
-        @param readingString: Cantonese Yale string
-        @type includeToneless: bool
-        @param includeToneless: if set to C{True} option C{'toneMarkType'} can
-            take on value C{'none'}, but by default (i.e. set to C{False}) is
-            covered by tone mark type set to C{'numbers'}.
-        @rtype: dict
-        @return: dictionary of basic keyword settings
+        :type readingString: str
+        :param readingString: Cantonese Yale string
+        :type includeToneless: bool
+        :param includeToneless: if set to ``True`` option ``'toneMarkType'`` can
+            take on value ``'none'``, but by default (i.e. set to ``False``) is
+            covered by tone mark type set to ``'numbers'``.
+        :rtype: dict
+        :return: dictionary of basic keyword settings
         """
         # split into entities using a simple regex for all dialect forms
         entities = cls.syllableRegex.findall(
@@ -4796,7 +4327,8 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 
     def getTonalEntity(self, plainEntity, tone):
         """
-        @todo Lang: Place the tone mark on the first character of the nucleus?
+        .. todo::
+            * Lang: Place the tone mark on the first character of the nucleus?
         """
         if not self.isToneValid(plainEntity, tone):
             raise InvalidEntityError(
@@ -4850,16 +4382,15 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         entity's tone index.
 
         The plain entity returned will always be in Unicode's
-        I{Normalization Form C} (NFC, see
-        U{http://www.unicode.org/reports/tr15/}).
+        *Normalization Form C* (NFC, see http://www.unicode.org/reports/tr15/).
 
-        @type entity: str
-        @param entity: entity with tonal information
-        @rtype: tuple
-        @return: plain entity without tone mark and entity's tone index
+        :type entity: str
+        :param entity: entity with tonal information
+        :rtype: tuple
+        :return: plain entity without tone mark and entity's tone index
             (starting with 1)
         """
-        # get decomposed Unicode string, e.g. C{'ū'} to C{'u\u0304'}
+        # get decomposed Unicode string, e.g. ``'ū'`` to ``'u\u0304'``
         entity = unicodedata.normalize("NFD", unicode(entity))
         if self.toneMarkType == 'none':
             return unicodedata.normalize("NFC", entity), None
@@ -4914,14 +4445,15 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         Checks if the given plain entity and tone combination is valid.
 
         Only syllables with unreleased finals occur with stop tones, other forms
-        must not (see L{hasStopTone()}).
+        must not (see
+        :meth:`~cjklib.reading.operator.CantoneseYaleOperator.hasStopTone`).
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @type tone: str
-        @param tone: tone
-        @rtype: bool
-        @return: C{True} if given combination is valid, C{False} otherwise
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :type tone: str
+        :param tone: tone
+        :rtype: bool
+        :return: ``True`` if given combination is valid, ``False`` otherwise
         """
         if tone not in self.getTones():
             raise InvalidEntityError(
@@ -4940,16 +4472,16 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         """
         Splits the given plain syllable into onset (initial) and rhyme (final).
 
-        The syllabic nasals I{m}, I{ng} will be returned as final. Syllables yu,
+        The syllabic nasals *m*, *ng* will be returned as final. Syllables yu,
         yun, yut will fall into (y, yu, ), (y, yu, n) and (y, yu, t).
 
         Returned strings will be lowercase.
 
-        @type plainSyllable: str
-        @param plainSyllable: syllable without tone marks
-        @rtype: tuple of str
-        @return: tuple of entity onset and rhyme
-        @raise InvalidEntityError: if the entity is invalid.
+        :type plainSyllable: str
+        :param plainSyllable: syllable without tone marks
+        :rtype: tuple of str
+        :return: tuple of entity onset and rhyme
+        :raise InvalidEntityError: if the entity is invalid.
         """
         onset, nucleus, coda = self.getOnsetNucleusCoda(plainSyllable)
         return onset, nucleus + coda
@@ -4959,21 +4491,23 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         Splits the given plain syllable into onset (initial), nucleus and coda,
         the latter building the rhyme (final).
 
-        The syllabic nasals I{m}, I{ng} will be returned as coda. Syllables yu,
+        The syllabic nasals *m*, *ng* will be returned as coda. Syllables yu,
         yun, yut will fall into (y, yu, ), (y, yu, n) and (y, yu, t).
 
         Returned strings will be lowercase.
 
-        @type plainSyllable: str
-        @param plainSyllable: syllable in the Yale romanisation system without
+        :type plainSyllable: str
+        :param plainSyllable: syllable in the Yale romanisation system without
             tone marks
-        @rtype: tuple of str
-        @return: tuple of syllable onset, nucleus and coda
-        @raise InvalidEntityError: if the entity is invalid (e.g. syllable
+        :rtype: tuple of str
+        :return: tuple of syllable onset, nucleus and coda
+        :raise InvalidEntityError: if the entity is invalid (e.g. syllable
             nucleus or tone invalid).
-        @todo Impl: Finals I{ing, ik, ung, uk, eun, eut, a} differ from other
-            finals with same vowels. What semantics/view do we want to provide
-            on the syllable parts?
+
+        .. todo::
+            * Impl: Finals *ing, ik, ung, uk, eun, eut, a* differ from other
+              finals with same vowels. What semantics/view do we want to
+              provide on the syllable parts?
         """
         # get outside try block, will be evaluated on first call
         syllableData = self._syllableData
@@ -4989,10 +4523,10 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
         Checks if the given plain syllable can occur with stop tones which is
         the case for syllables with unreleased finals.
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @rtype: bool
-        @return: C{True} if given syllable can occur with stop tones, C{False}
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :rtype: bool
+        :return: ``True`` if given syllable can occur with stop tones, ``False``
             otherwise
         """
         _, _, coda = self.getOnsetNucleusCoda(plainEntity)
@@ -5012,65 +4546,15 @@ class CantoneseYaleOperator(TonalRomanisationOperator):
 class CantoneseIPAOperator(TonalIPAOperator):
     u"""
     Provides an operator on strings of the Cantonese language written in the
-    I{International Phonetic Alphabet} (I{IPA}).
+    *International Phonetic Alphabet* (*IPA*).
 
-    CantonteseIPAOperator does not supply the same closed set of syllables as
-    other L{ReadingOperator}s as IPA provides different ways to represent
-    pronunciation. Because of that a user defined IPA syllable will not easily
-    map to another transcription system and thus only basic support is provided
-    for this direction.
-
-    This operator supplies an additional method L{getOnsetRhyme()} which allows
-    breaking down syllables into their onset and rhyme.
-
-    Features:
-        - Tones can be marked either with tone numbers (1-6), tone contour
-            numbers (e.g. 55), IPA tone bar characters or IPA diacritics,
-        - choice between high level and high falling tone for number marks,
-        - flexible set of tones,
-        - support for X{stop tones},
-        - handling of variable vowel length for tone contours of stop tone
-            syllables and
-        - splitting of syllables into onset and rhyme.
-
-    Tones
-    =====
-    Tones in IPA can be expressed using different schemes. The following schemes
-    are implemented here:
-        - Numbers, tone numbers for the six-tone scheme,
-        - ChaoDigits, numbers displaying the levels of tone contours, e.g.
-            55 for the high level tone,
-        - IPAToneBar, IPA modifying tone bar characters, e.g. ɛw˥˥,
-        - None, no support for tone marks
-
-    Implementational details
-    ------------------------
-    The operator comes with three different set of tones to accommodate the user
-    but at the same time handle all different tone types. This setting is
-    controlled by option C{'stopTones'}, where C{'none'} will force the set of 7
-    basic tones, C{'general'} will add the three stop tones found in
-    L{STOP_TONES}, and C{'explicit'} will add one stop tone for each possible
-    vowel length i.e. I{short} and I{long}, making up the maximum count of 13.
-    Internally the set with explicit stop tones is used.
-
-    Sources
-    =======
-    - Robert S. Bauer, Paul K. Benedikt: Modern Cantonese Phonology
-        (摩登廣州話語音學). Walter de Gruyter, 1997, ISBN 3-11-014893-5.
-    - Robert S. Bauer: Hong Kong Cantonese Tone Contours. In: Studies in
-        Cantonese Linguistics. Linguistic Society of Hong Kong, 1998,
-        ISBN 962-7578-04-5.
-
-    @see:
-        - Modern Cantonese Phonology (Preview):
-            U{http://books.google.de/books?id=QWNj5Yj6_CgC}
-
-    @todo Lang: Shed more light on tone sandhi in Cantonese language.
-    @todo Impl: Implement diacritics for Cantonese Tones. On which part of the
-        syllable should they be placed. Document.
-    @todo Lang: Binyām 變音
-    @todo Impl: What are the semantics of non-level tones given for unreleased
-        stop finals? Take high rising Binyam into account.
+    .. todo::
+        * Lang: Shed more light on tone sandhi in Cantonese language.
+        * Impl: Implement diacritics for Cantonese Tones. On which part of the
+          syllable should they be placed. Document.
+        * Lang: Binyām 變音
+        * Impl: What are the semantics of non-level tones given for unreleased
+          stop finals? Take high rising Binyam into account.
     """
     READING_NAME = "CantoneseIPA"
 
@@ -5121,32 +4605,33 @@ class CantoneseIPAOperator(TonalIPAOperator):
         #'diacritics': {}
         }
     # The mapping is injective for the restriction on the seven basic tones,
-    #   and together with TONE_MARK_PREFER L{getToneForToneMark()} knows what to
+    #   and together with TONE_MARK_PREFER getToneForToneMark() knows what to
     #   return for each tone mark
 
     def __init__(self, **options):
         """
-        Creates an instance of the CantoneseIPAOperator.
-
         By default no tone marks will be shown.
 
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}, if none is
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
-        @keyword toneMarkType: type of tone marks, one out of C{'numbers'},
-            C{'chaoDigits'}, C{'ipaToneBar'}, C{'diacritics'}, C{'none'}
-        @keyword missingToneMark: if set to C{'noinfo'} no tone information
-            will be deduced when no tone mark is found (takes on value C{None}),
-            if set to C{'ignore'} this entity will not be valid.
-        @keyword firstToneName: tone for mark C{'1'} under tone mark type
-            C{'numbers'} for ambiguous mapping between tones I{'HighLevel'} or I{'HighFalling'} under syllables without stop tones. For the latter
-            tone mark C{'1'} will still resolve to I{'HighLevel'},
-            I{'HighStopped'} or I{'HighStopped_Short'} and I{'HighStopped_Long'}
-            depending on the value of option C{'stopTones'}.
-        @keyword stopTones: if set to C{'none'} the basic 6 (7) tones will be
+        :keyword toneMarkType: type of tone marks, one out of ``'numbers'``,
+            ``'chaoDigits'``, ``'ipaToneBar'``, ``'diacritics'``, ``'none'``
+        :keyword missingToneMark: if set to ``'noinfo'`` no tone information
+            will be deduced when no tone mark is found (takes on value
+            ``None``), if set to ``'ignore'`` this entity will not be valid.
+        :keyword firstToneName: tone for mark ``'1'`` under tone mark type
+            ``'numbers'`` for ambiguous mapping between tones *'HighLevel'* or
+            *'HighFalling'* under syllables without stop tones. For the latter
+            tone mark ``'1'`` will still resolve to *'HighLevel'*,
+            *'HighStopped'* or *'HighStopped_Short'* and *'HighStopped_Long'*
+            depending on the value of option ``'stopTones'``.
+        :keyword stopTones: if set to ``'none'`` the basic 6 (7) tones will be
             used and stop tones will be reported as one of them, if set to
-            C{'general'} the three stop tones will be included, if set to
-            C{'explicit'} the short and long forms will be explicitly supported.
+            ``'general'`` the three stop tones will be included, if set to
+            ``'explicit'`` the short and long forms will be explicitly
+            supported.
         """
         super(CantoneseIPAOperator, self).__init__(**options)
 
@@ -5202,11 +4687,11 @@ class CantoneseIPAOperator(TonalIPAOperator):
         """
         Splits the given plain syllable into onset (initial) and rhyme (final).
 
-        @type plainSyllable: str
-        @param plainSyllable: syllable in IPA without tone marks
-        @rtype: tuple of str
-        @return: tuple of syllable onset and rhyme
-        @raise InvalidEntityError: if the entity is invalid (e.g. syllable
+        :type plainSyllable: str
+        :param plainSyllable: syllable in IPA without tone marks
+        :rtype: tuple of str
+        :return: tuple of syllable onset and rhyme
+        :raise InvalidEntityError: if the entity is invalid (e.g. syllable
             nucleus or tone invalid).
         """
         table = self.db.tables['CantoneseIPAInitialFinal']
@@ -5269,14 +4754,15 @@ class CantoneseIPAOperator(TonalIPAOperator):
         Checks if the given plain entity and tone combination is valid.
 
         Only syllables with unreleased finals occur with stop tones, other forms
-        must not (see L{hasStopTone()}).
+        must not (see
+        :meth:`~cjklib.reading.operator.CantoneseIPAOperator.hasStopTone`).
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @type tone: str
-        @param tone: tone
-        @rtype: bool
-        @return: C{True} if given combination is valid, C{False} otherwise
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :type tone: str
+        :param tone: tone
+        :rtype: bool
+        :return: ``True`` if given combination is valid, ``False`` otherwise
         """
         if tone not in self.getTones():
             raise InvalidEntityError(
@@ -5307,10 +4793,10 @@ class CantoneseIPAOperator(TonalIPAOperator):
         Checks if the given plain syllable can occur with stop tones which is
         the case for syllables with unreleased finals.
 
-        @type plainEntity: str
-        @param plainEntity: entity without tonal information
-        @rtype: bool
-        @return: C{True} if given syllable can occur with stop tones, C{False}
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :rtype: bool
+        :return: ``True`` if given syllable can occur with stop tones, ``False``
             otherwise
         """
         return plainEntity in self._unreleasedFinalData
@@ -5319,12 +4805,12 @@ class CantoneseIPAOperator(TonalIPAOperator):
     def getBaseTone(cls, tone):
         """
         Gets the base tone for stop tones. The returned tone is one out of
-        L{CantoneseIPAOperator.TONES}.
+        :attr:`~cjklib.reading.operator.CantoneseIPAOperator.TONES`.
 
-        @type tone: str
-        @param tone: tone
-        @rtype: str
-        @return: base tone
+        :type tone: str
+        :param tone: tone
+        :rtype: str
+        :return: base tone
         """
         if tone == None or tone in cls.TONES:
             return tone
@@ -5343,13 +4829,13 @@ class CantoneseIPAOperator(TonalIPAOperator):
         more precise in denoting the vowel length that influences the tone
         contour.
 
-        @type plainEntity: str
-        @param plainEntity: syllable without tonal information
-        @type baseTone: str
-        @param baseTone: tone
-        @rtype: str
-        @return: explicit tone
-        @raise InvalidEntityError: if the entity is invalid.
+        :type plainEntity: str
+        :param plainEntity: syllable without tonal information
+        :type baseTone: str
+        :param baseTone: tone
+        :rtype: str
+        :return: explicit tone
+        :raise InvalidEntityError: if the entity is invalid.
         """
         # only need explicit tones
         if baseTone in self._stopToneLookup:
@@ -5370,11 +4856,11 @@ class CantoneseIPAOperator(TonalIPAOperator):
         """
         Gets the base tone for the given tone mark.
 
-        @type toneMark: str
-        @param toneMark: tone mark representation of the tone
-        @rtype: str
-        @return: tone
-        @raise InvalidEntityError: if the toneMark does not exist.
+        :type toneMark: str
+        :param toneMark: tone mark representation of the tone
+        :rtype: str
+        :return: tone
+        :raise InvalidEntityError: if the toneMark does not exist.
         """
         tone = super(CantoneseIPAOperator, self).getToneForToneMark(toneMark)
         # tone might be a explicit tone

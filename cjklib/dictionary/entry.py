@@ -186,7 +186,7 @@ class NamedTuple(object):
 
 class UnifiedHeadword(NamedTuple):
     """
-    Factory adding a simple X{Headword} key for CEDICT style dictionaries to
+    Factory adding a simple *Headword* key for CEDICT style dictionaries to
     provide results compatible with EDICT. An alternative headword is given in
     brackets if two different headword instances are provided in the entry.
     """

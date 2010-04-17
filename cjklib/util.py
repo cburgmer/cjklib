@@ -37,14 +37,14 @@ from sqlalchemy.types import String, Text
 
 def locateProjectFile(relPath, projectName='cjklib'):
     """
-    Locates a project file relative to the project's directory. Returns C{None}
-    if module C{pkg_resources} is not installed or package information is not
+    Locates a project file relative to the project's directory. Returns ``None``
+    if module ``pkg_resources`` is not installed or package information is not
     available.
 
-    @type relPath: str
-    @param relPath: path relative to project directory
-    @type projectName: str
-    @param projectName: name of project which will be used as name of the
+    :type relPath: str
+    :param relPath: path relative to project directory
+    :type projectName: str
+    :param projectName: name of project which will be used as name of the
         config file
     """
     try:
@@ -61,13 +61,13 @@ def getConfigSettings(section, projectName='cjklib'):
     """
     Reads the configuration from the given section of the project's config file.
 
-    @type section: str
-    @param section: section of the config file
-    @type projectName: str
-    @param projectName: name of project which will be used as name of the
+    :type section: str
+    :param section: section of the config file
+    :type projectName: str
+    :param projectName: name of project which will be used as name of the
         config file
-    @rtype: dict
-    @return: configuration settings for the given project
+    :rtype: dict
+    :return: configuration settings for the given project
     """
     # don't convert to lowercase
     h = ConfigParser.SafeConfigParser.optionxform
@@ -123,10 +123,10 @@ def getSearchPaths(projectName='cjklib'):
     """
     Gets a list of search paths for the given project.
 
-    @type projectName: str
-    @param projectName: name of project
-    @rtype: list
-    @return: list of search paths
+    :type projectName: str
+    :param projectName: name of project
+    :rtype: list
+    :return: list of search paths
     """
     searchPath = [
         # personal directory
@@ -182,8 +182,8 @@ def getDataPath():
     """
     Gets the path to packaged data.
 
-    @rtype: str
-    @return: path
+    :rtype: str
+    :return: path
     """
     dataDir = locateProjectFile('cjklib/data', 'cjklib')
     if not dataDir:
@@ -209,21 +209,23 @@ def titlecase(strng):
     Returns the string (without "word borders") in titlecase.
 
     This function is not designed to work for multi-entity strings in general
-    but rather for syllables with apostrophes (e.g. C{'Ch’ien1'}) and combining
-    diacritics (e.g. C{'Hm\\u0300h'}). It additionally needs to support cases
+    but rather for syllables with apostrophes (e.g. ``'Ch’ien1'``) and combining
+    diacritics (e.g. ``'Hm\\u0300h'``). It additionally needs to support cases
     where a multi-entity string can derive from a single entity as in the case
-    for I{GR} (e.g. C{'Shern.me'} for C{'Sherm'}).
+    for *GR* (e.g. ``'Shern.me'`` for ``'Sherm'``).
 
-    @type strng: str
-    @param strng:  a string
-    @rtype: str
-    @return: the given string in titlecase
-    @todo Impl: While this function is only needed as long Python doesn't ship
-        with a proper title casing algorithm as defined by Unicode, we need
-        a proper handling for I{Wade-Giles}, as I{Pinyin} I{Erhua} forms will
-        convert to two entities being separated by a hyphen, which does not fall
-        in to the Unicode title casing algorithm's definition of a
-        case-ignorable character.
+    :type strng: str
+    :param strng:  a string
+    :rtype: str
+    :return: the given string in titlecase
+
+    .. todo::
+        * Impl: While this function is only needed as long Python doesn't ship
+          with a proper title casing algorithm as defined by Unicode, we need
+          a proper handling for *Wade-Giles*, as *Pinyin* *Erhua* forms will
+          convert to two entities being separated by a hyphen, which does not
+          fall in to the Unicode title casing algorithm's definition of a
+          case-ignorable character.
     """
     matchObj = _FIRST_NON_CASE_IGNORABLE.match(strng.lower())
     if matchObj:
@@ -234,10 +236,10 @@ def istitlecase(strng):
     """
     Checks if the given string is in titlecase.
 
-    @type strng: str
-    @param strng:  a string
-    @rtype: bool
-    @return: C{True} if the given string is in titlecase according to
+    :type strng: str
+    :param strng:  a string
+    :rtype: bool
+    :return: ``True`` if the given string is in titlecase according to
         L{titlecase()}.
     """
     return titlecase(strng) == strng
@@ -357,10 +359,10 @@ class UnicodeCSVFileIterator(object):
         be ignored. The first line after the leading comments will be used to
         guess the csv file's format.
 
-        @type fileHandle: file
-        @param fileHandle: file handle of the CSV file
-        @rtype: instance
-        @return: CSV reader object returning one entry per line
+        :type fileHandle: file
+        :param fileHandle: file handle of the CSV file
+        :rtype: instance
+        :return: CSV reader object returning one entry per line
         """
         def prependLineGenerator(line, data):
             """
@@ -395,12 +397,13 @@ class UnicodeCSVFileIterator(object):
 class ExtendedOption(Option):
     """
     Extends optparse by adding:
-        - bool type, boolean can be set by C{True} or C{False}, no one-way
-          setting
-        - path type, a list of paths given in one string separated by a colon
-          C{':'}
-        - extend action that resets a default value for user specified options
-        - append action that resets a default value for user specified options
+
+    - bool type, boolean can be set by ``True`` or ``False``, no one-way
+      setting
+    - path type, a list of paths given in one string separated by a colon
+      ``':'``
+    - extend action that resets a default value for user specified options
+    - append action that resets a default value for user specified options
     """
     # taken from ConfigParser.RawConfigParser
     _boolean_states = {'1': True, 'yes': True, 'true': True, 'on': True,
@@ -455,7 +458,7 @@ class ExtendedOption(Option):
 class _CollationMixin(object):
     def __init__(self, collation=None, **kwargs):
         """
-        @param collation: Optional, a column-level collation for this string
+        :param collation: Optional, a column-level collation for this string
           value.
         """
         self.collation = kwargs.get('collate', collation)
@@ -480,7 +483,7 @@ class CollationString(_CollationMixin, String):
         """
         Construct a VARCHAR.
 
-        @param collation: Optional, a column-level collation for this string
+        :param collation: Optional, a column-level collation for this string
           value.
         """
         String.__init__(self, length, kwargs.get('convert_unicode', False),
@@ -499,7 +502,7 @@ class CollationText(_CollationMixin, Text):
         """
         Construct a TEXT.
 
-        @param collation: Optional, a column-level collation for this string
+        :param collation: Optional, a column-level collation for this string
           value.
         """
         Text.__init__(self, length, kwargs.get('convert_unicode', False),
@@ -584,9 +587,11 @@ if sys.version_info >= (2, 5):
     import functools
 
     def deprecated(func):
-        """This is a decorator which can be used to mark functions
+        """
+        Decorator which can be used to mark functions
         as deprecated. It will result in a warning being emitted
-        when the function is used."""
+        when the function is used.
+        """
         @functools.wraps(func)
         def new_func(*args, **kwargs):
             warnings.warn("Call to deprecated function %s." % func.__name__,
@@ -597,9 +602,11 @@ else:
     import warnings
 
     def deprecated(func):
-        """This is a decorator which can be used to mark functions
+        """
+        Decorator which can be used to mark functions
         as deprecated. It will result in a warning being emitted
-        when the function is used."""
+        when the function is used.
+        """
         def new_func(*args, **kwargs):
             warnings.warn("Call to deprecated function %s." % func.__name__,
                 category=DeprecationWarning, stacklevel=2)
@@ -711,7 +718,8 @@ else:
 
         def __init__(self, *args, **kwds):
             if len(args) > 1:
-                raise TypeError('expected at most 1 arguments, got %d' % len(args))
+                raise TypeError('expected at most 1 arguments, got %d'
+                    % len(args))
             try:
                 self.__end
             except AttributeError:
@@ -720,8 +728,8 @@ else:
 
         def clear(self):
             self.__end = end = []
-            end += [None, end, end]         # sentinel node for doubly linked list
-            self.__map = {}                 # key --> [key, prev, next]
+            end += [None, end, end]      # sentinel node for doubly linked list
+            self.__map = {}              # key --> [key, prev, next]
             dict.clear(self)
 
         def __setitem__(self, key, value):

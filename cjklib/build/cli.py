@@ -16,8 +16,10 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Command line interface (I{CLI}) to the library's build functionality.
-@bug: "Prefer" system does not work for additional builders
+Command line interface (*CLI*) to the library's build functionality.
+
+.. todo::
+    * bug: "Prefer" system does not work for additional builders
 """
 
 import sys
@@ -35,7 +37,7 @@ from cjklib.util import getConfigSettings, getDataPath, ExtendedOption
 
 class CommandLineBuilder(object):
     """
-    I{Command line interface} (X{CLI}) to the build functionality of cjklib.
+    *Command line interface* (CLI) to the build functionality of cjklib.
     """
     DESCRIPTION = """Builds the database for the cjklib library.
 The database is accessed according to the settings of cjklib in cjklib.conf.
@@ -140,12 +142,12 @@ format --BuilderName-option or --TableName-option, e.g.
         Formats the given input string to fit to a output with a limited line
         length and prints it to stdout with the systems encoding.
 
-        @type outputString: str
-        @param outputString: a string that is formated to fit to the screen
-        @type lineLength: int
-        @param lineLength: with of screen
-        @type subsequentPrefix: str
-        @param subsequentPrefix: prefix used after line break
+        :type outputString: str
+        :param outputString: a string that is formated to fit to the screen
+        :type lineLength: int
+        :param lineLength: with of screen
+        :type subsequentPrefix: str
+        :param subsequentPrefix: prefix used after line break
         """
         if lineLength is None:
             try:
@@ -161,8 +163,8 @@ format --BuilderName-option or --TableName-option, e.g.
             output = ''
             while outputEntityList:
                 entity = outputEntityList.pop()
-                # if the next entity including one trailing space will reach over,
-                # break the line
+                # if the next entity including one trailing space will
+                # reach over, break the line
                 if column > 0 and len(entity) + column >= lineLength:
                     output = output + "\n" + subsequentPrefix + entity
                     column = len(subsequentPrefix) + len(entity)
@@ -183,10 +185,11 @@ format --BuilderName-option or --TableName-option, e.g.
     @classmethod
     def getBuilderConfigSettings(cls):
         """
-        Gets the builder settings from the section C{Builder} from cjklib.conf.
+        Gets the builder settings from the section ``Builder`` from
+        ```cjklib.conf```.
 
-        @rtype: dict
-        @return: dictionary of builder options
+        :rtype: dict
+        :return: dictionary of builder options
         """
         configOptions = getConfigSettings('Builder')
         # don't convert to lowercase
@@ -230,8 +233,8 @@ format --BuilderName-option or --TableName-option, e.g.
         """
         Gets the connections settings from cjklib.conf.
 
-        @rtype: dict
-        @return: dictionary of connection options
+        :rtype: dict
+        :return: dictionary of connection options
         """
         options = {}
         config = dbconnector.getDefaultConfiguration()
@@ -247,9 +250,9 @@ format --BuilderName-option or --TableName-option, e.g.
     def getDefaultOptions(cls, includeConfig=True):
         """
         Gets default options that always overwrite those specified in the build
-        module.
-        Boolean options of the L{DatabaseBuilder} can not be changed here as
-        they are hardcoded in the given command line options.
+        module. Boolean options of the :class:`~cjklib.build.DatabaseBuilder`
+        can not be changed here as they are hardcoded in the given command line
+        options.
         """
         options = {}
         # dataPath

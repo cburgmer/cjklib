@@ -16,16 +16,15 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Command line interface (I{CLI}) to the library's functionality.
+*Command line interface* (*CLI*) to the library's functionality.
 
-Check what this script offers on the command line with C{cjknife -h}.
+Check what this script offers on the command line with ``cjknife -h``.
 
 The script's output depends on the following:
-    - dictionary setting in the cjklib's config file
-    - user locale settings are checked to guess appropriate values for the
-        character locale and the default input and output readings
 
-@copyright: Copyright (C) 2006-2010 cjklib developers
+- dictionary setting in the cjklib's config file
+- user locale settings are checked to guess appropriate values for the
+    character locale and the default input and output readings
 """
 
 __all__ = ["CharacterInfo"]
@@ -92,18 +91,18 @@ class CharacterInfo:
         """
         Initialises the CharacterInfo object.
 
-        @type charLocale: str
-        @param charLocale: I{character locale} (one out of TCJKV)
-        @type characterDomain: str
-        @param characterDomain: I{character domain} (see
+        :type charLocale: str
+        :param charLocale: *character locale* (one out of TCJKV)
+        :type characterDomain: str
+        :param characterDomain: *character domain* (see
             L{characterlookup.CharacterLookup.getAvailableCharacterDomains()})
-        @type readingN: str
-        @param readingN: name of reading
-        @type dictionaryN: str
-        @param dictionaryN: name of dictionary
-        @type dictionaryDatabaseUrl: str
-        @param dictionaryDatabaseUrl: database connection setting in the format
-            C{driver://user:pass@host/database}.
+        :type readingN: str
+        :param readingN: name of reading
+        :type dictionaryN: str
+        :param dictionaryN: name of dictionary
+        :type dictionaryDatabaseUrl: str
+        :param dictionaryDatabaseUrl: database connection setting in the format
+            ``driver://user:pass@host/database``.
         """
         if dictionaryN:
             dictObj = dictionary.getDictionaryClass(dictionaryN)
@@ -163,8 +162,8 @@ class CharacterInfo:
         Guesses the best suited character locale using the user's locale
         settings.
 
-        @rtype: str
-        @return: locale
+        :rtype: str
+        :return: locale
         """
         # get local language and output encoding
         language, _ = locale.getdefaultlocale()
@@ -183,8 +182,8 @@ class CharacterInfo:
         """
         Guesses the best suited reading using the user's locale settings.
 
-        @rtype: str
-        @return: reading name
+        :rtype: str
+        :return: reading name
         """
         # get local language and output encoding
         language, _ = locale.getdefaultlocale()
@@ -203,8 +202,8 @@ class CharacterInfo:
         """
         Gets a list of available dictionaries supported.
 
-        @rtype: list of str
-        @return: names of available dictionaries
+        :rtype: list of str
+        :return: names of available dictionaries
         """
         if not hasattr(self, '_availableDictionaries'):
             self._availableDictionaries = [dic.PROVIDES for dic in
@@ -233,12 +232,12 @@ class CharacterInfo:
         Guesses the reading options using the given string to support reading
         dialects.
 
-        @type string: str
-        @param string: reading string
-        @type readingN: str
-        @param readingN: reading name
-        @rtype: dict
-        @returns: reading options
+        :type string: str
+        :param string: reading string
+        :type readingN: str
+        :param readingN: reading name
+        :rtype: dict
+        :return: reading options
         """
         # guess reading parameters
         classObj = self.readingFactory.getReadingOperatorClass(readingN)
@@ -253,20 +252,22 @@ class CharacterInfo:
         Gets a list structure of equivalent chars for the given list of
         characters.
 
-        If option C{includeEquivalentRadicalForms} is set, all equivalent forms
+        If option ``includeEquivalentRadicalForms`` is set, all equivalent forms
         will be searched for when a Kangxi radical is given.
 
-        @type componentList: list of str
-        @param componentList: list of character components
-        @type includeEquivalentRadicalForms: bool
-        @param includeEquivalentRadicalForms: if C{True} then characters in the
+        :type componentList: list of str
+        :param componentList: list of character components
+        :type includeEquivalentRadicalForms: bool
+        :param includeEquivalentRadicalForms: if ``True`` then characters in the
             given component list are interpreted as representatives for their
             radical and all radical forms are included in the search. E.g. 肉
             will include ⺼ as a possible component.
-        @rtype: list of list of str
-        @return: list structure of equivalent characters
-        @todo Impl: Once mapping of similar radical forms exist (e.g. 言 and 訁)
-            include here.
+        :rtype: list of list of str
+        :return: list structure of equivalent characters
+
+        .. todo::
+            * Impl: Once mapping of similar radical forms exist (e.g. 言 and 訁)
+              include here.
         """
         # components for which we don't want to retrieve a equivalent character
         #   as it would resemble another radical form
@@ -313,13 +314,13 @@ class CharacterInfo:
         Checks if the character is a semantic variant form of the given
         characters.
 
-        @type char: str
-        @param char: Chinese character
-        @type variants: list of str
-        @param variants: Chinese characters
-        @rtype: bool
-        @return: C{True} if the character is a semantic variant form of the
-            given characters, C{False} otherwise.
+        :type char: str
+        :param char: Chinese character
+        :type variants: list of str
+        :param variants: Chinese characters
+        :rtype: bool
+        :return: ``True`` if the character is a semantic variant form of the
+            given characters, ``False`` otherwise.
         """
         vVariants = []
         for variant in variants:
@@ -335,30 +336,32 @@ class CharacterInfo:
         """
         Converts a string in the source reading to the given target reading.
 
-        @type readingString: str
-        @param readingString: string written in the source reading
-        @type fromReading: str
-        @param fromReading: name of the source reading
-        @type toReading: str
-        @param toReading: name of the target reading
-        @rtype: str
-        @returns: the input string converted to the C{toReading}
-        @raise DecompositionError: if the string can not be decomposed into
+        :type readingString: str
+        :param readingString: string written in the source reading
+        :type fromReading: str
+        :param fromReading: name of the source reading
+        :type toReading: str
+        :param toReading: name of the target reading
+        :rtype: str
+        :return: the input string converted to the ``toReading``
+        :raise DecompositionError: if the string can not be decomposed into
             basic entities with regards to the source reading or the given
             information is insufficient.
-        @raise CompositionError: if the target reading's entities can not be
+        :raise CompositionError: if the target reading's entities can not be
             composed.
-        @raise ConversionError: on operations specific to the conversion between
+        :raise ConversionError: on operations specific to the conversion between
             the two readings (e.g. error on converting entities).
-        @raise UnsupportedError: if source or target reading is not supported
+        :raise UnsupportedError: if source or target reading is not supported
             for conversion.
-        @todo Fix:  Conversion without tones will mostly break as the target
-            reading doesn't support missing tone information. Prefering
-            'diacritic' version (Pinyin/CantoneseYale) over 'numbers' as tone
-            marks in the absence of any marks would solve this issue (forcing
-            fifth tone), but would mean we prefer possible false information
-            over the less specific estimation of the given entities as missing
-            tonal information.
+
+        .. todo::
+            * Fix: Conversion without tones will mostly break as the target
+              reading doesn't support missing tone information. Prefering
+              'diacritic' version (Pinyin/CantoneseYale) over 'numbers' as
+              tone marks in the absence of any marks would solve this issue
+              (forcing fifth tone), but would mean we prefer possible false
+              information over the less specific estimation of the given
+              entities as missing tonal information.
         """
         if not toReading:
             toReading = self.reading
@@ -371,10 +374,10 @@ class CharacterInfo:
         Gets all characters for the given Kangxi radical index grouped by their
         residual stroke count.
 
-        @type radicalIndex: int
-        @param radicalIndex: Kangxi radical index
-        @rtype: list of str
-        @return: list of matching Chinese characters
+        :type radicalIndex: int
+        :param radicalIndex: Kangxi radical index
+        :rtype: list of str
+        :return: list of matching Chinese characters
         """
         strokeCountDict = {}
         for char, residualStrokeCount \
@@ -391,15 +394,15 @@ class CharacterInfo:
         """
         Gets all know characters for the given reading.
 
-        @type readingString: str
-        @param readingString: reading entity for lookup
-        @type readingN: str
-        @param readingN: name of reading
-        @rtype: list of str
-        @return: list of characters for the given reading
-        @raise UnsupportedError: if no mapping between characters and target
+        :type readingString: str
+        :param readingString: reading entity for lookup
+        :type readingN: str
+        :param readingN: name of reading
+        :rtype: list of str
+        :return: list of characters for the given reading
+        :raise UnsupportedError: if no mapping between characters and target
             reading exists.
-        @raise ConversionError: if conversion from the internal source reading
+        :raise ConversionError: if conversion from the internal source reading
             to the given target reading fails.
         """
         if not readingN:
@@ -412,13 +415,13 @@ class CharacterInfo:
         """
         Gets a list of readings for a given character string.
 
-        @type charString: str
-        @param charString: string of Chinese characters
-        @rtype: list of list of str
-        @return: a list of readings per character
-        @raise exception.UnsupportedError: raised when a translation from
+        :type charString: str
+        :param charString: string of Chinese characters
+        :rtype: list of list of str
+        :return: a list of readings per character
+        :raise exception.UnsupportedError: raised when a translation from
             character to reading is not supported by the given target reading
-        @raise exception.ConversionError: if conversion for the string is not
+        :raise exception.ConversionError: if conversion for the string is not
             supported
         """
         readings = []
@@ -436,10 +439,10 @@ class CharacterInfo:
         Gets the Chinese simplified character representation for the given
         character string.
 
-        @type charString: str
-        @param charString: string of Chinese characters
-        @rtype: list of list of str
-        @returns: list of simplified Chinese characters
+        :type charString: str
+        :param charString: string of Chinese characters
+        :rtype: list of list of str
+        :return: list of simplified Chinese characters
         """
         simplified = []
         for char in charString:
@@ -458,11 +461,13 @@ class CharacterInfo:
         Gets the traditional character representation for the given character
         string.
 
-        @type charString: str
-        @param charString: string of Chinese characters
-        @rtype: list of list of str
-        @returns: list of simplified Chinese characters
-        @todo Lang: Implementation is too simple to cover all aspects.
+        :type charString: str
+        :param charString: string of Chinese characters
+        :rtype: list of list of str
+        :return: list of simplified Chinese characters
+
+        .. todo::
+            * Lang: Implementation is too simple to cover all aspects.
         """
         traditional = []
         for char in charString:
@@ -480,12 +485,12 @@ class CharacterInfo:
         """
         Searches the dictionary for matches of the given string.
 
-        @type searchString: str
-        @param searchString: search string
-        @type readingN: str
-        @param readingN: reading name
-        @type limit: int
-        @param limit: maximum number of entries
+        :type searchString: str
+        :param searchString: search string
+        :type readingN: str
+        :param readingN: reading name
+        :type limit: int
+        :param limit: maximum number of entries
         """
         if not hasattr(self, '_dictInstance'):
             dictObj = dictionary.getDictionaryClass(
@@ -522,21 +527,23 @@ class CharacterInfo:
         u"""
         Gets all characters that contain the given components.
 
-        If option C{includeEquivalentRadicalForms} is set, all equivalent forms
+        If option ``includeEquivalentRadicalForms`` is set, all equivalent forms
         will be searched for when a Kangxi radical is given.
 
-        @type componentList: list of str
-        @param componentList: list of character components
-        @type includeEquivalentRadicalForms: bool
-        @param includeEquivalentRadicalForms: if C{True} then characters in the
+        :type componentList: list of str
+        :param componentList: list of character components
+        :type includeEquivalentRadicalForms: bool
+        :param includeEquivalentRadicalForms: if ``True`` then characters in the
             given component list are interpreted as representatives for their
             radical and all radical forms are included in the search. E.g. 肉
             will include ⺼ as a possible component.
-        @rtype: list of tuple
-        @return: list of pairs of matching characters and their I{glyphs}
-        @raise ValueError: if an invalid I{character locale} is specified
-        @todo Impl: Once mapping of similar radical forms exist (e.g. 言 and 訁)
-            include here.
+        :rtype: list of tuple
+        :return: list of pairs of matching characters and their *glyphs*
+        :raise ValueError: if an invalid *character locale* is specified
+
+        .. todo::
+            * Impl: Once mapping of similar radical forms exist (e.g. 言 and 訁)
+              include here.
         """
         equivCharTable = self.getEquivalentCharTable(componentList,
             includeEquivalentRadicalForms)
@@ -557,20 +564,20 @@ class CharacterInfo:
             - code point hex
             - code point dec
             - type
-            - equivalent form (if type is C{'radical'})
+            - equivalent form (if type is ``'radical'``)
             - radical index
             - radical form (if available)
             - radical variants (if available)
             - stroke count (if available)
-            - readings (if type is C{'character'})
-            - variants (if type is C{'character'})
+            - readings (if type is ``'character'``)
+            - variants (if type is ``'character'``)
             - default glyph
             - glyphs
 
-        @type char: str
-        @param char: Chinese character
-        @rtype: dict
-        @return: character information as keyword value pairs
+        :type char: str
+        :param char: Chinese character
+        :rtype: dict
+        :return: character information as keyword value pairs
         """
         infoDict = {}
 
@@ -722,12 +729,12 @@ def getPrintableList(stringList, joinString = ""):
     """
     Gets a printable representation for the given list.
 
-    @type stringList: list of list of str
-    @param stringList: strings that need to be concatenated for output
-    @type joinString: str
-    @param joinString: string that concatenates the different values
-    @rtype: str
-    @return: printable representation for the given list
+    :type stringList: list of list of str
+    :param stringList: strings that need to be concatenated for output
+    :type joinString: str
+    :param joinString: string that concatenates the different values
+    :rtype: str
+    :return: printable representation for the given list
     """
     joinedStringList = []
     for elem in stringList:
@@ -741,10 +748,10 @@ def getDecompositionForList(decompositionList):
     """
     Gets a fixed width string representation of the given decompositions.
 
-    @type decompositionList: list
-    @param decompositionList: a list of character decompositions
-    @rtype: list of str
-    @return: string representation of decomposition
+    :type decompositionList: list
+    :param decompositionList: a list of character decompositions
+    :rtype: list of str
+    :return: string representation of decomposition
     """
     # process a list of different decompositions
     stringList = []
@@ -756,10 +763,10 @@ def getDecompositionForEntry(decomposition):
     """
     Gets a fixed width string representation of the given decomposition.
 
-    @type decomposition: list
-    @param decomposition: character decomposition tree
-    @rtype: list of str
-    @return: string representation of decomposition
+    :type decomposition: list
+    :param decomposition: character decomposition tree
+    :rtype: list of str
+    :return: string representation of decomposition
     """
     # process one character of a decompositions
     stringList = [""]

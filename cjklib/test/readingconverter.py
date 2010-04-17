@@ -16,10 +16,12 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for L{reading.converter}.
+Unit tests for :mod:`cjklib.reading.converter`.
 
-@todo Impl: Add second dimension to consistency check for converting between
-    dialect forms for all entities. Use cartesian product option_list x dialects
+.. todo::
+    * Impl: Add second dimension to consistency check for converting between
+      dialect forms for all entities. Use cartesian product
+      ``option_list x dialects``
 """
 
 # pylint: disable-msg=E1101
@@ -36,7 +38,9 @@ from cjklib.test import NeedsDatabaseTest, attr
 from cjklib.util import titlecase, istitlecase
 
 class ReadingConverterTest(NeedsDatabaseTest):
-    """Base class for testing of L{ReadingConverter}s."""
+    """
+    Base class for testing of
+    :class:`~cjklib.reading.converter.ReadingConverter` classes."""
     CONVERSION_DIRECTION = None
     """Tuple of reading names for conversion from reading A to reading B."""
 
@@ -66,11 +70,11 @@ class ReadingConverterTest(NeedsDatabaseTest):
     def getReadingConverterClasses():
         """
         Gets all classes from the reading module that implement
-        L{ReadingConverter}.
+        :class:`~cjklib.reading.converter.ReadingConverter`.
 
-        @rtype: dictionary of string class pairs
-        @return: dictionary of all classes inheriting form
-            L{ReadingConverter}
+        :rtype: dictionary of string class pairs
+        :return: dictionary of all classes inheriting form
+            :class:`~cjklib.reading.converter.ReadingConverter`
         """
         readingConverterClasses = {}
 
@@ -89,11 +93,14 @@ class ReadingConverterTest(NeedsDatabaseTest):
 
 
 class ReadingConverterConsistencyTest(ReadingConverterTest):
-    """Base class for consistency testing of L{ReadingConverter}s."""
+    """
+    Base class for consistency testing of
+    :class:`~cjklib.reading.converter.ReadingConverter` classes.
+    """
 
     OPTIONS_LIST = []
     """
-    List of option configurations, simmilar to C{test.readingoperator.DIALECTS}.
+    List of option configurations, simmilar to ``test.readingoperator.DIALECTS``.
     """
 
     FROM_DIALECTS = []
@@ -129,7 +136,7 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
 
     def testDefaultOptions(self):
         """
-        Test if option dict returned by C{getDefaultOptions()} is well-formed
+        Test if option dict returned by ``getDefaultOptions()`` is well-formed
         and includes all options found in the test case's options.
         """
         defaultOptions = self.readingConverterClass.getDefaultOptions()
@@ -333,8 +340,9 @@ class ReadingConverterConsistencyTest(ReadingConverterTest):
 
 class ReadingConverterTestCaseCheck(NeedsDatabaseTest, unittest.TestCase):
     """
-    Checks if every L{ReadingConverter} has its own
-    L{ReadingConverterConsistencyTest}.
+    Checks if every :class:`~cjklib.reading.converter.ReadingConverter` has
+    its own
+    :class:`~cjklib.test.readingconverter.ReadingConverterConsistencyTest`.
     """
     def testEveryConverterHasConsistencyTest(self):
         """
@@ -354,11 +362,12 @@ class ReadingConverterTestCaseCheck(NeedsDatabaseTest, unittest.TestCase):
     @staticmethod
     def getReadingConverterConsistencyTestClasses():
         """
-        Gets all classes implementing L{ReadingConverterConsistencyTest}.
+        Gets all classes implementing
+        :class:`cjklib.test.readingconverter.ReadingConverterConsistencyTest`.
 
-        @rtype: list
-        @return: list of all classes inheriting form
-            L{ReadingConverterConsistencyTest}
+        :rtype: list
+        :return: list of all classes inheriting form
+            :class:`cjklib.test.readingconverter.ReadingConverterConsistencyTest`
         """
         # get all non-abstract classes that inherit from
         #   ReadingConverterConsistencyTest
@@ -374,12 +383,13 @@ class ReadingConverterTestCaseCheck(NeedsDatabaseTest, unittest.TestCase):
 
 class ReadingConverterReferenceTest(ReadingConverterTest):
     """
-    Base class for testing of references against L{ReadingConverter}s.
+    Base class for testing of references against
+    :class:`~cjklib.reading.converter.ReadingConverter` classes.
     These tests assure that the given values are returned correctly.
     """
     CONVERSION_REFERENCES = []
     """
-    References to test C{decompose()} operation.
+    References to test ``decompose()`` operation.
     List of options/reference tuples, schema:
     ({options, sourceOptions={}, targetOptions={}}, [(reference, target)])
     """
@@ -1069,7 +1079,7 @@ class WadeGilesPinyinReferenceTest(ReadingConverterReferenceTest,
     u"""
     Conversion table from the  Library of Congress Pinyin Conversion Project -
     New Chinese Romanization Guidelines:
-    U{http://www.loc.gov/catdir/pinyin/romcover.html}, 28.05.1999
+    http://www.loc.gov/catdir/pinyin/romcover.html, 28.05.1999
     This list contains syllables taken from Dìmíng Hànzì Yìyīnbiǎo (名漢字譯音表,
     1971) and ALA-LC romanization tables (1997) for the Wade-Giles parts and
     furthermore Xiàndài Hànyǔ Cídiǎn (现代汉语词典, 1983) for the Pinyin parts.

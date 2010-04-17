@@ -17,39 +17,6 @@
 
 """
 Builds the library's database.
-
-Each table that needs to be created has to be implemented by subclassing a
-L{TableBuilder}. The L{DatabaseBuilder} is the central instance for managing the
-build process. As the creation of a table can depend on other tables the
-DatabaseBuilder keeps track of dependencies to process a build in the correct
-order.
-
-Building is tested on the following storage methods:
-    - SQLite
-    - MySQL
-
-Examples
-========
-The following examples should give a quick view into how to use this
-package.
-    - Create the DatabaseBuilder object with default settings (read from
-        cjklib.conf or using 'cjklib.db' in same directory as default):
-
-        >>> from cjklib import build
-        >>> dbBuilder = build.DatabaseBuilder(dataPath=['./cjklib/data/'])
-        Removing conflicting builder(s) 'StrokeCountBuilder' in favour of \
-'CombinedStrokeCountBuilder'
-        Removing conflicting builder(s) 'CharacterResidualStrokeCountBuilder' \
-in favour of 'CombinedCharacterResidualStrokeCountBuilder'
-
-    - Build the table of Jyutping syllables from a csv file:
-
-        >>> dbBuilder.build(['JyutpingSyllables'])
-        building table 'JyutpingSyllables' with builder
-        'JyutpingSyllablesBuilder'...
-        Reading table definition from file './cjklib/data/jyutpingsyllables.sql'
-        Reading table 'JyutpingSyllables' from file
-        './cjklib/data/jyutpingsyllables.csv'
 """
 
 __all__ = ["DatabaseBuilder"]
@@ -70,32 +37,32 @@ class DatabaseBuilder:
     DatabaseBuilder provides the main class for building up a database for the
     cjklib package.
 
-    It contains all L{TableBuilder} classes and a dependency graph to handle
-    build requests.
+    It contains all :class:`~cjklib.build.builder.TableBuilder` classes and a
+    dependency graph to handle build requests.
     """
     def __init__(self, **options):
         """
-        Constructs the DatabaseBuilder.
+        To modify the behaviour of :class:`~cjklib.build.builder.TableBuilder`
+        instances, global or local options can be specified, see
+        :meth:`~cjklib.build.builder.TableBuilder.getBuilderOptions`.
 
-        To modify the behaviour of L{TableBuilder}s global or local options can
-        be specified, see L{getBuilderOptions()}.
-
-        @keyword databaseUrl: database connection setting in the format
-            C{driver://user:pass@host/database}.
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword dataPath: optional list of paths to the data file(s)
-        @keyword quiet: if C{True} no status information will be printed to
+        :keyword databaseUrl: database connection setting in the format
+            ``driver://user:pass@host/database``.
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`
+        :keyword dataPath: optional list of paths to the data file(s)
+        :keyword quiet: if ``True`` no status information will be printed to
             stderr
-        @keyword rebuildDepending: if C{True} existing tables that depend on
+        :keyword rebuildDepending: if ``True`` existing tables that depend on
             updated tables will be dropped and built from scratch
-        @keyword rebuildExisting: if C{True} existing tables will be dropped and
-            built from scratch
-        @keyword noFail: if C{True} build process won't terminate even if one
+        :keyword rebuildExisting: if ``True`` existing tables will be
+            dropped and built from scratch
+        :keyword noFail: if ``True`` build process won't terminate even if one
             table fails to build
-        @keyword prefer: list of L{TableBuilder} names to prefer in conflicting
-            cases
-        @keyword additionalBuilders: list of externally provided TableBuilders
-        @raise ValueError: if two different options from two different builder
+        :keyword prefer: list of :class:`~cjklib.build.builder.TableBuilder`
+            names to prefer in conflicting cases
+        :keyword additionalBuilders: list of externally provided TableBuilders
+        :raise ValueError: if two different options from two different builder
             collide.
         """
         if 'dataPath' not in options:
@@ -125,7 +92,7 @@ class DatabaseBuilder:
         else:
             self.db = dbconnector.getDBConnector(
                 {'sqlalchemy.url': databaseUrl})
-            """L{DatabaseConnector} instance"""
+            """:class:`~cjklib.dbconnector.DatabaseConnector` instance"""
 
         # get TableBuilder classes
         tableBuilderClasses = DatabaseBuilder.getTableBuilderClasses(
@@ -149,22 +116,23 @@ class DatabaseBuilder:
         Gets a dictionary of options for the given builder that were specified
         to the DatabaseBuilder.
 
-        Options included are I{global} options understood by the builder (e.g.
-        C{'dataPath'}) or I{local} options given in the formats
-        C{'--BuilderClassName-option'} or C{'--TableName-option'}. For example
-        C{'--Unihan-wideBuild'} sets the option C{'wideBuild'} for all builders
-        providing the C{Unihan} table. C{'--BuilderClassName-option'} has
-        precedence over C{'--TableName-option'}.
+        Options included are *global* options understood by the builder (e.g.
+        ``'dataPath'``) or *local* options given in the formats
+        ``'--BuilderClassName-option'`` or ``'--TableName-option'``. For
+        example ``'--Unihan-wideBuild'`` sets the option ``'wideBuild'``
+        for all builders providing the ``Unihan`` table.
+        ``'--BuilderClassName-option'`` has precedence over
+        ``'--TableName-option'``.
 
-        @type builderClass: classobj
-        @param builderClass: L{TableBuilder} class
-        @rtype: dict
-        @return: dictionary of options for the given table builder.
-        @type ignoreUnknown: bool
-        @param ignoreUnknown: if set to C{True} unknown options will be ignored,
-            otherwise a ValueError is raised.
-        @raise ValueError: if unknown option is specified and ignoreUnknown is
-            C{False}
+        :type builderClass: classobj
+        :param builderClass: :class:`~cjklib.build.builder.TableBuilder` class
+        :type ignoreUnknown: bool
+        :param ignoreUnknown: if set to ``True`` unknown options will be
+            ignored, otherwise a ValueError is raised.
+        :rtype: dict
+        :return: dictionary of options for the given table builder.
+        :raise ValueError: if unknown option is specified and ignoreUnknown is
+            ``False``
         """
         understoodOptions = builderClass.getDefaultOptions()
 
@@ -204,14 +172,14 @@ class DatabaseBuilder:
         """
         Sets the options for the given builder that were specified.
 
-        @type builderClass: classobj
-        @param builderClass: L{TableBuilder} class
-        @type options: dict
-        @param options: dictionary of options for the given table builder.
-        @type exclusive: bool
-        @param exclusive: if set to C{True} unspecified options will be set to
+        :type builderClass: classobj
+        :param builderClass: :class:`~cjklib.build.builder.TableBuilder` class
+        :type options: dict
+        :param options: dictionary of options for the given table builder.
+        :type exclusive: bool
+        :param exclusive: if set to ``True`` unspecified options will be set to
             the default value.
-        @raise ValueError: if unknown option is specified
+        :raise ValueError: if unknown option is specified
         """
         understoodOptions = builderClass.getDefaultOptions()
         newOptions = {}
@@ -235,10 +203,10 @@ class DatabaseBuilder:
         """
         Builds the given tables.
 
-        @type tables: list
-        @param tables: list of tables to build
-        @raise IOError: if a table builder fails to read its data; only if
-            L{noFail} is set to C{False}
+        :type tables: list
+        :param tables: list of tables to build
+        :raise IOError: if a table builder fails to read its data; only if
+            :attr:`~cjklib.build.DatabaseBuilder.noFail` is set to ``False``
         """
         if type(tables) != type([]):
             tables = [tables]
@@ -361,7 +329,8 @@ class DatabaseBuilder:
     def clearTemporary(self):
         """
         Removes all tables only built temporarily as to satisfy build
-        dependencies. This method is called before L{build()} terminates. If the
+        dependencies. This method is called before
+        :meth:`~cjklib.build.DatabaseBuilder.build` terminates. If the
         build process is interruptes (e.g. by the user pressing Ctrl+C), this
         method should be called as to make sure that these temporary tables are
         removed and not included in later builds.
@@ -386,11 +355,11 @@ class DatabaseBuilder:
         """
         Removes the given tables from the main database.
 
-        @type tables: list
-        @param tables: list of tables to remove
-        @raise UnsupportedError: if an unsupported table is given.
-        @rtype: list
-        @return: names of deleted tables, might be smaller than the actual list
+        :type tables: list
+        :param tables: list of tables to remove
+        :raise UnsupportedError: if an unsupported table is given.
+        :rtype: list
+        :return: names of deleted tables, might be smaller than the actual list
         """
         if type(tables) != type([]):
             tables = [tables]
@@ -423,13 +392,13 @@ class DatabaseBuilder:
 
     def needsRebuild(self, tableName):
         """
-        Returns C{True} if either rebuild is turned on by default or the table
+        Returns ``True`` if either rebuild is turned on by default or the table
         does not exist yet in any of the databases.
 
-        @type tableName: str
-        @param tableName: table name
-        @rtype: bool
-        @return: C{True}, if table needs to be rebuilt
+        :type tableName: str
+        :param tableName: table name
+        :rtype: bool
+        :return: ``True``, if table needs to be rebuilt
         """
         if self.rebuildExisting:
             return True
@@ -441,10 +410,10 @@ class DatabaseBuilder:
         Gets the name of the tables that needs to be built to resolve
         dependencies.
 
-        @type tableNames: list of str
-        @param tableNames: list of tables to build
-        @rtype: list of str
-        @return: names of tables needed to resolve dependencies
+        :type tableNames: list of str
+        :param tableNames: list of tables to build
+        :rtype: list of str
+        :return: names of tables needed to resolve dependencies
         """
         def solveDependencyRecursive(table):
             """
@@ -453,8 +422,8 @@ class DatabaseBuilder:
 
             Uses parent's variables to store data.
 
-            @type table: str
-            @param table: table name for which to solve dependencies
+            :type table: str
+            :param table: table name for which to solve dependencies
             """
             if table in tableNames:
                 # don't add dependant tables if they are given explicitly
@@ -499,10 +468,10 @@ class DatabaseBuilder:
 
         Dependencies depend on the choice of table builders and thus may vary.
 
-        @type tableNames: list of str
-        @param tableNames: list of tables
-        @rtype: list of str
-        @return: names of tables that depend on given tables
+        :type tableNames: list of str
+        :param tableNames: list of tables
+        :rtype: list of str
+        :return: names of tables that depend on given tables
         """
         dependencyTables = set(tableNames)
         dependingTablesNames = set()
@@ -527,10 +496,10 @@ class DatabaseBuilder:
         Gets the name of the tables that depend on the given tables to be built
         and already exist, thus need to be rebuilt.
 
-        @type tableNames: list of str
-        @param tableNames: list of tables
-        @rtype: list of str
-        @return: names of tables that need to be rebuilt because of dependencies
+        :type tableNames: list of str
+        :param tableNames: list of tables
+        :rtype: list of str
+        :return: names of tables that need to be rebuilt because of dependencies
         """
         dependingTables = self.getDependingTables(tableNames)
 
@@ -543,14 +512,15 @@ class DatabaseBuilder:
     def getExternalRebuiltDependingTables(self, tableNames):
         """
         Gets the name of the tables that depend on the given tables to be built
-        and already exist similar to L{getRebuiltDependingTables()} but only for
-        tables of attached databases.
+        and already exist similar to
+        :meth:`~cjklib.build.DatabaseBuilder.getRebuiltDependingTables`
+        but only for tables of attached databases.
 
-        @type tableNames: list of str
-        @param tableNames: list of tables
-        @rtype: list of str
-        @return: names of tables of attached databsaes that need to be rebuilt
-        because of dependencies
+        :type tableNames: list of str
+        :param tableNames: list of tables
+        :rtype: list of str
+        :return: names of tables of attached databsaes that need to be rebuilt
+            because of dependencies
         """
         dependingTables = self.getDependingTables(tableNames)
 
@@ -565,11 +535,12 @@ class DatabaseBuilder:
         """
         Gets the build order for the given table names.
 
-        @type tableNames: list of str
-        @param tableNames: list of names of tables to build
-        @rtype: list of classobj
-        @return: L{TableBuilder}s in build order
-        @raise UnsupportedError: if an unsupported table is given.
+        :type tableNames: list of str
+        :param tableNames: list of names of tables to build
+        :rtype: list of classobj
+        :return: :class:`~cjklib.build.builder.TableBuilder` classes in build
+            order
+        :raise UnsupportedError: if an unsupported table is given.
         """
         # get dependencies and save order
         tableBuilderClasses = []
@@ -589,10 +560,11 @@ class DatabaseBuilder:
         """
         Create order in which the tables have to be created.
 
-        @type tableBuilderClasses: list of classobj
-        @param tableBuilderClasses: list of L{TableBuilder} classes
-        @rtype: list of classobj
-        @return: the given classes ordered in build dependency order
+        :type tableBuilderClasses: list of classobj
+        :param tableBuilderClasses: list of
+            :class:`~cjklib.build.builder.TableBuilder` classes
+        :rtype: list of classobj
+        :return: the given classes ordered in build dependency order
         """
         dependencyOrder = []
         providedTables = [bc.PROVIDES for bc in tableBuilderClasses]
@@ -658,24 +630,28 @@ class DatabaseBuilder:
     def getTableBuilderClasses(preferClassNameSet=None, resolveConflicts=True,
         quiet=True, additionalBuilders=None):
         """
-        Gets all classes in module that implement L{TableBuilder}.
+        Gets all classes in module that implement
+        :class:`~cjklib.build.builder.TableBuilder`.
 
-        @type preferClassNameSet: list of str
-        @param preferClassNameSet:list of L{TableBuilder} class names that will
+        :type preferClassNameSet: list of str
+        :param preferClassNameSet: list of
+            :class:`~cjklib.build.builder.TableBuilder` class names that will
             be preferred in conflicting cases, resolveConflicting must be
-            C{True} to take effect (default)
-        @type resolveConflicts: bool
-        @param resolveConflicts: if true conflicting builders will be removed
+            ``True`` to take effect (default)
+        :type resolveConflicts: bool
+        :param resolveConflicts: if true conflicting builders will be removed
             so that only one builder is left per Table.
-        @type quiet: bool
-        @param quiet: if C{True} no status information will be printed to stderr
-        @type additionalBuilders: list of classobj
-        @param additionalBuilders: list of externally provided TableBuilders
-        @rtype: set
-        @return: list of all classes inheriting form L{TableBuilder} that
+        :type quiet: bool
+        :param quiet: if ``True`` no status information will be printed to
+            stderr
+        :type additionalBuilders: list of classobj
+        :param additionalBuilders: list of externally provided TableBuilders
+        :rtype: set
+        :return: list of all classes inheriting form
+            :class:`~cjklib.build.builder.TableBuilder` that
             provide a table (i.d. non abstract implementations), with its name
             as key
-        @raise ValueError: if two builders are preferred that provide the same
+        :raise ValueError: if two builders are preferred that provide the same
             table, if two different options with the same name collide
         """
         additionalBuilders = additionalBuilders or []
@@ -701,20 +677,23 @@ class DatabaseBuilder:
     @staticmethod
     def resolveBuilderConflicts(classList, preferClassNames=None, quiet=True):
         """
-        Returns a subset of L{TableBuilder} classes so that every buildable
-        table is only represented by exactly one builder.
+        Returns a subset of :class:`~cjklib.build.builder.TableBuilder`
+        classes so that every buildable table is only represented by
+        exactly one builder.
 
-        @type classList: list of classobj
-        @param classList: list of TableBuilders
-        @type preferClassNames: list of classobj
-        @param preferClassNames: list of L{TableBuilder} class names that will
+        :type classList: list of classobj
+        :param classList: list of TableBuilders
+        :type preferClassNames: list of classobj
+        :param preferClassNames: list of
+            :class:`~cjklib.build.builder.TableBuilder` class names that will
             be preferred in conflicting cases
-        @type quiet: bool
-        @param quiet: if C{True} no status information will be printed to stderr
-        @rtype: list of classobj
-        @return: mapping of table names to builder classes that provide the
+        :type quiet: bool
+        :param quiet: if ``True`` no status information will be printed to
+            stderr
+        :rtype: list of classobj
+        :return: mapping of table names to builder classes that provide the
             given table
-        @raise ValueError: if two builders are preferred that provide the same
+        :raise ValueError: if two builders are preferred that provide the same
             table
         """
         tableBuilderClasses = set(classList)
@@ -762,8 +741,8 @@ class DatabaseBuilder:
         """
         Gets names of supported tables.
 
-        @rtype: list of str
-        @return: names of tables
+        :rtype: list of str
+        :return: names of tables
         """
         classList = DatabaseBuilder.getTableBuilderClasses(
             resolveConflicts=False)
@@ -773,25 +752,26 @@ class DatabaseBuilder:
         """
         Gets names of tables supported by this instance of the database builder.
 
-        This list can have more entries then L{getSupportedTables()} as
+        This list can have more entries then
+        :meth:`~cjklib.build.DatabaseBuilder.getSupportedTables` as
         additional external builders can be supplied on instantiation.
 
-        @rtype: list of str
-        @return: names of tables
+        :rtype: list of str
+        :return: names of tables
         """
         return set(self._tableBuilderLookup.keys())
 
     def getTableBuilder(self, tableName):
         """
-        Gets the L{TableBuilder} used by this instance of the database builder
-        to build the given table.
+        Gets the :class:`~cjklib.build.builder.TableBuilder` used by
+        this instance of the database builder to build the given table.
 
-        @type tableName: str
-        @param tableName: name of table
-        @rtype: classobj
-        @return: L{TableBuilder} used to build the given table by this build
-            instance.
-        @raise UnsupportedError: if an unsupported table is given.
+        :type tableName: str
+        :param tableName: name of table
+        :rtype: classobj
+        :return: :class:`~cjklib.build.builder.TableBuilder` used to
+            build the given table by this build instance.
+        :raise UnsupportedError: if an unsupported table is given.
         """
         if tableName not in self._tableBuilderLookup:
             # either we have no builder or the builder was removed in favour
@@ -807,8 +787,8 @@ class DatabaseBuilder:
         """
         Checks if the current database supports optimization.
 
-        @rtype: boolean
-        @return: True if optimizable, False otherwise
+        :rtype: boolean
+        :return: True if optimizable, False otherwise
         """
         return self.db.engine.name in ['sqlite']
 
@@ -816,8 +796,8 @@ class DatabaseBuilder:
         """
         Optimizes the current database.
 
-        @raise Exception: if database does not support optimization
-        @raise OperationalError: if optimization failed
+        :raise Exception: if database does not support optimization
+        :raise OperationalError: if optimization failed
         """
         if self.db.engine.name == 'sqlite':
             self.db.execute('VACUUM')
@@ -830,8 +810,8 @@ def warn(message):
     """
     Prints the given message to stderr with the system's default encoding.
 
-    @type message: str
-    @param message: message to print
+    :type message: str
+    :param message: message to print
     """
     print >> sys.stderr, message.encode(locale.getpreferredencoding(),
         'replace')

@@ -8,6 +8,15 @@ include cjklib/test/*.py
 include cjklib/cjklib.db
 include cjklib/cjklib.conf
 include setup.py
+include setup.cfg
+include cjklibdoc/*.rst
+include cjklibdoc/library/*.rst
+include cjklibdoc/conf.py
+include cjklibdoc/make.bat
+include cjklibdoc/Makefile
+include cjklibdoc/_build
+include cjklibdoc/_templates/*
+include cjklibdoc/_static/*
 include files/*.py
 include files/*.bat
 include files/Makefile
@@ -23,5 +32,4 @@ include THANKS
 include TODO
 include NEWS
 include changelog
-include epydoc_config
 include pylintrc

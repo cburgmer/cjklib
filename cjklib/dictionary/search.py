@@ -18,7 +18,8 @@
 """
 Search strategies for dictionaries.
 
-@todo Impl: Allow simple FTS3 searching as build support is already provided.
+.. todo::
+    * Impl: Allow simple FTS3 searching as build support is already provided.
 """
 
 __all__ = [
@@ -73,7 +74,7 @@ _FULL_WIDTH_MAP = dict((ord(halfWidth), unichr(ord(halfWidth) + 65248))
 """Mapping of halfwidth characters to fullwidth."""
 
 def _mapToFullwidth(string):
-    u"""Maps halfwidth characters to fullwidth, e.g. C{U} to C{Ｕ}."""
+    u"""Maps halfwidth characters to fullwidth, e.g. ``U`` to ``Ｕ``."""
     global _FULL_WIDTH_MAP
     if isinstance(string, str):
         return string
@@ -95,14 +96,12 @@ class _CaseInsensitiveBase(object):
     """Base class providing methods for case insensitive searches."""
     def __init__(self, caseInsensitive=False, sqlCollation=None, **options):
         """
-        Initialises the _CaseInsensitiveBase.
-
-        @type caseInsensitive: bool
-        @param caseInsensitive: if C{True}, latin characters match their
-            upper/lower case equivalent, if C{False} case sensitive matches
+        :type caseInsensitive: bool
+        :param caseInsensitive: if ``True``, latin characters match their
+            upper/lower case equivalent, if ``False`` case sensitive matches
             will be made (default)
-        @type sqlCollation: str
-        @param sqlCollation: optional collation to use on columns in SQL queries
+        :type sqlCollation: str
+        :param sqlCollation: optional collation to use on columns in SQL queries
         """
         self._caseInsensitive = caseInsensitive
         self._sqlCollation = sqlCollation
@@ -164,7 +163,7 @@ class Exact(_CaseInsensitiveBase):
     """Simple search strategy class."""
     def __init__(self, fullwidthCharacters=False, **options):
         """
-        @param fullwidthCharacters: if C{True} if C{True} alphabetic halfwidth
+        :param fullwidthCharacters: if ``True`` if ``True`` alphabetic halfwidth
             characters are converted to fullwidth.
         """
         _CaseInsensitiveBase.__init__(self, **options)
@@ -174,13 +173,14 @@ class Exact(_CaseInsensitiveBase):
         """
         Returns a SQLAlchemy clause that is the necessary condition for a
         possible match. This clause is used in the database query. Results may
-        then be further narrowed by L{getMatchFunction()}.
+        then be further narrowed by
+        :meth:`~cjklib.dictionary.search.Exact.getMatchFunction`.
 
-        @type column: SQLAlchemy column instance
-        @param column: column to check against
-        @type searchStr: str
-        @param searchStr: search string
-        @return: SQLAlchemy clause
+        :type column: SQLAlchemy column instance
+        :param column: column to check against
+        :type searchStr: str
+        :param searchStr: search string
+        :return: SQLAlchemy clause
         """
         if self._fullwidthCharacters:
             searchStr = _mapToFullwidth(searchStr)
@@ -189,17 +189,18 @@ class Exact(_CaseInsensitiveBase):
 
     def getMatchFunction(self, searchStr):
         """
-        Gets a function that returns C{True} if the entry's cell content matches
+        Gets a function that returns ``True`` if the entry's cell content matches
         the search string.
 
         This method provides the sufficient condition for a match. Note that
         matches from other SQL clauses might get included which do not fulfill
-        the conditions of L{getWhereClause()}.
+        the conditions of
+        :meth:`~cjklib.dictionary.search.Exact.getWhereClause`.
 
-        @type searchStr: str
-        @param searchStr: search string
-        @rtype: function
-        @return: function that returns C{True} if the entry is a match
+        :type searchStr: str
+        :param searchStr: search string
+        :rtype: function
+        :return: function that returns ``True`` if the entry is a match
         """
         if self._fullwidthCharacters:
             searchStr = _mapToFullwidth(searchStr)
@@ -216,11 +217,11 @@ class _WildcardBase(object):
     Wildcard search base class. Provides wildcard conversion and regular
     expression preparation methods.
 
-    Wildcards can be used as placeholders in searches. By default C{'_'}
-    substitutes a single character while C{'%'} matches zero, one or multiple
-    characters. Searches for the actual characters (here C{'_'} and C{'%'}) need
-    to mask those occurences by the escape character, by default a backslash
-    C{'\\'}, which needs escaping itself.
+    Wildcards can be used as placeholders in searches. By default ``'_'``
+    substitutes a single character while ``'%'`` matches zero, one or multiple
+    characters. Searches for the actual characters (here ``'_'`` and ``'%'``)
+    need to mask those occurences by the escape character, by default a
+    backslash ``'\\'``, which needs escaping itself.
     """
     class SingleWildcard:
         """Wildcard matching exactly one character."""
@@ -274,7 +275,7 @@ class _WildcardBase(object):
 
     def _hasWildcardCharacters(self, searchStr):
         """
-        Returns C{True} if a wildcard character is included in the search
+        Returns ``True`` if a wildcard character is included in the search
         string.
         """
         for idx, part in enumerate(self._wildcardRegex.split(searchStr)):
@@ -315,7 +316,7 @@ class Wildcard(Exact, _WildcardBase):
     """Basic headword search strategy with support for wildcards."""
     def __init__(self, fullwidthCharacters=False, **options):
         """
-        @param fullwidthCharacters: if C{True} if C{True} alphabetic halfwidth
+        :param fullwidthCharacters: if ``True`` if ``True`` alphabetic halfwidth
             characters are converted to fullwidth.
         """
         Exact.__init__(self, fullwidthCharacters, **options)
@@ -570,7 +571,9 @@ class SimpleReading(Exact):
     """
     Simple reading search strategy. Converts search string to the dictionary
     reading and separates entities by space.
-    @todo Fix: How to handle non-reading entities?
+
+    .. todo::
+        * Fix: How to handle non-reading entities?
     """
     def __init__(self, caseInsensitive=True, **options):
         Exact.__init__(self, caseInsensitive=caseInsensitive,
@@ -685,7 +688,8 @@ class _SimpleReadingWildcardBase(_WildcardBase):
     def _getWildcardForms(self, searchStr, **options):
         """
         Gets reading decomposition and prepares wildcards. Needs a method
-        L{_getReadings()} to do the actual decomposition.
+        :meth:`~cjklib.dictionary.search._SimpleReadingWildcardBase._getReadings`
+        to do the actual decomposition.
         """
         def isReadingEntity(entity, cache={}):
             if entity not in cache:
@@ -969,8 +973,9 @@ class TonelessWildcardReading(SimpleReading,
         [u'zh\xec d\u01ceo', u'zh\xed d\u01ceo', u'zh\u01d0 d\u01ceo',\
  u'zh\xed d\xe0o', u'zh\xed d\u01ceo', u'zh\u012b dao']
 
-    @todo Impl: Support readings with toneless base forms but without support
-        for missing tone
+    .. todo::
+        * Impl: Support readings with toneless base forms but without support
+          for missing tone
     """
     def __init__(self, **options):
         SimpleReading.__init__(self, **options)
@@ -1202,9 +1207,9 @@ class MixedWildcardReading(SimpleReading,
     _MixedReadingWildcardBase):
     """
     Reading search strategy that supplements
-    L{SimpleWildcardReading} to allow intermixing of readings with
-    single characters from the headword. By default wildcard searches are
-    supported.
+    :class:`~cjklib.dictionary.search.SimpleWildcardReading` to allow
+    intermixing of readings with single characters from the headword.
+    By default wildcard searches are supported.
 
     This strategy complements the basic search strategy. It is not built to
     return results for plain reading or plain headword strings.
@@ -1212,9 +1217,9 @@ class MixedWildcardReading(SimpleReading,
     def __init__(self, supportWildcards=True, headwordFullwidthCharacters=False,
         **options):
         """
-        @param supportWildcards: if C{True} wildcard characters are
+        :param supportWildcards: if ``True`` wildcard characters are
             interpreted (default).
-        @param headwordFullwidthCharacters: if C{True} halfwidth characters
+        :param headwordFullwidthCharacters: if ``True`` halfwidth characters
             are converted to fullwidth if found in headword.
         """
         SimpleReading.__init__(self, **options)
@@ -1226,15 +1231,16 @@ class MixedWildcardReading(SimpleReading,
         """
         Returns a SQLAlchemy clause that is the necessary condition for a
         possible match. This clause is used in the database query. Results may
-        then be further narrowed by L{getMatchFunction()}.
+        then be further narrowed by
+        :meth:`~cjklib.dictionary.search.MixedWildcardReading.getMatchFunction`.
 
-        @type headwordColumn: SQLAlchemy column instance
-        @param headwordColumn: headword column to check against
-        @type readingColumn: SQLAlchemy column instance
-        @param readingColumn: reading column to check against
-        @type searchStr: str
-        @param searchStr: search string
-        @return: SQLAlchemy clause
+        :type headwordColumn: SQLAlchemy column instance
+        :param headwordColumn: headword column to check against
+        :type readingColumn: SQLAlchemy column instance
+        :param readingColumn: reading column to check against
+        :type searchStr: str
+        :param searchStr: search string
+        :return: SQLAlchemy clause
         """
         queries = self._getWildcardQuery(searchStr, **options)
         if queries:
@@ -1329,9 +1335,9 @@ class MixedTonelessWildcardReading(SimpleReading,
     _MixedTonelessReadingWildcardBase):
     """
     Reading search strategy that supplements
-    L{TonelessWildcardReading} to allow intermixing of readings
-    missing tonal information with single characters from the headword. By
-    default wildcard searches are supported.
+    :class:`~cjklib.dictionary.search.TonelessWildcardReading` to allow
+    intermixing of readings missing tonal information with single characters
+    from the headword. By default wildcard searches are supported.
 
     This strategy complements the basic search strategy. It is not built to
     return results for plain reading or plain headword strings.
@@ -1339,9 +1345,9 @@ class MixedTonelessWildcardReading(SimpleReading,
     def __init__(self, supportWildcards=True, headwordFullwidthCharacters=False,
         **options):
         """
-        @keyword supportWildcards: if C{True} wildcard characters are
+        :keyword supportWildcards: if ``True`` wildcard characters are
             interpreted (default).
-        @keyword headwordFullwidthCharacters: if C{True} halfwidth characters
+        :keyword headwordFullwidthCharacters: if ``True`` halfwidth characters
             are converted to fullwidth if found in headword.
         """
         SimpleReading.__init__(self, **options)
@@ -1353,15 +1359,16 @@ class MixedTonelessWildcardReading(SimpleReading,
         """
         Returns a SQLAlchemy clause that is the necessary condition for a
         possible match. This clause is used in the database query. Results may
-        then be further narrowed by L{getMatchFunction()}.
+        then be further narrowed by
+        :meth:`~MixedTonelessWildcardReading.getMatchFunction`.
 
-        @type headwordColumn: SQLAlchemy column instance
-        @param headwordColumn: headword column to check against
-        @type readingColumn: SQLAlchemy column instance
-        @param readingColumn: reading column to check against
-        @type searchStr: str
-        @param searchStr: search string
-        @return: SQLAlchemy clause
+        :type headwordColumn: SQLAlchemy column instance
+        :param headwordColumn: headword column to check against
+        :type readingColumn: SQLAlchemy column instance
+        :param readingColumn: reading column to check against
+        :type searchStr: str
+        :param searchStr: search string
+        :return: SQLAlchemy clause
         """
         queries = self._getWildcardQuery(searchStr, **options)
         if queries:

@@ -10,8 +10,7 @@ You might want to copy cjklib.conf to /etc and modify it.
 
 Additional software
 ===================
-* epydoc from http://epydoc.sourceforge.net is used to generate the API
-  documentation.
+* Sphinx from http://sphinx.pocoo.org/ is used to generate the documentation.
 * nosetests from http://somethingaboutorange.com/mrl/projects/nose is used
   for unit testing.
 * pylint from http://www.logilab.org/857, a tool that checks if a module
@@ -59,19 +58,15 @@ coverage/index.html.
 Profiling
 =========
 Profiling is mostly used to learn about the runtime behaviour of a program
-and find inefficient parts of the code. It also allows epydoc to generate call
-graphs for inclusion in the API documentation:
-$ python -m profile -o unittest.pstat /usr/bin/nosetests cjklib/test/*.py
+and find inefficient parts of the code.
+$ nosetests cjklib/test/* --with-profile --profile-stats-file=unittest.pstat
 
 generates the file unittest.pstat that is used for further processing.
 
-Profiling offered by nosetest seems not to work together with epydoc:
-$ nosetests cjklib/test/* --with-profile --profile-stats-file=unittest.pstat
-
 Documentation
 =============
-Epydoc is used to generate the API documentation:
-$ epydoc -v --config epydoc_config
+Sphinx is used to generate the API documentation:
+$ python setup.py build_sphinx
 
 Source code checking
 ====================

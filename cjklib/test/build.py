@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for L{build.builder}.
+Unit tests for :mod:`cjklib.build.builder`.
 """
 
 # pylint: disable-msg=E1101
@@ -33,7 +33,10 @@ from cjklib.build import DatabaseBuilder, builder
 from cjklib import util
 
 class TableBuilderTest:
-    """Base class for testing of L{TableBuilder}s."""
+    """
+    Base class for testing of :class:`~cjklib.build.builder.TableBuilder`
+    classes.
+    """
     BUILDER = None
     """Builder class object."""
 
@@ -147,7 +150,8 @@ class TableBuilderTest:
 
 #class TableBuilderTestCaseCheck(unittest.TestCase):
     #"""
-    #Checks if every L{TableBuilder} has its own L{TableBuilderTest}.
+    #Checks if every :class:`~cjklib.build.builder.TableBuilder` has its own
+    #:class:`~cjklib.test.build.TableBuilderTest`.
     #"""
     #def testEveryBuilderHasTest(self):
         #"""
@@ -164,10 +168,10 @@ class TableBuilderTest:
     #@staticmethod
     #def getTableBuilderTestClasses():
         #"""
-        #Gets all classes implementing L{TableBuilderTest}.
+        #Gets all classes implementing :class:`~cjklib.test.build.TableBuilderTest`.
 
         #@rtype: list
-        #@return: list of all classes inheriting form L{TableBuilderTest}
+        #@return: list of all classes inheriting form :class:`~cjklib.test.build.TableBuilderTest`
         #"""
         ## get all non-abstract classes that inherit from TableBuilderTest
         #testModule = __import__("cjklib.test.build")

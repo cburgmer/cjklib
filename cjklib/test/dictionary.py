@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for L{dictionary}.
+Unit tests for :mod:`cjklib.dictionary`.
 """
 
 # pylint: disable-msg=E1101
@@ -34,7 +34,7 @@ from cjklib import util
 from cjklib.test import NeedsTemporaryDatabaseTest, attr, EngineMock
 
 class DictionaryTest(NeedsTemporaryDatabaseTest):
-    """Base class for testing of L{cjklib.dictionary}s."""
+    """Base class for testing of :mod:`cjklib.dictionary` classes."""
     DICTIONARY = None
     """Name of dictionary to test"""
 
@@ -119,7 +119,7 @@ class DictionaryResultTest(DictionaryTest):
         return dict((row, idx) for idx, row in enumerate(content))
 
     def testResults(self):
-        """Test results for access methods C{getFor...}."""
+        """Test results for access methods ``getFor...``."""
         def resultPrettyPrint(indices):
             return '[' + "\n".join(repr(self.INSTALL_CONTENT[index])
                 for index in sorted(indices)) + ']'
@@ -154,14 +154,14 @@ class FullDictionaryTest(DictionaryTest):
 
 
 class DictionaryAccessTest(FullDictionaryTest):
-    """Tests access methods C{getFor...}."""
+    """Tests access methods ``getFor...``."""
     ACCESS_METHODS = ('getFor', 'getForHeadword', 'getForReading',
         'getForTranslation')
 
     TEST_STRINGS = (u'跼', u'東京', u'とうきょう', u"Xi'an", 'New York', 'term')
 
     def testAccess(self):
-        """Test access methods C{getFor...}."""
+        """Test access methods ``getFor...``."""
         for methodName in self.ACCESS_METHODS:
             method = getattr(self.dictionary, methodName)
             for string in self.TEST_STRINGS:

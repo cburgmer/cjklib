@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for L{reading.operator}.
+Unit tests for :mod:`cjklib.reading.operator`.
 """
 
 # pylint: disable-msg=E1101
@@ -33,7 +33,10 @@ from cjklib.test import NeedsDatabaseTest, attr
 from cjklib.util import crossDict
 
 class ReadingOperatorTest(NeedsDatabaseTest):
-    """Base class for testing of L{ReadingOperator}s."""
+    """
+    Base class for testing of
+    :class:`~cjklib.reading.operator.ReadingOperator` classes.
+    """
     READING_NAME = None
     """Name of reading to test"""
 
@@ -63,7 +66,10 @@ class ReadingOperatorTest(NeedsDatabaseTest):
 
 
 class ReadingOperatorConsistencyTest(ReadingOperatorTest):
-    """Base class for consistency testing of L{ReadingOperator}s."""
+    """
+    Base class for consistency testing of
+    :class:`~cjklib.reading.operator.ReadingOperator` classes.
+    """
     DIALECTS = []
     """
     Dialects tested additionally to the standard one.
@@ -97,7 +103,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
 
     def testDefaultOptions(self):
         """
-        Test if option dict returned by C{getDefaultOptions()} is well-formed
+        Test if option dict returned by ``getDefaultOptions()`` is well-formed
         and includes all options found in the test case's options.
         """
         defaultOptions = self.readingOperatorClass.getDefaultOptions()
@@ -148,8 +154,8 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
 
     def testGuessReadingDialect(self):
         """
-        Test if option dict returned by C{guessReadingDialect()} is well-formed
-        and options are included in dict from C{getDefaultOptions()}.
+        Test if option dict returned by ``guessReadingDialect()`` is well-formed
+        and options are included in dict from ``getDefaultOptions()``.
         """
         if not hasattr(self.readingOperatorClass, 'guessReadingDialect'):
             return
@@ -179,7 +185,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
     @attr('quiteslow')
     def testReadingCharacters(self):
         """
-        Test if set returned by C{getReadingCharacters()} is well-formed and
+        Test if set returned by ``getReadingCharacters()`` is well-formed and
         includes all characters found in reading entities.
         """
         if not hasattr(self.readingOperatorClass, "getReadingCharacters"):
@@ -215,8 +221,8 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
 
     def testValidReadingEntitiesAccepted(self):
         """
-        Test if all I{reading entities} returned by C{getReadingEntities()} are
-        accepted by C{isReadingEntity()}.
+        Test if all *reading entities* returned by ``getReadingEntities()`` are
+        accepted by ``isReadingEntity()``.
         """
         if not hasattr(self.readingOperatorClass, "getReadingEntities"):
             return
@@ -238,8 +244,8 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
 
     def testValidFormattingEntitiesAccepted(self):
         """
-        Test if all I{formatting entities} returned by
-        C{getFormattingEntities()} are accepted by C{isFormattingEntity()}.
+        Test if all *formatting entities* returned by
+        ``getFormattingEntities()`` are accepted by ``isFormattingEntity()``.
         """
         if not hasattr(self.readingOperatorClass, "getFormattingEntities"):
             return
@@ -262,7 +268,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
     def testValidPlainReadingEntitiesAccepted(self):
         """
         Test if all plain reading entities returned by
-        C{getPlainReadingEntities()} are accepted by C{isPlainReadingEntity()}.
+        ``getPlainReadingEntities()`` are accepted by ``isPlainReadingEntity()``.
         """
         if not hasattr(self.readingOperatorClass, "getPlainReadingEntities"):
             return
@@ -284,7 +290,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
 
     @attr('quiteslow')
     def testOnsetRhyme(self):
-        """Test if all plain entities are accepted by C{getOnsetRhyme()}."""
+        """Test if all plain entities are accepted by ``getOnsetRhyme()``."""
         if not hasattr(self.readingOperatorClass, "getPlainReadingEntities") \
             or not hasattr(self.readingOperatorClass, "getOnsetRhyme"):
             return
@@ -311,7 +317,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
     @attr('quiteslow')
     def testDecomposeIsIdentityForSingleEntity(self):
         """
-        Test if all reading entities returned by C{getReadingEntities()} are
+        Test if all reading entities returned by ``getReadingEntities()`` are
         decomposed into the single entity again.
         """
         if not hasattr(self.readingOperatorClass, "getReadingEntities"):
@@ -345,9 +351,9 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
     @attr('quiteslow')
     def testGetTonalEntityOfSplitEntityToneIsIdentity(self):
         """
-        Test if the composition of C{getTonalEntity()} and C{splitEntityTone()}
+        Test if the composition of ``getTonalEntity()`` and ``splitEntityTone()``
         returns the original value for all entities returned by
-        C{getReadingEntities()}.
+        ``getReadingEntities()``.
         """
         if not (hasattr(self.readingOperatorClass, "getTonalEntity")
             and hasattr(self.readingOperatorClass, "splitEntityTone")
@@ -412,8 +418,8 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
     @attr('quiteslow')
     def testSplitEntityToneReturnsValidInformation(self):
         """
-        Test if C{splitEntityTone()} returns a valid plain entity and a valid
-        tone for all entities returned by C{getReadingEntities()}.
+        Test if ``splitEntityTone()`` returns a valid plain entity and a valid
+        tone for all entities returned by ``getReadingEntities()``.
         """
         if not hasattr(self.readingOperatorClass, "getPlainReadingEntities"):
             return
@@ -456,7 +462,7 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
     def testDecomposeKeepsSyllablePairs(self):
         """
         Test if all pairs of reading entities returned by
-        C{getReadingEntities()} are decomposed into the same pairs again and
+        ``getReadingEntities()`` are decomposed into the same pairs again and
         possibly are strict.
         """
         if not hasattr(self.readingOperatorClass, "getReadingEntities"):
@@ -517,8 +523,9 @@ class ReadingOperatorConsistencyTest(ReadingOperatorTest):
 
 class ReadingOperatorTestCaseCheck(NeedsDatabaseTest, unittest.TestCase):
     """
-    Checks if every L{ReadingOperator} has its own
-    L{ReadingOperatorConsistencyTest}.
+    Checks if every
+    :class:`~cjklib.reading.operator.ReadingOperator` has its own
+    :class:`~cjklib.test.readingoperator.ReadingOperatorConsistencyTest`.
     """
     def testEveryOperatorHasConsistencyTest(self):
         """
@@ -536,11 +543,12 @@ class ReadingOperatorTestCaseCheck(NeedsDatabaseTest, unittest.TestCase):
     @staticmethod
     def getReadingOperatorConsistencyTestClasses():
         """
-        Gets all classes implementing L{ReadingOperatorConsistencyTest}.
+        Gets all classes implementing
+        :class:`cjklib.test.readingoperator.ReadingOperatorConsistencyTest`.
 
-        @rtype: list
-        @return: list of all classes inheriting form
-            L{ReadingOperatorConsistencyTest}
+        :rtype: list
+        :return: list of all classes inheriting form
+            :class:`cjklib.test.readingoperator.ReadingOperatorConsistencyTest`
         """
         # get all non-abstract classes that inherit from
         #   ReadingOperatorConsistencyTest
@@ -556,31 +564,32 @@ class ReadingOperatorTestCaseCheck(NeedsDatabaseTest, unittest.TestCase):
 
 class ReadingOperatorReferenceTest(ReadingOperatorTest):
     """
-    Base class for testing of references against L{ReadingOperator}s.
+    Base class for testing of references against
+    :class:`~cjklib.reading.operator.ReadingOperator` classes.
     These tests assure that the given values are returned correctly.
     """
 
     DECOMPOSITION_REFERENCES = []
     """
-    References to test C{decompose()} operation.
+    References to test ``decompose()`` operation.
     List of dialect/reference tuples, schema: ({dialect}, [(reference, target)])
     """
 
     COMPOSITION_REFERENCES = []
     """
-    References to test C{compose()} operation.
+    References to test ``compose()`` operation.
     List of dialect/reference tuples, schema: ({}, [(reference, target)])
     """
 
     READING_ENTITY_REFERENCES = []
     """
-    References to test C{isReadingEntity()} operation.
+    References to test ``isReadingEntity()`` operation.
     List of dialect/reference tuples, schema: ({}, [(reference, target)])
     """
 
     GUESS_DIALECT_REFERENCES = []
     """
-    References to test C{guessReadingDialect()} operation.
+    References to test ``guessReadingDialect()`` operation.
     List of reference/dialect tuples, schema: (reference, {})
     """
 
@@ -645,7 +654,7 @@ class ReadingOperatorReferenceTest(ReadingOperatorTest):
                         % (self.READING_NAME, dialect))
 
     def testGuessDialectReferences(self):
-        """Test if C{guessReadingDialect()} guesses the needed options."""
+        """Test if ``guessReadingDialect()`` guesses the needed options."""
         if not hasattr(self.readingOperatorClass, 'guessReadingDialect'):
             return
 
@@ -691,7 +700,7 @@ class CanoneseIPAOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     def testEntityCountConstant(self):
         """
         Test if the number of reading entities reported by
-        C{getReadingEntities()} is constant between different stop tone
+        ``getReadingEntities()`` is constant between different stop tone
         realisations.
         """
         if not hasattr(self.readingOperatorClass, "getReadingEntities"):
@@ -706,7 +715,7 @@ class CanoneseIPAOperatorConsistencyTest(ReadingOperatorConsistencyTest,
 
     def testReportedToneValid(self):
         """
-        Test if the tone reported by C{splitEntityTone()} is valid for the given
+        Test if the tone reported by ``splitEntityTone()`` is valid for the given
         entity.
         """
         if not hasattr(self.readingOperatorClass, "isToneValid"):
@@ -732,7 +741,7 @@ class CanoneseIPAOperatorConsistencyTest(ReadingOperatorConsistencyTest,
 
     def testBaseExplicitTones(self):
         """
-        Test if the tones reported by C{getBaseTone()} and C{getExplicitTone()}
+        Test if the tones reported by ``getBaseTone()`` and ``getExplicitTone()``
         are valid.
         """
         forms = []
@@ -2016,7 +2025,7 @@ class GROperatorConsistencyTest(ReadingOperatorConsistencyTest,
     def testValidAbbreviatedEntitiesAccepted(self):
         """
         Test if all abbreviated reading entities returned by
-        C{getAbbreviatedEntities()} are accepted by C{isAbbreviatedEntity()}.
+        ``getAbbreviatedEntities()`` are accepted by ``isAbbreviatedEntity()``.
         """
         forms = []
         forms.extend(self.DIALECTS)
@@ -2036,7 +2045,7 @@ class GROperatorConsistencyTest(ReadingOperatorConsistencyTest,
     def testAbbreviatedEntitiesConsistency(self):
         """
         Test if all abbreviated reading entities returned by
-        C{getAbbreviatedEntities()} are accepted by C{isAbbreviatedEntity()}.
+        ``getAbbreviatedEntities()`` are accepted by ``isAbbreviatedEntity()``.
         """
         forms = []
         forms.extend(self.DIALECTS)
@@ -2067,8 +2076,8 @@ class GROperatorConsistencyTest(ReadingOperatorConsistencyTest,
     @attr('quiteslow')
     def testRhotacisedEntitesBackConversion(self):
         """
-        Test if complement methods C{getBaseEntitiesForRhotacised()} and
-        C{getRhotacisedTonalEntity()} are consistent.
+        Test if complement methods ``getBaseEntitiesForRhotacised()`` and
+        ``getRhotacisedTonalEntity()`` are consistent.
         """
         forms = []
         forms.extend(self.DIALECTS)
@@ -2204,7 +2213,7 @@ class GROperatorReferenceTest(ReadingOperatorReferenceTest,
     def testAbbreviatedEntitiesReferences(self):
         """
         Test if abbreviated reading entity references are accepted by
-        C{isAbbreviatedEntity()}.
+        ``isAbbreviatedEntity()``.
         """
         for dialect, references in self.ABBREVIATED_READING_ENTITY_REFERENCES:
             grOperator = self.f.createReadingOperator(self.READING_NAME,

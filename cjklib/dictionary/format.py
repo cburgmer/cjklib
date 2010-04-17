@@ -42,10 +42,10 @@ class Base(object):
         """
         Returns the formatted column.
 
-        @type string: str
-        @param string: column as returned by the dictionary
-        @rtype: str
-        @return: formatted column
+        :type string: str
+        :param string: column as returned by the dictionary
+        :rtype: str
+        :return: formatted column
         """
         raise NotImplementedError()
 
@@ -88,11 +88,11 @@ class ReadingConversion(Base):
         """
         Constructs the conversion strategy.
 
-        @type toReading: str
-        @param toReading: target reading, if omitted, the dictionary's reading
+        :type toReading: str
+        :param toReading: target reading, if omitted, the dictionary's reading
             is assumed.
-        @type targetOptions: dict
-        @param targetOptions: target reading conversion options
+        :type targetOptions: dict
+        :param targetOptions: target reading conversion options
         """
         self.toReading = toReading
         if targetOptions:
@@ -133,8 +133,8 @@ class ReadingConversion(Base):
 
 class NonReadingEntityWhitespace(Base):
     """
-    Removes spaces between non-reading entities, e.g. C{U S B diàn lǎn} to
-    C{USB diàn lǎn} for CEDICT style dictionaries.
+    Removes spaces between non-reading entities, e.g. ``U S B diàn lǎn`` to
+    ``USB diàn lǎn`` for CEDICT style dictionaries.
     """
     FULL_WIDTH_MAP = dict((halfWidth, unichr(ord(halfWidth) + 65248))
         for halfWidth in string.ascii_uppercase)

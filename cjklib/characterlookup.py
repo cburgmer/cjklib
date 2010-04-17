@@ -33,258 +33,22 @@ class CharacterLookup(object):
     u"""
     CharacterLookup provides access to lookup methods related to Han characters.
 
-    The real system of CharacterLookup lies in the database beneath where all
-    relevant data is stored. So for nearly all methods this class needs access
-    to a database. Thus on initialisation of the object a connection to a
-    database is established, the logic for this provided by the
-    L{DatabaseConnector}.
+    .. todo::
+       * Impl: Incorporate stroke lookup (bigram) techniques.
+       * Impl: How to handle character forms (either decomposition or stroke
+         order), that can only be found as a component in other characters?
+         We already mark them by flagging it with an 'S'.
+       * Impl: Add option to component decomposition methods to stop on Kangxi
+         radical forms without breaking further down beyond those.
+       * Impl: Further *character domains* for Japanese, Cantonese, Korean,
+         Vietnamese
+       * Impl: There are more than 800 characters that have compatibility
+         mappings with its targets having same semantics. Those characters
+         do not need own data for stroke order and decomposition, but can
+         share with their targets:
 
-    See the L{DatabaseConnector} for supported database systems.
-
-    CharacterLookup will try to read the config file from either /etc or the
-    users home folder. If none is present it will try to open a SQLite database
-    stored as C{db} in the same folder by default. You can override this
-    behaviour by specifying additional parameters on creation of the object.
-
-    Examples
-    ========
-    The following examples should give a quick view into how to use this
-    package.
-        - Create the CharacterLookup object with default settings (read from
-            cjklib.conf or 'cjklib.db' in same directory as default) and set
-            the character locale to traditional:
-
-            >>> from cjklib import characterlookup
-            >>> cjk = characterlookup.CharacterLookup('T')
-
-        - Get a list of characters, that are pronounced "국" in Korean:
-
-            >>> cjk.getCharactersForReading(u'국', 'Hangul')
-            [u'匊', u'國', u'局', u'掬', u'菊', u'跼', u'鞠', u'鞫', u'麯', u'麴']
-
-        - Check if a character is included in another character as a component:
-
-            >>> cjk.isComponentInCharacter(u'玉', u'宝')
-            True
-
-        - Get all Kangxi radical variants for Radical 184 (⾷) (under the
-            traditional locale):
-
-            >>> cjk.getKangxiRadicalVariantForms(184)
-            [u'\u2ede', u'\u2edf']
-
-    X{Character locale}
-    ===================
-    During the development of characters in the different cultures character
-    appearances changed over time to that extent, that the handling of radicals,
-    character components and strokes needs to be distinguished, depending on the
-    locale.
-
-    To deal with this circumstance I{CharacterLookup} works with a character
-    locale. Most of the methods of this class need a locale context. In these
-    cases the output of the method depends on the specified locale.
-
-    For example in the traditional locale 这 has 8 strokes, but in
-    simplified Chinese it has only 7, as the radical ⻌ has different stroke
-    counts, depending on the locale.
-
-    Glyphs
-    ======
-    One feature of Chinese characters is the X{glyph} form describing the visual
-    representation. This feature doesn't need to be unique and so many
-    characters can be found in different writing variants e.g. character 福
-    (English: luck) which has numerous forms.
-
-    The Unicode Consortium does not include same characters of different
-    actual shape in the Unicode standard (called I{Z-variant}s), except a few
-    "double" entries which are included as to maintain backward compatibility.
-    In fact a code point represents an abstract character not defining any
-    visual representation. Thus a distinct appearance description including
-    strokes and stroke order cannot be simply assigned to a code point but one
-    needs to deal with the notion of I{glyphs}, each representing a distinct
-    appearance to which a visual description can be applied.
-
-    Cjklib tries to offer a simple approach to handle different I{glyphs}. As
-    character components, strokes and the stroke order depend on this variant,
-    methods dealing with this kind will ask for a I{glyph} value to be
-    specified. In these cases the output of the method depends on the specified
-    shape.
-
-    Glyphs and character locales
-    ----------------------------
-    Varying stroke count, stroke order or decomposition into character
-    components for different I{character locales} is implemented using different
-    I{glyph}s. For the example given above the entry 这 has two glyphs, one with
-    8 strokes, one with 7 strokes.
-
-    In most cases one might only be interested in a single visual appearance,
-    the "standard" one. This would be the one generally used in the specific
-    locale.
-
-    Instead of specifying a certain glyph most functions will allow for
-    passing of a character locale. Giving the locale will apply the default
-    glyph given by the mapping defined in the database which can be obtained
-    by calling L{getDefaultGlyph()}.
-
-    More complex relations as which of several glyphs for a given character
-    are used in a given locale are not covered.
-
-    Kangxi radical functions
-    ========================
-    Using the Unihan database queries about the Kangxi radical of characters can
-    be made.
-    It is possible to get a Kangxi radical for a character or lookup all
-    characters for a given radical.
-
-    Unicode has extra code points for radical forms (e.g. ⾔), here called
-    X{Unicode radical form}s, and radical variant forms (e.g. ⻈), here called
-    X{Unicode radical variant}s. These characters should be used when explicitly
-    referring to their function as radicals.
-    For most of the radicals and variants their exist complementary character
-    forms which have the same appearance (e.g. 言 and 讠) and which shall be
-    called X{equivalent character}s here.
-
-    Mapping from one to another side is not trivially possible, as some forms
-    only exist as radical forms, some only as character forms, but from their
-    meaning used in the radical context (called X{isolated radical character}s
-    here, e.g. 訁 for Kangxi radical 149).
-
-    Additionally a one to one mapping can't be guaranteed, as some forms have
-    two or more equivalent forms in another domain, and mapping is highly
-    dependant on the locale.
-
-    CharacterLookup provides methods for dealing with this different kinds of
-    characters and the mapping between them.
-
-    X{Character decomposition}
-    ==========================
-    Many characters can be decomposed into two or more components, that again
-    are Chinese characters. This fact can be used in many ways, including
-    character lookup, finding patterns for font design or studying characters.
-    Even the stroke order and stroke count can be deduced from the stroke
-    information of the character's components.
-
-    Character decomposition is highly dependant on the appearance of the
-    character, so a I{glyph} needs to be given (will by default be taken from
-    the current I{character locale}) when looking at a decomposition into
-    components.
-
-    More points render this task more complex: decomposition into one set of
-    components is not distinct, some characters can be broken down into
-    different sets. Furthermore sometimes one component can be given, but the
-    other component will not be encoded as a character in its own right.
-
-    These components again might be characters that contain further components
-    (again not distinct ones), thus a complex decomposition in several steps is
-    possible.
-
-    The basis for the character decomposition lies in the database, where all
-    decompositions are stored, using X{Ideographic Description Sequence}s
-    (I{IDS}). These sequences consist of Unicode X{IDS operator}s and characters
-    to describe the structure of the character. There are
-    X{binary IDS operator}s to describe decomposition into two components (e.g.
-    ⿰ for one component left, one right as in 好: ⿰女子) or
-    X{trinary IDS operator}s for decomposition into three components (e.g. ⿲
-    for three components from left to right as in 辨: ⿲⾟刂⾟). Using
-    I{IDS operator}s it is possible to give a basic structural information, that
-    for example is sufficient in many cases to derive an overall stroke order
-    from two single sets of stroke orders, namely that of the components.
-    Further more it is possible to look for redundant information in different
-    entries and thus helps to keep the definition data clean.
-
-    This class provides methods for retrieving the basic partition entries,
-    lookup of characters by components and decomposing as a tree from the
-    character as a root down to the X{minimal components} as leaf nodes.
-
-    TODO: Policy about what to classify as partition.
-
-    Strokes
-    =======
-    Chinese characters consist of different strokes as basic parts. These
-    strokes are written in a mostly distinct order called the X{stroke order}
-    and have a distinct X{stroke count}.
-
-    The I{stroke order} in the writing of Chinese characters is important e.g.
-    for calligraphy or students learning new characters and is normally fixed as
-    there is only one possible stroke order for each character. Further more
-    there is a fixed set of possible strokes and these strokes carry names.
-
-    As with I{character decomposition} the I{stroke order} and I{stroke count}
-    depends on the actual rendering of the character, the I{glyph}. If no
-    specific glyph is specified, it will be deduced from the current
-    I{character locale}.
-
-    The set of strokes as defined by Unicode in block 31C0-31EF is supported.
-    Simplifying subsets might be supported in the future.
-
-    TODO: About the different classifications of strokes
-
-    Stroke names and abbreviated names
-    ----------------------------------
-    Additionally to the encoded stroke forms, X{stroke name}s and
-    X{abbreviated stroke name}s can be used to conveniently refer to strokes.
-    Currently supported are Mandarin names (following Unicode), and
-    X{abbreviated stroke name}s are built by taking the first character of the
-    I{Pinyin} spelling of each syllable, e.g. C{HZZZG} for C{橫折折折鉤} (i.e.
-    C{㇡}, U+31E1).
-
-    Inconsistencies
-    ---------------
-    The I{stroke order} of some characters is disputed in academic fields. A
-    current workaround would be adding another glyph definition, showing the
-    alternative order.
-
-    TODO: About plans of cjklib how to support different views on the stroke
-    order
-
-    Readings
-    ========
-    See module L{reading} for a detailed description.
-
-    Character domains
-    =================
-    Unicode encodes Chinese characters for all languages that make use of them,
-    but neither of those writing system make use of the whole spectrum encoded.
-    #While it is difficult, if not impossible, to make a clear distinction which
-    characters are used in on system and which not, there exist authorative
-    character sets that are widely used. Following one of those character sets
-    can decrease the amount of characters in question and focus on those
-    actually used in the given context.
-
-    In cjklib this concept is implemented as X{Character domain} and if a
-    L{CharacterLookup} instance is given a I{Character domain}, then its
-    reported results are limited to the characters therein.
-
-    For example limit results to the character encoding BIG5, which encodes
-    traditional Chinese characters:
-        >>> from cjklib import characterlookup
-        >>> cjk = characterlookup.CharacterLookup('T', 'BIG5')
-
-    Available I{character domains} can be checked via
-    L{getAvailableCharacterDomains()}. Special character domain C{Unicode}
-    represents the whole set of Chinese characters encoded in Unicode.
-
-    @see:
-        - Radicals:
-            U{http://en.wikipedia.org/wiki/Radical_(Chinese_character)}
-        - Z-variants:
-            U{http://www.unicode.org/reports/tr38/tr38-5.html#N10211}
-
-    @todo Impl: Incorporate stroke lookup (bigram) techniques
-    @todo Impl: How to handle character forms (either decomposition or stroke
-        order), that can only be found as a component in other characters? We
-        already mark them by flagging it with an 'S'.
-    @todo Impl: Add option to component decomposition methods to stop on Kangxi
-        radical forms without breaking further down beyond those.
-    @todo Impl: Further I{character domains} for Japanese, Cantonese, Korean,
-        Vietnamese
-    @todo Impl: There are more than 800 characters that have compatibility
-        mappings with its targets having same semantics. Those characters
-        do not need own data for stroke order and decomposition, but can share
-        with their targets.
-
-        >>> unicodedata.normalize('NFD', u'\ufa0d')
-        u'\u55c0'
+            >>> unicodedata.normalize('NFD', u'\ufa0d')
+            u'\u55c0'
     """
 
     CHARARACTER_READING_MAPPING = {'Hangul': ('CharacterHangul', {}),
@@ -307,42 +71,42 @@ class CharacterLookup(object):
         ('2F800', '2FA1D')]
     """
     List of character codepoint ranges for the Han script.
-    @see: Scripts.txt from Unicode
+    see ``Scripts.txt`` from Unicode
     """
 
     def __init__(self, locale, characterDomain="Unicode", databaseUrl=None,
         dbConnectInst=None):
         """
-        Initialises the CharacterLookup instance.
-
         If no parameters are given default values are assumed for the connection
         to the database. The database connection parameters can be given in
-        databaseUrl, or an instance of L{DatabaseConnector} can be passed in
+        databaseUrl, or an instance of
+        :class:`~cjklib.dbconnector.DatabaseConnector` can be passed in
         dbConnectInst, the latter one being preferred if both are specified.
 
-        @type locale: str
-        @param locale: I{character locale} giving the context for glyph and
+        :type locale: str
+        :param locale: *character locale* giving the context for glyph and
             radical based functions, one character out of TCJKV.
-        @type characterDomain: str
-        @param characterDomain: I{character domain} (see
-            L{getAvailableCharacterDomains()})
-        @type databaseUrl: str
-        @param databaseUrl: database connection setting in the format
-            C{driver://user:pass@host/database}.
-        @type dbConnectInst: instance
-        @param dbConnectInst: instance of a L{DatabaseConnector}
+        :type characterDomain: str
+        :param characterDomain: *character domain* (see
+            :meth:`~CharacterLookup.getAvailableCharacterDomains`)
+        :type databaseUrl: str
+        :param databaseUrl: database connection setting in the format
+            ``driver://user:pass@host/database``.
+        :type dbConnectInst: instance
+        :param dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`
         """
         if locale not in set('TCJKV'):
             raise ValueError('Locale not one out of TCJKV: ' + repr(locale))
         else:
             self.locale = locale
-            """I{character locale}"""
+            """*character locale*"""
         # get connector to database
         if dbConnectInst:
             self.db = dbConnectInst
         else:
             self.db = dbconnector.getDBConnector(databaseUrl)
-            """L{DatabaseConnector} instance"""
+            """:class:`~cjklib.dbconnector.DatabaseConnector` instance"""
         # character domain
         self.setCharacterDomain(characterDomain)
 
@@ -350,16 +114,16 @@ class CharacterLookup(object):
 
         # test for existing tables that can be used to speed up look up
         self.hasComponentLookup = self.db.hasTable('ComponentLookup')
-        """C{True} if table C{ComponentLookup} exists"""
+        """``True`` if table ``ComponentLookup`` exists"""
         self.hasStrokeCount = self.db.hasTable('StrokeCount')
-        """C{True} if table C{StrokeCount} exists"""
+        """``True`` if table ``StrokeCount`` exists"""
 
     def _getReadingFactory(self):
         """
-        Gets the L{ReadingFactory} instance.
+        Gets the :class:`~cjklib.reading.ReadingFactory` instance.
 
-        @rtype: instance
-        @return: a L{ReadingFactory} instance.
+        :rtype: instance
+        :return: a :class:`~cjklib.reading.ReadingFactory` instance.
         """
         # get reading factory
         if not self._readingFactory:
@@ -370,19 +134,19 @@ class CharacterLookup(object):
 
     def getCharacterDomain(self):
         """
-        Returns the current I{character domain}.
+        Returns the current *character domain*.
 
-        @rtype: str
-        @return: the current I{character domain}
+        :rtype: str
+        :return: the current *character domain*
         """
         return self._characterDomain
 
     def setCharacterDomain(self, characterDomain):
         """
-        Sets the current I{character domain}.
+        Sets the current *character domain*.
 
-        @type characterDomain: str
-        @param characterDomain: the current I{character domain}
+        :type characterDomain: str
+        :param characterDomain: the current *character domain*
         """
         domainTable = characterDomain + 'Set'
         if characterDomain == 'Unicode' or self.db.hasTable(domainTable):
@@ -400,14 +164,14 @@ class CharacterLookup(object):
             raise ValueError("Unknown character domain '%s'" % characterDomain)
 
     characterDomain = property(getCharacterDomain, setCharacterDomain, None,
-        """current I{character domain}""")
+        """current *character domain*""")
 
     def getDomainCharacterIterator(self):
         """
         Returns an iterator over the full set of domain characters.
 
-        @rtype: iterator
-        @return: iterator of characters inside the current I{character domain}
+        :rtype: iterator
+        :return: iterator of characters inside the current *character domain*
         """
         if self.getCharacterDomain() == 'Unicode':
             return util.CharacterRangeIterator(self.HAN_SCRIPT_RANGES)
@@ -418,12 +182,12 @@ class CharacterLookup(object):
     def filterDomainCharacters(self, charList):
         """
         Filters a given list of characters to match only those inside the
-        current I{character domain}. Returns the characters in the given order.
+        current *character domain*. Returns the characters in the given order.
 
-        @type charList: list of str
-        @param charList: characters to filter
-        @rtype: list of str
-        @return: list of characters inside the current I{character domain}
+        :type charList: list of str
+        :param charList: characters to filter
+        :rtype: list of str
+        :return: list of characters inside the current *character domain*
         """
         # constrain to selected character domain
         if self.getCharacterDomain() == 'Unicode':
@@ -452,24 +216,25 @@ class CharacterLookup(object):
         """
         Checks if the given character is inside the current character domain.
 
-        @type char: str
-        @param char: Chinese character for lookup
-        @rtype: bool
-        @return: C{True} if character is inside the current character domain,
-            C{False} otherwise.
+        :type char: str
+        :param char: Chinese character for lookup
+        :rtype: bool
+        :return: ``True`` if character is inside the current character domain,
+            ``False`` otherwise.
         """
         return char in self.filterDomainCharacters([char])
 
     def getAvailableCharacterDomains(self):
         """
-        Gets a list of all available I{character domains}. By default available
-        is domain C{Unicode}, which represents all Chinese characters encoded in
-        Unicode. Further domains can be given to the database as tables ending
-        in C{...Set} including a column C{ChineseCharacter}, e.g. C{GB2312Set}
-        and C{BIG5Set}.
+        Gets a list of all available *character domains*. By default
+        available is domain ``Unicode``, which represents all Chinese
+        characters encoded in Unicode.
+        Further domains can be given to the database as tables ending
+        in ``...Set`` including a column ``ChineseCharacter``,
+        e.g. ``GB2312Set`` and ``BIG5Set``.
 
-        @rtype: list of str
-        @return: list of supported I{character domains}
+        :rtype: list of str
+        :return: list of supported *character domains*
         """
         domains = ['Unicode']
         for table in self.db.getTableNames():
@@ -485,23 +250,24 @@ class CharacterLookup(object):
         """
         Gets all know characters for the given reading.
 
-        Cjklib uses the mappings defined in L{CHARARACTER_READING_MAPPING}, but
-        offers lookup for additional readings by converting those to a reading
-        for which a mapping exists. See L{cjklib.reading} for limitations that
-        arise from reading conversion.
+        Cjklib uses the mappings defined in
+        :attr:`~CharacterLookup.CHARARACTER_READING_MAPPING`,
+        but offers lookup for additional readings by converting those to a
+        reading for which a mapping exists. See :mod:`cjklib.reading` for
+        limitations that arise from reading conversion.
 
-        @type readingString: str
-        @param readingString: reading string for lookup
-        @type readingN: str
-        @param readingN: name of reading
-        @param options: additional options for handling the reading input
-        @rtype: list of str
-        @return: list of characters for the given reading
-        @raise UnsupportedError: if no mapping between characters and target
+        :type readingString: str
+        :param readingString: reading string for lookup
+        :type readingN: str
+        :param readingN: name of reading
+        :param options: additional options for handling the reading input
+        :rtype: list of str
+        :return: list of characters for the given reading
+        :raise UnsupportedError: if no mapping between characters and target
             reading exists. Either the database wasn't build with the table
             needed or the given reading cannot be converted to any of the
             available mappings.
-        @raise ConversionError: if conversion from the internal source reading
+        :raise ConversionError: if conversion from the internal source reading
             to the given target reading fails.
         """
         # check for available mapping from Chinese characters to a compatible
@@ -538,24 +304,27 @@ class CharacterLookup(object):
         """
         Gets all know readings for the character in the given target reading.
 
-        Cjklib uses the mappings defined in L{CHARARACTER_READING_MAPPING}, but
-        offers lookup for additional readings by converting those to a reading
-        for which a mapping exists. See L{cjklib.reading} for limitations that
-        arise from reading conversion.
+        Cjklib uses the mappings defined in
+        :attr:`~CharacterLookup.CHARARACTER_READING_MAPPING`,
+        but offers lookup for additional readings by converting those to a
+        reading for which a mapping exists. See :mod:`cjklib.reading` for
+        limitations that arise from reading conversion.
 
-        @type char: str
-        @param char: Chinese character for lookup
-        @type readingN: str
-        @param readingN: name of target reading
-        @param options: additional options for handling the reading output
-        @rtype: str
-        @return: list of readings for the given character
-        @raise UnsupportedError: if no mapping between characters and target
+        :type char: str
+        :param char: Chinese character for lookup
+        :type readingN: str
+        :param readingN: name of target reading
+        :param options: additional options for handling the reading output
+        :rtype: str
+        :return: list of readings for the given character
+        :raise UnsupportedError: if no mapping between characters and target
             reading exists.
-        @raise ConversionError: if conversion from the internal source reading
+        :raise ConversionError: if conversion from the internal source reading
             to the given target reading fails.
-        @todo Impl: Add option to return converted entities even if conversion
-            fails for some entities. Represent those with C{None}.
+
+        .. todo::
+            * Impl: Add option to return converted entities even if conversion
+              fails for some entities. Represent those with ``None``.
         """
         # check for available mapping from Chinese characters to a compatible
         # reading
@@ -587,14 +356,14 @@ class CharacterLookup(object):
 
     def hasMappingForCharacterToReading(self, readingN):
         """
-        Returns C{True} if a mapping between Chinese characters and the given
-        I{reading} is supported.
+        Returns ``True`` if a mapping between Chinese characters and the given
+        *reading* is supported.
 
-        @type readingN: str
-        @param readingN: name of reading
-        @rtype: bool
-        @return: C{True} if a mapping between Chinese characters and the given
-            I{reading} is supported, C{False} otherwise.
+        :type readingN: str
+        :param readingN: name of reading
+        :rtype: bool
+        :return: ``True`` if a mapping between Chinese characters and the given
+            *reading* is supported, ``False`` otherwise.
         """
         try:
             self._getCompatibleCharacterReading(readingN, toCharReading=True)
@@ -604,14 +373,14 @@ class CharacterLookup(object):
 
     def hasMappingForReadingToCharacter(self, readingN):
         """
-        Returns C{True} if a mapping between the given I{reading} and Chinese
+        Returns ``True`` if a mapping between the given *reading* and Chinese
         characters is supported.
 
-        @type readingN: str
-        @param readingN: name of reading
-        @rtype: bool
-        @return:C{True} if a mapping between the given I{reading} and Chinese
-            characters is supported, C{False} otherwise.
+        :type readingN: str
+        :param readingN: name of reading
+        :rtype: bool
+        :return: ``True`` if a mapping between the given *reading* and Chinese
+            characters is supported, ``False`` otherwise.
         """
         try:
             self._getCompatibleCharacterReading(readingN, toCharReading=False)
@@ -624,15 +393,15 @@ class CharacterLookup(object):
         Gets a reading where a mapping from to Chinese characters is supported
         and that is compatible (a conversion is supported) to the given reading.
 
-        @type readingN: str
-        @param readingN: name of reading
-        @type toCharReading: bool
-        @param toCharReading: C{True} if conversion is done in direction to the
-            given reading, C{False} otherwise
-        @rtype: str
-        @return: a reading that is compatible to the given one and where
+        :type readingN: str
+        :param readingN: name of reading
+        :type toCharReading: bool
+        :param toCharReading: ``True`` if conversion is done in direction to the
+            given reading, ``False`` otherwise
+        :rtype: str
+        :return: a reading that is compatible to the given one and where
             character lookup is supported
-        @raise UnsupportedError: if no mapping between characters and target
+        :raise UnsupportedError: if no mapping between characters and target
             reading exists.
         """
         # iterate all available char-reading mappings to find a compatible
@@ -666,13 +435,13 @@ class CharacterLookup(object):
     def _locale(self, locale):
         """
         Gets the locale search value for a database lookup on databases with
-        I{character locale} dependant content.
+        *character locale* dependant content.
 
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV)
-        @rtype: str
-        @return: search locale used for SQL select
-        @raise ValueError: if an invalid I{character locale} is specified
+        :type locale: str
+        :param locale: *character locale* (one out of TCJKV)
+        :rtype: str
+        :return: search locale used for SQL select
+        :raise ValueError: if an invalid *character locale* is specified
         """
         locale = locale.upper()
         if not locale in set('TCJKV'):
@@ -686,41 +455,42 @@ class CharacterLookup(object):
         Gets the variant forms of the given type for the character.
 
         The type can be one out of:
-            - C, I{compatible character} form (if character was added to Unicode
+            - C, *compatible character* form (if character was added to Unicode
                 to maintain compatibility and round-trip convertibility)
-            - M, I{semantic variant} forms, which are often used interchangeably
+            - M, *semantic variant* forms, which are often used interchangeably
                 instead of the character.
-            - P, I{specialised semantic variant} forms, which are often used
+            - P, *specialised semantic variant* forms, which are often used
                 interchangeably instead of the character but limited to certain
                 contexts.
-            - Z, I{Z-variant} forms, which only differ in typeface (and would
+            - Z, *Z-variant* forms, which only differ in typeface (and would
                 have been unified if not to maintain round trip convertibility)
-            - S, I{simplified Chinese character} forms, originating from the
+            - S, *simplified Chinese character* forms, originating from the
                 character simplification process of the PR China.
-            - T, I{traditional character} forms for a
-                I{simplified Chinese character}.
+            - T, *traditional character* forms for a
+                *simplified Chinese character*.
 
         Variants depend on the locale which is not taken into account here. Thus
         some of the returned characters might be only be variants under some
         locales.
 
-        @type char: str
-        @param char: Chinese character
-        @type variantType: str
-        @param variantType: type of variant(s) to be returned
-        @rtype: list of str
-        @return: list of character variant(s) of given type
+        :type char: str
+        :param char: Chinese character
+        :type variantType: str
+        :param variantType: type of variant(s) to be returned
+        :rtype: list of str
+        :return: list of character variant(s) of given type
 
-        @todo Docu: Write about different kinds of variants
-        @todo Impl: Give a source on variant information as information can
-            contradict itself
-            (U{http://www.unicode.org/reports/tr38/tr38-5.html#N10211}). See
-            呆 (U+5446) which has one form each for semantic and specialised
-            semantic, each derived from a different source. Change also in
-            L{getAllCharacterVariants()}.
-        @todo Lang: What is the difference on Z-variants and
-            compatible variants? Some links between two characters are
-            bidirectional, some not. Is there any rule?
+        .. todo::
+            * Docu: Write about different kinds of variants
+            * Impl: Give a source on variant information as information can
+              contradict itself
+              (http://www.unicode.org/reports/tr38/tr38-5.html#N10211). See
+              呆 (U+5446) which has one form each for semantic and specialised
+              semantic, each derived from a different source. Change also in
+              :meth:`~CharacterLookup.getAllCharacterVariants`.
+            * Lang: What is the difference on Z-variants and compatible
+              variants? Some links between two characters are bidirectional,
+              some not. Is there any rule?
         """
         variantType = variantType.upper()
         if not variantType in set('CMPZST'):
@@ -744,16 +514,17 @@ class CharacterLookup(object):
         Gets all variant forms regardless of the type for the character.
 
         A list of tuples is returned, including the character and its variant
-        type. See L{getCharacterVariants()} for variant types.
+        type. See :meth:`~CharacterLookup.getCharacterVariants`
+        for variant types.
 
         Variants depend on the locale which is not taken into account here. Thus
         some of the returned characters might be only be variants under some
         locales.
 
-        @type char: str
-        @param char: Chinese character
-        @rtype: list of tuple
-        @return: list of character variant(s) with their type
+        :type char: str
+        :param char: Chinese character
+        :rtype: list of tuple
+        :return: list of character variant(s) with their type
         """
         table = self.db.tables['CharacterVariant']
         # constrain to selected character domain
@@ -769,38 +540,38 @@ class CharacterLookup(object):
 
     def getDefaultGlyph(self, char):
         """
-        Gets the default I{glyph} for the given character under the chosen
-        I{character locale}.
+        Gets the default *glyph* for the given character under the chosen
+        *character locale*.
 
         The glyph returned is an index to the internal database of different
         character glyphs and represents the most common glyph used under the
         given locale.
 
-        @type char: str
-        @param char: Chinese character
-        @rtype: int
-        @return: glyph index
-        @raise NoInformationError: if no glyph information is available
+        :type char: str
+        :param char: Chinese character
+        :rtype: int
+        :return: glyph index
+        :raise NoInformationError: if no glyph information is available
         """
         return self.getLocaleDefaultGlyph(char, self.locale)
 
     def getLocaleDefaultGlyph(self, char, locale):
         """
-        Gets the default I{glyph} for the given character under the given
+        Gets the default *glyph* for the given character under the given
         locale.
 
         The glyph returned is an index to the internal database of different
         character glyphs and represents the most common glyph used under the
         given locale.
 
-        @type char: str
-        @param char: Chinese character
-        @type locale: str
-        @param locale: I{character locale} (one out of TCJKV)
-        @rtype: int
-        @return: glyph
-        @raise NoInformationError: if no glyph information is available
-        @raise ValueError: if an invalid I{character locale} is specified
+        :type char: str
+        :param char: Chinese character
+        :type locale: str
+        :param locale: *character locale* (one out of TCJKV)
+        :rtype: int
+        :return: glyph
+        :raise NoInformationError: if no glyph information is available
+        :raise ValueError: if an invalid *character locale* is specified
         """
         table = self.db.tables['LocaleCharacterGlyph']
         glyph = self.db.selectScalar(select([table.c.Glyph],
@@ -816,13 +587,13 @@ class CharacterLookup(object):
 
     def getCharacterGlyphs(self, char):
         """
-        Gets a list of character I{glyph} indices supported by the database.
+        Gets a list of character *glyph* indices supported by the database.
 
-        @type char: str
-        @param char: Chinese character
-        @rtype: list of int
-        @return: list of supported glyphs
-        @raise NoInformationError: if no glyph information is available
+        :type char: str
+        :param char: Chinese character
+        :rtype: list of int
+        :return: list of supported glyphs
+        :raise NoInformationError: if no glyph information is available
         """
         # return all known glyph indices, order to be deterministic
         table = self.db.tables['Glyphs']
@@ -841,16 +612,20 @@ class CharacterLookup(object):
         """
         Gets the stroke count for the given character.
 
-        @type char: str
-        @param char: Chinese character
-        @type glyph: int
-        @param glyph: I{glyph} of the character. This parameter is optional and
-            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
-            be used.
-        @rtype: int
-        @return: stroke count of given character
-        @raise NoInformationError: if no stroke count information available
-        @attention: The quality of the returned data depends on the sources used
+        :type char: str
+        :param char: Chinese character
+        :type glyph: int
+        :param glyph: *glyph* of the character. This parameter is optional and
+            if omitted the default *glyph* defined by
+            :meth:`~CharacterLookup.getDefaultGlyph`
+            will be used
+        :rtype: int
+        :return: stroke count of given character
+        :raise NoInformationError: if no stroke count information available
+
+        .. note::
+
+            The quality of the returned data depends on the sources used
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
         """
@@ -878,11 +653,14 @@ class CharacterLookup(object):
     def getStrokeCountDict(self):
         """
         Returns a stroke count dictionary for all characters in the chosen
-        I{character domain}.
+        *character domain*.
 
-        @rtype: dict
-        @return: dictionary of key pair character, glyph and value stroke count
-        @attention: The quality of the returned data depends on the sources used
+        :rtype: dict
+        :return: dictionary of key pair character, glyph and value stroke count
+
+        .. note::
+
+            The quality of the returned data depends on the sources used
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
         """
@@ -920,10 +698,10 @@ class CharacterLookup(object):
         #The first M{indexLength-1} most frequent strokes are taken into account,
         #all other strokes are rejected from the index.
 
-        #@type indexLength: int
-        #@param indexLength: length of the index
-        #@rtype: dict
-        #@return: dictionary for performing stroke lookups
+        #:type indexLength: int
+        #:param indexLength: length of the index
+        #:rtype: dict
+        #:return: dictionary for performing stroke lookups
         #"""
         #if not self._strokeIndexLookup.has_key(indexLength):
             #strokeTable = self.db.selectSoleValue('StrokeFrequency',
@@ -946,12 +724,12 @@ class CharacterLookup(object):
         #other strokes are assigned to position M{bitLength}. Bits for strokes
         #present are set to 1 all others to 0.
 
-        #@type strokeSet: list of str
-        #@param strokeSet: set of stroke types
-        #@type bitLength: int
-        #@param bitLength: length of the bit field
-        #@rtype: int
-        #@return: bit field with bits for present strokes set to 1
+        #:type strokeSet: list of str
+        #:param strokeSet: set of stroke types
+        #:type bitLength: int
+        #:param bitLength: length of the bit field
+        #:rtype: int
+        #:return: bit field with bits for present strokes set to 1
         #"""
         #strokeIndexLookup = self.getStrokeIndexLookup(bitLength-1)
         ## now build bit field
@@ -976,10 +754,10 @@ class CharacterLookup(object):
         #The first M{indexLength-1} most frequent bigrams are taken into account,
         #all other bigrams are rejected from the index.
 
-        #@type indexLength: int
-        #@param indexLength: length of the index
-        #@rtype: dict
-        #@return: dictionary for performing bigram lookups
+        #:type indexLength: int
+        #:param indexLength: length of the index
+        #:rtype: dict
+        #:return: dictionary for performing bigram lookups
         #"""
         #if not self._bigramIndexLookup.has_key(indexLength):
             #counter = 0
@@ -1002,12 +780,12 @@ class CharacterLookup(object):
         #other bigrams are assigned to position M{bitLength}. Bits for bigrams
         #present are set to 1 all others to 0.
 
-        #@type strokeList: list of str
-        #@param strokeList: list of stroke
-        #@type bitLength: int
-        #@param bitLength: length of the bit field
-        #@rtype: int
-        #@return: bit field with bits for present bigrams set to 1
+        #:type strokeList: list of str
+        #:param strokeList: list of stroke
+        #:type bitLength: int
+        #:param bitLength: length of the bit field
+        #:rtype: int
+        #:return: bit field with bits for present bigrams set to 1
         #"""
         #bigramIndexLookup = self._getBigramIndexLookup(bitLength-1)
         ## now build bit field
@@ -1029,18 +807,18 @@ class CharacterLookup(object):
  
         #Stroke are given as abbreviated form.
 
-        #@type strokeOrderListA: list of str
-        #@param strokeOrderListA: strokes A ordered in list form
-        #@type strokeOrderListB: list of str
-        #@param strokeOrderListB: strokes B ordered in list form
-        #@type substitutionPenalty: float
-        #@param substitutionPenalty: penalty for substituting elements
-        #@type insertionPenalty: float
-        #@param insertionPenalty: penalty for inserting elements
-        #@type deletionPenalty: float
-        #@param deletionPenalty: penalty for deleting elements
-        #@rtype: float
-        #@return: Levenshtein distance of both stroke orders
+        #:type strokeOrderListA: list of str
+        #:param strokeOrderListA: strokes A ordered in list form
+        #:type strokeOrderListB: list of str
+        #:param strokeOrderListB: strokes B ordered in list form
+        #:type substitutionPenalty: float
+        #:param substitutionPenalty: penalty for substituting elements
+        #:type insertionPenalty: float
+        #:param insertionPenalty: penalty for inserting elements
+        #:type deletionPenalty: float
+        #:param deletionPenalty: penalty for deleting elements
+        #:rtype: float
+        #:return: Levenshtein distance of both stroke orders
         #"""
         #n = len(strokeOrderListA)
         #m = len(strokeOrderListB)
@@ -1067,12 +845,12 @@ class CharacterLookup(object):
  
         #Stroke types are given as abbreviated form.
 
-        #@type strokeList: list of str
-        #@param strokeList: list of stroke types
-        #@type locale: str
-        #@param locale: I{character locale} (one out of TCJKV)
-        #@rtype: list of tuple
-        #@return: list of character, glyph pairs having the same stroke types
+        #:type strokeList: list of str
+        #:param strokeList: list of stroke types
+        #:type locale: str
+        #:param locale: *character locale* (one out of TCJKV)
+        #:rtype: list of tuple
+        #:return: list of character, glyph pairs having the same stroke types
         #"""
         #return self.db.select('StrokeBitField',
             #['ChineseCharacter', 'Glyph'],
@@ -1087,13 +865,13 @@ class CharacterLookup(object):
         #Strokes are given as abbreviated form and can be separated by a
         #space or a hyphen.
 
-        #@type strokeOrder: str
-        #@param strokeOrder: stroke order consisting of stroke abbreviations
+        #:type strokeOrder: str
+        #:param strokeOrder: stroke order consisting of stroke abbreviations
             #separated by a space or hyphen
-        #@type locale: str
-        #@param locale: I{character locale} (one out of TCJKV)
-        #@rtype: list of tuple
-        #@return: list of character, glyph pairs
+        #:type locale: str
+        #:param locale: *character locale* (one out of TCJKV)
+        #:rtype: list of tuple
+        #:return: list of character, glyph pairs
         #@bug:  Table 'strokebitfield' doesn't seem to include entries from
             #'strokeorder' but only from character decomposition table:
 
@@ -1137,9 +915,9 @@ class CharacterLookup(object):
 
         #The search is commited by looking for equal stroke count, equal stroke
         #types and stroke bigrams (following pairs of strokes). Specifying
-        #C{strokeCountVariance} for allowing variance in stroke count,
-        #C{strokeVariance} for variance in stroke occurrences (for frequent ones)
-        #and C{bigramVariance} for variance in frequent stroke bigrams can adapt
+        #``strokeCountVariance`` for allowing variance in stroke count,
+        #``strokeVariance`` for variance in stroke occurrences (for frequent ones)
+        #and ``bigramVariance`` for variance in frequent stroke bigrams can adapt
         #query to fit needs of minimum estimate. Allowing less variances will
         #result in faster queries but lesser results, thus possibly omiting good
         #matches.
@@ -1147,22 +925,22 @@ class CharacterLookup(object):
         #An estimate on the first search results is calculated and only entries
         #reaching over the specified minimum estimate are included in the output.
 
-        #@type strokeOrder: str
-        #@param strokeOrder: stroke order consisting of stroke abbreviations
+        #:type strokeOrder: str
+        #:param strokeOrder: stroke order consisting of stroke abbreviations
             #separated by a space or hyphen
-        #@type locale: str
-        #@param locale: I{character locale} (one out of TCJKV)
-        #@type minEstimate: int
-        #@param minEstimate: minimum estimate that entries in output have to
+        #:type locale: str
+        #:param locale: *character locale* (one out of TCJKV)
+        #:type minEstimate: int
+        #:param minEstimate: minimum estimate that entries in output have to
             #reach
-        #@type strokeCountVariance: int
-        #@param strokeCountVariance: variance of stroke count
-        #@type strokeVariance: int
-        #@param strokeVariance: variance of stroke types
-        #@type bigramVariance: int
-        #@param bigramVariance: variance of stroke bigrams
-        #@rtype: list of tuple
-        #@return: list of character, glyph pairs
+        #:type strokeCountVariance: int
+        #:param strokeCountVariance: variance of stroke count
+        #:type strokeVariance: int
+        #:param strokeVariance: variance of stroke types
+        #:type bigramVariance: int
+        #:param bigramVariance: variance of stroke bigrams
+        #:rtype: list of tuple
+        #:return: list of character, glyph pairs
         #"""
         #strokeList = strokeOrder.replace(' ', '-').split('-')
         #strokeCount = len(strokeList)
@@ -1197,14 +975,14 @@ class CharacterLookup(object):
     """A dictionary containing stroke forms for stroke abbreviations."""
     def getStrokeForAbbrev(self, abbrev):
         """
-        Gets the stroke form for the given I{abbreviated stroke name} (e.g.
-        C{'HZ'}).
+        Gets the stroke form for the given *abbreviated stroke name* (e.g.
+        ``'HZ'``).
 
-        @type abbrev: str
-        @param abbrev: abbreviated stroke name
-        @rtype: str
-        @return: Unicode stroke character
-        @raise ValueError: if an invalid stroke abbreviation is specified
+        :type abbrev: str
+        :param abbrev: abbreviated stroke name
+        :rtype: str
+        :return: Unicode stroke character
+        :raise ValueError: if an invalid stroke abbreviation is specified
         """
         # build stroke lookup table for the first time
         if not self._strokeLookup:
@@ -1221,13 +999,13 @@ class CharacterLookup(object):
 
     def getStrokeForName(self, name):
         u"""
-        Gets the stroke form for the given I{stroke name} (e.g. C{'横折'}).
+        Gets the stroke form for the given *stroke name* (e.g. ``'横折'``).
 
-        @type name: str
-        @param name: Chinese name of stroke
-        @rtype: str
-        @return: Unicode stroke char
-        @raise ValueError: if an invalid stroke name is specified
+        :type name: str
+        :param name: Chinese name of stroke
+        :rtype: str
+        :return: Unicode stroke char
+        :raise ValueError: if an invalid stroke name is specified
         """
         table = self.db.tables['Strokes']
         stroke = self.db.selectScalar(select([table.c.Stroke],
@@ -1244,19 +1022,20 @@ class CharacterLookup(object):
         The stroke order is constructed using the character decomposition into
         components.
 
-        @type char: str
-        @param char: Chinese character
-        @type glyph: int
-        @param glyph: I{glyph} of the character. This parameter is optional and
-            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
-            be used.
-        @type includePartial: bool
-        @param includePartial: if C{True} a stroke order sequence will be
+        :type char: str
+        :param char: Chinese character
+        :type glyph: int
+        :param glyph: *glyph* of the character. This parameter is optional and
+            if omitted the default *glyph* defined by
+            :meth:`~CharacterLookup.getDefaultGlyph`
+            will be used
+        :type includePartial: bool
+        :param includePartial: if ``True`` a stroke order sequence will be
             returned even if only partial information is available. Unknown
-            strokes will be replaced by C{None}.
-        @rtype: list
-        @return: list of Unicode strokes
-        @raise NoInformationError: if no stroke order information available
+            strokes will be replaced by ``None``.
+        :rtype: list
+        :return: list of Unicode strokes
+        :raise NoInformationError: if no stroke order information available
         """
         strokeOrderAbbrev = self.getStrokeOrderAbbrev(char, glyph,
             includePartial=includePartial)
@@ -1272,28 +1051,31 @@ class CharacterLookup(object):
     def getStrokeOrderAbbrev(self, char, glyph=None, includePartial=False):
         """
         Gets the stroke order sequence for the given character as a string of
-        I{abbreviated stroke names} separated by spaces and hyphens.
+        *abbreviated stroke names* separated by spaces and hyphens.
 
         The stroke order is constructed using the character decomposition into
         components.
 
-        @type char: str
-        @param char: Chinese character
-        @type glyph: int
-        @param glyph: I{glyph} of the character. This parameter is optional and
-            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
-            be used.
-        @type includePartial: bool
-        @param includePartial: if C{True} a stroke order sequence will be
+        :type char: str
+        :param char: Chinese character
+        :type glyph: int
+        :param glyph: *glyph* of the character. This parameter is optional and
+            if omitted the default *glyph* defined by
+            :meth:`~CharacterLookup.getDefaultGlyph`
+            will be used.
+        :type includePartial: bool
+        :param includePartial: if ``True`` a stroke order sequence will be
             returned even if only partial information is available. Unknown
-            strokes will be replaced by a question mark (C{?}).
-        @rtype: str
-        @return: string of stroke abbreviations separated by spaces and hyphens.
-        @raise NoInformationError: if no stroke order information available
-        @todo Lang: Add stroke order source to stroke order data so that in
-            general different and contradicting stroke order information can be
-            given. The user then could prefer several sources that in the order
-            given would be queried.
+            strokes will be replaced by a question mark (``?``).
+        :rtype: str
+        :return: string of stroke abbreviations separated by spaces and hyphens.
+        :raise NoInformationError: if no stroke order information available
+
+        .. todo::
+            * Lang: Add stroke order source to stroke order data so that in
+              general different and contradicting stroke order information
+              can be given. The user then could prefer several sources
+              that in the order given would be queried.
         """
         if glyph == None:
             glyph = self.getDefaultGlyph(char)
@@ -1308,10 +1090,10 @@ class CharacterLookup(object):
     def getStrokeOrderAbbrevDict(self):
         """
         Returns a stroke order dictionary for all characters in the chosen
-        I{character domain}.
+        *character domain*.
 
-        @rtype: dict
-        @return: dictionary of key pair character, I{glyph} and value stroke
+        :rtype: dict
+        :return: dictionary of key pair character, *glyph* and value stroke
             order
         """
         tables = [self.db.tables[tableName] \
@@ -1342,12 +1124,12 @@ class CharacterLookup(object):
         Gets the stroke order sequence for the given character from the
         database's stroke order lookup table.
 
-        @type char: str
-        @param char: Chinese character
-        @type glyph: int
-        @param glyph: I{glyph} of the character
-        @rtype: str
-        @return: string of stroke abbreviations separated by spaces and
+        :type char: str
+        :param char: Chinese character
+        :type glyph: int
+        :param glyph: *glyph* of the character
+        :rtype: str
+        :return: string of stroke abbreviations separated by spaces and
             hyphens.
         """
         table = self.db.tables['StrokeOrder']
@@ -1358,46 +1140,46 @@ class CharacterLookup(object):
     def _buildStrokeOrder(self, char, glyph, includePartial=False, cache=None):
         """
         Gets the stroke order sequence for the given character as a string of
-        I{abbreviated stroke names} separated by spaces and hyphens.
+        *abbreviated stroke names* separated by spaces and hyphens.
 
         The stroke order is constructed using the character decomposition into
         components.
 
-        @type char: str
-        @param char: Chinese character
-        @type glyph: int
-        @param glyph: I{glyph} of the character.
-        @type includePartial: bool
-        @param includePartial: if C{True} a stroke order sequence will be
+        :type char: str
+        :param char: Chinese character
+        :type glyph: int
+        :param glyph: *glyph* of the character.
+        :type includePartial: bool
+        :param includePartial: if ``True`` a stroke order sequence will be
             returned even if only partial information is available. Unknown
-            strokes will be replaced by a question mark (C{?}).
-        @type cache: dict
-        @param cache: optional dict of cached stroke order entries
-        @rtype: str
-        @return: string of stroke abbreviations separated by spaces and hyphens.
+            strokes will be replaced by a question mark (``?``).
+        :type cache: dict
+        :param cache: optional dict of cached stroke order entries
+        :rtype: str
+        :return: string of stroke abbreviations separated by spaces and hyphens.
         """
         def getFromDecomposition(char, glyph):
             """
             Gets stroke order from the tree of a single partition entry.
 
-            @type decompositionTreeList: list
-            @param decompositionTreeList: list of decomposition trees to derive
+            :type decompositionTreeList: list
+            :param decompositionTreeList: list of decomposition trees to derive
                 the stroke order from
-            @rtype: str
-            @return: string of stroke abbreviations separated by spaces and
+            :rtype: str
+            :return: string of stroke abbreviations separated by spaces and
                 hyphens.
             """
             def getFromEntry(subTree, index=0):
                 """
                 Goes through a single layer of a tree recursively.
 
-                @type subTree: list
-                @param subTree: decomposition tree to derive the stroke order
+                :type subTree: list
+                :param subTree: decomposition tree to derive the stroke order
                     from
-                @type index: int
-                @param index: index of current layer
-                @rtype: list of str
-                @return: list of stroke abbreviations of the single components
+                :type index: int
+                :param index: index of current layer
+                :rtype: list of str
+                :return: list of stroke abbreviations of the single components
                 """
                 strokeOrder = []
                 if type(subTree[index]) != type(()):
@@ -1514,13 +1296,13 @@ class CharacterLookup(object):
     def getCharacterKangxiRadicalIndex(self, char):
         """
         Gets the Kangxi radical index for the given character as defined by the
-        I{Unihan} database.
+        *Unihan* database.
 
-        @type char: str
-        @param char: Chinese character
-        @rtype: int
-        @return: Kangxi radical index
-        @raise NoInformationError: if no Kangxi radical index information for
+        :type char: str
+        :param char: Chinese character
+        :rtype: int
+        :return: Kangxi radical index
+        :raise NoInformationError: if no Kangxi radical index information for
             given character
         """
         table = self.db.tables['CharacterKangxiRadical']
@@ -1533,16 +1315,16 @@ class CharacterLookup(object):
 
     def getCharacterKangxiRadicalResidualStrokeCount(self, char, glyph=None):
         u"""
-        Gets the Kangxi radical form (either a I{Unicode radical form} or a
-        I{Unicode radical variant}) found as a component in the character and
+        Gets the Kangxi radical form (either a *Unicode radical form* or a
+        *Unicode radical variant*) found as a component in the character and
         the stroke count of the residual character components.
 
         The representation of the included radical or radical variant form
-        depends on the respective character shape and thus the form's I{glyph}
+        depends on the respective character shape and thus the form's *glyph*
         is returned. Some characters include the given radical more than once
         and in some cases the representation is different between those same
         forms thus in the general case several matches can be returned, each
-        entry with a different radical form I{glyph}. In these cases the entries
+        entry with a different radical form *glyph*. In these cases the entries
         are sorted by their glyph index.
 
         There are characters which include both, the radical form and a variant
@@ -1553,17 +1335,18 @@ class CharacterLookup(object):
         e.g. radical ⻔ is returned for character 间, though this variant form is
         not recognised under a traditional locale (like the character itself).
 
-        @type char: str
-        @param char: Chinese character
-        @type glyph: int
-        @param glyph: I{glyph} of the character. This parameter is optional and
-            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
-            be used.
-        @rtype: list of tuple
-        @return: list of radical/variant form, its I{glyph}, the main layout of
-            the character (using a I{IDS operator}), the position of the radical
+        :type char: str
+        :param char: Chinese character
+        :type glyph: int
+        :param glyph: *glyph* of the character. This parameter is optional and
+            if omitted the default *glyph* defined by
+            :meth:`~CharacterLookup.getDefaultGlyph`
+            will be used.
+        :rtype: list of tuple
+        :return: list of radical/variant form, its *glyph*, the main layout of
+            the character (using a *IDS operator*), the position of the radical
             wrt. layout (0, 1 or 2) and the residual stroke count.
-        @raise NoInformationError: if no stroke count information available
+        :raise NoInformationError: if no stroke count information available
         """
         radicalIndex = self.getCharacterKangxiRadicalIndex(char)
         entries = self.getCharacterRadicalResidualStrokeCount(char,
@@ -1577,39 +1360,43 @@ class CharacterLookup(object):
     def getCharacterRadicalResidualStrokeCount(self, char, radicalIndex,
         glyph=None):
         u"""
-        Gets the radical form (either a I{Unicode radical form} or a
-        I{Unicode radical variant}) found as a component in the character and
+        Gets the radical form (either a *Unicode radical form* or a
+        *Unicode radical variant*) found as a component in the character and
         the stroke count of the residual character components.
 
         This is a more general version of
-        L{getCharacterKangxiRadicalResidualStrokeCount()} which is not limited
+        :meth:`~CharacterLookup.getCharacterKangxiRadicalResidualStrokeCount`
+        which is not limited
         to the mapping of characters to a Kangxi radical as done by Unihan.
 
-        @type char: str
-        @param char: Chinese character
-        @type radicalIndex: int
-        @param radicalIndex: radical index
-        @type glyph: int
-        @param glyph: I{glyph} of the character. This parameter is optional and
-            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
-            be used.
-        @rtype: list of tuple
-        @return: list of radical/variant form, its I{glyph}, the main layout of
-            the character (using a I{IDS operator}), the position of the radical
+        :type char: str
+        :param char: Chinese character
+        :type radicalIndex: int
+        :param radicalIndex: radical index
+        :type glyph: int
+        :param glyph: *glyph* of the character. This parameter is optional and
+            if omitted the default *glyph* defined by
+            :meth:`~CharacterLookup.getDefaultGlyph`
+            will be used
+        :rtype: list of tuple
+        :return: list of radical/variant form, its *glyph*, the main layout of
+            the character (using a *IDS operator*), the position of the radical
             wrt. layout (0, 1 or 2) and the residual stroke count.
-        @raise NoInformationError: if no stroke count information available
-        @todo Lang: Clarify on characters classified under a given radical
-            but without any proper radical glyph found as component.
-        @todo Lang: Clarify on different radical glyphs for the same radical
-            form. At best this method should return one and only one radical
-            form (glyph).
-        @todo Impl: Give the I{Unicode radical form} and not the equivalent
-            character form in the relevant table as to always return the pure
-            radical form (also avoids duplicates). Then state:
+        :raise NoInformationError: if no stroke count information available
 
-            If the included component has an appropriate I{Unicode radical form}
-            or I{Unicode radical variant}, then this form is returned. In either
-            case the radical form can be an ordinary character.
+        .. todo::
+            * Lang: Clarify on characters classified under a given radical
+              but without any proper radical glyph found as component.
+            * Lang: Clarify on different radical glyphs for the same radical
+              form. At best this method should return one and only one radical
+              form (glyph).
+            * Impl: Give the *Unicode radical form* and not the equivalent
+              character form in the relevant table as to always return the pure
+              radical form (also avoids duplicates). Then state:
+              If the included component has an appropriate
+              *Unicode radical form* or *Unicode radical variant*, then this
+              form is returned. In either case the radical form can be an
+              ordinary character.
         """
         if glyph == None:
             glyph = self.getDefaultGlyph(char)
@@ -1631,21 +1418,21 @@ class CharacterLookup(object):
 
     def getCharacterRadicalResidualStrokeCountDict(self):
         u"""
-        Gets the full table of radical forms (either a I{Unicode radical form}
-        or a I{Unicode radical variant}) found as a component in the character
+        Gets the full table of radical forms (either a *Unicode radical form*
+        or a *Unicode radical variant*) found as a component in the character
         and the stroke count of the residual character components from the
         database.
 
         A typical entry looks like
-        C{(u'众', 0): {9: [(u'人', 0, u'⿱', 0, 4), (u'人', 0, u'⿻', 0, 4)]}},
-        and can be accessed as C{radicalDict[(u'众', 0)][9]} with the Chinese
-        character, its I{glyph} and Kangxi radical index. The values are given
-        in the order I{radical form}, radical I{glyph}, I{character layout},
+        ``(u'众', 0): {9: [(u'人', 0, u'⿱', 0, 4), (u'人', 0, u'⿻', 0, 4)]``},
+        and can be accessed as ``radicalDict[(u'众', 0)][9]`` with the Chinese
+        character, its *glyph* and Kangxi radical index. The values are given
+        in the order *radical form*, radical *glyph*, *character layout*,
         relative position of the radical and finally the
-        I{residual stroke count}.
+        *residual stroke count*.
 
-        @rtype: dict
-        @return: dictionary of radical/residual stroke count entries.
+        :rtype: dict
+        :return: dictionary of radical/residual stroke count entries.
         """
         radicalDict = {}
         # get entries from database
@@ -1680,20 +1467,25 @@ class CharacterLookup(object):
         aside the radical form.
 
         This method returns a subset of data with regards to
-        L{getCharacterKangxiRadicalResidualStrokeCount()}. It may though offer
-        more entries after all, as their might exists information only about
-        the residual stroke count, but not about the concrete radical form.
+        :meth:`~CharacterLookup.getCharacterKangxiRadicalResidualStrokeCount`.
+        It may though offer more entries after all, as their might
+        exist information only about the residual stroke count,
+        but not about the concrete radical form.
 
-        @type char: str
-        @param char: Chinese character
-        @type glyph: int
-        @param glyph: I{glyph} of the character. This parameter is optional and
-            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
-            be used.
-        @rtype: int
-        @return: residual stroke count
-        @raise NoInformationError: if no stroke count information available
-        @attention: The quality of the returned data depends on the sources used
+        :type char: str
+        :param char: Chinese character
+        :type glyph: int
+        :param glyph: *glyph* of the character. This parameter is optional and
+            if omitted the default *glyph* defined by
+            :meth:`~CharacterLookup.getDefaultGlyph`
+            will be used
+        :rtype: int
+        :return: residual stroke count
+        :raise NoInformationError: if no stroke count information available
+
+        .. note::
+
+            The quality of the returned data depends on the sources used
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
         """
@@ -1706,21 +1498,26 @@ class CharacterLookup(object):
         aside the radical form.
 
         This is a more general version of
-        L{getCharacterKangxiResidualStrokeCount()} which is not limited to the
-        mapping of characters to a Kangxi radical as done by Unihan.
+        :meth:`~CharacterLookup.getCharacterKangxiResidualStrokeCount`
+        which is not limited to the mapping of characters to a Kangxi radical
+        as done by Unihan.
 
-        @type char: str
-        @param char: Chinese character
-        @type radicalIndex: int
-        @param radicalIndex: radical index
-        @type glyph: int
-        @param glyph: I{glyph} of the character. This parameter is optional and
-            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
-            be used.
-        @rtype: int
-        @return: residual stroke count
-        @raise NoInformationError: if no stroke count information available
-        @attention: The quality of the returned data depends on the sources used
+        :type char: str
+        :param char: Chinese character
+        :type radicalIndex: int
+        :param radicalIndex: radical index
+        :type glyph: int
+        :param glyph: *glyph* of the character. This parameter is optional and
+            if omitted the default *glyph* defined by
+            :meth:`~CharacterLookup.getDefaultGlyph`
+            will be used
+        :rtype: int
+        :return: residual stroke count
+        :raise NoInformationError: if no stroke count information available
+
+        .. note::
+
+            The quality of the returned data depends on the sources used
             when compiling the database. Unihan itself only gives very general
             stroke order information without being bound to a specific glyph.
         """
@@ -1739,15 +1536,15 @@ class CharacterLookup(object):
     def getCharacterResidualStrokeCountDict(self):
         u"""
         Gets the table of stroke counts of the residual character components
-        from the database for all characters in the chosen I{character domain}.
+        from the database for all characters in the chosen *character domain*.
 
-        A typical entry looks like C{(u'众', 0): {9: [4]}},
-        and can be accessed as C{residualCountDict[(u'众', 0)][9]} with the
-        Chinese character, its I{glyph} and Kangxi radical index which then
-        gives the I{residual stroke count}.
+        A typical entry looks like ``(u'众', 0): {9: [4]``},
+        and can be accessed as ``residualCountDict[(u'众', 0)][9]`` with the
+        Chinese character, its *glyph* and Kangxi radical index which then
+        gives the *residual stroke count*.
 
-        @rtype: dict
-        @return: dictionary of radical/residual stroke count entries.
+        :rtype: dict
+        :return: dictionary of radical/residual stroke count entries.
         """
         residualCountDict = {}
         # get entries from database
@@ -1778,15 +1575,17 @@ class CharacterLookup(object):
         """
         Gets all characters for the given Kangxi radical index.
 
-        @type radicalIndex: int
-        @param radicalIndex: Kangxi radical index
-        @rtype: list of str
-        @return: list of matching Chinese characters
-        @todo Docu: Write about how Unihan maps characters to a Kangxi radical.
-            Especially Chinese simplified characters.
-        @todo Lang: 6954 characters have no Kangxi radical. Provide integration
-            for these (SELECT COUNT(*) FROM Unihan WHERE kRSUnicode IS NOT NULL
-            AND kRSKangxi IS NULL;).
+        :type radicalIndex: int
+        :param radicalIndex: Kangxi radical index
+        :rtype: list of str
+        :return: list of matching Chinese characters
+
+        .. todo::
+            * Docu: Write about how Unihan maps characters to a Kangxi radical.
+              Especially Chinese simplified characters.
+            * Lang: 6954 characters have no Kangxi radical. Provide integration
+              for these (SELECT COUNT(*) FROM Unihan
+              WHERE kRSUnicode IS NOT NULL AND kRSKangxi IS NULL;).
         """
         table = self.db.tables['CharacterKangxiRadical']
         # constrain to selected character domain
@@ -1805,14 +1604,15 @@ class CharacterLookup(object):
         Gets all characters for the given radical index.
 
         This is a more general version of
-        L{getCharactersForKangxiRadicalIndex()} which is not limited to the
-        mapping of characters to a Kangxi radical as done by Unihan and one
-        character can show up under several different radical indices.
+        :meth:`~CharacterLookup.getCharactersForKangxiRadicalIndex`
+        which is not limited to the mapping of characters to a Kangxi radical
+        as done by Unihan and one character can show up under several
+        different radical indices.
 
-        @type radicalIndex: int
-        @param radicalIndex: Kangxi radical index
-        @rtype: list of str
-        @return: list of matching Chinese characters
+        :type radicalIndex: int
+        :param radicalIndex: Kangxi radical index
+        :rtype: list of str
+        :return: list of matching Chinese characters
         """
         table = self.db.tables['CharacterResidualStrokeCount']
         # constrain to selected character domain
@@ -1831,15 +1631,17 @@ class CharacterLookup(object):
         Gets all characters and residual stroke count for the given Kangxi
         radical index.
 
-        This brings together methods L{getCharactersForKangxiRadicalIndex()} and
-        L{getCharacterResidualStrokeCountDict()} and reports all characters
-        including the given Kangxi radical, additionally supplying the residual
-        stroke count.
+        This brings together methods
+        :meth:`~CharacterLookup.getCharactersForKangxiRadicalIndex`
+        and
+        :meth:`~CharacterLookup.getCharacterResidualStrokeCountDict`
+        and reports all characters including the given Kangxi radical,
+        additionally supplying the residual stroke count.
 
-        @type radicalIndex: int
-        @param radicalIndex: Kangxi radical index
-        @rtype: list of tuple
-        @return: list of matching Chinese characters with residual stroke count
+        :type radicalIndex: int
+        :param radicalIndex: Kangxi radical index
+        :rtype: list of tuple
+        :return: list of matching Chinese characters with residual stroke count
         """
         kangxiTable = self.db.tables['CharacterKangxiRadical']
         residualTable = self.db.tables['CharacterResidualStrokeCount']
@@ -1862,16 +1664,19 @@ class CharacterLookup(object):
         Gets all characters and residual stroke count for the given radical
         index.
 
-        This brings together methods L{getCharactersForRadicalIndex()} and
-        L{getCharacterResidualStrokeCountDict()} and reports all characters
+        This brings together methods
+        :meth:`~CharacterLookup.getCharactersForRadicalIndex`
+        and
+        :meth:`~CharacterLookup.getCharacterResidualStrokeCountDict`
+        and reports all characters
         including the given radical without being limited to the mapping of
         characters to a Kangxi radical as done by Unihan, additionally supplying
         the residual stroke count.
 
-        @type radicalIndex: int
-        @param radicalIndex: Kangxi radical index
-        @rtype: list of tuple
-        @return: list of matching Chinese characters with residual stroke count
+        :type radicalIndex: int
+        :param radicalIndex: Kangxi radical index
+        :rtype: list of tuple
+        :return: list of matching Chinese characters with residual stroke count
         """
         table = self.db.tables['CharacterResidualStrokeCount']
         # constrain to selected character domain
@@ -1891,21 +1696,23 @@ class CharacterLookup(object):
 
     def getKangxiRadicalForm(self, radicalIdx):
         u"""
-        Gets a I{Unicode radical form} for the given Kangxi radical index.
+        Gets a *Unicode radical form* for the given Kangxi radical index.
 
         This method will always return a single non null value, even if there
         are several radical forms for one index.
 
-        @type radicalIdx: int
-        @param radicalIdx: Kangxi radical index
-        @rtype: str
-        @return: I{Unicode radical form}
-        @raise ValueError: if an invalid radical index is specified
-        @todo Lang: Check if radicals for which multiple radical forms exists
-            include a simplified form or other variation (e.g. ⻆, ⻝, ⺐).
-            There are radicals for which a Chinese simplified character
-            equivalent exists and that is mapped to a different radical under
-            Unicode.
+        :type radicalIdx: int
+        :param radicalIdx: Kangxi radical index
+        :rtype: str
+        :return: *Unicode radical form*
+        :raise ValueError: if an invalid radical index is specified
+
+        .. todo::
+            * Lang: Check if radicals for which multiple radical forms exists
+              include a simplified form or other variation (e.g. ⻆, ⻝, ⺐).
+              There are radicals for which a Chinese simplified character
+              equivalent exists and that is mapped to a different radical under
+              Unicode.
         """
         if radicalIdx < 1 or radicalIdx > 214:
             raise ValueError("Radical index '" + unicode(radicalIdx) \
@@ -1920,19 +1727,21 @@ class CharacterLookup(object):
 
     def getKangxiRadicalVariantForms(self, radicalIdx):
         """
-        Gets a list of I{Unicode radical variant}s for the given Kangxi radical
+        Gets a list of *Unicode radical variants* for the given Kangxi radical
         index.
 
         This method can return an empty list if there are no
-        I{Unicode radical variant} forms. There might be non
-        I{Unicode radical variant}s for this radial as character forms though.
+        *Unicode radical variant* forms. There might be non
+        *Unicode radical variants* for this radial as character forms though.
 
-        @type radicalIdx: int
-        @param radicalIdx: Kangxi radical index
-        @rtype: list of str
-        @return: list of I{Unicode radical variant}s
-        @todo Lang: Narrow locales, not all variant forms are valid under all
-            locales.
+        :type radicalIdx: int
+        :param radicalIdx: Kangxi radical index
+        :rtype: list of str
+        :return: list of *Unicode radical variants*
+
+        .. todo::
+            * Lang: Narrow locales, not all variant forms are valid under all
+              locales.
         """
         table = self.db.tables['KangxiRadical']
         return self.db.selectScalars(select([table.c.Form],
@@ -1944,14 +1753,14 @@ class CharacterLookup(object):
         """
         Gets the Kangxi radical index for the given form.
 
-        The given form might either be an I{Unicode radical form} or an
-        I{equivalent character}.
+        The given form might either be an *Unicode radical form* or an
+        *equivalent character*.
 
-        @type radicalForm: str
-        @param radicalForm: radical form
-        @rtype: int
-        @return: Kangxi radical index
-        @raise ValueError: if an invalid radical form is specified
+        :type radicalForm: str
+        :param radicalForm: radical form
+        :rtype: int
+        :return: Kangxi radical index
+        :raise ValueError: if an invalid radical form is specified
         """
         # check in radical table
         locale = self._locale(self.locale)
@@ -1992,15 +1801,15 @@ class CharacterLookup(object):
 
         This includes the radical form(s), character equivalents
         and variant forms and equivalents. Results are not limited to the chosen
-        I{character domain}.
+        *character domain*.
 
-        E.g. character for I{to speak/to say/talk/word} (Pinyin I{yán}):
+        E.g. character for *to speak/to say/talk/word* (Pinyin *yán*):
         ⾔ (0x2f94), 言 (0x8a00), ⻈ (0x2ec8), 讠 (0x8ba0), 訁 (0x8a01)
 
-        @type radicalIdx: int
-        @param radicalIdx: Kangxi radical index
-        @rtype: list of str
-        @return: list of Chinese characters representing the radical for the
+        :type radicalIdx: int
+        :param radicalIdx: Kangxi radical index
+        :rtype: list of str
+        :return: list of Chinese characters representing the radical for the
             given index, including Unicode radical and variant forms and their
             equivalent real character forms
         """
@@ -2027,15 +1836,15 @@ class CharacterLookup(object):
     def isKangxiRadicalFormOrEquivalent(self, form):
         """
         Checks if the given form is a Kangxi radical form or a radical
-        equivalent. This includes I{Unicode radical form}s,
-        I{Unicode radical variant}s, I{equivalent character} and
-        I{isolated radical character}s.
+        equivalent. This includes *Unicode radical forms*,
+        *Unicode radical variants*, *equivalent character* and
+        *isolated radical characters*.
 
-        @type form: str
-        @param form: Chinese character
-        @rtype: bool
-        @return: C{True} if given form is a radical or I{equivalent character},
-            C{False} otherwise
+        :type form: str
+        :param form: Chinese character
+        :rtype: bool
+        :return: ``True`` if given form is a radical or *equivalent character*,
+            ``False`` otherwise
         """
         try:
             self.getKangxiRadicalIndex(form)
@@ -2046,16 +1855,16 @@ class CharacterLookup(object):
     @staticmethod
     def isRadicalChar(char):
         """
-        Checks if the given character is a I{Unicode radical form} or
-        I{Unicode radical variant}.
+        Checks if the given character is a *Unicode radical form* or
+        *Unicode radical variant*.
 
         This method does a quick Unicode code index checking. So there is no
         guarantee this form has actually a radical entry in the database.
 
-        @type char: str
-        @param char: Chinese character
-        @rtype: bool
-        @return: C{True} if given form is a radical form, C{False} otherwise
+        :type char: str
+        :param char: Chinese character
+        :rtype: bool
+        :return: ``True`` if given form is a radical form, ``False`` otherwise
         """
         # check if Unicode code point of character lies in between U+2e80 and
         # U+2fd5
@@ -2063,27 +1872,27 @@ class CharacterLookup(object):
 
     def getRadicalFormEquivalentCharacter(self, radicalForm):
         u"""
-        Gets the I{equivalent character} of the given I{Unicode radical form} or
-        I{Unicode radical variant}.
+        Gets the *equivalent character* of the given *Unicode radical form* or
+        *Unicode radical variant*.
 
-        The mapping mostly follows the X{Han Radical folding} specified in
-        the Draft X{Unicode Technical Report #30} X{Character Foldings} under
-        U{http://www.unicode.org/unicode/reports/tr30/#HanRadicalFolding}.
+        The mapping mostly follows the *Han Radical folding* specified in
+        the Draft *Unicode Technical Report #30* *Character Foldings* under
+        http://www.unicode.org/unicode/reports/tr30/#HanRadicalFolding.
         All radical forms except U+2E80 (⺀) have an equivalent character. These
         equivalent characters are not necessarily visual identical and can be
         subject to major variation. Results are not limited to the chosen
-        I{character domain}.
+        *character domain*.
 
         This method may raise a UnsupportedError if there is no supported
-        I{equivalent character} form.
+        *equivalent character* form.
 
-        @type radicalForm: str
-        @param radicalForm: I{Unicode radical form}
-        @rtype: str
-        @return: I{equivalent character} form
-        @raise UnsupportedError: if there is no supported
-            I{equivalent character} form
-        @raise ValueError: if an invalid radical form is specified
+        :type radicalForm: str
+        :param radicalForm: *Unicode radical form*
+        :rtype: str
+        :return: *equivalent character* form
+        :raise UnsupportedError: if there is no supported
+            *equivalent character* form
+        :raise ValueError: if an invalid radical form is specified
         """
         if not self.isRadicalChar(radicalForm):
             raise ValueError(radicalForm + " is no valid radical form")
@@ -2100,21 +1909,21 @@ class CharacterLookup(object):
 
     def getCharacterEquivalentRadicalForms(self, equivalentForm):
         """
-        Gets I{Unicode radical form}s or I{Unicode radical variant}s for the
-        given I{equivalent character}.
+        Gets *Unicode radical forms* or *Unicode radical variants* for the
+        given *equivalent character*.
 
-        The mapping mostly follows the I{Han Radical folding} specified in
-        the Draft I{Unicode Technical Report #30} I{Character Foldings} under
-        U{http://www.unicode.org/unicode/reports/tr30/#HanRadicalFolding}.
+        The mapping mostly follows the *Han Radical folding* specified in
+        the Draft *Unicode Technical Report #30* *Character Foldings* under
+        http://www.unicode.org/unicode/reports/tr30/#HanRadicalFolding.
         Several radical forms can be mapped to the same equivalent character
         and thus this method in general returns several values.
 
-        @type equivalentForm: str
-        @param equivalentForm: Equivalent character of I{Unicode radical form}
-            or I{Unicode radical variant}
-        @rtype: list of str
-        @return: I{equivalent character} forms
-        @raise ValueError: if an invalid equivalent character is specified
+        :type equivalentForm: str
+        :param equivalentForm: Equivalent character of *Unicode radical form*
+            or *Unicode radical variant*
+        :rtype: list of str
+        :return: *equivalent character* forms
+        :raise ValueError: if an invalid equivalent character is specified
         """
         table = self.db.tables['RadicalEquivalentCharacter']
         result = self.db.selectScalars(select([table.c.Form],
@@ -2132,47 +1941,47 @@ class CharacterLookup(object):
     IDS_BINARY = [u'⿰', u'⿱', u'⿴', u'⿵', u'⿶', u'⿷', u'⿸', u'⿹', u'⿺',
         u'⿻']
     """
-    A list of I{binary IDS operator}s used to describe character decompositions.
+    A list of *binary IDS operators* used to describe character decompositions.
     """
     IDS_TRINARY = [u'⿲', u'⿳']
     """
-    A list of I{trinary IDS operator}s used to describe character
+    A list of *trinary IDS operators* used to describe character
     decompositions.
     """
 
     @classmethod
     def isBinaryIDSOperator(cls, char):
         """
-        Checks if given character is a I{binary IDS operator}.
+        Checks if given character is a *binary IDS operator*.
 
-        @type char: str
-        @param char: Chinese character
-        @rtype: bool
-        @return: C{True} if I{binary IDS operator}, C{False} otherwise
+        :type char: str
+        :param char: Chinese character
+        :rtype: bool
+        :return: ``True`` if *binary IDS operator*, ``False`` otherwise
         """
         return char in set(cls.IDS_BINARY)
 
     @classmethod
     def isTrinaryIDSOperator(cls, char):
         """
-        Checks if given character is a I{trinary IDS operator}.
+        Checks if given character is a *trinary IDS operator*.
 
-        @type char: str
-        @param char: Chinese character
-        @rtype: bool
-        @return: C{True} if I{trinary IDS operator}, C{False} otherwise
+        :type char: str
+        :param char: Chinese character
+        :rtype: bool
+        :return: ``True`` if *trinary IDS operator*, ``False`` otherwise
         """
         return char in set(cls.IDS_TRINARY)
 
     @classmethod
     def isIDSOperator(cls, char):
         """
-        Checks if given character is an I{IDS operator}.
+        Checks if given character is an *IDS operator*.
 
-        @type char: str
-        @param char: Chinese character
-        @rtype: bool
-        @return: C{True} if I{IDS operator}, C{False} otherwise
+        :type char: str
+        :param char: Chinese character
+        :rtype: bool
+        :return: ``True`` if *IDS operator*, ``False`` otherwise
         """
         return cls.isBinaryIDSOperator(char) or cls.isTrinaryIDSOperator(char)
 
@@ -2182,42 +1991,44 @@ class CharacterLookup(object):
         u"""
         Gets all characters that contain the given components.
 
-        If option C{includeEquivalentRadicalForms} is set, all equivalent forms
+        If option ``includeEquivalentRadicalForms`` is set, all equivalent forms
         will be search for when a Kangxi radical is given.
 
-        @type componentList: list of str
-        @param componentList: list of character components
-        @type includeEquivalentRadicalForms: bool
-        @param includeEquivalentRadicalForms: if C{True} then characters in the
+        :type componentList: list of str
+        :param componentList: list of character components
+        :type includeEquivalentRadicalForms: bool
+        :param includeEquivalentRadicalForms: if ``True`` then characters in the
             given component list are interpreted as representatives for their
             radical and all radical forms are included in the search. E.g. 肉
             will include ⺼ as a possible component.
-        @type resultIncludeRadicalForms: bool
-        @param resultIncludeRadicalForms: if C{True} the result will include
-            I{Unicode radical forms} and I{Unicode radical variants}
-        @type includeAllGlyphs: bool
-        @param includeAllGlyphs: if C{True} all matches will be returned, if
-            C{False} only those with glyphs matching the locale's default one
+        :type resultIncludeRadicalForms: bool
+        :param resultIncludeRadicalForms: if ``True`` the result will include
+            *Unicode radical forms* and *Unicode radical variants*
+        :type includeAllGlyphs: bool
+        :param includeAllGlyphs: if ``True`` all matches will be returned, if
+            ``False`` only those with glyphs matching the locale's default one
             will be returned
-        @rtype: list of tuple
-        @return: list of pairs of matching characters and their I{glyphs}
-        @todo Impl: Table of same character glyphs, including special radical
-            forms (e.g. 言 and 訁).
-        @todo Data: Adopt locale dependant I{glyph} for parent characters
-            (e.g. 鬼 in 隗 愧 嵬).
-        @todo Data: Use radical forms and radical variant forms instead of
-            equivalent characters in decomposition data. Mapping looses
-            information.
-        @todo Lang: By default we get the equivalent character for a radical
-            form. In some cases these equivalent characters will be only
-            abstractly related to the given radical form (e.g. being the main
-            radical form), so that the result set will be too big and doesn't
-            reflect the original query. Set up a table including only strict
-            visual relations between radical forms and equivalent characters.
-            Alternatively restrict decomposition data to only include radical
-            forms if appropriate, so there would be no need for conversion.
-        @todo Fix:  Radical equivalent forms should be included independent of
-            the chosen locale. E.g. u'⻔' for u'门'.
+        :rtype: list of tuple
+        :return: list of pairs of matching characters and their *glyphs*
+
+        .. todo::
+            * Impl: Table of same character glyphs, including special radical
+              forms (e.g. 言 and 訁).
+            * Data: Adopt locale dependant *glyph* for parent characters
+              (e.g. 鬼 in 隗 愧 嵬).
+            * Data: Use radical forms and radical variant forms instead of
+              equivalent characters in decomposition data. Mapping looses
+              information.
+            * Lang: By default we get the equivalent character for a radical
+              form. In some cases these equivalent characters will be only
+              abstractly related to the given radical form (e.g. being the main
+              radical form), so that the result set will be too big and doesn't
+              reflect the original query. Set up a table including only strict
+              visual relations between radical forms and equivalent characters.
+              Alternatively restrict decomposition data to only include radical
+              forms if appropriate, so there would be no need for conversion.
+            * Fix:  Radical equivalent forms should be included independent of
+              the chosen locale. E.g. u'⻔' for u'门'.
         """
         equivCharTable = []
         for component in componentList:
@@ -2257,22 +2068,24 @@ class CharacterLookup(object):
         Gets all characters that contain at least one component per list entry,
         sorted by stroke count if available.
 
-        This is the general form of L{getCharactersForComponents()} and allows a
+        This is the general form of
+        :meth:`~CharacterLookup.getCharactersForComponents`
+        and allows a
         set of characters per list entry of which at least one character must be
         a component in the given list.
 
-        @type componentConstruct: list of list of str
-        @param componentConstruct: list of character components given as single
+        :type componentConstruct: list of list of str
+        :param componentConstruct: list of character components given as single
             characters or, for alternative characters, given as a list
-        @type resultIncludeRadicalForms: bool
-        @param resultIncludeRadicalForms: if C{True} the result will include
-            I{Unicode radical forms} and I{Unicode radical variants}
-        @type includeAllGlyphs: bool
-        @param includeAllGlyphs: if C{True} all matches will be returned, if
-            C{False} only those with glyphs matching the locale's default one
+        :type resultIncludeRadicalForms: bool
+        :param resultIncludeRadicalForms: if ``True`` the result will include
+            *Unicode radical forms* and *Unicode radical variants*
+        :type includeAllGlyphs: bool
+        :param includeAllGlyphs: if ``True`` all matches will be returned, if
+            ``False`` only those with glyphs matching the locale's default one
             will be returned
-        @rtype: list of tuple
-        @return: list of pairs of matching characters and their I{glyphs}
+        :rtype: list of tuple
+        :return: list of pairs of matching characters and their *glyphs*
         """
         if not componentConstruct:
             return []
@@ -2344,16 +2157,17 @@ class CharacterLookup(object):
         decomposition is returned.
 
         Each entry in the result list consists of a list of characters (with its
-        I{glyph}) and IDS operators.
+        *glyph*) and IDS operators.
 
-        @type char: str
-        @param char: Chinese character that is to be decomposed into components
-        @type glyph: int
-        @param glyph: I{glyph} of the character. This parameter is optional and
-            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
-            be used.
-        @rtype: list
-        @return: list of first layer decompositions
+        :type char: str
+        :param char: Chinese character that is to be decomposed into components
+        :type glyph: int
+        :param glyph: *glyph* of the character. This parameter is optional and
+            if omitted the default *glyph* defined by
+            :meth:`~CharacterLookup.getDefaultGlyph`
+            will be used
+        :rtype: list
+        :return: list of first layer decompositions
         """
         if glyph == None:
             try:
@@ -2375,10 +2189,10 @@ class CharacterLookup(object):
     def getDecompositionEntriesDict(self):
         """
         Gets the decomposition table from the database for all characters in the
-        chosen I{character domain}.
+        chosen *character domain*.
 
-        @rtype: dict
-        @return: dictionary with key pair character, I{glyph} and the first
+        :rtype: dict
+        :return: dictionary with key pair character, *glyph* and the first
             layer decomposition as value
         """
         decompDict = {}
@@ -2407,17 +2221,17 @@ class CharacterLookup(object):
     @staticmethod
     def decompositionFromString(decomposition):
         """
-        Gets a tuple representation with character/I{glyph} of the given
+        Gets a tuple representation with character/*glyph* of the given
         character's decomposition into components.
 
-        Example: Entry C{⿱尚[1]儿} will be returned as
-        C{[u'⿱', (u'尚', 1), (u'儿', 0)]}.
+        Example: Entry ``⿱尚[1]儿`` will be returned as
+        ``[u'⿱', (u'尚', 1), (u'儿', 0)]``.
 
-        @type decomposition: str
-        @param decomposition: character decomposition with IDS operator,
-            components and optional I{glyph} index
-        @rtype: list
-        @return: decomposition with character/I{glyph} tuples
+        :type decomposition: str
+        :param decomposition: character decomposition with IDS operator,
+            components and optional *glyph* index
+        :rtype: list
+        :return: decomposition with character/*glyph* tuples
         """
         componentsList = []
         index = 0
@@ -2453,16 +2267,16 @@ class CharacterLookup(object):
         """
         Gets a string representation of the given character decomposition.
 
-        Example: C{[u'⿱', (u'尚', 1), (u'儿', 0)]} will yield C{⿱尚[1]儿}.
+        Example: ``[u'⿱', (u'尚', 1), (u'儿', 0)]`` will yield ``⿱尚[1]儿``.
 
-        @type decomposition: list
-        @param decomposition: decomposition with character/I{glyph} tuples
-        @type pureIds: bool
-        @param pureIds: if C{True} a pure I{Ideographic Description Sequence}
+        :type decomposition: list
+        :param decomposition: decomposition with character/*glyph* tuples
+        :type pureIds: bool
+        :param pureIds: if ``True`` a pure *Ideographic Description Sequence*
             will be returned and no glyph information will be included.
-        @rtype: str
-        @return: character decomposition with IDS operator, components and
-            optional I{glyph} index
+        :rtype: str
+        :return: character decomposition with IDS operator, components and
+            optional *glyph* index
         """
         entities = []
         for index in range(len(decomposition)):
@@ -2495,14 +2309,15 @@ class CharacterLookup(object):
         and includes yet another list of trees for the decomposition of the
         component.
 
-        @type char: str
-        @param char: Chinese character that is to be decomposed into components
-        @type glyph: int
-        @param glyph: I{glyph} of the character. This parameter is optional and
-            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
-            be used.
-        @rtype: list
-        @return: list of decomposition trees
+        :type char: str
+        :param char: Chinese character that is to be decomposed into components
+        :type glyph: int
+        :param glyph: *glyph* of the character. This parameter is optional and
+            if omitted the default *glyph* defined by
+            :meth:`~CharacterLookup.getDefaultGlyph`
+            will be used
+        :rtype: list
+        :return: list of decomposition trees
         """
         if glyph == None:
             try:
@@ -2536,22 +2351,26 @@ class CharacterLookup(object):
         Checks if the given character contains the second character as a
         component.
 
-        @type component: str
-        @param component: character questioned to be a component
-        @type char: str
-        @param char: Chinese character
-        @type glyph: int
-        @param glyph: I{glyph} of the character. This parameter is optional and
-            if omitted the default I{glyph} defined by L{getDefaultGlyph()} will
-            be used.
-        @type componentGlyph: int
-        @param componentGlyph: I{glyph} of the component; if left out every
-            glyph matches for that character.
-        @rtype: bool
-        @return: C{True} if C{component} is a component of the given character,
-            C{False} otherwise
-        @todo Impl: Implement means to check if the component is really not
-            found, or if our data is just insufficient.
+        :type component: str
+        :param component: character questioned to be a component
+        :type char: str
+        :param char: Chinese character
+        :type glyph: int
+        :param glyph: *glyph* of the character. This parameter is optional and
+            if omitted the default *glyph* defined by 
+            :meth:`~CharacterLookup.getDefaultGlyph`
+            will be used
+        :type componentGlyph: int
+        :param componentGlyph: *glyph* of the component; if left out every
+           glyph matches for that character.
+        :rtype: bool
+        :return: ``True`` if ``component`` is a component of the given character,
+           ``False`` otherwise
+
+        .. todo::
+
+           Impl: Implement means to check if the component is really not
+              found, or if our data is just insufficient.
         """
         if glyph == None:
             try:

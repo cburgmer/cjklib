@@ -20,19 +20,19 @@ Installs dictionaries at runtime.
 
 Example:
 
-    - Download and update a dictionary (here CFDICT):
+- Download and update a dictionary (here CFDICT):
 
-        >>> from cjklib.dbconnector import getDBConnector
-        >>> db = getDBConnector({'sqlalchemy.url': 'sqlite://',\
- 'attach': ['cjklib']})
-        >>> from cjklib.dictionary.install import DictionaryInstaller
-        >>> installer = DictionaryInstaller()
-        >>> installer.install('CFDICT', dbConnectInst=db)
-        >>> from cjklib.dictionary import CFDICT
-        >>> CFDICT(dbConnectInst=db).getFor(u'朋友')
-        [EntryTuple(HeadwordTraditional=u'\u670b\u53cb',\
- HeadwordSimplified=u'\u670b\u53cb', Reading=u'p\xe9ng you',\
- Translation=u'/ami (n.v.) (n)/')]
+    >>> from cjklib.dbconnector import getDBConnector
+    >>> db = getDBConnector({'sqlalchemy.url': 'sqlite://',\
+'attach': ['cjklib']})
+    >>> from cjklib.dictionary.install import DictionaryInstaller
+    >>> installer = DictionaryInstaller()
+    >>> installer.install('CFDICT', dbConnectInst=db)
+    >>> from cjklib.dictionary import CFDICT
+    >>> CFDICT(dbConnectInst=db).getFor(u'朋友')
+    [EntryTuple(HeadwordTraditional=u'\u670b\u53cb',\
+HeadwordSimplified=u'\u670b\u53cb', Reading=u'p\xe9ng you',\
+Translation=u'/ami (n.v.) (n)/')]
 
 """
 
@@ -97,8 +97,8 @@ def warn(message, endline=True):
     """
     Prints the given message to stderr with the system's default encoding.
 
-    @type message: str
-    @param message: message to print
+    :type message: str
+    :param message: message to print
     """
     print message.encode(locale.getpreferredencoding(), 'replace'),
     if endline: print
@@ -107,10 +107,12 @@ def warn(message, endline=True):
 
 def getDownloaderClasses():
     """
-    Gets all classes in module that implement L{DownloaderBase}.
+    Gets all classes in module that implement
+    :class:`~cjklib.dictionary.install.DownloaderBase`.
 
-    @rtype: set
-    @return: list of all classes inheriting form L{DownloaderBase}
+    :rtype: set
+    :return: list of all classes inheriting form
+        :class:`~cjklib.dictionary.install.DownloaderBase`
     """
     dictionaryModule = __import__("cjklib.dictionary.install")
     # get all classes that inherit from DownloaderBase
@@ -126,10 +128,10 @@ def getDownloaderClass(dictionaryName):
     """
     Get a dictionary downloader class by dictionary name.
 
-    @type dictionaryName: str
-    @param dictionaryName: dictionary name
-    @rtype: type
-    @return: downloader class
+    :type dictionaryName: str
+    :param dictionaryName: dictionary name
+    :rtype: type
+    :return: downloader class
     """
     global _dictionaryMap
     if _dictionaryMap is None:
@@ -145,10 +147,10 @@ def getDownloader(dictionaryName, **options):
     """
     Get a dictionary downloader instance by dictionary name.
 
-    @type dictionaryName: str
-    @param dictionaryName: dictionary name
-    @rtype: type
-    @return: downloader instance
+    :type dictionaryName: str
+    :param dictionaryName: dictionary name
+    :rtype: type
+    :return: downloader instance
     """
     downloaderCls = getDownloaderClass(dictionaryName)
     return downloaderCls(**options)
@@ -191,15 +193,15 @@ class DownloaderBase(object):
         """
         Downloads the dictionary and returns the path to the local file.
 
-        @param options: extra options
-        @keyword targetName: target file name for downloaded file
-        @keyword targetPath: target directory for downloaded file, file name
+        :param options: extra options
+        :keyword targetName: target file name for downloaded file
+        :keyword targetPath: target directory for downloaded file, file name
             will be used as provided online
-        @keyword temporary: if C{True} a temporary file will be created
+        :keyword temporary: if ``True`` a temporary file will be created
             retaining the last extension (i.e. for .tar.gz only .gz will be
             guaranteed.
-        @rtype: str
-        @return: path to local file
+        :rtype: str
+        :return: path to local file
         """
         if self.downloadFunc:
             return self.downloadFunc(**options)
@@ -375,25 +377,27 @@ class DictionaryInstaller(object):
         Installs the given dictionary to a database.
 
         Different installation methods are possible:
-            - by default a global installation is done, a single database file
-              if installed for SQLite, for other engines the database is
-              installed to the same database as cjklib's,
-            - if C{local} is set, the database file for SQLite is installed to
-              the user's home directory,
-            - C{databaseUrl} can be speficied for a user defined database,
-            - C{dbConnectInst} can be given to write to an open database
-              instance.
 
-        @param options: extra options
-        @keyword databaseUrl: database connection setting in the format
-            C{driver://user:pass@host/database}.
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword local: if C{True} the SQLite file will be installed in the
+        - by default a global installation is done, a single database file
+            if installed for SQLite, for other engines the database is
+            installed to the same database as cjklib's,
+        - if ``local`` is set, the database file for SQLite is installed to
+            the user's home directory,
+        - ``databaseUrl`` can be speficied for a user defined database,
+        - ``dbConnectInst`` can be given to write to an open database
+            instance.
+
+        :param options: extra options
+        :keyword databaseUrl: database connection setting in the format
+            ``driver://user:pass@host/database``.
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`
+        :keyword local: if ``True`` the SQLite file will be installed in the
             user's home directory.
-        @keyword prefix: installation prefix for a global install (Unix only).
-        @keyword forceUpdate: dictionary will be installed even if a newer
+        :keyword prefix: installation prefix for a global install (Unix only).
+        :keyword forceUpdate: dictionary will be installed even if a newer
             version already exists
-        @keyword quiet: if C{True} no status information will be printed to
+        :keyword quiet: if ``True`` no status information will be printed to
             stdout
         """
         # get database connection
@@ -477,7 +481,7 @@ class CommandLineInstaller(object):
     """Command line dictionary installer."""
     DB_PREFER_BUILDERS = []
 
-    DESCRIPTION = """Installs a dictionary for the cjklib library.
+    DESCRIPTION = """Downloads and installs a dictionary for the cjklib library.
 Example: \"%prog --local CEDICT\"."""
 
     def run(self):
@@ -525,11 +529,13 @@ Example: \"%prog --local CEDICT\"."""
     @classmethod
     def getBuilderConfigSettings(cls):
         """
-        Gets the builder settings from the section C{Builder} from cjklib.conf.
+        Gets the builder settings from the section ``Builder`` from cjklib.conf.
 
-        @rtype: dict
-        @return: dictionary of builder options
-        @todo Impl: Refactor, shares a lot of code with L{cjklib.build.cli}
+        :rtype: dict
+        :return: dictionary of builder options
+
+        .. todo::
+            * Impl: Refactor, shares a lot of code with :mod:`cjklib.build.cli`
         """
         configOptions = getConfigSettings('Builder')
         # don't convert to lowercase
@@ -588,7 +594,8 @@ Example: \"%prog --local CEDICT\"."""
 
     def buildParser(self):
         """
-        @todo Impl: Refactor, shares a lot of code with L{cjklib.build.cli}
+        .. todo:
+            * Impl: Refactor, shares a lot of code with :mod:`cjklib.build.cli`
         """
         usage = "%prog [options] DICTIONARY"
         description = self.DESCRIPTION

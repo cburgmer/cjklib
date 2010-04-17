@@ -21,9 +21,9 @@ Windows
 Install cjklib using the provided ``.exe`` installer.
 
 Three scripts ``cjknife.exe``, ``buildcjkdb.exe``, and ``installcjkdict.exe``
-will be added to the Python ``Scripts`` sub-directory. Add this directory to
-your ``PATH`` environment variable to access these programs from the command
-line.
+will be added to the Python ``Scripts`` sub-directory. Make sure this directory
+is included in your ``PATH`` environment variable to access these programs from
+the command line.
 
 CJK dictionaries are not included by default. If you want to install any of
 those run the following (with an Internet connection) from the root directory
@@ -50,7 +50,7 @@ your system::
     $ sudo python setup.py install
 
 CJK dictionaries are not included by default. If you want to install any of
-those run the following (with an Internet connection):
+those run the following (with an Internet connection)::
 
     $ sudo installcjkdict CEDICT
 
@@ -61,11 +61,11 @@ dictionary (i.e. EDICT, CEDICT, HanDeDict, CFDICT, CEDICTGR).
 
 Documentation & Usage
 =====================
-The API_ includes a lot of documentation. Also see the `project page`_. There is
-a small command line tool ``cjknife`` that offers some of the library's
+Documentation_ is available online. Also see the `project page`_ and its wiki.
+There is a small command line tool ``cjknife`` that offers some of the library's
 functions. See ``cjknife --help`` for an overview.
 
-.. _API: http://cburgmer.nfshost.com/cjklib/
+.. _Documentation: http://cjklib.org/
 .. _project page: http://code.google.com/p/cjklib/
 
 Examples
@@ -98,14 +98,14 @@ First download the newest Unihan file::
 
 Then start the build process::
 
-    $ sudo buildcjkdb build cjklibData
+    $ sudo buildcjkdb -r build cjklibData
 
 SQLite
 ------
 Currently only characters from the Basic Multilingual Plane (BMP) of Unicode
 are supported out of the box, due to missing support in Windows versions of
-Python and MySQL (see below). To enable full support set wideBuild to ``True``
-in ``cjklib.conf`` before rebuilding or pass ``--wideBuild=True`` to
+Python and MySQL (see below). To enable full support set ``wideBuild`` to
+``True`` in ``cjklib.conf`` before rebuilding or pass ``--wideBuild=True`` to
 ``buildcjkdb``.
 
 SQLite by default has no Unicode support for string operations. Optionally the
@@ -137,7 +137,7 @@ Now update the settings in  ``cjklib.conf``.
 
 MySQL < 6 doesn't support true UTF-8, and uses a version with max 3 bytes, so
 characters outside the Basic Multilingual Plane (BMP) can't be encoded. Building
-the Unihan database thus might result in warnings, characters above ``0x20000``
+the Unihan database thus might result in warnings, characters above ``0xFFFF``
 can't be built at all.
 
 

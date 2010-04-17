@@ -16,7 +16,7 @@
 # along with cjklib.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for L{characterlookup}.
+Unit tests for :mod:`cjklib.characterlookup`.
 """
 
 # pylint: disable-msg=E1101
@@ -32,7 +32,10 @@ from cjklib.test import (NeedsDatabaseTest, attr, DatabaseConnectorMock,
     EngineMock)
 
 class CharacterLookupTest(NeedsDatabaseTest):
-    """Base class for testing the L{characterlookup.CharacterLookup} class."""
+    """
+    Base class for testing the
+    :class:`~cjklib.characterlookup.CharacterLookup` class.
+    """
     def setUp(self):
         NeedsDatabaseTest.setUp(self)
         self.characterLookup = characterlookup.CharacterLookup('T',
@@ -90,7 +93,7 @@ class CharacterLookupMetaTest(CharacterLookupTest, unittest.TestCase):
         self.db.metadata.remove(tableObj)
 
     def testAvailableCharacterDomains(self):
-        """Test if C{getAvailableCharacterDomains()} returns proper domains."""
+        """Test if ``getAvailableCharacterDomains()`` returns proper domains."""
         # test default domain
         self.assert_('Unicode' \
             in self.characterLookup.getAvailableCharacterDomains())
@@ -189,8 +192,8 @@ class CharacterLookupStrokeOrderTest(CharacterLookupTest, unittest.TestCase):
     @attr('slow')
     def testStrokeOrderMatchesStrokeCount(self):
         """
-        Tests if stroke order information returned by C{getStrokeOrder} matches
-        stroke count returned by C{getStrokeCount}.
+        Tests if stroke order information returned by ``getStrokeOrder`` matches
+        stroke count returned by ``getStrokeCount``.
         """
         cjk = characterlookup.CharacterLookup('T', 'GlyphInformation',
             dbConnectInst=self.db)
@@ -209,9 +212,11 @@ class CharacterLookupStrokeOrderTest(CharacterLookupTest, unittest.TestCase):
 class CharacterLookupReadingMethodsTest(CharacterLookupTest, unittest.TestCase):
     """
     Runs consistency checks on the reading methods of the
-    L{characterlookup.CharacterLookup} class.
-    @todo Impl: include script table from Unicode 5.2.0 to get character ranges
-        for Hangul and Kana
+    :class:`~cjklib.characterlookup.CharacterLookup` class.
+
+    .. todo::
+        * Impl: include script table from Unicode 5.2.0 to get character ranges
+          for Hangul and Kana
     """
     DIALECTS = {}
 
@@ -224,7 +229,7 @@ class CharacterLookupReadingMethodsTest(CharacterLookupTest, unittest.TestCase):
     def testReadingMappingAvailability(self):
         """
         Test if the readings under
-        C{CharacterLookup.CHARARACTER_READING_MAPPING} are available for
+        ``CharacterLookup.CHARARACTER_READING_MAPPING`` are available for
         conversion.
         """
         # mock to simulate availability of all tables in
@@ -254,7 +259,7 @@ class CharacterLookupReadingMethodsTest(CharacterLookupTest, unittest.TestCase):
 
     @attr('slow')
     def testGetCharactersForReadingAcceptsAllEntities(self):
-        """Test if C{getCharactersForReading} accepts all reading entities."""
+        """Test if ``getCharactersForReading`` accepts all reading entities."""
         for reading in self.f.getSupportedReadings():
             if not self.characterLookup.hasMappingForReadingToCharacter(
                 reading):

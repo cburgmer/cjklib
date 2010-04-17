@@ -17,9 +17,6 @@
 
 """
 Methods for building the library's database.
-
-Some L{TableBuilder} implementations aren't used by the CJK library but are
-provided here for additional usage.
 """
 
 __all__ = [
@@ -108,12 +105,11 @@ class TableBuilder(object):
 
     def __init__(self, **options):
         """
-        Constructs the TableBuilder.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword dataPath: optional list of paths to the data file(s)
-        @keyword quiet: if C{True} no status information will be printed to
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`
+        :keyword dataPath: optional list of paths to the data file(s)
+        :keyword quiet: if ``True`` no status information will be printed to
             stderr
         """
         self.db = options.get('dbConnectInst')
@@ -133,8 +129,8 @@ class TableBuilder(object):
         'dbConnectInst' is not regarded a configuration option of the operator
         and is thus not included in the dict returned.
 
-        @rtype: dict
-        @return: the reading operator's default options.
+        :rtype: dict
+        :return: the reading operator's default options.
         """
         return {'dataPath': [], 'quiet': False}
 
@@ -145,13 +141,13 @@ class TableBuilder(object):
 
         Keys can come from the subset of:
             - type: string, int, bool, ...
-            - action: action as used by I{optparse}, extended by
-                C{appendResetDefault}
+            - action: action as used by *optparse*, extended by
+                ``appendResetDefault``
             - choices: allowed values
             - description: short description of option
 
-        @rtype: dict
-        @return: dictionary of metadata
+        :rtype: dict
+        :return: dictionary of metadata
         """
         optionsMetaData = {'dataPath': {'type': 'pathstring',
                 'action': 'extendResetDefault',
@@ -165,7 +161,8 @@ class TableBuilder(object):
         Build the table provided by the TableBuilder.
 
         Methods should raise an IOError if reading a data source fails. The
-        L{DatabaseBuilder} knows how to handle this case and is able to proceed.
+        :class:`~cjklib.build.DatabaseBuilder` knows how to handle this
+        case and is able to proceed.
         """
         pass
 
@@ -189,13 +186,13 @@ class TableBuilder(object):
         For each file name every given path is checked and the first match is
         returned.
 
-        @type fileNames: str/list of str
-        @param fileNames: possible file names
-        @type fileType: str
-        @param fileType: textual type of file used in error msg
-        @rtype: str
-        @return: path to file of first match in search for existing file
-        @raise IOError: if no file found
+        :type fileNames: str/list of str
+        :param fileNames: possible file names
+        :type fileType: str
+        :param fileType: textual type of file used in error msg
+        :rtype: str
+        :return: path to file of first match in search for existing file
+        :raise IOError: if no file found
         """
         if type(fileNames) != type([]):
             fileNames = [fileNames]
@@ -216,14 +213,14 @@ class TableBuilder(object):
         """
         Returns a SQLAlchemy Table object.
 
-        @type tableName: str
-        @param tableName: name of table
-        @type columns: list of str
-        @param columns: column names
-        @type columnTypeMap: dict of str and object
-        @param columnTypeMap: mapping of column name to SQLAlchemy Column
-        @type primaryKeys: list of str
-        @param primaryKeys: list of primary key columns
+        :type tableName: str
+        :param tableName: name of table
+        :type columns: list of str
+        :param columns: column names
+        :type columnTypeMap: dict of str and object
+        :param columnTypeMap: mapping of column name to SQLAlchemy Column
+        :type primaryKeys: list of str
+        :param primaryKeys: list of primary key columns
         """
         columnTypeMap = columnTypeMap or {}
         primaryKeys = primaryKeys or []
@@ -246,12 +243,12 @@ class TableBuilder(object):
         """
         Returns a SQLAlchemy Table object.
 
-        @type tableName: str
-        @param tableName: name of table
-        @type indexKeyList: list of list of str
-        @param indexKeyList: a list of key combinations
-        @rtype: object
-        @return: SQLAlchemy Index
+        :type tableName: str
+        :param tableName: name of table
+        :type indexKeyList: list of list of str
+        :param indexKeyList: a list of key combinations
+        :rtype: object
+        :return: SQLAlchemy Index
         """
         indexList = []
         table = Table(tableName, self.db.metadata, autoload=True)
@@ -340,7 +337,7 @@ class EntryGeneratorBuilder(TableBuilder):
 class UnihanGenerator:
     """
     Regular expression matching one entry in the Unihan database
-    (e.g. C{U+8682  kMandarin       MA3 MA1 MA4}).
+    (e.g. ``U+8682  kMandarin       MA3 MA1 MA4``).
     """
     keySet = None
     """Set of keys of the Unihan table."""
@@ -355,18 +352,16 @@ class UnihanGenerator:
 
     def __init__(self, fileNames, useKeys=None, wideBuild=False, quiet=False):
         """
-        Constructs the UnihanGenerator.
-
-        @type fileNames: list of str
-        @param fileNames: paths to the Unihan database files
-        @type useKeys: list
-        @param useKeys: if given only these keys will be read from the table,
+        :type fileNames: list of str
+        :param fileNames: paths to the Unihan database files
+        :type useKeys: list
+        :param useKeys: if given only these keys will be read from the table,
             otherwise all keys will be returned
-        @type wideBuild: bool
-        @param wideBuild: if C{True} characters outside the I{BMP} will be
+        :type wideBuild: bool
+        :param wideBuild: if ``True`` characters outside the *BMP* will be
             included.
-        @type quiet: bool
-        @param quiet: if true no status information will be printed to stderr
+        :type quiet: bool
+        :param quiet: if true no status information will be printed to stderr
         """
         self.fileNames = fileNames
         self.wideBuild = wideBuild
@@ -458,8 +453,8 @@ class UnihanGenerator:
         """ 
         Returns a list of handles of the Unihan database files.
 
-        @rtype: dict
-        @return: dictionary of names and handles of the Unihan files
+        :rtype: dict
+        :return: dictionary of names and handles of the Unihan files
         """
         handles = {}
         import zipfile
@@ -482,8 +477,8 @@ class UnihanGenerator:
         If the whole table is read a seek through the file is needed first to
         find all keys, otherwise the predefined set is returned.
 
-        @rtype: list of str
-        @return: list of column names
+        :rtype: list of str
+        :return: list of column names
         """
         if not self.keySet:
             if not self.quiet:
@@ -508,23 +503,22 @@ class UnihanGenerator:
 class UnihanBuilder(EntryGeneratorBuilder):
     """
     Builds the Unihan database from the Unihan file provided by Unicode. By
-    default only chooses characters from the X{Basic Multilingual Plane}
-    (X{BMP}) with code values between U+0000 and U+FFFF.
+    default only chooses characters from the *Basic Multilingual Plane*
+    (*BMP*) with code values between U+0000 and U+FFFF.
 
-    Windows versions of Python by default are I{narrow build}s and don't support
+    Windows versions of Python by default are *narrow builds* and don't support
     characters outside the 16 bit range. MySQL < 6 doesn't support true UTF-8,
     and uses a Version with max 3 bytes:
-    U{http://dev.mysql.com/doc/refman/6.0/en/charset-unicode.html}.
+    http://dev.mysql.com/doc/refman/6.0/en/charset-unicode.html.
     """
     class EntryGenerator:
         """Generates the entries of the Unihan table."""
 
         def __init__(self, unihanGenerator):
             """
-            Initialises the EntryGenerator.
-
-            @type unihanGenerator: instance
-            @param unihanGenerator: a L{UnihanGenerator} instance
+            :type unihanGenerator: instance
+            :param unihanGenerator: a
+                :class:`UnihanGenerator` instance
             """
             self.unihanGenerator = unihanGenerator
 
@@ -574,17 +568,15 @@ class UnihanBuilder(EntryGeneratorBuilder):
 
     def __init__(self, **options):
         """
-        Constructs the UnihanBuilder.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword dataPath: optional list of paths to the data file(s)
-        @keyword quiet: if C{True} no status information will be printed to
+        :param options: extra options
+        :keyword dbConnectInst: instance of a :class:`~cjklib.dbconnector.DatabaseConnector`
+        :keyword dataPath: optional list of paths to the data file(s)
+        :keyword quiet: if ``True`` no status information will be printed to
             stderr
-        @keyword wideBuild: if C{True} characters outside the I{BMP} will be
+        :keyword wideBuild: if ``True`` characters outside the *BMP* will be
             included.
-        @keyword slimUnihanTable: if C{True} a limited set of columns specified
-            by L{INCLUDE_KEYS} will be supported.
+        :keyword slimUnihanTable: if ``True`` a limited set of columns specified
+            by :attr:`~UnihanBuilder.INCLUDE_KEYS` will be supported.
         """
         super(UnihanBuilder, self).__init__(**options)
 
@@ -611,10 +603,10 @@ class UnihanBuilder(EntryGeneratorBuilder):
 
     def getUnihanGenerator(self):
         """
-        Returns the L{UnihanGenerator}. Constructs it if needed.
+        Returns the :class:`UnihanGenerator`. Constructs it if needed.
 
-        @rtype: instance
-        @return: instance of a L{UnihanGenerator}
+        :rtype: instance
+        :return: instance of a :class:`UnihanGenerator`
         """
         if not self.unihanGenerator:
             fileNames = UnihanGenerator.UNIHAN_FILE_MEMBERS[:]
@@ -658,7 +650,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
 class Kanjidic2Builder(EntryGeneratorBuilder):
     """
     Builds the Kanjidic database from the Kanjidic2 XML file
-    U{http://www.csse.monash.edu.au/~jwb/kanjidic2/}.
+    http://www.csse.monash.edu.au/~jwb/kanjidic2/.
     """
     class XMLHandler(xml.sax.ContentHandler):
         """Extracts a list of given tags."""
@@ -711,15 +703,13 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
         """Generates the KANJIDIC table."""
         def __init__(self, dataPath, tagDict, wideBuild=False):
             """
-            Initialises the KanjidicGenerator.
-
-            @type dataPath: list of str
-            @param dataPath: optional list of paths to the data file(s)
-            @type tagDict: dict
-            @param tagDict: a dictionary mapping xml tag paths and attributes
+            :type dataPath: list of str
+            :param dataPath: optional list of paths to the data file(s)
+            :type tagDict: dict
+            :param tagDict: a dictionary mapping xml tag paths and attributes
                 to a Column and a conversion function
-            @type wideBuild: bool
-            @param wideBuild: if C{True} characters outside the I{BMP} will be
+            :type wideBuild: bool
+            :param wideBuild: if ``True`` characters outside the *BMP* will be
                 included.
             """
             self.dataPath = dataPath
@@ -730,8 +720,8 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
             """
             Returns a handle of the KANJIDIC database file.
 
-            @rtype: file
-            @return: file handle of the KANJIDIC file
+            :rtype: file
+            :return: file handle of the KANJIDIC file
             """
             import gzip
             if self.dataPath.endswith('.gz'):
@@ -804,14 +794,13 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
 
     def __init__(self, **options):
         """
-        Constructs the Kanjidic2Builder.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword dataPath: optional list of paths to the data file(s)
-        @keyword quiet: if C{True} no status information will be printed to
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`
+        :keyword dataPath: optional list of paths to the data file(s)
+        :keyword quiet: if ``True`` no status information will be printed to
             stderr
-        @keyword wideBuild: if C{True} characters outside the I{BMP} will be
+        :keyword wideBuild: if ``True`` characters outside the *BMP* will be
             included.
         """
         super(Kanjidic2Builder, self).__init__(**options)
@@ -838,10 +827,12 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
 
     def getGenerator(self):
         """
-        Returns the L{KanjidicGenerator}.
+        Returns the
+        :class:`Kanjidic2Builder.KanjidicGenerator`.
 
-        @rtype: instance
-        @return: instance of a L{KanjidicGenerator}
+        :rtype: instance
+        :return: instance of a
+            :class:`Kanjidic2Builder.KanjidicGenerator`
         """
         path = self.findFile(['kanjidic2.xml.gz', 'kanjidic2.xml'],
             "KANJIDIC2 XML file")
@@ -879,14 +870,13 @@ class UnihanDerivedBuilder(EntryGeneratorBuilder):
 
     def __init__(self, **options):
         """
-        Constructs the UnihanDerivedBuilder.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword dataPath: optional list of paths to the data file(s)
-        @keyword quiet: if C{True} no status information will be printed to
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`
+        :keyword dataPath: optional list of paths to the data file(s)
+        :keyword quiet: if ``True`` no status information will be printed to
             stderr
-        @keyword ignoreMissing: if C{True} a missing source column will be
+        :keyword ignoreMissing: if ``True`` a missing source column will be
             ignored and a empty table will be built.
         """
         super(UnihanDerivedBuilder, self).__init__(**options)
@@ -948,12 +938,10 @@ class UnihanStrokeCountBuilder(UnihanDerivedBuilder):
         """Extracts the character stroke count mapping."""
         def __init__(self, entries, quiet=False):
             """
-            Initialises the StrokeCountExtractor.
-
-            @type entries: list of tuple
-            @param entries: character entries from the Unihan database
-            @type quiet: bool
-            @param quiet: if true no status information will be printed
+            :type entries: list of tuple
+            :param entries: character entries from the Unihan database
+            :type quiet: bool
+            :param quiet: if true no status information will be printed
             """
             self.entries = entries
             self.quiet = quiet
@@ -982,12 +970,10 @@ class CharacterRadicalBuilder(UnihanDerivedBuilder):
 
         def __init__(self, rsEntries, quiet=False):
             """
-            Initialises the RadicalExtractor.
-
-            @type rsEntries: list of tuple
-            @param rsEntries: character radical entries from the Unihan database
-            @type quiet: bool
-            @param quiet: if true no status information will be printed
+            :type rsEntries: list of tuple
+            :param rsEntries: character radical entries from the Unihan database
+            :type quiet: bool
+            :param quiet: if true no status information will be printed
             """
             self.rsEntries = rsEntries
             self.quiet = quiet
@@ -1047,13 +1033,13 @@ class CharacterKoreanRadicalBuilder(CharacterRadicalBuilder):
 class CharacterVariantBuilder(EntryGeneratorBuilder):
     """
     Builds a character variant mapping table from the Unihan database. By
-    default only chooses characters from the X{Basic Multilingual Plane}
-    (X{BMP}) with code values between U+0000 and U+FFFF.
+    default only chooses characters from the *Basic Multilingual Plane*
+    (*BMP*) with code values between U+0000 and U+FFFF.
 
-    Windows versions of Python by default are I{narrow build}s and don't support
+    Windows versions of Python by default are *narrow builds* and don't support
     characters outside the 16 bit range. MySQL < 6 doesn't support true UTF-8,
     and uses a Version with max 3 bytes:
-    U{http://dev.mysql.com/doc/refman/6.0/en/charset-unicode.html}.
+    http://dev.mysql.com/doc/refman/6.0/en/charset-unicode.html.
     """
     class VariantGenerator:
         """Generates the character to variant mapping from the Unihan table."""
@@ -1081,18 +1067,16 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
         def __init__(self, variantEntries, typeList, wideBuild=False,
             quiet=False):
             """
-            Initialises the VariantGenerator.
-
-            @type variantEntries: list of tuple
-            @param variantEntries: character variant entries from the Unihan
+            :type variantEntries: list of tuple
+            :param variantEntries: character variant entries from the Unihan
                 database
-            @type typeList: list of str
-            @param typeList: variant types in the order given in tableEntries
-            @type wideBuild: bool
-            @param wideBuild: if C{True} characters outside the I{BMP} will be
+            :type typeList: list of str
+            :param typeList: variant types in the order given in tableEntries
+            :type wideBuild: bool
+            :param wideBuild: if ``True`` characters outside the *BMP* will be
                 included.
-            @type quiet: bool
-            @param quiet: if true no status information will be printed
+            :type quiet: bool
+            :param quiet: if true no status information will be printed
             """
             self.variantEntries = variantEntries
             self.typeList = typeList
@@ -1142,14 +1126,12 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
 
     def __init__(self, **options):
         """
-        Constructs the CharacterVariantBuilder.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword dataPath: optional list of paths to the data file(s)
-        @keyword quiet: if C{True} no status information will be printed to
+        :param options: extra options
+        :keyword dbConnectInst: instance of a :class:`~cjklib.dbconnector.DatabaseConnector`
+        :keyword dataPath: optional list of paths to the data file(s)
+        :keyword quiet: if ``True`` no status information will be printed to
             stderr
-        @keyword wideBuild: if C{True} characters outside the I{BMP} will be
+        :keyword wideBuild: if ``True`` characters outside the *BMP* will be
             included.
         """
         # constructor is only defined for docstring
@@ -1222,10 +1204,10 @@ class UnihanCharacterSetBuilder(EntryGeneratorBuilder):
 
 class IICoreSetBuilder(UnihanCharacterSetBuilder):
     u"""
-    Builds a simple list of all characters in X{IICore}
-    (Unicode I{International Ideograph Core)}.
-    @see: Chinese Wikipedia on IICore:
-        U{http://zh.wikipedia.org/wiki/國際表意文字核心}
+    Builds a simple list of all characters in *IICore*
+    (Unicode *International Ideograph Core)*.
+
+    see Chinese Wikipedia on IICore: http://zh.wikipedia.org/wiki/國際表意文字核心
     """
     PROVIDES = 'IICoreSet'
     COLUMN_SOURCE = 'kIICore'
@@ -1233,7 +1215,7 @@ class IICoreSetBuilder(UnihanCharacterSetBuilder):
 
 class GB2312SetBuilder(UnihanCharacterSetBuilder):
     """
-    Builds a simple list of all characters in the Chinese standard X{GB2312-80}.
+    Builds a simple list of all characters in the Chinese standard *GB2312-80*.
     """
     PROVIDES = 'GB2312Set'
     COLUMN_SOURCE = 'kGB0'
@@ -1241,7 +1223,7 @@ class GB2312SetBuilder(UnihanCharacterSetBuilder):
 
 class BIG5SetBuilder(UnihanCharacterSetBuilder):
     """
-    Builds a simple list of all characters in the Taiwanese standard X{BIG5}.
+    Builds a simple list of all characters in the Taiwanese standard *BIG5*.
     """
     PROVIDES = 'BIG5Set'
     COLUMN_SOURCE = 'kBigFive'
@@ -1250,7 +1232,7 @@ class BIG5SetBuilder(UnihanCharacterSetBuilder):
 class HKSCSSetBuilder(UnihanCharacterSetBuilder):
     """
     Builds a simple list of all supplementary characters in the Hong Kong
-    standard X{HKSCS}.
+    standard *HKSCS*.
     """
     PROVIDES = 'HKSCSSet'
     COLUMN_SOURCE = 'kHKSCS'
@@ -1258,7 +1240,7 @@ class HKSCSSetBuilder(UnihanCharacterSetBuilder):
 
 class BIG5HKSCSSetBuilder(EntryGeneratorBuilder):
     """
-    Builds a simple list of all characters in the standard X{BIG5-HKSCS}.
+    Builds a simple list of all characters in the standard *BIG5-HKSCS*.
     """
     PROVIDES = 'BIG5HKSCSSet'
     DEPENDS = ['Unihan']
@@ -1282,7 +1264,7 @@ class BIG5HKSCSSetBuilder(EntryGeneratorBuilder):
 class JISX0208SetBuilder(UnihanCharacterSetBuilder):
     """
     Builds a simple list of all characters in the Japanese standard
-    X{JIS X 0208}.
+    *JIS X 0208*.
     """
     PROVIDES = 'JISX0208Set'
     COLUMN_SOURCE = 'kJis0'
@@ -1291,7 +1273,7 @@ class JISX0208SetBuilder(UnihanCharacterSetBuilder):
 class JISX0213SetBuilder(UnihanCharacterSetBuilder):
     """
     Builds a simple list of all supplementary characters in the Japanese
-    standard X{JIS X 0213}.
+    standard *JIS X 0213*.
     """
     PROVIDES = 'JISX0213Set'
     COLUMN_SOURCE = 'kJIS0213'
@@ -1299,8 +1281,8 @@ class JISX0213SetBuilder(UnihanCharacterSetBuilder):
 
 class JISX0208_0213SetBuilder(EntryGeneratorBuilder):
     """
-    Builds a simple list of all characters in the standards X{JIS X 0208} and
-    X{JIS X 0213}.
+    Builds a simple list of all characters in the standards *JIS X 0208* and
+    *JIS X 0213*.
     """
     PROVIDES = 'JISX0208_0213Set'
     DEPENDS = ['Unihan']
@@ -1326,9 +1308,10 @@ class GlyphInformationSetBuilder(EntryGeneratorBuilder):
     Virtual table (view) holding all characters with information about their
     glyph, i.e. stroke order or character decomposition.
 
-    @todo Impl: For implementation as view, we need the concept of runtime
-        dependency. All DEPENDS are actually BUILD_DEPENDS, while the DEPENDS
-        here will be a runtime dependency.
+    .. todo::
+        * Impl: For implementation as view, we need the concept of runtime
+          dependency. All DEPENDS are actually BUILD_DEPENDS, while the
+          DEPENDS here will be a runtime dependency.
     """
     PROVIDES = 'GlyphInformationSet'
     DEPENDS = ['StrokeOrder', 'CharacterDecomposition']
@@ -1383,13 +1366,11 @@ class CharacterReadingBuilder(UnihanDerivedBuilder):
 
         def __init__(self, readingEntries, quiet=False):
             """
-            Initialises the ReadingSplitter.
-
-            @type readingEntries: list of tuple
-            @param readingEntries: character reading entries from the Unihan
+            :type readingEntries: list of tuple
+            :param readingEntries: character reading entries from the Unihan
                 database
-            @type quiet: bool
-            @param quiet: if true no status information will be printed
+            :type quiet: bool
+            :param quiet: if true no status information will be printed
             """
             self.readingEntries = readingEntries
             self.quiet = quiet
@@ -1464,13 +1445,11 @@ class CharacterXHPCReadingBuilder(UnihanDerivedBuilder):
 
         def __init__(self, readingEntries, quiet=False):
             """
-            Initialises the XHPCReadingSplitter.
-
-            @type readingEntries: list of tuple
-            @param readingEntries: character reading entries from the Unihan
+            :type readingEntries: list of tuple
+            :param readingEntries: character reading entries from the Unihan
                 database
-            @type quiet: bool
-            @param quiet: if true no status information will be printed
+            :type quiet: bool
+            :param quiet: if true no status information will be printed
             """
             self.readingEntries = readingEntries
             self.quiet = quiet
@@ -1512,13 +1491,11 @@ class CharacterDiacriticPinyinBuilder(CharacterReadingBuilder):
 
         def __init__(self, readingEntries, quiet=False):
             """
-            Initialises the ReadingSplitter.
-
-            @type readingEntries: list of tuple
-            @param readingEntries: character reading entries from the Unihan
+            :type readingEntries: list of tuple
+            :param readingEntries: character reading entries from the Unihan
                 database
-            @type quiet: bool
-            @param quiet: if true no status information will be printed
+            :type quiet: bool
+            :param quiet: if true no status information will be printed
             """
             self.readingEntries = readingEntries
             self.quiet = quiet
@@ -1530,14 +1507,14 @@ class CharacterDiacriticPinyinBuilder(CharacterReadingBuilder):
             Converts the entity with diacritics into an entity with tone mark
             as appended number.
 
-            @type entity: str
-            @param entity: entity with tonal information
-            @rtype: tuple
-            @return: plain entity without tone mark and entity's tone index
+            :type entity: str
+            :param entity: entity with tonal information
+            :rtype: tuple
+            :return: plain entity without tone mark and entity's tone index
                 (starting with 1)
             """
             import unicodedata
-            # get decomposed Unicode string, e.g. C{'ū'} to C{'u\u0304'}
+            # get decomposed Unicode string, e.g. ``'ū'`` to ``'u\u0304'``
             entity = unicodedata.normalize("NFD", unicode(entity))
             # find character with tone marker
             matchObj = self._toneMarkRegex.search(entity)
@@ -1607,8 +1584,8 @@ class CharacterPinyinBuilder(EntryGeneratorBuilder):
     Builds the character Pinyin mapping table from the several sources.
 
     Field 'kMandarin' from Unihan is not used, see
-    U{http://unicode.org/faq/han_cjk.html#19} and thread under
-    U{http://www.unicode.org/mail-arch/unicode-ml/y2010-m01/0246.html}.
+    http://unicode.org/faq/han_cjk.html#19 and thread under
+    http://www.unicode.org/mail-arch/unicode-ml/y2010-m01/0246.html.
     """
     PROVIDES = 'CharacterPinyin'
     DEPENDS = ['CharacterXHPCPinyin', 'CharacterXHCPinyin',
@@ -1934,8 +1911,8 @@ class KangxiRadicalIsolatedCharacterBuilder(CSVFileLoader):
 
 class RadicalEquivalentCharacterBuilder(CSVFileLoader):
     """
-    Builds a mapping between I{Unicode radical forms} and
-    I{Unicode radical variants} on one side and I{equivalent characters} on the
+    Builds a mapping between *Unicode radical forms* and
+    *Unicode radical variants* on one side and *equivalent characters* on the
     other side.
     """
     PROVIDES = 'RadicalEquivalentCharacter'
@@ -2012,7 +1989,9 @@ class MandarinBraileFinalBuilder(CSVFileLoader):
 class GlyphBuilder(EntryGeneratorBuilder):
     """
     Builds a list of glyph indices for characters.
-    @todo Impl: Check if all I{glyphs} in LocaleCharacterGlyph are included.
+
+    .. todo::
+        * Impl: Check if all *glyphs* in LocaleCharacterGlyph are included.
     """
     PROVIDES = 'Glyphs'
     DEPENDS = ['CharacterDecomposition', 'StrokeOrder', 'Unihan']
@@ -2055,12 +2034,11 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
         """Generates the character stroke count mapping."""
         def __init__(self, dbConnectInst, quiet=False):
             """
-            Initialises the StrokeCountGenerator.
-
-            @type dbConnectInst: instance
-            @param dbConnectInst: instance of a L{DatabaseConnector}.
-            @type quiet: bool
-            @param quiet: if true no status information will be printed to
+            :type dbConnectInst: instance
+            :param dbConnectInst: instance of a
+                :class:`~cjklib.dbconnector.DatabaseConnector`.
+            :type quiet: bool
+            :param quiet: if true no status information will be printed to
                 stderr
             """
             self.quiet = quiet
@@ -2071,7 +2049,7 @@ class StrokeCountBuilder(EntryGeneratorBuilder):
             self.cjk.hasStrokeCount = False
 
         def generator(self):
-            """Provides one entry per character, I{glyph} and locale subset."""
+            """Provides one entry per character, *glyph* and locale subset."""
             # Cjklib's stroke count method uses the stroke order information as
             #   long as this table doesn't exist.
             strokeCountDict = self.cjk.getStrokeCountDict()
@@ -2110,19 +2088,18 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
         def __init__(self, dbConnectInst, characterSet, tableEntries,
             preferredBuilder, quiet=False):
             """
-            Initialises the CombinedStrokeCountGenerator.
-
-            @type dbConnectInst: instance
-            @param dbConnectInst: instance of a L{DatabaseConnector}.
-            @type characterSet: set
-            @param characterSet: set of characters to generate the table for
-            @type tableEntries: list of list
-            @param tableEntries: list of characters with glyph
-            @type preferredBuilder: instance
-            @param preferredBuilder: TableBuilder which forms are preferred over
+            :type dbConnectInst: instance
+            :param dbConnectInst: instance of a
+                :class:`~cjklib.dbconnector.DatabaseConnector`.
+            :type characterSet: set
+            :param characterSet: set of characters to generate the table for
+            :type tableEntries: list of list
+            :param tableEntries: list of characters with glyph
+            :type preferredBuilder: instance
+            :param preferredBuilder: TableBuilder which forms are preferred over
                 entries from the Unihan table
-            @type quiet: bool
-            @param quiet: if true no status information will be printed to
+            :type quiet: bool
+            :param quiet: if true no status information will be printed to
                 stderr
             """
             self.characterSet = characterSet
@@ -2151,15 +2128,15 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
             Once calculated the stroke count will be cached in the given
             strokeCountDict object.
 
-            @type char: str
-            @param char: Chinese character
-            @type glyph: int
-            @param glyph: I{glyph} of character
-            @rtype: int
-            @return: stroke count
-            @raise ValueError: if stroke count is ambiguous due to inconsistent
+            :type char: str
+            :param char: Chinese character
+            :type glyph: int
+            :param glyph: *glyph* of character
+            :rtype: int
+            :return: stroke count
+            :raise ValueError: if stroke count is ambiguous due to inconsistent
                 values wrt Unihan vs. own data.
-            @raise NoInformationError: if decomposition is incomplete
+            :raise NoInformationError: if decomposition is incomplete
             """
             if char == u'？':
                 # we have an incomplete decomposition, can't build
@@ -2223,7 +2200,7 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                 return strokeCountDict[(char, glyph)]
 
         def generator(self):
-            """Provides one entry per character, I{glyph} and locale subset."""
+            """Provides one entry per character, *glyph* and locale subset."""
             # handle chars from own data first
             strokeCountDict = {}
             for entry in self.preferredBuilder:
@@ -2349,12 +2326,10 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
 
         def __init__(self, dbConnectInst, characterSet):
             """
-            Initialises the CharacterComponentGenerator.
-
-            @type dbConnectInst: instance
-            @param dbConnectInst: instance of a L{DatabaseConnector}
-            @type characterSet: set
-            @param characterSet: set of characters to generate the table for
+            :type dbConnectInst: instance
+            :param dbConnectInst: instance of a :class:`~cjklib.dbconnector.DatabaseConnector`
+            :type characterSet: set
+            :param characterSet: set of characters to generate the table for
             """
             self.characterSet = characterSet
             # create instance, locale is not important, we supply own glyph
@@ -2366,12 +2341,12 @@ class CharacterComponentLookupBuilder(EntryGeneratorBuilder):
             """
             Gets all character components for the given glyph.
 
-            @type char: str
-            @param char: Chinese character
-            @type glyph: int
-            @param glyph: I{glyph} of character
-            @rtype: set
-            @return: all components of the character
+            :type char: str
+            :param char: Chinese character
+            :type glyph: int
+            :param glyph: *glyph* of character
+            :rtype: set
+            :return: all components of the character
             """
             if (char, glyph) not in componentDict:
                 componentDict[(char, glyph)] = set()
@@ -2427,25 +2402,25 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
     residual components.
 
     This class can be extended by inheriting
-    L{CharacterRadicalStrokeCountGenerator} and overwriting
-    L{CharacterRadicalStrokeCountGenerator.getFormRadicalIndex()} to implement
-    which forms should be regarded as radicals as well as
-    L{CharacterRadicalStrokeCountGenerator.filterForms()} to filter entries
-    before creation.
+    :class:`CharacterRadicalStrokeCountBuilder.CharacterRadicalStrokeCountGenerator`
+    and overwriting
+    :meth:`CharacterRadicalStrokeCountBuilder.CharacterRadicalStrokeCountGenerator.getFormRadicalIndex`
+    to implement which forms should be regarded as radicals as well as
+    :meth:`CharacterRadicalStrokeCountBuilder.filterForms`
+    to filter entries before creation.
     """
     class CharacterRadicalStrokeCountGenerator:
         """Generates the character to radical/residual stroke count mapping."""
 
         def __init__(self, dbConnectInst, characterSet, quiet=False):
             """
-            Initialises the CharacterRadicalStrokeCountGenerator.
-
-            @type dbConnectInst: instance
-            @param dbConnectInst: instance of a L{DatabaseConnector}
-            @type characterSet: set
-            @param characterSet: set of characters to generate the table for
-            @type quiet: bool
-            @param quiet: if true no status information will be printed to
+            :type dbConnectInst: instance
+            :param dbConnectInst: instance of a
+                :class:`~cjklib.dbconnector.DatabaseConnector`
+            :type characterSet: set
+            :param characterSet: set of characters to generate the table for
+            :type quiet: bool
+            :param quiet: if true no status information will be printed to
                 stderr
             """
             self.characterSet = characterSet
@@ -2460,10 +2435,10 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
             """
             Returns the Kangxi radical index for the given component.
 
-            @type form: str
-            @param form: component
-            @rtype: int
-            @return: radical index of the given radical form.
+            :type form: str
+            :param form: component
+            :rtype: int
+            :return: radical index of the given radical form.
             """
             if self.radicalForms == None:
                 self.radicalForms = {}
@@ -2484,14 +2459,17 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
             Filters the set of given radical form entries to return only one
             single occurrence of a radical.
 
-            @type formSet: set of dict
-            @param formSet: radical/residual stroke count entries as generated
-                by L{getEntries()}.
-            @rtype: set of dict
-            @return: subset of input
-            @todo Lang: On multiple occurrences of same radical (may be in
-                different forms): Which one to choose? Implement to turn down
-                unwanted forms.
+            :type formSet: set of dict
+            :param formSet: radical/residual stroke count entries as generated
+                by
+                :meth:`CharacterRadicalStrokeCountBuilder.CharacterRadicalStrokeCountGenerator.getEntries`.
+            :rtype: set of dict
+            :return: subset of input
+
+            .. todo::
+               * Lang: On multiple occurrences of same radical (may be in
+                 different forms): Which one to choose? Implement to turn down
+                 unwanted forms.
             """
             return formSet
 
@@ -2501,10 +2479,10 @@ class CharacterRadicalStrokeCountBuilder(EntryGeneratorBuilder):
             Gets all radical/residual stroke count combinations from the given
             decomposition.
 
-            @rtype: list
-            @return: all radical/residual stroke count combinations for the
+            :rtype: list
+            :return: all radical/residual stroke count combinations for the
                 character
-            @raise ValueError: if IDS is malformed or ambiguous residual stroke
+            :raise ValueError: if IDS is malformed or ambiguous residual stroke
                 count is calculated
             """
             def getCharLayout(mainCharacterLayout, mainLayoutPosition,
@@ -2740,21 +2718,20 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
     """
     Builds a mapping between characters and their residual stroke count when
     splitting of the radical form. This is stripped off information gathered
-    from table C{CharacterRadicalStrokeCount}.
+    from table ``CharacterRadicalStrokeCount``.
     """
     class ResidualStrokeCountExtractor:
         """
         Generates the character to residual stroke count mapping from the
-        C{CharacterRadicalResidualStrokeCount} table.
+        ``CharacterRadicalResidualStrokeCount`` table.
         """
         def __init__(self, dbConnectInst, characterSet):
             """
-            Initialises the ResidualStrokeCountExtractor.
-
-            @type dbConnectInst: instance
-            @param dbConnectInst: instance of a L{DatabaseConnector}
-            @type characterSet: set
-            @param characterSet: set of characters to generate the table for
+            :type dbConnectInst: instance
+            :param dbConnectInst: instance of a
+                :class:`~cjklib.dbconnector.DatabaseConnector`
+            :type characterSet: set
+            :param characterSet: set of characters to generate the table for
             """
             self.characterSet = characterSet
             # create instance, locale is not important, we supply own glyph
@@ -2767,38 +2744,40 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
             occurrences (e.g. 伦) only returns the residual stroke count for the
             "main" radical form.
 
-            @type char: str
-            @param char: Chinese character
-            @type glyph: int
-            @param glyph: I{glyph} of given character
-            @rtype: list of tuple
-            @return: list of residual stroke count entries
-            @todo Lang: Implement, find a good algorithm to turn down unwanted
-                forms, don't just choose random one. See the following list::
+            :type char: str
+            :param char: Chinese character
+            :type glyph: int
+            :param glyph: *glyph* of given character
+            :rtype: list of tuple
+            :return: list of residual stroke count entries
 
-                >>> from cjklib import characterlookup
-                >>> cjk = characterlookup.CharacterLookup('T')
-                >>> for char in cjk.db.selectSoleValue('CharacterRadicalResidualStrokeCount',
-                ...     'ChineseCharacter', distinctValues=True):
-                ...     try:
-                ...         entries = cjk.getCharacterKangxiRadicalResidualStrokeCount(char, 'C')
-                ...         lastEntry = entries[0]
-                ...         for entry in entries[1:]:
-                ...             # print if diff. radical forms and diff. residual stroke count
-                ...             if lastEntry[0] != entry[0] and lastEntry[2] != entry[2]:
-                ...                 print char
-                ...                 break
-                ...             lastEntry = entry
-                ...     except:
-                ...         pass
-                ...
-                渌
-                犾
-                玺
-                珏
-                缧
-                >>> cjk.getCharacterKangxiRadicalResidualStrokeCount(u'缧')
-                [(u'\u7cf8', 0, u'\u2ffb', 0, 8), (u'\u7e9f', 0, u'\u2ff0', 0, 11)]
+            .. todo::
+               * Lang: Implement, find a good algorithm to turn down unwanted
+                 forms, don't just choose random one. See the following list::
+
+                    >>> from cjklib import characterlookup
+                    >>> cjk = characterlookup.CharacterLookup('T')
+                    >>> for char in cjk.db.selectSoleValue('CharacterRadicalResidualStrokeCount',
+                    ...     'ChineseCharacter', distinctValues=True):
+                    ...     try:
+                    ...         entries = cjk.getCharacterKangxiRadicalResidualStrokeCount(char, 'C')
+                    ...         lastEntry = entries[0]
+                    ...         for entry in entries[1:]:
+                    ...             # print if diff. radical forms and diff. residual stroke count
+                    ...             if lastEntry[0] != entry[0] and lastEntry[2] != entry[2]:
+                    ...                 print char
+                    ...                 break
+                    ...             lastEntry = entry
+                    ...     except:
+                    ...         pass
+                    ...
+                    渌
+                    犾
+                    玺
+                    珏
+                    缧
+                    >>> cjk.getCharacterKangxiRadicalResidualStrokeCount(u'缧')
+                    [(u'\u7cf8', 0, u'\u2ffb', 0, 8), (u'\u7e9f', 0, u'\u2ff0', 0, 11)]
             """
             # filter entries to return only the main radical form
             # TODO provisional solution, take first entry per radical index
@@ -2811,7 +2790,7 @@ class CharacterResidualStrokeCountBuilder(EntryGeneratorBuilder):
             return filteredEntries
 
         def generator(self):
-            """Provides one entry per character, I{glyph} and locale subset."""
+            """Provides one entry per character, *glyph* and locale subset."""
             radicalDict = self.cjk.getCharacterRadicalResidualStrokeCountDict()
             for char, glyph in self.characterSet:
                 for radicalIndex, residualStrokeCount in self.getEntries(char,
@@ -2852,22 +2831,20 @@ class CombinedCharacterResidualStrokeCountBuilder(
 
         def __init__(self, tableEntries, preferredBuilder, quiet=False):
             """
-            Initialises the CombinedResidualStrokeCountExtractor.
-
-            @type tableEntries: list of list
-            @param tableEntries: list of characters with glyph
-            @type preferredBuilder: instance
-            @param preferredBuilder: TableBuilder which forms are preferred over
+            :type tableEntries: list of list
+            :param tableEntries: list of characters with glyph
+            :type preferredBuilder: instance
+            :param preferredBuilder: TableBuilder which forms are preferred over
                 entries from the Unihan table
-            @type quiet: bool
-            @param quiet: if true no status information will be printed
+            :type quiet: bool
+            :param quiet: if true no status information will be printed
             """
             self.tableEntries = tableEntries
             self.preferredBuilder = preferredBuilder
             self.quiet = quiet
 
         def generator(self):
-            """Provides one entry per character and I{glyph}."""
+            """Provides one entry per character and *glyph*."""
             # handle chars from own data first
             seenCharactersSet = set()
             for entry in self.preferredBuilder:
@@ -2923,9 +2900,11 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
     One column will be provided for the headword, one for the reading (in EDICT
     that is the Kana) and one for the translation.
-    @todo Fix: Optimize insert, use transaction which disables autocommit and
-        cosider passing data all at once, requiring proper handling of row
-        indices.
+
+    .. todo::
+        * Fix: Optimize insert, use transaction which disables autocommit and
+          cosider passing data all at once, requiring proper handling of row
+          indices.
     """
     class TableGenerator:
         """Generates the dictionary entries."""
@@ -2933,18 +2912,16 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         def __init__(self, fileHandle, quiet=False, entryRegex=None,
             columns=None, filterFunc=None):
             """
-            Initialises the TableGenerator.
-
-            @type fileHandle: file
-            @param fileHandle: handle of file to read from
-            @type quiet: bool
-            @param quiet: if true no status information will be printed
-            @type entryRegex: instance
-            @param entryRegex: regular expression object for entry pattern
-            @type columns: list of str
-            @param columns: column names of generated data
-            @type filterFunc: function
-            @param filterFunc: function used to filter entry content
+            :type fileHandle: file
+            :param fileHandle: handle of file to read from
+            :type quiet: bool
+            :param quiet: if true no status information will be printed
+            :type entryRegex: instance
+            :param entryRegex: regular expression object for entry pattern
+            :type columns: list of str
+            :param columns: column names of generated data
+            :type filterFunc: function
+            :param filterFunc: function used to filter entry content
             """
             self.fileHandle = fileHandle
             self.quiet = quiet
@@ -3008,17 +2985,16 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
     def __init__(self, **options):
         """
-        Constructs the EDICTFormatBuilder.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword dataPath: optional list of paths to the data file(s)
-        @keyword quiet: if C{True} no status information will be printed to
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`
+        :keyword dataPath: optional list of paths to the data file(s)
+        :keyword quiet: if ``True`` no status information will be printed to
             stderr
-        @keyword enableFTS3: if C{True} SQLite full text search (FTS3) will be
+        :keyword enableFTS3: if ``True`` SQLite full text search (FTS3) will be
             supported, if the extension exists.
-        @keyword filePath: file path including file name, overrides dataPath
-        @keyword fileType: type of file (.zip, .tar, .tar.bz2, .tar.gz, .gz,
+        :keyword filePath: file path including file name, overrides dataPath
+        :keyword fileType: type of file (.zip, .tar, .tar.bz2, .tar.gz, .gz,
             .txt),
             overrides file type guessing
         """
@@ -3111,12 +3087,12 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         archive using the file name.
         Reimplement and adapt to own needs.
 
-        @type nameList: list of str
-        @param nameList: list of archive contents
-        @type filePath: str
-        @param filePath: path of file
-        @rtype: str
-        @return: name of file in archive
+        :type nameList: list of str
+        :param nameList: list of archive contents
+        :type filePath: str
+        :param filePath: path of file
+        :rtype: str
+        :return: name of file in archive
         """
         fileName = os.path.basename(filePath)
         fileRoot, _ = os.path.splitext(fileName)
@@ -3128,10 +3104,10 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
 
         The file can be either normal content, zip, tar, .tar.gz, tar.bz2 or gz.
 
-        @type filePath: str
-        @param filePath: path of file
-        @rtype: file
-        @return: handle to file's content
+        :type filePath: str
+        :param filePath: path of file
+        :rtype: file
+        :return: handle to file's content
         """
         import zipfile
         import tarfile
@@ -3171,10 +3147,10 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         Returns a SQL statement for creating a virtual table using FTS3 for
         SQLite.
 
-        @type table: object
-        @param table: SQLAlchemy table object representing the FTS3 table
-        @rtype: str
-        @return: Create table statement
+        :type table: object
+        :param table: SQLAlchemy table object representing the FTS3 table
+        :rtype: str
+        :return: Create table statement
         """
         preparer = self.db.engine.dialect.identifier_preparer
 
@@ -3191,16 +3167,16 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         Builds a FTS3 table construct for supporting full text search under
         SQLite.
 
-        @type tableName: str
-        @param tableName: name of table
-        @type columns: list of str
-        @param columns: column names
-        @type columnTypeMap: dict of str and object
-        @param columnTypeMap: mapping of column name to SQLAlchemy Column
-        @type primaryKeys: list of str
-        @param primaryKeys: list of primary key columns
-        @type fullTextColumns: list of str
-        @param fullTextColumns: list of fulltext columns
+        :type tableName: str
+        :param tableName: name of table
+        :type columns: list of str
+        :param columns: column names
+        :type columnTypeMap: dict of str and object
+        :param columnTypeMap: mapping of column name to SQLAlchemy Column
+        :type primaryKeys: list of str
+        :param primaryKeys: list of primary key columns
+        :type fullTextColumns: list of str
+        :param fullTextColumns: list of fulltext columns
         """
         columnTypeMap = columnTypeMap or {}
         primaryKeys = primaryKeys or []
@@ -3284,8 +3260,8 @@ class EDICTFormatBuilder(EntryGeneratorBuilder):
         """
         Tests if the SQLite FTS3 extension is supported on the build system.
 
-        @rtype: bool
-        @return: C{True} if the FTS3 extension exists, C{False} otherwise.
+        :rtype: bool
+        :return: ``True`` if the FTS3 extension exists, ``False`` otherwise.
         """
         # Until #3436 is fixed (http://www.sqlite.org/cvstrac/tktview?tn=3436,5)
         #   do it the bad way
@@ -3391,20 +3367,19 @@ class WordIndexBuilder(EntryGeneratorBuilder):
     several dictionary entries with same headword and reading, with only one
     including the translation word.
 
-    @todo Fix:  Word regex is specialised for HanDeDict.
-    @todo Fix:  Using a row_id for joining instead of Headword(Traditional) and
-        Reading would maybe speed up table joins. Needs a workaround to include
-        multiple rows for one actual headword entry though.
+    .. todo::
+        * Fix: Word regex is specialised for HanDeDict.
+        * Fix: Using a row_id for joining instead of Headword(Traditional) and
+          Reading would maybe speed up table joins. Needs a workaround to
+          include multiple rows for one actual headword entry though.
     """
     class WordEntryGenerator:
         """Generates words for a list of dictionary entries."""
 
         def __init__(self, entries):
             """
-            Initialises the WordEntryGenerator.
-
-            @type entries: list of tuple
-            @param entries: a list of headword and its translation
+            :type entries: list of tuple
+            :param entries: a list of headword and its translation
             """
             self.entries = entries
             # TODO this regex is adapted to HanDeDict, might be not general
@@ -3587,13 +3562,13 @@ class TimestampedCEDICTFormatBuilder(CEDICTFormatBuilder):
 
         Uses the newest version of all files found.
 
-        @type fileGlobs: str/list of str
-        @param fileGlobs: possible file names
-        @type fileType: str
-        @param fileType: textual type of file used in error msg
-        @rtype: str
-        @return: path to file of first match in search for existing file
-        @raise IOError: if no file found
+        :type fileGlobs: str/list of str
+        :param fileGlobs: possible file names
+        :type fileType: str
+        :param fileType: textual type of file used in error msg
+        :rtype: str
+        :return: path to file of first match in search for existing file
+        :raise IOError: if no file found
         """
         import glob
 
@@ -3682,16 +3657,14 @@ class SimpleWenlinFormatBuilder(EntryGeneratorBuilder):
         def __init__(self, fileHandle, quiet=False, columnMap=None,
             filterFunc=None):
             """
-            Initialises the TableGenerator.
-
-            @type fileHandle: file
-            @param fileHandle: handle of file to read from
-            @type quiet: bool
-            @param quiet: if true no status information will be printed
-            @type columnMap: dict
-            @param columnMap: dictionary mapping keys onto table columns
-            @type filterFunc: function
-            @param filterFunc: function used to filter entry content
+            :type fileHandle: file
+            :param fileHandle: handle of file to read from
+            :type quiet: bool
+            :param quiet: if true no status information will be printed
+            :type columnMap: dict
+            :param columnMap: dictionary mapping keys onto table columns
+            :type filterFunc: function
+            :param filterFunc: function used to filter entry content
             """
             self.fileHandle = fileHandle
             self.quiet = quiet
@@ -3757,10 +3730,10 @@ class SimpleWenlinFormatBuilder(EntryGeneratorBuilder):
         """
         Generates a traditional and simplified form from 'characters'.
 
-        @type entry: tuple
-        @param entry: a dictionary entry
-        @rtype: tuple
-        @return: the given entry with corrected ü-voul
+        :type entry: tuple
+        :param entry: a dictionary entry
+        :rtype: tuple
+        :return: the given entry with corrected ü-voul
         """
         if 'characters' not in entry:
             entry['HeadwordTraditional'] = None
@@ -3818,15 +3791,13 @@ class SimpleWenlinFormatBuilder(EntryGeneratorBuilder):
 
     def __init__(self, **options):
         """
-        Constructs the SimpleWenlinFormatBuilder.
-
-        @param options: extra options
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword dataPath: optional list of paths to the data file(s)
-        @keyword quiet: if C{True} no status information will be printed to
+        :param options: extra options
+        :keyword dbConnectInst: instance of a :class:`~cjklib.dbconnector.DatabaseConnector`
+        :keyword dataPath: optional list of paths to the data file(s)
+        :keyword quiet: if ``True`` no status information will be printed to
             stderr
-        @keyword filePath: file path including file name, overrides dataPath
-        @keyword fileType: type of file (.zip, .gz, .txt), overrides file type
+        :keyword filePath: file path including file name, overrides dataPath
+        :keyword fileType: type of file (.zip, .gz, .txt), overrides file type
             guessing
         """
         super(SimpleWenlinFormatBuilder, self).__init__(**options)
@@ -3852,7 +3823,8 @@ class SimpleWenlinFormatBuilder(EntryGeneratorBuilder):
         if option in optionsMetaData:
             return optionsMetaData[option]
         else:
-            return super(SimpleWenlinFormatBuilder, cls).getOptionMetaData(option)
+            return super(SimpleWenlinFormatBuilder,
+                cls).getOptionMetaData(option)
 
     def getGenerator(self):
         def prependLineGenerator(line, data):
@@ -3902,10 +3874,10 @@ class SimpleWenlinFormatBuilder(EntryGeneratorBuilder):
 
         The file can be either normal content, zip or gz.
 
-        @type filePath: str
-        @param filePath: path of file
-        @rtype: file
-        @return: handle to file's content
+        :type filePath: str
+        :param filePath: path of file
+        :rtype: file
+        :return: handle to file's content
         """
         import zipfile
         import tarfile

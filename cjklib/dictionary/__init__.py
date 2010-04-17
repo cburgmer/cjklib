@@ -24,173 +24,6 @@ Queries can be done using a headword, reading or translation.
 Dictionary sources yield less structured information compared to other data
 sources exposed in this library. Owing to this fact, a flexible system is
 provided to the user.
-
-G{classtree BaseDictionary}
-
-Examples
-========
-Examples how to use this module:
-    - Create a dictionary instance:
-
-        >>> from cjklib.dictionary import CEDICT
-        >>> d = CEDICT()
-
-    - Get dictionary entries by reading:
-
-        >>> [e.HeadwordSimplified for e in \\
-        ...     d.getForReading('zhi dao', reading='Pinyin',\
- toneMarkType='numbers')]
-        [u'\u5236\u5bfc', u'\u6267\u5bfc', u'\u6307\u5bfc', u'\u76f4\u5230',\
- u'\u76f4\u6363', u'\u77e5\u9053']
-
-    - Change a search strategy (here search for a reading without tones):
-
-        >>> d = CEDICT(readingSearchStrategy=search.SimpleWildcardReading())
-        >>> d.getForReading('nihao', reading='Pinyin', toneMarkType='numbers')
-        []
-        >>> d = CEDICT(readingSearchStrategy=search.TonelessWildcardReading())
-        >>> d.getForReading('nihao', reading='Pinyin', toneMarkType='numbers')
-        [EntryTuple(HeadwordTraditional=u'\u4f60\u597d',\
- HeadwordSimplified=u'\u4f60\u597d', Reading=u'n\u01d0 h\u01ceo',\
- Translation=u'/hello/hi/how are you?/')]
-
-    - Apply a formatting strategy to remove all initial and final slashes on
-      CEDICT translations:
-
-        >>> from cjklib.dictionary import *
-        >>> class TranslationFormatStrategy(format.Base):
-        ...     def format(self, string):
-        ...         return string.strip('/')
-        ...
-        >>> d = CEDICT(
-        ...     columnFormatStrategies={'Translation':\
- TranslationFormatStrategy()})
-        >>> d.getFor(u'东京')
-        [EntryTuple(HeadwordTraditional=u'\u6771\u4eac',\
- HeadwordSimplified=u'\u4e1c\u4eac', Reading=u'D\u014dng j\u012bng',\
- Translation=u'T\u014dky\u014d, capital of Japan')]
-
-    - A simple dictionary lookup tool:
-
-        >>> from cjklib.dictionary import *
-        >>> from cjklib.reading import ReadingFactory
-        >>> def search(string, reading=None, dictionary='CEDICT'):
-        ...     # guess reading dialect
-        ...     options = {}
-        ...     if reading:
-        ...         f = ReadingFactory()
-        ...         opClass = f.getReadingOperatorClass(reading)
-        ...         if hasattr(opClass, 'guessReadingDialect'):
-        ...             options = opClass.guessReadingDialect(string)
-        ...     # search
-        ...     d = getDictionary(dictionary,\
- entryFactory=entry.UnifiedHeadword())
-        ...     result = d.getFor(string, reading=reading, **options)
-        ...     # print
-        ...     for e in result:
-        ...         print e.Headword, e.Reading, e.Translation
-        ...
-        >>> search('_taijiu', 'Pinyin')
-        茅台酒（茅臺酒） máo tái jiǔ /maotai (a Chinese\
- liquor)/CL:杯[bei1],瓶[ping2]/
-
-Entry factories
-===============
-Similar to SQL interfaces, entries can be returned in different fashion. An
-X{entry factory} takes care of preparing the output. For this predefined
-factories exist: L{entry.Tuple}, which is very basic, will return each
-entry as a tuple of its columns while the mostly used L{entry.NamedTuple} will
-return tuple objects that are accessible by attribute also.
-
-Formatting strategies
-=====================
-As reading formattings vary and many readings can be converted into each other,
-a X{formatting strategy} can be applied to return the expected format.
-L{format.ReadingConversion} provides an easy way to convert the reading given
-by the dictionary into the user defined reading. Other columns can also be
-formatted by applying a strategy, see the example above.
-
-A hybrid approach makes it possible to apply strategies on single cells, giving
-a mapping from the cell name to the strategy, or a strategy that operates on the
-entire result entry, by giving a mapping from C{None} to the strategy. In the
-latter case the formatting strategy needs to deal with the dictionary specific
-entry structure:
-
-        >>> from cjklib.dictionary import *
-        >>> d = CEDICT(columnFormatStrategies={
-        ...     'Translation': format.TranslationFormatStrategy()})
-        >>> d = CEDICT(columnFormatStrategies={
-        ...     None: format.NonReadingEntityWhitespace()})
-
-Formatting strategies can be chained together using the L{format.Chain} class.
-
-Search strategies
-=================
-Searching in natural language data is a difficult process and highly depends on
-the use case at hand. This task is provided by X{search strategies} which
-account for the more complex parts of this module. Strategies exist for the
-three main parts of dictionary entries: headword, reading and translation.
-Additionally mixed searching for a headword partially expressed by reading
-information is supported and can augment the basic reading search. Several
-instances of search strategies exist offering basic or more sophisticated
-routines. For example wildcard searching is offered on top of many basic
-strategies offering by default placeholders C{'_'} for a single character, and
-C{'%'} for a match of zero to many characters.
-
-G{classtree search.Exact}
-
-Headword search strategies
---------------------------
-Searching for headwords is the most simple among the three. Exact searches are
-provided by class L{search.Exact}. By default class L{search.Wildcard} is
-employed which offers wildcard searches.
-
-Reading search strategies
--------------------------
-Readings have more complex and unique representations. Several classes are
-provided here: L{search.Exact} again can be used for exact matches, and
-L{search.Wildcard} for wildcard searches. L{search.SimpleReading}
-and L{search.SimpleWildcardReading} provide similar searching for
-transcriptions as found e.g. in CEDICT. A more complex search is provided by
-L{search.TonelessWildcardReading} which offers search for readings
-missing tonal information.
-
-Translation search strategies
------------------------------
-A basic search is provided by L{search.SingleEntryTranslation} which
-finds an exact entry in a list of entries separated by slashes ('X{/}'). More
-flexible searching is provided by L{search.SimpleTranslation} and
-L{search.SimpleWildcardTranslation} which take into account additional
-information placed in parantheses. These classes have even more special
-implementations adapted to formats found in dictionaries I{CEDICT} and
-I{HanDeDict}.
-
-More complex ones can be implemented on the basis of extending the underlying
-table in the database, e.g. using I{full text search} capabilities of the
-database server. One popular way is using stemming algorithms for copying with
-inflections by reducing a word to its root form.
-
-Mixed reading search strategies
--------------------------------
-Special support for a string with mixed reading and headword entities is
-provided by X{mixed reading search strategies}. For example X{'dui4 不 qi3'}
-will find all entries with headwords whose middle character out of three is
-X{'不'} and whose left character is read X{'dui4'} while the right character is
-read X{'qi3'}.
-
-Case insensitivity & Collations
-===============================
-Case insensitive searching is done through collations in the underlying database
-system and for databases without collation support by employing function
-C{lower()}. A default case independent collation is chosen in the appropriate
-build method in L{cjklib.build.builder}.
-
-I{SQLite} by default has no Unicode support for string operations. Optionally
-the I{ICU} library can be compiled in for handling alphabetic non-ASCII
-characters. The I{DatabaseConnector} can register own Unicode functions if ICU
-support is missing. Queries with C{LIKE} will then use function C{lower()}. This
-compatibility mode has a negative impact on performance and as it is not needed
-for dictionaries like EDICT or CEDICT it is disabled by default.
 """
 
 __all__ = [
@@ -225,10 +58,12 @@ from cjklib.dictionary import search as searchstrategy
 
 def getDictionaryClasses():
     """
-    Gets all classes in module that implement L{BaseDictionary}.
+    Gets all classes in module that implement
+    :class:`~cjklib.dictionary.BaseDictionary`.
 
-    @rtype: set
-    @return: list of all classes inheriting form L{BaseDictionary}
+    :rtype: set
+    :return: list of all classes inheriting form
+        :class:`~cjklib.dictionary.BaseDictionary`
     """
     dictionaryModule = __import__("cjklib.dictionary")
     # get all classes that inherit from BaseDictionary
@@ -243,10 +78,11 @@ def getAvailableDictionaries(dbConnectInst=None):
     Returns a list of available dictionaries for the given database
     connection.
 
-    @type dbConnectInst: instance
-    @param dbConnectInst: optional instance of a L{DatabaseConnector}
-    @rtype: list of class
-    @return: list of dictionary class objects
+    :type dbConnectInst: instance
+    :param dbConnectInst: optional instance of a
+        :class:`~cjklib.dbconnector.DatabaseConnector`
+    :rtype: list of class
+    :return: list of dictionary class objects
     """
     dbConnectInst = dbConnectInst or dbconnector.getDBConnector()
     available = []
@@ -261,10 +97,10 @@ def getDictionaryClass(dictionaryName):
     """
     Get a dictionary class by dictionary name.
 
-    @type dictionaryName: str
-    @param dictionaryName: dictionary name
-    @rtype: type
-    @return: dictionary class
+    :type dictionaryName: str
+    :param dictionaryName: dictionary name
+    :rtype: type
+    :return: dictionary class
     """
     global _dictionaryMap
     if _dictionaryMap is None:
@@ -279,10 +115,10 @@ def getDictionary(dictionaryName, **options):
     """
     Get a dictionary instance by dictionary name.
 
-    @type dictionaryName: str
-    @param dictionaryName: dictionary name
-    @rtype: type
-    @return: dictionary instance
+    :type dictionaryName: str
+    :param dictionaryName: dictionary name
+    :rtype: type
+    :return: dictionary instance
     """
     dictCls = getDictionaryClass(dictionaryName)
     return dictCls(**options)
@@ -301,16 +137,16 @@ class BaseDictionary(object):
         """
         Initialises the BaseDictionary instance.
 
-        @keyword entryFactory: entry factory instance
-        @keyword columnFormatStrategies: column formatting strategy instances
-        @keyword headwordSearchStrategy: headword search strategy instance
-        @keyword readingSearchStrategy: reading search strategy instance
-        @keyword translationSearchStrategy: translation search strategy instance
-        @keyword mixedReadingSearchStrategy: mixed reading search strategy
+        :keyword entryFactory: entry factory instance
+        :keyword columnFormatStrategies: column formatting strategy instances
+        :keyword headwordSearchStrategy: headword search strategy instance
+        :keyword readingSearchStrategy: reading search strategy instance
+        :keyword translationSearchStrategy: translation search strategy instance
+        :keyword mixedReadingSearchStrategy: mixed reading search strategy
             instance
-        @keyword databaseUrl: database connection setting in the format
-            C{driver://user:pass@host/database}.
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
+        :keyword databaseUrl: database connection setting in the format
+            ``driver://user:pass@host/database``.
+        :keyword dbConnectInst: instance of a :class:`~cjklib.dbconnector.DatabaseConnector`
         """
         # get connector to database
         if 'dbConnectInst' in options:
@@ -318,7 +154,7 @@ class BaseDictionary(object):
         else:
             databaseUrl = options.pop('databaseUrl', None)
             self.db = dbconnector.getDBConnector(databaseUrl)
-            """L{DatabaseConnector} instance"""
+            """:class:`~cjklib.dbconnector.DatabaseConnector` instance"""
 
         if 'entryFactory' in options:
             self.entryFactory = options['entryFactory']
@@ -397,13 +233,14 @@ class BaseDictionary(object):
     @classmethod
     def available(cls, dbConnectInst):
         """
-        Returns C{True} if the dictionary is available for the given database
+        Returns ``True`` if the dictionary is available for the given database
         connection.
 
-        @type dbConnectInst: instance
-        @param dbConnectInst: instance of a L{DatabaseConnector}
-        @rtype: bool
-        @return: C{True} if the database exists, C{False} otherwise.
+        :type dbConnectInst: instance
+        :param dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`
+        :rtype: bool
+        :return: ``True`` if the database exists, ``False`` otherwise.
         """
         raise NotImplementedError()
 
@@ -438,7 +275,7 @@ class EDICTStyleDictionary(BaseDictionary):
 
     @cachedproperty
     def version(self):
-        """Version (date) of the dictionary. C{None} if not available."""
+        """Version (date) of the dictionary. ``None`` if not available."""
         try:
             versionTable = Table('Version', self.db.metadata, autoload=True,
                 autoload_with=self.db.engine,
@@ -508,10 +345,10 @@ class EDICTStyleDictionary(BaseDictionary):
         """
         Get all dictionary entries.
 
-        @type limit: int
-        @param limit: limiting number of returned entries
-        @type orderBy: list
-        @param orderBy: list of column names or SQLAlchemy column objects giving
+        :type limit: int
+        :param limit: limiting number of returned entries
+        :type orderBy: list
+        :param orderBy: list of column names or SQLAlchemy column objects giving
             the order of returned entries
         """
         return self._search(None, None, limit, orderBy)
@@ -531,12 +368,15 @@ class EDICTStyleDictionary(BaseDictionary):
         """
         Get dictionary entries whose headword matches the given string.
 
-        @type limit: int
-        @param limit: limiting number of returned entries
-        @type orderBy: list
-        @param orderBy: list of column names or SQLAlchemy column objects giving
+        :type limit: int
+        :param limit: limiting number of returned entries
+        :type orderBy: list
+        :param orderBy: list of column names or SQLAlchemy column objects giving
             the order of returned entries
-        @bug: Specifying a C{limit} might yield less results then possible.
+
+        .. todo::
+            * bug: Specifying a ``limit`` might yield less results than
+              possible.
         """
         clauses, filters = self._getHeadwordSearch(headwordStr)
 
@@ -577,14 +417,17 @@ class EDICTStyleDictionary(BaseDictionary):
         """
         Get dictionary entries whose reading matches the given string.
 
-        @type limit: int
-        @param limit: limiting number of returned entries
-        @type orderBy: list
-        @param orderBy: list of column names or SQLAlchemy column objects giving
+        :type limit: int
+        :param limit: limiting number of returned entries
+        :type orderBy: list
+        :param orderBy: list of column names or SQLAlchemy column objects giving
             the order of returned entries
-        @raise ConversionError: if search string cannot be converted to the
+        :raise ConversionError: if search string cannot be converted to the
             dictionary's reading.
-        @bug: Specifying a C{limit} might yield less results then possible.
+
+        .. todo::
+            * bug: Specifying a ``limit`` might yield less results than
+              possible.
         """
         # TODO document: raises conversion error
         clauses, filters = self._getReadingSearch(readingStr, **options)
@@ -607,12 +450,15 @@ class EDICTStyleDictionary(BaseDictionary):
         """
         Get dictionary entries whose translation matches the given string.
 
-        @type limit: int
-        @param limit: limiting number of returned entries
-        @type orderBy: list
-        @param orderBy: list of column names or SQLAlchemy column objects giving
+        :type limit: int
+        :param limit: limiting number of returned entries
+        :type orderBy: list
+        :param orderBy: list of column names or SQLAlchemy column objects giving
             the order of returned entries
-        @bug: Specifying a C{limit} might yield less results then possible.
+
+        .. todo::
+            * bug: Specifying a ``limit`` might yield less results than
+              possible.
         """
         clauses, filters = self._getTranslationSearch(translationStr)
 
@@ -623,12 +469,15 @@ class EDICTStyleDictionary(BaseDictionary):
         Get dictionary entries whose headword, reading or translation matches
         the given string.
 
-        @type limit: int
-        @param limit: limiting number of returned entries
-        @type orderBy: list
-        @param orderBy: list of column names or SQLAlchemy column objects giving
+        :type limit: int
+        :param limit: limiting number of returned entries
+        :type orderBy: list
+        :param orderBy: list of column names or SQLAlchemy column objects giving
             the order of returned entries
-        @bug: Specifying a C{limit} might yield less results then possible.
+
+        .. todo::
+            * bug: Specifying a ``limit`` might yield less results than
+              possible.
         """
         clauseList = []
         filterList = []
@@ -648,7 +497,7 @@ class EDICT(EDICTStyleDictionary):
     """
     EDICT dictionary access.
 
-    @see: L{EDICTBuilder}
+    .. seealso:: :class:`~cjklib.build.builder.EDICTBuilder`
     """
     PROVIDES = 'EDICT'
     READING = 'Kana'
@@ -659,11 +508,12 @@ class EDICTStyleEnhancedReadingDictionary(EDICTStyleDictionary):
     u"""
     Access for EDICT-style dictionaries with enhanced reading support.
 
-    The EDICTStyleEnhancedReadingDictionary dictionary class extends L{EDICT}
-    by:
-        - support for reading conversion, understanding reading format strategy
-          L{format.ReadingConversion},
-        - flexible searching for reading strings.
+    The EDICTStyleEnhancedReadingDictionary dictionary class extends
+    :class:`cjklib.dictionary.EDICT` by:
+
+    - support for reading conversion, understanding reading format strategy
+        :class:`cjklib.dictionary.format.ReadingConversion`,
+    - flexible searching for reading strings.
     """
     def __init__(self, **options):
 
@@ -685,7 +535,7 @@ class CEDICTGR(EDICTStyleEnhancedReadingDictionary):
     """
     CEDICT-GR dictionary access.
 
-    @see: L{CEDICTGRBuilder}
+    .. seealso:: :class:`~cjklib.build.builder.CEDICTGRBuilder`
     """
     PROVIDES = 'CEDICTGR'
     READING = 'GR'
@@ -702,18 +552,7 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
     u"""
     CEDICT dictionary access.
 
-    Example
-    =======
-
-    Get dictionary entries with reading IPA:
-
-        >>> from cjklib.dictionary import *
-        >>> d = CEDICT(
-        ...     readingFormatStrategy=format.ReadingConversion('MandarinIPA'))
-        >>> print ', '.join([l['Reading'] for l in d.getForHeadword(u'行')])
-        xaŋ˧˥, ɕiŋ˧˥, ɕiŋ˥˩
-
-    @see: L{CEDICTBuilder}
+    .. seealso:: :class:`~cjklib.build.builder.CEDICTBuilder`
     """
     PROVIDES = 'CEDICT'
     DICTIONARY_TABLE = 'CEDICT'
@@ -728,19 +567,20 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
         Initialises the CEDICT instance. By default the both, simplified and
         traditional, headword forms are used for lookup.
 
-        @keyword entryFactory: entry factory instance
-        @keyword columnFormatStrategies: column formatting strategy instances
-        @keyword headwordSearchStrategy: headword search strategy instance
-        @keyword readingSearchStrategy: reading search strategy instance
-        @keyword translationSearchStrategy: translation search strategy instance
-        @keyword mixedReadingSearchStrategy: mixed reading search strategy
+        :keyword entryFactory: entry factory instance
+        :keyword columnFormatStrategies: column formatting strategy instances
+        :keyword headwordSearchStrategy: headword search strategy instance
+        :keyword readingSearchStrategy: reading search strategy instance
+        :keyword translationSearchStrategy: translation search strategy instance
+        :keyword mixedReadingSearchStrategy: mixed reading search strategy
             instance
-        @keyword databaseUrl: database connection setting in the format
-            C{driver://user:pass@host/database}.
-        @keyword dbConnectInst: instance of a L{DatabaseConnector}
-        @keyword headword: C{'s'} if the simplified headword is used as default,
-            C{'t'} if the traditional headword is used as default, C{'b'} if
-            both are tried.
+        :keyword databaseUrl: database connection setting in the format
+            ``driver://user:pass@host/database``.
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`
+        :keyword headword: ``'s'`` if the simplified headword is used as
+            default, ``'t'`` if the traditional headword is used as default,
+            ``'b'`` if both are tried.
         """
         columnFormatStrategies = options.get('columnFormatStrategies', {})
         if None not in columnFormatStrategies:
@@ -837,7 +677,7 @@ class HanDeDict(CEDICT):
     """
     HanDeDict dictionary access.
 
-    @see: L{HanDeDictBuilder}
+    .. seealso:: :class:`~cjklib.build.builder.HanDeDictBuilder`
     """
     PROVIDES = 'HanDeDict'
     DICTIONARY_TABLE = 'HanDeDict'
@@ -864,7 +704,7 @@ class CFDICT(HanDeDict):
     """
     CFDICT dictionary access.
 
-    @see: L{CFDICTBuilder}
+    .. seealso:: :class:`~cjklib.build.builder.CFDICTBuilder`
     """
     PROVIDES = 'CFDICT'
     DICTIONARY_TABLE = 'CFDICT'

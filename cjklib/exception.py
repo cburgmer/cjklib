@@ -3,8 +3,6 @@
 
 """
 Error classes.
-
-@group Exceptions: *Error
 """
 
 class ConversionError(Exception):
