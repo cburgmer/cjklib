@@ -2612,3 +2612,83 @@ class MandarinIPAOperatorConsistencyTest(ReadingOperatorConsistencyTest,
     #COMPOSITION_REFERENCES = []
 
     #READING_ENTITY_REFERENCES = []
+
+
+class ShanghaineseIPAOperatorConsistencyTest(ReadingOperatorConsistencyTest,
+    unittest.TestCase):
+    READING_NAME = 'ShanghaineseIPA'
+
+    DIALECTS = crossDict(
+        [{}, #{'toneMarkType': 'numbers'},
+            {'toneMarkType': 'chaoDigits'},
+            {'toneMarkType': 'superscriptChaoDigits'},
+            #{'toneMarkType': 'numbers', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'chaoDigits', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'superscriptChaoDigits',
+                'missingToneMark': 'ignore'},
+            #{'toneMarkType': 'diacritics'}, # TODO NotImplementedError
+            #{'toneMarkType': 'diacritics', 'missingToneMark': 'ignore'},
+            {'toneMarkType': 'none'}],
+        )
+
+    @staticmethod
+    def testUpperCase(dialect):
+        return False
+
+    def cleanDecomposition(self, decomposition, reading, **options):
+        return [entity for entity in decomposition if entity != '.']
+
+
+class ShanghaineseIPAReferenceTest(ReadingOperatorReferenceTest,
+    unittest.TestCase):
+    READING_NAME = 'ShanghaineseIPA'
+
+    DECOMPOSITION_REFERENCES = [
+        ({'toneMarkType': 'superscriptChaoDigits'}, [
+            (u'ɦi⁵³ ɦɑ̃⁵³.ʦɤ lɛ⁵³ gəˀ¹²', [u'ɦi⁵³', ' ', u'ɦɑ̃⁵³', '.', u'ʦɤ',
+                ' ', u'lɛ⁵³', ' ', u'gəˀ¹²']),
+            ]),
+        ]
+
+    COMPOSITION_REFERENCES = [
+        ({'toneMarkType': 'superscriptChaoDigits'}, [
+            ([u'ɦi⁵³', ' ', u'ɦɑ̃⁵³', u'ʦɤ', ' ', u'lɛ⁵³', ' ', u'gəˀ¹²'],
+                u'ɦi⁵³ ɦɑ̃⁵³.ʦɤ lɛ⁵³ gəˀ¹²'),
+            ]),
+        ]
+
+    READING_ENTITY_REFERENCES = [
+        ({'toneMarkType': 'chaoDigits'}, [
+            (u"tʰi53", True),
+            (u"tʰi34", True),
+            (u"di23", True),
+            (u"tʰiɪˀ55", True),
+            (u"diɪˀ12", True),
+            (u"noŋ53", True),
+            (u"diɪˀ1", False),
+            ]),
+        ({'toneMarkType': 'superscriptChaoDigits'}, [
+            (u"tʰi⁵³", True),
+            (u"tʰi³⁴", True),
+            (u"di²³", True),
+            (u"tʰiɪˀ⁵⁵", True),
+            (u"diɪˀ¹²", True),
+            (u"noŋ⁵³", True),
+            (u"diɪˀ¹", False),
+            ]),
+        ({'toneMarkType': 'ipaToneBar'}, [
+            (u"tʰi˥˧", True),
+            (u"tʰi˧˦", True),
+            (u"di˨˧", True),
+            (u"tʰiɪˀ˥˥", True),
+            (u"diɪˀ˩˨", True),
+            (u"noŋ˥˧", True),
+            (u"tʰi˥", False),
+            ]),
+    ]
+
+    GUESS_DIALECT_REFERENCES = [
+        (u"zã˥˧", {'toneMarkType': 'ipaToneBar'}),
+        (u"zã53", {'toneMarkType': 'chaoDigits'}),
+        (u"ɦɑ⁵³.ʦɤ", {'toneMarkType': 'superscriptChaoDigits'}),
+        ]

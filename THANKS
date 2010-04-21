@@ -1,6 +1,6 @@
 The following people made especially gracious contributions of their
-time and energy in helping to track down bugs, add new features, and
-generally assist in the maintainership process:
+time and energy in helping to track down bugs, add new features, provide
+data and generally assist in the maintainership process:
 
 Gavin Grover <gvgrover@yahoo.com>
         for character decomposition data
@@ -13,3 +13,9 @@ Hugo Lopez <hugo.lpz@gmail.com>
 
 Uriah Eisenstein <uriaheisenstein@gmail.com>
         for stroke order and decomposition corrections
+
+Kellen Parker <kellenparker@gmail.com>
+        for Shanghainese pronunciation data and language expertise
+
+Allan Simon <Allan.SIMON@supinfo.com>
+        for Shanghainese pronunciation data

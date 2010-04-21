@@ -77,6 +77,9 @@ Parts of the data used by this library have their own copyright:
   File or in the Software as well as in the documentation associated
   with the Data File(s) or Software that the data or software has been
   modified.
+- Decomposition data Copyright 2009 by Gavin Grover
+- Shanghainese pronunciation data Copyright 2010 by Kellen Parker and
+  Allan Simon, http://www.sinoglot.com/wu/tools/data/.
 
 The library and all parts are distributed under the terms of the LGPL
 Version 3, 29 June 2007 (http://www.gnu.org/licenses/lgpl.html) if not

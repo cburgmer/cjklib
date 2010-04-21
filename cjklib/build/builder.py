@@ -1813,6 +1813,16 @@ class CantoneseYaleInitialNucleusCodaBuilder(CSVFileLoader):
     TABLE_DECLARATION_FILE_MAPPING = 'cantoneseyaleinitialnucleuscoda.sql'
 
 
+class ShanghaineseIPASyllablesBuilder(CSVFileLoader):
+    """
+    Builds a list of Shanghainese IPA syllables.
+    """
+    PROVIDES = 'ShanghaineseIPASyllables'
+
+    TABLE_CSV_FILE_MAPPING = 'shanghaineseipasyllables.csv'
+    TABLE_DECLARATION_FILE_MAPPING = 'shanghaineseipasyllables.sql'
+
+
 class JyutpingYaleMappingBuilder(CSVFileLoader):
     """
     Builds a mapping between syllables in Jyutping and the Yale romanization
@@ -1886,6 +1896,14 @@ class CantoneseIPAInitialFinalBuilder(CSVFileLoader):
 
     TABLE_CSV_FILE_MAPPING = 'cantoneseipainitialfinal.csv'
     TABLE_DECLARATION_FILE_MAPPING = 'cantoneseipainitialfinal.sql'
+
+
+class CharacterShanghaineseIPABuilder(CSVFileLoader):
+    """Builds the character Shanghainese IPA mapping table."""
+    PROVIDES = 'CharacterShanghaineseIPA'
+
+    TABLE_CSV_FILE_MAPPING = 'charactershanghaineseipa.csv'
+    TABLE_DECLARATION_FILE_MAPPING = 'charactershanghaineseipa.sql'
 
 
 class KangxiRadicalBuilder(CSVFileLoader):

@@ -54,7 +54,9 @@ class CharacterLookup(object):
     CHARARACTER_READING_MAPPING = {'Hangul': ('CharacterHangul', {}),
         'Jyutping': ('CharacterJyutping', {'case': 'lower'}),
         'Pinyin': ('CharacterPinyin', {'toneMarkType': 'numbers',
-            'case': 'lower'})
+            'case': 'lower'}),
+        'ShanghaineseIPA': ('CharacterShanghaineseIPA',
+            {'toneMarkType': 'superscriptChaoDigits'}),
         }
     """
     A list of readings for which a character mapping exists including the

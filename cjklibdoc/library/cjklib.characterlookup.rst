@@ -250,7 +250,23 @@ order
 
 Readings
 ^^^^^^^^
-See module :mod:`cjklib.reading` for a detailed description.
+See module :mod:`cjklib.reading` for a detailed introduction into
+*character readings*.
+
+:class:`CharacterLookup` provides to methods for accessing character readings:
+:meth:`CharacterLookup.getReadingForCharacter` will return all readings known
+for the given character. :meth:`CharacterLookup.getCharactersForReading` will
+return all characters known to have the given reading.
+
+The database offers mappings for the following readings:
+
+* :doc:`Hanyu Pinyin <cjklib.reading.operator.PinyinOperator>`
+* :doc:`Jyutping <cjklib.reading.operator.JyutpingOperator>`
+* :doc:`IPA for Shanghainese <cjklib.reading.operator.ShanghaineseIPAOperator>`
+* :doc:`Hangul <cjklib.reading.operator.HangulOperator>`
+
+Most other readings are available by using one of the above readings as
+:ref:`bridge <readingbridge-label>`.
 
 .. index::
    pair: character; domain

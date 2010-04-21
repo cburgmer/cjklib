@@ -782,8 +782,10 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         * Fix: What about CompositionError? All romanisations raise it, but
           they have a distinct set of characters that belong to the reading.
     """
-    TONE_MARK_REGEX = {'numbers': re.compile(r'(\d)$'),
+    TONE_MARK_REGEX = {'numbers': re.compile(r'(?<!\d)(\d)$'),
+        'superscriptNumbers': re.compile(ur'(?<![⁰¹²³⁴⁵⁶⁷⁸⁹])([⁰¹²³⁴⁵⁶⁷⁸⁹])$'),
         'chaoDigits': re.compile(r'([12345]+)$'),
+        'superscriptChaoDigits': re.compile(ur'([¹²³⁴⁵]+)$'),
         'ipaToneBar': re.compile(ur'([˥˦˧˨˩꜈꜉꜊꜋꜌]+)$'),
         'diacritics': re.compile(ur'([\u0300\u0301\u0302\u0303\u030c]+)')
         }
@@ -794,15 +796,17 @@ class TonalIPAOperator(TonalFixedEntityOperator):
     TONES = []
     """List of tone names. Needs to be implemented in child class."""
 
-    TONE_MARK_PREFER = {'numbers': {}, 'chaoDigits': {}, 'ipaToneBar': {},
+    TONE_MARK_PREFER = {'numbers': {}, 'superscriptNumbers': {},
+        'chaoDigits': {}, 'superscriptChaoDigits': {}, 'ipaToneBar': {},
         'diacritics': {}}
     """
     Mapping of tone marks to tone name which will be preferred on ambiguous
     mappings. Needs to be implemented in child classes.
     """
 
-    TONE_MARK_MAPPING = {'numbers': {}, 'chaoDigits': {}, 'ipaToneBar': {},
-        'diacritics': {}}
+    TONE_MARK_MAPPING = {
+        #'numbers': {}, 'chaoDigits': {}, 'ipaToneBar': {}, 'diacritics': {}
+        }
     """
     Mapping of tone names to tone mark for each tone mark type. Needs to be
     implemented in child classes.
@@ -810,14 +814,14 @@ class TonalIPAOperator(TonalFixedEntityOperator):
 
     def __init__(self, **options):
         """
-        By default no tone marks will be shown.
-
         :param options: extra options
         :keyword dbConnectInst: instance of a
             :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
             given, default settings will be assumed.
         :keyword toneMarkType: type of tone marks, one out of ``'numbers'``,
-            ``'chaoDigits'``, ``'ipaToneBar'``, ``'diacritics'``, ``'none'``
+            ``'superscriptNumbers'``, ``'chaoDigits'``,
+            ``'superscriptChaoDigits'``, ``'ipaToneBar'``, ``'diacritics'``,
+            ``'none'``
         :keyword missingToneMark: if set to ``'noinfo'`` no tone information
             will be deduced when no tone mark is found (takes on value
             ``None``), if set to ``'ignore'`` this entity will not be valid.
@@ -826,10 +830,19 @@ class TonalIPAOperator(TonalFixedEntityOperator):
         """
         super(TonalIPAOperator, self).__init__(**options)
 
-        if self.toneMarkType not in ['numbers', 'chaoDigits', 'ipaToneBar',
-            'diacritics', 'none']:
-            raise ValueError("Invalid option %s for keyword 'toneMarkType'"
-                % repr(self.toneMarkType))
+        assert (self.DEFAULT_TONE_MARK_TYPE in self.TONE_MARK_MAPPING
+            or self.DEFAULT_TONE_MARK_TYPE == 'none')
+
+        if (self.toneMarkType not in self.TONE_MARK_MAPPING
+            and self.toneMarkType != 'none'):
+            raise ValueError(
+                "Option %r for keyword 'toneMarkType' not supported"
+                % self.toneMarkType)
+
+        assert (self.toneMarkType in self.TONE_MARK_REGEX
+            or self.toneMarkType == 'none')
+        assert (self.toneMarkType in self.TONE_MARK_PREFER
+            or self.toneMarkType == 'none')
 
         # check if we have to be strict on tones, i.e. report missing tone info
         if self.missingToneMark not in ['noinfo', 'ignore']:
@@ -846,6 +859,44 @@ class TonalIPAOperator(TonalFixedEntityOperator):
             'missingToneMark': 'noinfo'})
 
         return options
+
+    @classmethod
+    def guessReadingDialect(cls, readingString, includeToneless=False):
+        u"""
+        Takes a string written in IPA and guesses the reading dialect.
+
+        Supports option ``'toneMarkType'``.
+
+        :type readingString: str
+        :param readingString: IPA string
+        :rtype: dict
+        :return: dictionary of basic keyword settings
+        """
+        readingStr = unicodedata.normalize("NFC", unicode(readingString))
+
+        toneMarkCount = dict((toneMarkType, 0)
+            for toneMarkType in cls.TONE_MARK_REGEX)
+        # guess tone mark type
+        for entity in re.split('[ .]', readingStr):
+            for toneMarkType in cls.TONE_MARK_REGEX:
+                matchObj = cls.TONE_MARK_REGEX[toneMarkType].search(entity)
+                if matchObj:
+                    toneMarkCount[toneMarkType] += 1
+
+        # chose tone mark tpye with max frequency in string
+        maxCount = max(toneMarkCount.values())
+        maxToneMarks = [toneMarkType for toneMarkType, count
+            in toneMarkCount.items() if count == maxCount]
+        # prefer the following in this order
+        #   prefer numbers over toneMarkType as any single digit also false
+        #   in to the latter
+        for toneMarkType in ('ipaToneBar', 'diacritics', 'numbers'):
+            if toneMarkType in maxToneMarks:
+                break
+        else:
+            toneMarkType = maxToneMarks[0]
+
+        return {'toneMarkType': toneMarkType}
 
     @cachedmethod
     def getTones(self):
@@ -4610,8 +4661,6 @@ class CantoneseIPAOperator(TonalIPAOperator):
 
     def __init__(self, **options):
         """
-        By default no tone marks will be shown.
-
         :param options: extra options
         :keyword dbConnectInst: instance of a
             :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
@@ -4873,3 +4922,37 @@ class CantoneseIPAOperator(TonalIPAOperator):
         return dict(self.db.selectRows(
             select([table.c.IPA, table.c.VowelLength],
                 table.c.UnreleasedFinal == 'U')))
+
+
+class ShanghaineseIPAOperator(TonalIPAOperator):
+    u"""
+    Provides an operator on strings in Shanghainese (Chinese Wu as spoken in
+    Shanghai) written in the *International Phonetic Alphabet* (*IPA*).
+    """
+    READING_NAME = "ShanghaineseIPA"
+
+    TONES = ['YinPing', 'YinQu', 'YangQu', 'YinRu', 'YangRu']
+
+    TONE_MARK_MAPPING = {
+        #'numbers': {}, 'superscriptNumbers': {},
+        'chaoDigits': {'YinPing': '53', 'YinQu': '34',
+            'YangQu': '23', 'YinRu': '55', 'YangRu': '12'},
+        'superscriptChaoDigits': {'YinPing': u'⁵³', 'YinQu': u'³⁴',
+            'YangQu': u'²³', 'YinRu': u'⁵⁵', 'YangRu': u'¹²'},
+        'ipaToneBar': {'YinPing': u'˥˧', 'YinQu': u'˧˦',
+            'YangQu': u'˨˧', 'YinRu': u'˥˥', 'YangRu': u'˩˨'},
+        # TODO
+        #'diacritics': {}
+        }
+
+    @cachedmethod
+    def getPlainReadingEntities(self):
+        """
+        Gets the list of plain entities supported by this reading. These
+        entities will carry no tone mark.
+
+        :rtype: set of str
+        :return: set of supported syllables
+        """
+        table = self.db.tables['ShanghaineseIPASyllables']
+        return frozenset(self.db.selectScalars(select([table.c.IPA])))

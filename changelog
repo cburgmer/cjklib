@@ -7,11 +7,13 @@ Changes
 - easy dictionary installation
 - support for Win32 and OS X, improved package installation
 - documentation ported to Sphinx
+- pronunciation data for Shanghainese and new reading ShanghaineseIPA
+  (Kellen Parker and Allan Simon)
 - pronunciation information from Unihan's kMandarin is not used anymore due to
   unknown provenance, see thread under
   http://www.unicode.org/mail-arch/unicode-ml/y2010-m01/0246.html
-- stroke order corrections and new entries
-- character decomposition corrections
+- stroke order corrections and new entries (Uriah Eisenstein, Hugo Lopez)
+- character decomposition corrections (Uriah Eisenstein)
 - fix stroke order calculation for scheme ⿷ that affects characters with
   radicals 匚 and ⼖ and include automatic calculation for ⿴
 - fix reading converters not using dbconnector of ReadingFactory

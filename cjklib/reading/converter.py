@@ -1959,6 +1959,28 @@ class JyutpingYaleConverter(RomanisationConverter):
             raise ConversionError(*e.args)
 
 
+class ShanghaineseIPADialectConverter(EntityWiseReadingConverter):
+    u"""
+    Provides a converter for different representations of Shanghainese IPA
+    forms.
+    """
+    CONVERSION_DIRECTIONS = [('ShanghaineseIPA', 'ShanghaineseIPA')]
+
+    def convertBasicEntity(self, entity, fromReading, toReading):
+        # split syllable into plain part and tonal information
+        plainSyllable, tone \
+            = self._getFromOperator(fromReading).splitEntityTone(entity)
+
+        # get syllable with tone mark
+        try:
+            return self._getToOperator(toReading).getTonalEntity(plainSyllable,
+                tone)
+        except InvalidEntityError, e:
+            # handle this as a conversion error as the converted syllable is not
+            #   accepted by the operator
+            raise ConversionError(*e.args)
+
+
 class BridgeConverter(ReadingConverter):
     """
     Provides a :class:`~cjklib.reading.converter.ReadingConverter`

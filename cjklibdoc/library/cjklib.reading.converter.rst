@@ -18,6 +18,7 @@
    cjklib.reading.converter.CantoneseYaleDialectConverter
    cjklib.reading.converter.JyutpingDialectConverter
    cjklib.reading.converter.JyutpingYaleConverter
+   cjklib.reading.converter.ShanghaineseIPADialectConverter
 
 
 Architecture
@@ -91,6 +92,8 @@ Other errors that can arise:
 .. index::
    pair: brige; reading
 
+.. _readingbridge-label:
+
 Bridge
 ^^^^^^
 
@@ -144,6 +147,10 @@ Reading conversions
   * :doc:`cjklib.reading.converter.CantoneseYaleDialectConverter --- Cantonese Yale dialects <cjklib.reading.converter.CantoneseYaleDialectConverter>`
   * :doc:`cjklib.reading.converter.JyutpingDialectConverter --- Jyutping dialects <cjklib.reading.converter.JyutpingDialectConverter>`
   * :doc:`cjklib.reading.converter.JyutpingYaleConverter --- Jyutping to Cantonese Yale <cjklib.reading.converter.JyutpingYaleConverter>`
+
+- Shanghainese
+
+  * :doc:`cjklib.reading.converter.ShanghaineseIPADialectConverter --- Shanghainese IPA dialects <cjklib.reading.converter.ShanghaineseIPADialectConverter>`
 
 
 Base classes

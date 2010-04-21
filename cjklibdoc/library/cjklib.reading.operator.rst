@@ -14,6 +14,7 @@
    cjklib.reading.operator.CantoneseYaleOperator
    cjklib.reading.operator.JyutpingOperator
    cjklib.reading.operator.CantoneseIPAOperator
+   cjklib.reading.operator.ShanghaineseIPAOperator
    cjklib.reading.operator.HangulOperator
    cjklib.reading.operator.KanaOperator
    cjklib.reading.operator.KatakanaOperator
@@ -183,6 +184,10 @@ Readings
   * :doc:`cjklib.reading.operator.CantoneseYaleOperator --- Cantonese Yale <cjklib.reading.operator.CantoneseYaleOperator>`
   * :doc:`cjklib.reading.operator.JyutpingOperator --- Jyutping <cjklib.reading.operator.JyutpingOperator>`
   * :doc:`cjklib.reading.operator.CantoneseIPAOperator --- IPA for Cantonese <cjklib.reading.operator.CantoneseIPAOperator>`
+
+- Shanghainese
+
+  * :doc:`cjklib.reading.operator.ShanghaineseIPAOperator --- IPA for Shanghainese <cjklib.reading.operator.ShanghaineseIPAOperator>`
 
 - Korean
 
