@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
 """
 Provides a class to create a syllable table with initial and final sounds of a
@@ -12,6 +12,20 @@ Generate a table for Pinyin following the ISO 7098 Annex A table::
     >>> import syllabletable
     >>> gen = syllabletable.SyllableTableBuilder()
     >>> table, notIncluded = gen.build('ISO 7098')
+
+Write an HTML table:
+    >>> import codecs
+    >>> def s(c): return c if c else ''
+    ... 
+    >>> table, notIncluded = gen.buildWithHead('ISO 7098')
+    >>> f = codecs.open('/tmp/table.html', 'w', 'utf8')
+    >>> print >> f, "<html><body><table>"
+    >>> print >> f, "\n".join(("<tr>%s</tr>" % ''.join(
+    ...     ('<td>%s</td>' % s(c)) for c in row)) for row in table)
+    >>> print >> f, "</table>"
+    >>> print >> f, "Not included are %s" % ", ".join(notIncluded.keys())
+    >>> print >> f, "</body></html>"
+    >>> f.close()
 
 2008 Christoph Burgmer (cburgmer@ira.uka.de)
 
@@ -156,6 +170,17 @@ class PinyinUnpronouncedInitialsIterator(InitialFinalIterator):
             else:
                 yield(initial, final, syllable)
 
+class RemoveSyllabicDiacriticIterator(InitialFinalIterator):
+    u"""
+    Removes a syllabic indicator in form of the combining diacritic U+0329.
+    """
+    def __iter__(self):
+        for initial, final, syllable in self.initialFinalIterator:
+            if final == '':
+                yield(initial.replace(u'\u0329', ''), final, syllable)
+            else:
+                yield(initial, final, syllable)
+
 class SyllableTableBuilder:
     """
     Builds a table of syllables with initials and finals on the axis.
@@ -164,7 +189,11 @@ class SyllableTableBuilder:
             u'l', u'z', u'c', u's', u'zh', u'ch', u'sh', u'r', u'j', u'q', u'x',
             u'g', u'k', u'h', u'w', u'y', u''],
         'Jyutping': [u'', u'b', u'p', u'm', u'f', u'd', u't', u'n', u'l', u'g',
-            u'k', u'ng', u'h', u'gw', u'kw', u'w', u'z', u'c', u's', u'j']}
+            u'k', u'ng', u'h', u'gw', u'kw', u'w', u'z', u'c', u's', u'j'],
+        'ShanghaineseIPA': [u'ŋ', u'b', u'd', u'ɲ', u'ɕ', u'ʥ', u'ʑ', u'ɦ',
+            u'ʦ', u'ʦʰ', u'ʨʰ', u'ʨ', u'f', u'g', u'h', u'k', u'kʰ', u'l',
+            u'm', u'm\u0329', u'n', u'p', u'pʰ', u's', u't', u'tʰ', u'v', u'z',
+            u'']}
     FINAL_MAPPING = {'Pinyin': [u'a', u'ao', u'ai', u'an', u'ang', u'o', u'ou',
             u'ong', u'u', u'ü', u'ua', u'uai', u'uan', u'uang', u'ue', u'üe',
             u'un', u'uo', u'ui', u'e', u'er', u'ei', u'en', u'eng', u'i', u'ia',
@@ -177,7 +206,13 @@ class SyllableTableBuilder:
             u'oeng', u'oei', u'o', u'ot', u'ok', u'om', u'on', u'ong', u'oi',
             u'ou', u'ap', u'at', u'ak', u'am', u'an', u'ang', u'ai', u'au',
             u'aa', u'aap', u'aat', u'aak', u'aam', u'aan', u'aang', u'aai',
-            u'aau', u'm', u'ng']}
+            u'aau', u'm', u'ng'],
+        'ShanghaineseIPA': [u'', u'a', u'ã', u'aˀ', u'ø', u'ɿ', u'ɤ', u'ɑ',
+            u'ɔ', u'ə', u'ɛ', u'əŋ', u'ɑˀ', u'ɔˀ', u'əˀ', u'ɑ̃', u'əl',
+            u'en', u'ən', u'i', u'ia', u'iɤ', u'iɑ', u'iɔ',
+            u'iɪˀ', u'iɑˀ', u'iɑ̃', u'in', u'ioŋ', u'ioˀ', u'o', u'oŋ',
+            u'oˀ', u'u', u'uɑ', u'uɛ', u'uən', u'uɑˀ', u'uəˀ',
+            u'uɑ̃', u'y', u'yø', u'yɪˀ', u'yəˀ', u'yn']}
 
     SCHEME_MAPPING = {'ISO 7098': ('Pinyin', [u'', u'y', u'w', u'b', u'p', u'm',
             u'f', u'd', u't', u'n', u'l', u'z', u'c', u's', u'zh', u'ch', u'sh',
@@ -256,7 +291,23 @@ class SyllableTableBuilder:
             u'ap', u'at', u'ak', u'am', u'an', u'ang', u'ai', u'au', u'aa',
             u'aap', u'aat', u'aak', u'aam', u'aan', u'aang', u'aai', u'aau',
             u'm', u'ng'],
-            [])}
+            []),
+        'FullShanghainese': ('ShanghaineseIPA', ['',
+            u'ɦ', u'h',
+            u'ŋ', u'k', u'kʰ', u'g',
+            u'ɲ', u'ʨ', u'ʨʰ', u'ʥ', u'ɕ', u'ʑ',
+            u'm', u'b', u'p', u'pʰ',
+            u'l',
+            u'n', u't', u'tʰ', u'd', u'ʦ', u'ʦʰ', u's', u'z',
+            u'f', u'v'],
+            [u'', u'ɑ', u'ɑ̃', u'ã', u'ɑˀ',
+            u'ɛ', u'əˀ', u'ən', u'əl', u'ɿ', u'ɤ',
+            u'i', u'iɑ', u'iɑ̃', u'iɑˀ', u'iɤ', u'iɔ', u'iɪˀ', u'in',
+            u'ioˀ', u'ioŋ',
+            u'o', u'oˀ', u'oŋ', u'ø', u'ɔ', u'ɔˀ',
+            u'u', u'uɑ̃', u'uɑ', u'uɑˀ', u'uɛ', u'uəˀ', u'uən',
+            u'y', u'yn', u'yø', u'yɪˀ', u'yəˀ'],
+            [RemoveSyllabicDiacriticIterator])}
     u"""
     Predefined schemes based on:
         - ISO 7098, the Pinyin syllable table given in Annex A.

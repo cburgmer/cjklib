@@ -2666,6 +2666,8 @@ class ShanghaineseIPAReferenceTest(ReadingOperatorReferenceTest,
             (u"diɪˀ12", True),
             (u"noŋ53", True),
             (u"diɪˀ1", False),
+            (u"diɪˀ23", True),
+            (u"diɪˀ55", True), # YinRu
             ]),
         ({'toneMarkType': 'superscriptChaoDigits'}, [
             (u"tʰi⁵³", True),
@@ -2684,6 +2686,43 @@ class ShanghaineseIPAReferenceTest(ReadingOperatorReferenceTest,
             (u"diɪˀ˩˨", True),
             (u"noŋ˥˧", True),
             (u"tʰi˥", False),
+            ]),
+        ({'toneMarkType': 'chaoDigits', 'constrainEntering': True}, [
+            (u"tʰi53", True),
+            (u"tʰi34", True),
+            (u"di23", True),
+            (u"tʰiɪˀ55", True),
+            (u"diɪˀ12", True),
+            (u"noŋ53", True),
+            (u"diɪˀ1", False),
+            (u"diɪˀ23", False), # YangQu
+            (u"diɪˀ55", True),  # YinRu
+            (u"di55", False),   # YinRu
+            ]),
+        ({'toneMarkType': 'chaoDigits', 'constrainToneCategories': True}, [
+            (u"tʰi53", True),
+            (u"tʰi34", True),
+            (u"di23", True),
+            (u"tʰiɪˀ55", True),
+            (u"diɪˀ12", True),
+            (u"noŋ53", False),  # Voiced + YinPing
+            (u"diɪˀ1", False),
+            (u"diɪˀ23", True),  # Voiced + YangQu
+            (u"diɪˀ55", False), # Voiced + YinRu
+            (u"di55", False),   # Voiced + YinRu
+            ]),
+        ({'toneMarkType': 'chaoDigits', 'constrainEntering': True,
+            'constrainToneCategories': True}, [
+            (u"tʰi53", True),
+            (u"tʰi34", True),
+            (u"di23", True),
+            (u"tʰiɪˀ55", True),
+            (u"diɪˀ12", True),
+            (u"noŋ53", False),  # Voiced + YinPing
+            (u"diɪˀ1", False),
+            (u"diɪˀ23", False), # Voiced + YangQu
+            (u"diɪˀ55", False), # Voiced + YinRu
+            (u"di55", False),   # Voiced + YinRu
             ]),
     ]
 

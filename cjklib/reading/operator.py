@@ -4945,6 +4945,103 @@ class ShanghaineseIPAOperator(TonalIPAOperator):
         #'diacritics': {}
         }
 
+    def __init__(self, **options):
+        """
+        :param options: extra options
+        :keyword dbConnectInst: instance of a
+            :class:`~cjklib.dbconnector.DatabaseConnector`, if none is
+            given, default settings will be assumed.
+        :keyword toneMarkType: type of tone marks, one out of ``'numbers'``,
+            ``'chaoDigits'``, ``'ipaToneBar'``, ``'diacritics'``, ``'none'``
+        :keyword missingToneMark: if set to ``'noinfo'`` no tone information
+            will be deduced when no tone mark is found (takes on value
+            ``None``), if set to ``'ignore'`` this entity will not be valid.
+            Either behaviour only becomes effective if the chosen
+            ``'toneMarkType'`` makes no use of empty tone marks.
+        :keyword constrainEntering: if set to ``True`` entering tones will only
+            occur for syllables with glottal stop ``/ʔ/``.
+        :keyword constrainToneCategories: if set to ``True`` *Yin tones* will
+            only occur with voiceless and *Yang tones* only with voiced
+            initials.
+        """
+        super(ShanghaineseIPAOperator, self).__init__(**options)
+
+    @classmethod
+    def getDefaultOptions(cls):
+        options = super(ShanghaineseIPAOperator, cls).getDefaultOptions()
+        options.update({'constrainEntering': False,
+            'constrainToneCategories': False})
+
+        return options
+
+    def getTonalEntity(self, plainEntity, tone):
+        # reimplement to work with variable tones
+        if not self.isToneValid(plainEntity, tone):
+            raise InvalidEntityError(
+                "Syllable '%s' can not occur with tone '%s'" \
+                    % (plainEntity, str(tone)))
+
+        return super(ShanghaineseIPAOperator, self).getTonalEntity(plainEntity,
+            tone)
+
+    def splitEntityTone(self, entity):
+        # encapsulate parent class' method to work with variable tones
+        plainEntity, tone \
+            = super(ShanghaineseIPAOperator, self).splitEntityTone(entity)
+
+        if not self.isToneValid(plainEntity, tone):
+            raise InvalidEntityError(
+                "Syllable '%s' can not occur with tone '%s'" \
+                    % (plainEntity, str(tone)))
+
+        return plainEntity, tone
+
+    def isToneValid(self, plainEntity, tone):
+        """
+        Checks if the given plain entity and tone combination is valid.
+
+        This method will always return ``True`` by default. If option
+        ``'constrainEntering'`` is set entering tone are only accepted for
+        syllables with glottal stop ``/ʔ/`. If option
+        ``'constrainToneCategories'`` is set *Yin tones* will are only accepted
+        with voiceless and *Yang tones* only with voiced initials.
+
+        :type plainEntity: str
+        :param plainEntity: entity without tonal information
+        :type tone: str
+        :param tone: tone
+        :rtype: bool
+        :return: ``True`` if given combination is valid, ``False`` otherwise
+        """
+        if tone not in self.getTones():
+            raise InvalidEntityError(
+                "Invalid tone information given for '%s': '%s'" \
+                    % (plainEntity, str(tone)))
+        if not self.constrainEntering and not self.constrainToneCategories:
+            return True
+
+        if plainEntity not in self._syllableData:
+            raise InvalidEntityError("Invalid entity given for '%s'"
+                % plainEntity)
+
+        if (self.constrainEntering
+            and ((tone in ('YinRu', 'YangRu')
+                and 'G' not in self._syllableData[plainEntity])
+                or (tone not in ('YinRu', 'YangRu')
+                and 'G' in self._syllableData[plainEntity]))):
+            return False
+
+        if self.constrainToneCategories:
+            if (tone in ('YangQu', 'YangRu')
+                and 'U' in self._syllableData[plainEntity]):
+                return False
+
+            elif (tone in ('YinPing', 'YinQu', 'YinRu')
+                and 'V' in self._syllableData[plainEntity]):
+                return False
+
+        return True
+
     @cachedmethod
     def getPlainReadingEntities(self):
         """
@@ -4956,3 +5053,33 @@ class ShanghaineseIPAOperator(TonalIPAOperator):
         """
         table = self.db.tables['ShanghaineseIPASyllables']
         return frozenset(self.db.selectScalars(select([table.c.IPA])))
+
+    def getOnsetRhyme(self, plainSyllable):
+        """
+        Splits the given plain syllable into onset (initial) and rhyme (final).
+
+        :type plainSyllable: str
+        :param plainSyllable: syllable in IPA without tone marks
+        :rtype: tuple of str
+        :return: tuple of syllable onset and rhyme
+        :raise InvalidEntityError: if the entity is invalid (e.g. syllable
+            nucleus or tone invalid).
+        """
+        table = self.db.tables['ShanghaineseIPASyllables']
+        entry = self.db.selectRow(
+            select([table.c.IPAInitial, table.c.IPAFinal],
+                table.c.IPA == plainSyllable))
+        if not entry:
+            raise InvalidEntityError("'%s' not a valid IPA form in this system'"
+                % plainSyllable)
+        return (entry[0], entry[1])
+
+    @cachedproperty
+    def _syllableData(self):
+        """
+        Table information on initial status voiced/unvoiced and glotal stop
+        of final.
+        """
+        table = self.db.tables['ShanghaineseIPASyllables']
+        return dict(self.db.selectRows(
+            select([table.c.IPA, table.c.Flags])))
