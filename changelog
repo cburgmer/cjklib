@@ -15,7 +15,8 @@ Changes
 - stroke order corrections and new entries (Uriah Eisenstein, Hugo Lopez)
 - character decomposition corrections (Uriah Eisenstein)
 - fix stroke order calculation for scheme ⿷ that affects characters with
-  radicals 匚 and ⼖ and include automatic calculation for ⿴
+  radicals 匚 and ⼖, ⿺ for characters other than 辶, 廴, 乙 and include 
+  automatic calculation for ⿴
 - fix reading converters not using dbconnector of ReadingFactory
 - added BIG5HKSCS character domain for zh_HK
 - added JISX0208 and JISX0208_0213 character domains for ja

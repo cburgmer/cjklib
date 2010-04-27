@@ -1225,7 +1225,10 @@ class CharacterLookup(object):
                             strokeOrder.extend(so)
                             strokeOrder.append(strokes[0][1])
                         else:
-                            if character in [u'⿺', u'⿶']:
+                            if (character == u'⿶'
+                                or (character == u'⿺'
+                                    and type(subTree[index+1]) == type(())
+                                    and subTree[index+1][0] in u'辶廴乙')):
                                 # IDS operators with order right one first
                                 subSequence = [1, 0]
                             else:
