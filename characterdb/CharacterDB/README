@@ -1,0 +1,7 @@
+This is a MediaWiki Extension designed for <http://characterdb.cjklib.org/>.
+
+It offers additional parser functions and input types for SemanticForms.
+
+Install by adding the following line to LocalSettings.php:
+
+include_once('extensions/CharacterDB/includes/CDB_Settings.php');

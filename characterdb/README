@@ -1,0 +1,5 @@
+CharacterDB is a collaborative effort for gathering semantic data on the
+structure of Chinese characters' appearances for Hanzi, Kanji and Hanja. One
+goal is to gather data that can be used by the cjklib project.
+
+See <http://characterdb.cjklib.org/>.

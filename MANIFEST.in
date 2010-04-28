@@ -33,3 +33,4 @@ include TODO
 include NEWS
 include changelog
 include pylintrc
+include characterdb/*
