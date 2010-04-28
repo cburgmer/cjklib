@@ -30,7 +30,7 @@ function cdbfSetupExtension() {
 	global $wgHooks, $wgExtensionCredits;
 	global $sfgFormPrinter; // SemanticForms
 
-// 	$wgHooks['BeforeInitialize'][] = 'cdbfRedirectMainSubpage';
+	$wgHooks['OutputPageBeforeHTML'][] = 'cdbfRedirectMainSubpage';
 	$wgHooks['LanguageGetMagic'][] = 'cdbfAddMagicWords'; // setup names for parser functions (needed here)
 	$wgHooks['ParserFirstCallInit'][] = 'CDBParserExtensions::registerParserFunctions';
        // FIXME: Can be removed when new style magic words are used (introduced in r52503)
@@ -65,8 +65,9 @@ function cdbfAddMagicWords(&$magicWords, $langCode) {
 	$magicWords['codepointhex']  = array( 0, 'codepointhex' );
 	return true;
 }
-/*
-function cdbfRedirectMainSubpage(&$title, &$article, &$output, &$user, $request, $mediaWiki) {
+
+function cdbfRedirectMainSubpage(&$out, &$text) {
+	$title = $out->getTitle();
 	if ($title->getNamespace() != NS_MAIN)
 		return true;
 	if (!MWNamespace::hasSubpages($title->getNamespace()))
@@ -78,8 +79,8 @@ function cdbfRedirectMainSubpage(&$title, &$article, &$output, &$user, $request,
 	if ($target != '' and count($parts) > 1) {
 		$targetTitle=Title::newFromText($target);
 		$targetTitle->setFragment($title);
-		$output->redirect($targetTitle->getFullURL(""));
+		$out->redirect($targetTitle->getFullURL(""));
 		return false;
 	}
 	return true;
-}*/
+}
