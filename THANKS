@@ -12,10 +12,14 @@ Hugo Lopez <hugo.lpz@gmail.com>
         for stroke order corrections
 
 Uriah Eisenstein <uriaheisenstein@gmail.com>
-        for stroke order and decomposition corrections
+        for stroke order, decomposition corrections and patches for stroke order
+        calculation and Win32 specific issues
 
 Kellen Parker <kellenparker@gmail.com>
         for Shanghainese pronunciation data and language expertise
 
 Allan Simon <Allan.SIMON@supinfo.com>
         for Shanghainese pronunciation data
+
+Hans-Jörg Happel <happel@fzi.de>
+        for expertise on Semantic MediaWiki in designing CharacterDB

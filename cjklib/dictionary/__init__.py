@@ -429,7 +429,6 @@ class EDICTStyleDictionary(BaseDictionary):
             * bug: Specifying a ``limit`` might yield less results than
               possible.
         """
-        # TODO document: raises conversion error
         clauses, filters = self._getReadingSearch(readingStr, **options)
 
         return self._search(or_(*clauses), filters, limit, orderBy)

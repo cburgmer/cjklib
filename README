@@ -115,11 +115,6 @@ with ``LIKE`` will then use function ``lower()``. This compatibility mode has
 negative impact on performance and as it is not needed for dictionaries like
 EDICT or CEDICT it is disabled by default. See ``cjklib.conf`` for enabling.
 
-SQLite offers full-text search with extension FTS3 which needs to be compiled in
-to be used. Cjknife can use the full-text capabilities for the dictionary search
-and performs a full table scan in fuzzy search if this extension is not
-available. To enable it set ``enableFTS3`` to ``True`` in ``cjklib.conf`` before
-rebuilding. No full-text support is currently given for MySQL.
 
 MySQL
 -----

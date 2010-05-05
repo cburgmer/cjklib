@@ -1,7 +1,7 @@
 News & Changes
 
-SVN
-===
+0.3 release
+===========
 - Options -c, -b, -e in cjknife are now deprecated. Use wildcards % and _
   for these functions instead.
 - Index tables (e.g. CEDICT_Words) are deprecated and will not be generated

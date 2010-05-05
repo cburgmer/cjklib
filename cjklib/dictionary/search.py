@@ -163,7 +163,7 @@ class Exact(_CaseInsensitiveBase):
     """Simple search strategy class."""
     def __init__(self, fullwidthCharacters=False, **options):
         """
-        :param fullwidthCharacters: if ``True`` if ``True`` alphabetic halfwidth
+        :param fullwidthCharacters: if ``True`` alphabetic halfwidth
             characters are converted to fullwidth.
         """
         _CaseInsensitiveBase.__init__(self, **options)

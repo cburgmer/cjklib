@@ -993,8 +993,15 @@ def main():
             parameter = a
 
     try:
-        charInfo = CharacterInfo(charLocale=charLocale, readingN=targetReading,
-            dictionaryN=dictionaryN, dictionaryDatabaseUrl=url)
+        try:
+            charInfo = CharacterInfo(charLocale=charLocale,
+                readingN=targetReading, dictionaryN=dictionaryN,
+                dictionaryDatabaseUrl=url)
+        except ValueError:
+            print >> sys.stderr, (("Error: dictionary '%(dict)s' not available."
+                "\nInstall by running 'installcjkdict %(dict)s'")
+                    % {'dict': dictionaryN})
+            sys.exit(1)
         charLocale = charInfo.locale
         dictionaryN = charInfo.dictionary
         if not charInfo.setCharacterDomain(charDomain):
@@ -1191,7 +1198,8 @@ def main():
         # dictionary search
         elif command == "-x":
             if not charInfo.hasDictionary():
-                print "Error: no dictionary available"
+                print >> sys.stderr, ("Error: no dictionary available"
+                    "\nInstall one by running 'installcjkdict DICTIONARY_NAME'")
                 sys.exit(1)
 
             results = charInfo.searchDictionary(parameter, sourceReading)

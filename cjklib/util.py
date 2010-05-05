@@ -220,11 +220,11 @@ def titlecase(strng):
     :return: the given string in titlecase
 
     .. todo::
-        * Impl: While this function is only needed as long Python doesn't ship
-          with a proper title casing algorithm as defined by Unicode, we need
-          a proper handling for *Wade-Giles*, as *Pinyin* *Erhua* forms will
-          convert to two entities being separated by a hyphen, which does not
-          fall in to the Unicode title casing algorithm's definition of a
+        * Impl: While this function is only needed as long as Python doesn't
+          ship with a proper title casing algorithm as defined by Unicode, we
+          need a proper handling for *Wade-Giles*, as *Pinyin* *Erhua* forms
+          will convert to two entities being separated by a hyphen, which does
+          not fall in to the Unicode title casing algorithm's definition of a
           case-ignorable character.
     """
     matchObj = _FIRST_NON_CASE_IGNORABLE.match(strng.lower())
