@@ -45,6 +45,7 @@ from sqlalchemy.sql.expression import func
 
 from cjklib.reading import ReadingFactory
 from cjklib import exception
+from cjklib.util import getCharacterList
 
 # Python 2.4 support
 if not hasattr(__builtins__, 'all'):
@@ -678,7 +679,8 @@ class _SimpleReadingWildcardBase(_WildcardBase):
                 self.multipleCharacters) or not isinstance(entity, basestring):
                 newEntities.append(entity)
             else:
-                newEntities.extend([e for e in entity if e != ' '])
+                newEntities.extend([e for e in getCharacterList(entity)
+                    if e != ' '])
 
         return newEntities
 
@@ -927,7 +929,7 @@ class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
                         wildcardEntities.extend(
                             self._parseWildcardString(entity))
                     else:
-                        searchEntities.extend(list(entity))
+                        searchEntities.extend(getCharacterList(entity))
 
                 self._wildcardForms.append(wildcardEntities)
 
@@ -1147,7 +1149,8 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
                     else:
                         hasHeadwordEntity = True
                         searchEntities.extend(
-                            [self._createHeadwordWildcard(c) for c in entity])
+                            [self._createHeadwordWildcard(c)
+                                for c in getCharacterList(entity)])
 
                 # discard pure reading or pure headword strings as they will be
                 #   covered through other strategies
@@ -1179,14 +1182,15 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
         """Gets a match function for a search string with wildcards."""
         def matchHeadwordReadingPair(headword, reading):
             readingEntities = self._getReadingEntities(reading)
+            headwordChars = getCharacterList(headword)
 
-            if len(headword) != len(readingEntities):
+            if len(headwordChars) != len(readingEntities):
                 # error in database entry
                 return False
 
             # match against all pairs
             for searchEntities in searchPairs:
-                entities = zip(list(headword), readingEntities)
+                entities = zip(headwordChars, readingEntities)
                 if self._depthFirstSearch(searchEntities, entities):
                     return True
 
@@ -1321,7 +1325,8 @@ class _MixedTonelessReadingWildcardBase(_MixedReadingWildcardBase,
                     else:
                         hasHeadwordEntity = True
                         searchEntities.extend(
-                            [self._createHeadwordWildcard(c) for c in entity])
+                            [self._createHeadwordWildcard(c)
+                                for c in getCharacterList(entity)])
 
                 # discard pure reading or pure headword strings as they will be
                 #   covered through other strategies

@@ -305,6 +305,40 @@ Chinese characters encoded in Unicode.
    `Z-variants <http://www.unicode.org/reports/tr38/tr38-5.html#N10211>`_
       Unicode Standard Annex #38, Unicode Han Database (Unihan), 3.7 Variants
 
+.. index::
+   pair: surrogate; pair
+   pair: narrow; build
+   simple: BMP
+   triple: Basic; Multilingual; Plane
+
+Surrogate pairs
+^^^^^^^^^^^^^^^
+Python supports UCS-2 and UCS-4 for Unicode strings. The former is a 2-byte
+implementation called `narrow build`, while the latter uses 4 bytes to store
+Unicode characters and is called a `wide build` respectively. The latter can
+directly store any character encoded by Unicode, while UCS-2 only supports
+the 16-bit range called the `Basic Multilingual Plane` (`BMP`). By default
+Python is compiled with UCS-2 support only and some versions, e.g. the one for
+Windows, have no publicly available version supporting UCS-4.
+
+To circumvent the fact of only being able to represent the first 65536
+codepoints of Unicode Python `narrow builds` support `surrogate pairs` as
+found in UTF-16 to represent characters above the 0xFFFF codepoint. Here a
+logical character from a codepoint above 0xFFFF is represented by two
+physical characters. The most significant surrogate lies between 0xD800
+and 0xDBFF while the least significant surrogate lies between 0xDC00
+and 0xDFFF. Cjklib supports `surrogate pairs` and will return a string of
+length 2 for characters outside the BMP for `narrow builds`. Users need
+to notice that the assertion ``len(char) == 1`` doesn't hold here anymore.
+
+.. seealso::
+
+   `PEP 261 <http://www.python.org/dev/peps/pep-0261/>`_
+      Support for "wide" Unicode characters
+
+   `Encoding of characters outside the BMP <http://en.wikipedia.org/wiki/UTF-16/UCS-2#Encoding_of_characters_outside_the_BMP>`_
+      Wikipedia on UTF16/UCS-2.
+
 Classes
 -------
 

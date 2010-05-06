@@ -6,6 +6,7 @@ Changes
 - multiple database support
 - easy dictionary installation
 - support for Win32 and OS X, improved package installation
+- support for narrow Python builds (UCS-2)
 - documentation ported to Sphinx
 - pronunciation data for Shanghainese and new reading ShanghaineseIPA
   (Kellen Parker and Allan Simon)

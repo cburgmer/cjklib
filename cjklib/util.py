@@ -244,6 +244,109 @@ def istitlecase(strng):
     """
     return titlecase(strng) == strng
 
+if sys.maxunicode < 0x10000:
+    def fromCodepoint(codepoint):
+        """
+        Creates a character for a Unicode codepoint similar to ``unichr``.
+
+        For Python narrow builds this function does not raise a
+        ``ValueError`` for characters outside the BMP but returns a string
+        with a UTF-16 surrogate pair of two characters.
+
+        .. seealso::
+
+            `PEP 261 <http://www.python.org/dev/peps/pep-0261/>`_
+        """
+        if codepoint >= 0x10000:
+            hi, lo = divmod(codepoint - 0x10000, 0x400)
+            return unichr(0xd800 + hi) + unichr(0xdc00 + lo)
+        else:
+            return unichr(codepoint)
+
+    def toCodepoint(char):
+        """
+        Returns the Unicode codepoint for this character similar to ``ord``.
+
+        This function can handle surrogate pairs as used by narrow builds.
+
+        :raise ValueError: if the string is not a single char or not a valid
+            surrogate pair
+        """
+        if len(char) == 2:
+            hi, lo = char
+            if not ((u'\ud800' <= hi <= u'\udbff')
+                and (u'\udc00' <= lo <= u'\udfff')):
+                raise ValueError('invalid surrogate pair')
+            return 0x10000 + (ord(hi) - 0xd800) * 0x400 + ord(lo) - 0xdc00
+        else:
+            return ord(char)
+
+    def isValidSurrogate(string):
+        """
+        Returns ``True`` if the given string is a single surrogate pair.
+
+        Always returns ``False`` for wide builds.
+        """
+        return (len(string) == 2 and u'\ud800' < string[0] < u'\udbff'
+            and u'\udc00' < string[1] < u'\udfff')
+
+    def getCharacterList(string):
+        """
+        Split a string of characters into a list of single characters.
+        Parse UTF-16 surrogate pairs.
+        """
+        charList = []
+        i = 0
+        while i < len(string):
+            if isValidSurrogate(string[i:i+2]):
+                charList.append(string[i:i+2])
+                i += 2
+            else:
+                charList.append(string[i])
+                i += 1
+        return charList
+
+else:
+    def fromCodepoint(codepoint):
+        """
+        Creates a character for a Unicode codepoint similar to ``unichr``.
+
+        For Python narrow builds this function does not raise a
+        ``ValueError`` for characters outside the BMP but returns a string
+        with a UTF-16 surrogate pair of two characters.
+
+        .. seealso::
+
+            `PEP 261 <http://www.python.org/dev/peps/pep-0261/>`_
+        """
+        return unichr(codepoint)
+
+    def toCodepoint(char):
+        """
+        Returns the Unicode codepoint for this character similar to ``ord``.
+
+        This function can handle surrogate pairs as used by narrow builds.
+
+        :raise ValueError: if the string is not a single char or not a valid
+            surrogate pair
+        """
+        return ord(char)
+
+    def isValidSurrogate(string):
+        """
+        Returns ``True`` if the given string is a single surrogate pair.
+
+        Always returns ``False`` for wide builds.
+        """
+        return False
+
+    def getCharacterList(string):
+        """
+        Split a string of characters into a list of single characters.
+        Parse UTF-16 surrogate pairs.
+        """
+        return list(string)
+
 #{ Helper methods
 
 def cross(*args):
@@ -300,7 +403,7 @@ class CharacterRangeIterator(object):
             self._curRange = (curIndex + 1, toIndex)
         else:
             self._curRange = self._popRange()
-        return unichr(curIndex)
+        return fromCodepoint(curIndex)
 
 #{ Library extensions
 

@@ -31,8 +31,7 @@ is included in your ``PATH`` environment variable to access these programs from
 the command line.
 
 CJK dictionaries are not included by default. If you want to install any of
-those run the following (with an Internet connection) from the root directory
-of the source package::
+those run the following (with an Internet connection)::
 
     $ installcjkdict CEDICT
 
@@ -78,12 +77,17 @@ The development version is available from svn::
 You now need to generate the database. Download the Unihan database and call
 the build CLI (which is not yet installed as executable)::
 
+    $ cd cjklib
     $ wget ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
     $ python -m cjklib.build.cli build cjklibData --attach= \
         --database=sqlite:///cjklib/cjklib.db
     $ sqlite3 cjklib/cjklib.db "VACUUM"
 
 The last step is optional but will help to optimize the database file.
+
+Install by running::
+
+    $ sudo python setup.py install
 
 Database
 --------
@@ -101,7 +105,7 @@ Then start the build process::
 SQLite
 ^^^^^^
 Currently only characters from the Basic Multilingual Plane (BMP) of Unicode
-are supported out of the box, due to missing support in Windows versions of 
+are supported out of the box, due to missing support in Windows versions of
 Python and MySQL (see below). To enable full support set ``wideBuild`` to
 ``True`` in :file:`cjklib.conf` before rebuilding or pass ``--wideBuild=True``
 to ``buildcjkdb``.
@@ -112,12 +116,6 @@ Cjklib can register own Unicode functions if ICU support is missing. Queries
 with ``LIKE`` will then use function ``lower()``. This compatibility mode has
 negative impact on performance and as it is not needed for dictionaries like
 EDICT or CEDICT it is disabled by default. See :file:`cjklib.conf` for enabling.
-
-SQLite offers full-text search with extension FTS3 which needs to be compiled in
-to be used. Cjknife can use the full-text capabilities for the dictionary search
-and performs a full table scan in fuzzy search if this extension is not
-available. To enable it set ``enableFTS3`` to ``True`` in :file:`cjklib.conf`
-before rebuilding. No full-text support is currently given for MySQL.
 
 MySQL
 ^^^^^

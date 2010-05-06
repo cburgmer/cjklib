@@ -86,7 +86,7 @@ from cjklib import characterlookup
 from cjklib import exception
 from cjklib.build import warn
 from cjklib.util import (UnicodeCSVFileIterator, CollationString, CollationText,
-    deprecated)
+    deprecated, fromCodepoint)
 
 # pylint: disable-msg=E1101
 #  member variables are set by setattr()
@@ -416,7 +416,7 @@ class UnihanGenerator:
                     redIndex = int(unicodeHexCodePoint, 16)
                     # skip characters outside the BMP, i.e. for Chinese
                     #   characters >= 0x10000 unless wideBuild is specified
-                    if not self.wideBuild and redIndex >= int('10000', 16):
+                    if not self.wideBuild and redIndex >= 0x10000:
                         continue
                     # if we have a limited target key set, check if the current
                     #   one is to be included
@@ -437,7 +437,7 @@ class UnihanGenerator:
                         del handleDict[fileName]
 
             if entryIndex >= 0:
-                char = unichr(entryIndex)
+                char = fromCodepoint(entryIndex)
                 yield(char, entry)
 
             # if the read buffer is empty, all files are finished
@@ -746,7 +746,7 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
 
             for entry in entryList:
                 if self.wideBuild or 'ChineseCharacter' not in entry \
-                    or ord(entry['ChineseCharacter']) < int('10000', 16):
+                    or entry['ChineseCharacter'] < u'\U00010000':
                     yield(entry)
 
     PROVIDES = 'Kanjidic'
@@ -1097,9 +1097,8 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
                             variantIndices = findR.findall(variantInfo)
                             for unicodeHexIndex in variantIndices:
                                 codePoint = int(unicodeHexIndex, 16)
-                                if self.wideBuild \
-                                    or codePoint < int('10000', 16):
-                                    variant = unichr(codePoint)
+                                if self.wideBuild or codePoint < 0x10000:
+                                    variant = fromCodepoint(codePoint)
                                     yield(character, variant, variantType)
                         elif not self.quiet:
                             # didn't match the regex

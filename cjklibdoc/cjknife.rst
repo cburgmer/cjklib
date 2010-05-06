@@ -20,6 +20,7 @@ Show character information::
     Phonetic data (MandarinBraille): ⠌⠷⠁
     Phonetic data (MandarinIPA): tʂou˥˥
     Phonetic data (Pinyin): zhōu
+    Phonetic data (ShanghaineseIPA): ʦɤ˥˧
     Phonetic data (WadeGiles): chou1
     Semantic variants: 週
     Glyph 0(*), stroke count: 8

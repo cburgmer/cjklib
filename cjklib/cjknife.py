@@ -45,7 +45,8 @@ from cjklib import characterlookup
 from cjklib import reading
 from cjklib import dictionary
 from cjklib import exception
-from cjklib.util import getConfigSettings
+from cjklib.util import (getConfigSettings, toCodepoint, isValidSurrogate,
+    getCharacterList)
 
 # work around http://bugs.python.org/issue2517
 if sys.version_info < (2, 5):
@@ -411,12 +412,12 @@ class CharacterInfo:
         return self.characterLookup.getCharactersForReading(readingString,
             readingN, **options)
 
-    def getReadingForCharacters(self, charString):
+    def getReadingForCharacters(self, charList):
         """
         Gets a list of readings for a given character string.
 
-        :type charString: str
-        :param charString: string of Chinese characters
+        :type charList: list
+        :param charList: list of Chinese characters
         :rtype: list of list of str
         :return: a list of readings per character
         :raise exception.UnsupportedError: raised when a translation from
@@ -425,44 +426,44 @@ class CharacterInfo:
             supported
         """
         readings = []
-        for char in charString:
+        for char in charList:
             stringList = self.characterLookup.getReadingForCharacter(char,
                 self.reading)
             if stringList:
                 readings.append(stringList)
             else:
-                readings.append(char)
+                readings.append([char])
         return readings
 
-    def getSimplified(self, charString):
+    def getSimplified(self, charList):
         """
         Gets the Chinese simplified character representation for the given
         character string.
 
-        :type charString: str
-        :param charString: string of Chinese characters
+        :type charList: list
+        :param charList: list of Chinese characters
         :rtype: list of list of str
         :return: list of simplified Chinese characters
         """
         simplified = []
-        for char in charString:
+        for char in charList:
             simplifiedVariants \
                 = set(self.characterLookup.getCharacterVariants(char, 'S'))
             if self.isSemanticVariant(char, simplifiedVariants):
                 simplifiedVariants.add(char)
             if len(simplifiedVariants) == 0:
-                simplified.append(char)
+                simplified.append([char])
             else:
                 simplified.append(list(simplifiedVariants))
         return simplified
 
-    def getTraditional(self, charString):
+    def getTraditional(self, charList):
         """
         Gets the traditional character representation for the given character
         string.
 
-        :type charString: str
-        :param charString: string of Chinese characters
+        :type charList: list
+        :param charList: list of Chinese characters
         :rtype: list of list of str
         :return: list of simplified Chinese characters
 
@@ -470,13 +471,13 @@ class CharacterInfo:
             * Lang: Implementation is too simple to cover all aspects.
         """
         traditional = []
-        for char in charString:
+        for char in charList:
             traditionalVariants \
                 = set(self.characterLookup.getCharacterVariants(char, 'T'))
             if self.isSemanticVariant(char, traditionalVariants):
                 traditionalVariants.add(char)
             if len(traditionalVariants) == 0:
-                traditional.append(char)
+                traditional.append([char])
             else:
                 traditional.append(list(traditionalVariants))
         return traditional
@@ -586,8 +587,8 @@ class CharacterInfo:
         infoDict['locale'] = self.locale
         infoDict['locale name'] = self.CHAR_LOCALE_NAME[self.locale]
         infoDict['characterDomain'] = self.characterLookup.getCharacterDomain()
-        infoDict['codepoint hex'] = 'U+%04X' % ord(char)
-        infoDict['codepoint dec'] = str(ord(char))
+        infoDict['codepoint hex'] = 'U+%04X' % toCodepoint(char)
+        infoDict['codepoint dec'] = str(toCodepoint(char))
 
         # radical
         if self.characterLookup.isRadicalChar(char):
@@ -1017,7 +1018,7 @@ def main():
 
         # character information table
         if command in ("-i", "--information"):
-            if len(parameter) == 1:
+            if len(parameter) == 1 or isValidSurrogate(parameter):
                 infoDict = charInfo.getCharacterInformation(parameter)
 
                 print ("Information for character " + infoDict['char'] + " (" \
@@ -1093,14 +1094,17 @@ def main():
                             + ')')\
                             .encode(output_encoding, "replace")
             else:
-                print "Error: bad parameter"
+                # encoding errors can lead to a string > 1 char
+                print repr(parameter)
+                print "Error: bad parameter or encoding error"
                 sys.exit(1)
 
         elif command in ("-q", "-r", "-f", "--get-reading", "--convert-form"):
+            charList = getCharacterList(parameter)
             # character to reading conversion
             if command in ("-q", "-r", "--get-reading"):
                 try:
-                    readingList = charInfo.getReadingForCharacters(parameter)
+                    readingList = charInfo.getReadingForCharacters(charList)
                     print getPrintableList(readingList, " ")\
                         .encode(output_encoding, "replace")
                 except exception.UnsupportedError:
@@ -1114,9 +1118,9 @@ def main():
 
             # conversion between simplified/traditional forms
             if command in ("-q", "-f", "--convert-form"):
-                simplified = getPrintableList(charInfo.getSimplified(parameter))
+                simplified = getPrintableList(charInfo.getSimplified(charList))
                 traditional = getPrintableList(charInfo.getTraditional(
-                    parameter))
+                    charList))
                 if not parameter in (simplified, traditional):
                     print "Warning: input string has mixed simplified and " \
                         + "traditional forms"
@@ -1158,7 +1162,8 @@ def main():
 
         # character lookup by components
         elif command in ("-p", "--by-components"):
-            charList = charInfo.getCharactersForComponents(parameter)
+            componentList = getCharacterList(parameter)
+            charList = charInfo.getCharactersForComponents(componentList)
             print ''.join(charList).encode(output_encoding, "replace")
 
         # TODO

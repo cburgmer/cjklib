@@ -341,8 +341,8 @@ class CharacterLookupFilterDomainCharactersReferenceTest(
 
     REFERENCE_LIST = [
         (('T', 'Unicode'), [
-            (([u'说', u'説', u'說', u'丷', u'か', u'국'], ), {},
-                [u'说', u'説', u'說', u'丷']),
+            (([u'说', u'説', u'說', u'丷', u'か', u'국', u'\U000200d3'], ), {},
+                [u'说', u'説', u'說', u'丷', u'\U000200d3']),
             ]),
         (('T', 'BIG5'), [
             (([u'说', u'説', u'說', u'丷', u'か', u'국'], ), {}, [u'說']),
@@ -365,6 +365,7 @@ class CharacterLookupIsCharacterInDomainReferenceTest(
             ((u'丷', ), {}, True),
             ((u'か', ), {}, False),
             ((u'국', ), {}, False),
+            ((u'\U000200d3', ), {}, True),
             ]),
         (('T', 'BIG5'), [
             ((u'说', ), {}, False),
@@ -373,6 +374,7 @@ class CharacterLookupIsCharacterInDomainReferenceTest(
             ((u'丷', ), {}, False),
             ((u'か', ), {}, False),
             ((u'국', ), {}, False),
+            ((u'\U000200d3', ), {}, False),
             ]),
         (('T', 'GB2312'), [
             ((u'说', ), {}, True),
@@ -381,6 +383,7 @@ class CharacterLookupIsCharacterInDomainReferenceTest(
             ((u'丷', ), {}, False),
             ((u'か', ), {}, False),
             ((u'국', ), {}, False),
+            ((u'\U000200d3', ), {}, False),
             ]),
         ]
 

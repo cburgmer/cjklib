@@ -16,6 +16,10 @@ Functions
 
 .. autofunction:: deprecated
 
+.. autofunction:: fromCodepoint
+
+.. autofunction:: getCharacterList
+
 .. autofunction:: getConfigSettings
 
 .. autofunction:: getDataPath
@@ -24,11 +28,13 @@ Functions
 
 .. autofunction:: istitlecase
 
+.. autofunction:: isValidSurrogate
+
 .. autofunction:: locateProjectFile
 
 .. autofunction:: titlecase
 
-
+.. autofunction:: toCodepoint
 
 
 Classes

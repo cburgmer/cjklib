@@ -2246,6 +2246,10 @@ class CharacterLookup(object):
                 componentsList.append(char)
             else:
                 # is Chinese character
+                # Special handling for surrogate pairs on UCS-2 systems
+                if util.isValidSurrogate(decomposition[index:index+2]):
+                    char = decomposition[index:index+2]  # A surrogate pair now
+                    index += 1  # Bypass trailing surrogate
                 if char == '#':
                     # pseudo character, find digit end
                     offset = 2

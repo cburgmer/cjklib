@@ -269,6 +269,8 @@ class HanDeDictDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
         (u'朔風', u'朔风', u'shuo4 feng1', u'/Nordwind (u.E.) (S)/'),
         (u'IC卡', u'IC卡', u'I C ka3', u'/Chipkarte (S)/'),
         (u'USB電纜', u'USB电缆', u'U S B dian4 lan3', u'/USB-Kabel (u.E.) (S)/'),
+        (u'\U000289c0\U000289c0', u'\U000289c0\U000289c0', u'bo1 bo1', u'/Bohrium Bohrium/'),
+        (u'\U000289c0', u'\U000289c0', u'bo1', u'/Bohrium/'),
         #(u'', u'', u'', u''),
         ]
 
@@ -289,6 +291,8 @@ class HanDeDictDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
         ('getForReading', (('toneMarkType', 'numbers'),), [(u'IC ka', [6])]),
         ('getForReading', (('toneMarkType', 'numbers'),),
             [(u'USB dian纜', [7])]),
+        ('getFor', (('toneMarkType', 'numbers'),), [(u'bo', [9])]),
+        ('getFor', (('toneMarkType', 'numbers'),), [(u'\U000289c0bo1', [8])]),
         ]
 
 
