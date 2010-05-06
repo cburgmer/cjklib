@@ -357,6 +357,7 @@
 "犬","H-SP-N D",0,
 "由","S-HZ-H-S-H",0,
 "用","SP-HZG-H-H-S",0,
+"用","S-HZG-H-H-S",1,S
 "疒","D-H-SP D T",0,
 "丬","S D T",0,
 "廴","HZZP-N",0,
@@ -563,3 +564,5 @@
 "才","H-SG-P",0,
 "金","P-N H-H-S-D-P-H",0,
 "㒼","H-S-S-H-S-HZG-S P-TN P-TN",0,
+"⺪","HG-S-H-S-T",0,
+"𠃓","HZZZG-P-P",0,
