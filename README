@@ -102,12 +102,6 @@ Then start the build process::
 
 SQLite
 ------
-Currently only characters from the Basic Multilingual Plane (BMP) of Unicode
-are supported out of the box, due to missing support in Windows versions of
-Python and MySQL (see below). To enable full support set ``wideBuild`` to
-``True`` in ``cjklib.conf`` before rebuilding or pass ``--wideBuild=True`` to
-``buildcjkdb``.
-
 SQLite by default has no Unicode support for string operations. Optionally the
 ICU library can be compiled in for handling alphabetic non-ASCII characters.
 Cjklib can register own Unicode functions if ICU support is missing. Queries
@@ -115,11 +109,12 @@ with ``LIKE`` will then use function ``lower()``. This compatibility mode has
 negative impact on performance and as it is not needed for dictionaries like
 EDICT or CEDICT it is disabled by default. See ``cjklib.conf`` for enabling.
 
-
 MySQL
 -----
 With MySQL 5 the following ``CREATE`` command creates a database with ``utf8``
-as character set using the general Unicode collation::
+as character set using the general Unicode collation
+(MySQL from 5.5.3 on will support full Unicode given character set
+``utf8mb4`` and collation ``utf8mb4_bin``)::
 
     CREATE DATABASE cjklib DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
@@ -130,10 +125,12 @@ You might need to set access rights, too (substitute ``user_name`` and
 
 Now update the settings in  ``cjklib.conf``.
 
-MySQL < 6 doesn't support true UTF-8, and uses a version with max 3 bytes, so
+MySQL < 5.5 doesn't support full UTF-8, and uses a version with max 3 bytes, so
 characters outside the Basic Multilingual Plane (BMP) can't be encoded. Building
 the Unihan database thus might result in warnings, characters above ``0xFFFF``
-can't be built at all.
+can't be built at all. You need to disable building the full character range
+by setting ``wideBuild`` to ``False`` in ``cjklib.conf`` before building.
+Alternatively pass ``--wideBuild=False`` to ``buildcjkdb``.
 
 
 Contact

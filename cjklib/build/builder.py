@@ -350,7 +350,7 @@ class UnihanGenerator:
         'Unihan_RadicalStrokeCounts.txt', 'Unihan_Readings.txt',
         'Unihan_Variants.txt']
 
-    def __init__(self, fileNames, useKeys=None, wideBuild=False, quiet=False):
+    def __init__(self, fileNames, useKeys=None, wideBuild=True, quiet=False):
         """
         :type fileNames: list of str
         :param fileNames: paths to the Unihan database files
@@ -585,7 +585,7 @@ class UnihanBuilder(EntryGeneratorBuilder):
     @classmethod
     def getDefaultOptions(cls):
         options = super(UnihanBuilder, cls).getDefaultOptions()
-        options.update({'wideBuild': False, 'slimUnihanTable': False})
+        options.update({'wideBuild': True, 'slimUnihanTable': False})
 
         return options
 
@@ -811,7 +811,7 @@ class Kanjidic2Builder(EntryGeneratorBuilder):
     @classmethod
     def getDefaultOptions(cls):
         options = super(Kanjidic2Builder, cls).getDefaultOptions()
-        options.update({'wideBuild': False})
+        options.update({'wideBuild': True})
 
         return options
 
@@ -1064,7 +1064,7 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
         pattern.
         """
 
-        def __init__(self, variantEntries, typeList, wideBuild=False,
+        def __init__(self, variantEntries, typeList, wideBuild=True,
             quiet=False):
             """
             :type variantEntries: list of tuple
@@ -1139,7 +1139,7 @@ class CharacterVariantBuilder(EntryGeneratorBuilder):
     @classmethod
     def getDefaultOptions(cls):
         options = super(CharacterVariantBuilder, cls).getDefaultOptions()
-        options.update({'wideBuild': False})
+        options.update({'wideBuild': True})
 
         return options
 
