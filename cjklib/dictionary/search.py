@@ -45,7 +45,7 @@ from sqlalchemy.sql.expression import func
 
 from cjklib.reading import ReadingFactory
 from cjklib import exception
-from cjklib.util import getCharacterList
+from cjklib.util import toCodepoint, getCharacterList
 
 # Python 2.4 support
 if not hasattr(__builtins__, 'all'):
@@ -1110,7 +1110,7 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
                 # single entity, assume belonging to headword
                 if self._headwordFullwidthCharacters:
                     # map to fullwidth if applicable
-                    entity = _FULL_WIDTH_MAP.get(ord(entity), entity)
+                    entity = _FULL_WIDTH_MAP.get(toCodepoint(entity), entity)
                 newEntities.append(self._createHeadwordWildcard(entity))
             else:
                 newEntities.append(entity)

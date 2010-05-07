@@ -219,6 +219,8 @@ class CEDICTDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
         (u'仙', u'仙', u'xian1', u'/immortal/'),
         (u'Ｃ盤', u'Ｃ盘', u'C pan2', u'/C drive or default startup drive (computing)/'),
         (u'ＵＳＢ手指', u'ＵＳＢ手指', u'U S B shou3 zhi3', u'/USB flash drive/'),
+        (u'\U000289c0\U000289c0', u'\U000289c0\U000289c0', u'bo1 bo1', u'/Bohrium Bohrium/'),
+        (u'\U000289c0', u'\U000289c0', u'bo1', u'/Bohrium/'),
         #(u'', u'', u'', u''),
         ]
 
@@ -241,6 +243,8 @@ class CEDICTDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
         ('getFor', (), [(u'C盘', [11])]),
         ('getForReading', (('toneMarkType', 'numbers'),),
             [(u'USB shou指', [12])]),
+        ('getFor', (('toneMarkType', 'numbers'),), [(u'bo', [14])]),
+        ('getFor', (('toneMarkType', 'numbers'),), [(u'\U000289c0bo1', [13])]),
         ]
 
 
