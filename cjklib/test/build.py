@@ -63,6 +63,11 @@ class TableBuilderTest:
     OPTIONS = []
     """Sets of options for the builder."""
 
+    TABLE_DEPEND_OPTIONS = []
+    """
+    Tuples of options for other builders the current tested builder depends on.
+    """
+
     def setUp(self):
         prefer = [self.BUILDER]
         prefer.extend(self.PREFER_BUILDERS)
@@ -102,8 +107,6 @@ class TableBuilderTest:
     def testBuild(self):
         """Test if build finishes successfully."""
         optionSets = self.OPTIONS[:]
-        if {} not in optionSets:
-            optionSets.append({})
         for databasePath in self.dbInstances:
             for options in optionSets:
                 myOptions = options.copy()
@@ -113,6 +116,12 @@ class TableBuilderTest:
                 myOptions['quiet'] = True
                 self.dbInstances[databasePath].setBuilderOptions(self.BUILDER,
                     myOptions, exclusive=True)
+
+                # set options for builders we depend on
+                for builder, dependOptions in self.TABLE_DEPEND_OPTIONS:
+                    self.dbInstances[databasePath].setBuilderOptions(builder,
+                        dependOptions)
+
                 # catch keyboard interrupt to cleanly close
                 try:
                     self.dbInstances[databasePath].build(
@@ -191,7 +200,8 @@ class UnihanBuilderTest(TableBuilderTest, unittest.TestCase):
 
     BUILDER = builder.UnihanBuilder
     DATABASES = removeMySQL(TableBuilderTest.DATABASES)
-    OPTIONS = [{'wideBuild': True}, {'slimUnihanTable': True}]
+    OPTIONS = [{'wideBuild': False}, {'wideBuild': True},
+        {'slimUnihanTable': True}]
 
 
 class MysqlUnihanBuilderTest(TableBuilderTest, unittest.TestCase):
@@ -201,7 +211,7 @@ class MysqlUnihanBuilderTest(TableBuilderTest, unittest.TestCase):
 
     BUILDER = builder.UnihanBuilder
     DATABASES = filterMySQL(TableBuilderTest.DATABASES)
-    OPTIONS = [{'slimUnihanTable': True}]
+    OPTIONS = [{'wideBuild': False, 'slimUnihanTable': True}]
 
 
 class Kanjidic2BuilderTest(TableBuilderTest, unittest.TestCase):
@@ -211,7 +221,7 @@ class Kanjidic2BuilderTest(TableBuilderTest, unittest.TestCase):
 
     BUILDER = builder.Kanjidic2Builder
     DATABASES = removeMySQL(TableBuilderTest.DATABASES)
-    OPTIONS = [{'wideBuild': True}]
+    OPTIONS = [{'wideBuild': False}, {'wideBuild': True}]
 
 
 class MysqlKanjidic2BuilderTest(TableBuilderTest, unittest.TestCase):
@@ -221,7 +231,7 @@ class MysqlKanjidic2BuilderTest(TableBuilderTest, unittest.TestCase):
 
     BUILDER = builder.Kanjidic2Builder
     DATABASES = filterMySQL(TableBuilderTest.DATABASES)
-    OPTIONS = []
+    OPTIONS = [{'wideBuild': False}]
 
 
 class CharacterVariantBuilderTest(TableBuilderTest, unittest.TestCase):
@@ -231,7 +241,7 @@ class CharacterVariantBuilderTest(TableBuilderTest, unittest.TestCase):
 
     BUILDER = builder.CharacterVariantBuilder
     DATABASES = removeMySQL(TableBuilderTest.DATABASES)
-    OPTIONS = [{'wideBuild': True}]
+    OPTIONS = [{'wideBuild': False}, {'wideBuild': True}]
 
 
 class MysqlCharacterVariantBuilderTest(TableBuilderTest, unittest.TestCase):
@@ -241,7 +251,8 @@ class MysqlCharacterVariantBuilderTest(TableBuilderTest, unittest.TestCase):
 
     BUILDER = builder.CharacterVariantBuilder
     DATABASES = filterMySQL(TableBuilderTest.DATABASES)
-    OPTIONS = []
+    OPTIONS = [{'wideBuild': False}]
+    TABLE_DEPEND_OPTIONS = [(builder.UnihanBuilder, {'wideBuild': False})]
 
 
 class EDICTBuilderTest(TableBuilderTest, unittest.TestCase):
