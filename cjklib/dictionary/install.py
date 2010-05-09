@@ -344,7 +344,7 @@ class DictionaryInstaller(object):
         if sys.platform == 'win32':
             if local:
                 path = os.path.join(os.path.expanduser('~'),
-                    '%s' % projectName),
+                    '%s' % projectName)
             elif 'APPDATA' in os.environ:
                 path = os.path.join(os.environ['APPDATA'], projectName)
             else:

@@ -131,6 +131,7 @@ def getSearchPaths(projectName='cjklib'):
     searchPath = [
         # personal directory
         os.path.join(os.path.expanduser('~'), '.%s' % projectName),
+        os.path.join(os.path.expanduser('~'), '%s' % projectName),
         ]
 
     # Unix
