@@ -56,6 +56,7 @@ class Chain(Base):
     applied first, then the second, and so forth.
     """
     def __init__(self, *args):
+        Base.__init__(self)
         self.args = args
 
     def format(self, *args):
@@ -69,6 +70,7 @@ class SingleColumnAdapter(Base):
     Adapts a formatting strategy for a single column for multi-column input.
     """
     def __init__(self, strategy, columnIndex):
+        Base.__init__(self)
         self.strategy = strategy
         self.columnIndex = columnIndex
 
@@ -94,6 +96,7 @@ class ReadingConversion(Base):
         :type targetOptions: dict
         :param targetOptions: target reading conversion options
         """
+        Base.__init__(self)
         self.toReading = toReading
         if targetOptions:
             self.targetOptions = targetOptions

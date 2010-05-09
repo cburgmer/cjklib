@@ -132,6 +132,8 @@ class BaseDictionary(object):
     """
     PROVIDES = None
     """Name of dictionary that is provided by this class."""
+    COLUMNS = None
+    """Columns of the dictionary. Can be assigned a format strategy."""
 
     def __init__(self, **options):
         """
@@ -165,7 +167,7 @@ class BaseDictionary(object):
             self.entryFactory.setDictionaryInstance(self)
 
         columnFormatStrategies = options.get('columnFormatStrategies', {})
-        self.setSolumnFormatStrategies(columnFormatStrategies)
+        self.setColumnFormatStrategies(columnFormatStrategies)
 
         if 'headwordSearchStrategy' in options:
             self.headwordSearchStrategy = options['headwordSearchStrategy']
@@ -205,7 +207,7 @@ class BaseDictionary(object):
         """Strategies for formatting columns."""
         return self._columnFormatStrategies
 
-    def setSolumnFormatStrategies(self, columnFormatStrategies):
+    def setColumnFormatStrategies(self, columnFormatStrategies):
         # None is passed to overwrite a default formating
         for column in columnFormatStrategies.keys():
             if columnFormatStrategies[column] is None:
@@ -228,7 +230,7 @@ class BaseDictionary(object):
                 self._formatStrategies.append(fullRowStrategy)
 
     columnFormatStrategies = property(getSolumnFormatStrategies,
-        setSolumnFormatStrategies)
+        setColumnFormatStrategies)
 
     @classmethod
     def available(cls, dbConnectInst):

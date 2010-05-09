@@ -2288,7 +2288,7 @@ class CombinedStrokeCountBuilder(StrokeCountBuilder):
                 charStrokeCounts[char].append(strokeCount)
 
             unihanStrokeCountDict = dict([(char, strokeCount) \
-                for char, strokeCount in self.tableEntries \
+                for char, strokeCount in tableEntries \
                 if char in charStrokeCounts])
 
             soMismatch = []

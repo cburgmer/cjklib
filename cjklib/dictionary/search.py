@@ -433,7 +433,7 @@ class WildcardTranslation(SingleEntryTranslation,
 
     def getMatchFunction(self, searchStr):
         if self._hasWildcardCharacters(searchStr):
-            regex = self._getWildcardRegex(readingStr)
+            regex = self._getWildcardRegex(searchStr)
             return lambda translation: (translation is not None
                 and regex.search(translation) is not None)
         else:
@@ -872,7 +872,7 @@ class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
     """
     Wildcard search base class for tonal readings.
     """
-    class TonalEntityWildcard:
+    class TonalEntityWildcard(object):
         """
         Wildcard matching a reading entity with any tone that is appended as
         single character.

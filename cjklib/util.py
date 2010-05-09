@@ -273,10 +273,9 @@ if sys.maxunicode < 0x10000:
             surrogate pair
         """
         if len(char) == 2:
-            hi, lo = char
-            if not ((u'\ud800' <= hi <= u'\udbff')
-                and (u'\udc00' <= lo <= u'\udfff')):
+            if not isValidSurrogate(char):
                 raise ValueError('invalid surrogate pair')
+            hi, lo = char
             return 0x10000 + (ord(hi) - 0xd800) * 0x400 + ord(lo) - 0xdc00
         else:
             return ord(char)

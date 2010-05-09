@@ -17,9 +17,6 @@ include cjklibdoc/Makefile
 include cjklibdoc/_build
 include cjklibdoc/_templates/*
 include cjklibdoc/_static/*
-include files/*.py
-include files/*.bat
-include files/Makefile
 include test/*.py
 include test/Makefile
 include examples/*.py

@@ -1,12 +1,30 @@
+=================
+Developing cjklib
+=================
+
+Below various workflows are described to assist in the development of
+cjklib.
+
+You may also want to check the following resources:
+
+- `project homepage and documentation <http://cjklib.org>`_
+- `project hosting <http://code.google.com/p/cjklib>`_
+- `mailing list <http://groups.google.com/group/cjklib-devel>`_
+- `issue tracker <http://code.google.com/p/cjklib/issues/list>`_
+- `wiki <http://code.google.com/p/cjklib/w/list>`_
+- `svn <http://cjklib.googlecode.com/svn/trunk/>`_
+- `CharacterDB wiki <http://characterdb.cjklib.org>`_
+
 Path
 ====
-Make sure you always use the newest version of cjklib by appending the
-following lines to your ~/.bashrc:
+In case you have the stable version and a development version installed
+together, make sure you always use the newest version of cjklib by 
+appending the following lines to your ``~/.bashrc``::
 
-cjklibroot=~/cjklib/trunk
-export PYTHONPATH=$PYTHONPATH:$cjklibroot
+    cjklibroot=~/cjklib/trunk
+    export PYTHONPATH=$PYTHONPATH:$cjklibroot
 
-You might want to copy cjklib.conf to /etc and modify it.
+You might want to copy ``cjklib.conf`` to ``/etc`` and modify it.
 
 Additional software
 ===================
@@ -21,25 +39,34 @@ Additional software
 
 Test cases
 ==========
-Run test cases with
-$ nosetests cjklib/test/*.py --with-id
-or to omit slow tests
-$ nosetests cjklib/test/*.py --with-id -a '!slow'
-or
-$ nosetests cjklib/test/*.py --with-id -a '!slow','!quiteslow'
+Run test cases with::
 
-To rerun failed test cases, run
-$ nosetests cjklib/test/*.py --with-id --failed
+    $ nosetests cjklib/test/*.py --with-id
 
-To test the build methods you need to download external files first:
-$ cd test
-$ make
+You probably want to omit slow tests for now::
+
+    $ nosetests cjklib/test/*.py --with-id -a '!slow'
+
+or::
+
+    $ nosetests cjklib/test/*.py --with-id -a '!slow','!quiteslow'
+
+To rerun failed test cases, run::
+
+    $ nosetests cjklib/test/*.py --with-id --failed
+
+To test the build methods you need to download external files first::
+
+    $ cd test
+    $ make
+
 Currently only SQLite in-memory database testing is enabled. You might want
 to enable MySQL, see cjklib/test/build.py for details.
 
-To check documentation included in doc strings ("doctest"), on BASH do:
-$ nosetests --with-doctest cjklib.characterlookup cjklib.reading \
-    cjklib.reading.operator cjklib.reading.converter
+To check documentation included in doc strings ("doctest"), on BASH do::
+
+    $ nosetests --with-doctest cjklib.characterlookup cjklib.reading \
+        cjklib.reading.operator cjklib.reading.converter
 
 You need to patch doctest.py as it is currently not capable of reporting
 strings in Unicode: http://bugs.python.org/issue1293741. Another bug will
@@ -48,30 +75,36 @@ http://bugs.python.org/issue3955.
 
 Coverage
 ========
-Run
-$ nosetests cjklib/test/* --with-coverage --cover-package=cjklib \
-    --cover-html --cover-html-dir=coverage
+Run::
+
+    $ nosetests cjklib/test/* --with-coverage --cover-package=cjklib \
+        --cover-html --cover-html-dir=coverage --with-id -a '!slow'
 
 HTML files showing the source code's coverage can then be accessed from
-coverage/index.html.
+``coverage/index.html``.
 
 Profiling
 =========
 Profiling is mostly used to learn about the runtime behaviour of a program
-and find inefficient parts of the code.
-$ nosetests cjklib/test/* --with-profile --profile-stats-file=unittest.pstat
+and find inefficient parts of the code::
+
+    $ nosetests cjklib/test/* --with-profile \
+        --profile-stats-file=unittest.pstat --with-id -a '!slow'
 
 generates the file unittest.pstat that is used for further processing.
 
 Documentation
 =============
-Sphinx is used to generate the API documentation:
-$ python setup.py build_sphinx
+Sphinx is used to generate the API documentation::
+
+    $ python setup.py build_sphinx
 
 Source code checking
 ====================
-pylint can be used to check for bugs and code with poor quality:
-$ pylint --rcfile=pylintrc cjklib
+pylint can be used to check for bugs and code with poor quality::
+
+    $ pylint --rcfile=pylintrc cjklib
+
 While some useless warnings and errors are already surpressed, others might
 crop up. Use your own judging on evaluation.
 
@@ -79,16 +112,18 @@ Packaging
 =========
 Quick step to provide own packages.
 
-First get a clean checkout:
-$ cd /tmp
-$ svn checkout http://cjklib.googlecode.com/svn/trunk/ cjklib-read-only
-$ cd cjklib-read-only
+First get a clean checkout::
 
-Create the database:
-$ wget ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
-$ python -m cjklib.build.cli build cjklibData \
-    --database=sqlite:///cjklib/cjklib.db --attach= --ignoreConfig
-$ sqlite3 cjklib/cjklib.db "VACUUM"
+    $ cd /tmp
+    $ svn checkout http://cjklib.googlecode.com/svn/trunk/ cjklib-read-only
+    $ cd cjklib-read-only
+
+Create the database::
+
+    $ wget ftp://ftp.unicode.org/Public/UNIDATA/Unihan.zip
+    $ python -m cjklib.build.cli build cjklibData \
+        --database=sqlite:///cjklib/cjklib.db --attach= --ignoreConfig
+    $ sqlite3 cjklib/cjklib.db "VACUUM"
 
 Continue with the following distribution specific sections.
 
@@ -101,26 +136,30 @@ Ubuntu
 Swap "lucid" for "karmic"/"jaunty" if building for those, swap "cburgmer" for
 your own launchpad account.
 
-Create a source package and upload it to a launchpad ppa:
-$ python setup.py --command-packages=stdeb.command sdist_dsc \
-    --debian-version 1 --extra-cfg-file=lucid_stdeb.cfg
-$ cd deb_dist/cjklib-0.3~lucid/
-$ dpkg-buildpackage -S
-$ cd ..
-$ dput -U ppa:cburgmer/ppa cjklib_0.3~lucid-1_source.changes
+Create a source package and upload it to a launchpad ppa::
+
+    $ python setup.py --command-packages=stdeb.command sdist_dsc \
+        --debian-version 1 --extra-cfg-file=lucid_stdeb.cfg
+    $ cd deb_dist/cjklib-0.3~lucid/
+    $ dpkg-buildpackage -S
+    $ cd ..
+    $ dput -U ppa:cburgmer/ppa cjklib_0.3~lucid-1_source.changes
 
 Debian
 ------
-Create a binary package:
-$ python setup.py --command-packages=stdeb.command bdist_deb \
-    --debian-version 1 --extra-cfg-file=debian_stdeb.cfg
+Create a binary package::
+
+    $ python setup.py --command-packages=stdeb.command bdist_deb \
+        --debian-version 1 --extra-cfg-file=debian_stdeb.cfg
 
 RPM
 ---
-Create a binary package:
-$ python setup.py bdist_rpm
+Create a binary package::
+
+    $ python setup.py bdist_rpm
 
 Win32
 -----
-Create executable installer (works under Unix as source-only):
-$ python setup.py bdist_wininst
+Create executable installer (works under Unix as source-only)::
+
+    $ python setup.py bdist_wininst

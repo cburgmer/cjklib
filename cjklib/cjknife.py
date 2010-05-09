@@ -32,12 +32,7 @@ __all__ = ["CharacterInfo"]
 import sys
 import getopt
 import locale
-import re
 import warnings
-
-from sqlalchemy import Table
-from sqlalchemy import select, union
-from sqlalchemy.sql import and_, or_
 
 import cjklib
 from cjklib import dbconnector
@@ -852,7 +847,8 @@ cjknife is part of cjklib.
 cjklib is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+(at your option) any later version if not otherwise noted.
+See the data files for their specific licenses.
 
 cjklib is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of

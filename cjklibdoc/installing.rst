@@ -129,7 +129,7 @@ Now update the settings in :file:`cjklib.conf`.
 
 MySQL < 5.5 doesn't support full UTF-8, and uses a version with max 3 bytes, so
 characters outside the Basic Multilingual Plane (BMP) can't be encoded. Building
-the Unihan database thus might result in warnings, characters above ``0xFFFF``
+the Unihan database thus might result in warnings, characters above U+FFFF
 can't be built at all. You need to disable building the full character range
 by setting ``wideBuild`` to ``False`` in ``cjklib.conf`` before building.
 Alternatively pass ``--wideBuild=False`` to ``buildcjkdb``.

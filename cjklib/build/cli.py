@@ -277,11 +277,22 @@ format --BuilderName-option or --TableName-option, e.g.
         description = self.DESCRIPTION
         version = """%%prog %s
 Copyright (C) 2006-2010 cjklib developers
-The library and all parts are distributed under the terms of the LGPL
-Version 2.1, February 1999 (http://www.fsf.org/licensing/licenses/lgpl.html)
-if not otherwise noted. See the data files for their specific licenses.
-This is free software: you are free to change and redistribute it.
-There is NO WARRANTY, to the extent permitted by law.""" \
+
+cjknife is part of cjklib.
+
+cjklib is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version if not otherwise noted.
+See the data files for their specific licenses.
+
+cjklib is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with cjklib.  If not, see <http://www.gnu.org/licenses/>.""" \
             % str(cjklib.__version__)
         parser = OptionParser(usage=usage, description=description,
             version=version, option_class=ExtendedOption)

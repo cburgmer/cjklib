@@ -191,6 +191,7 @@ class UnifiedHeadword(NamedTuple):
     brackets if two different headword instances are provided in the entry.
     """
     def __init__(self, headword='s'):
+        NamedTuple.__init__(self)
         if headword in ('s', 't'):
             self.headword = headword
         else:
