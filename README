@@ -13,12 +13,32 @@ the Vietnamese language(s). Functionality is included for character
 pronunciations, radicals, glyph components, stroke decomposition and variant
 information.
 
+Dependencies
+============
+- Python_ 2.4 or above (currently no support for Python3)
+- SQLite_ 3+
+- SQLAlchemy_ 0.4.8+
+- pysqlite2_ (already ships with Python 2.5 and above)
+
+Alternatively for MySQL as backend:
+
+- MySQL_ 5+
+- MySQL-Python_
+
+.. _Python: http://www.python.org/download/
+.. _SQLite: http://www.sqlite.org/download.html
+.. _MySQL: http://www.mysql.com/downloads/mysql/
+.. _SQLAlchemy: http://www.sqlalchemy.org/download.html
+.. _pysqlite2: http://code.google.com/p/pysqlite/downloads/list
+.. _MySQL-Python: http://sourceforge.net/projects/mysql-python/
+
 Installing
 ==========
 
 Windows
 -------
-Install cjklib using the provided ``.exe`` installer.
+Install cjklib using the provided ``.exe`` installer. Make sure above
+dependencies are satisfied.
 
 Three scripts ``cjknife.exe``, ``buildcjkdb.exe``, and ``installcjkdict.exe``
 will be added to the Python ``Scripts`` sub-directory. Make sure this directory
@@ -39,7 +59,7 @@ CFDICT, CEDICTGR).
 
 DEB or RPM based systems
 ------------------------
-Linux packages are available from the
+Packages are available from the
 `project's download page <http://code.google.com/p/cjklib/downloads/list>`_.
 An Ubuntu package is available from a
 `personal package archive <https://launchpad.net/~cburgmer/+archive/ppa>`_.
@@ -53,8 +73,9 @@ your system::
 
     $ sudo python setup.py install
 
-CJK dictionaries are not included by default. If you want to install any of
-those run the following (with an Internet connection)::
+Also make sure above dependencies are satisfied. CJK dictionaries are not
+included by default. If you want to install any of those run the following
+(with an Internet connection)::
 
     $ sudo installcjkdict CEDICT
 

@@ -43,7 +43,7 @@ CFDICT, CEDICTGR).
 
 DEB or RPM based systems
 ------------------------
-Linux packages are available from the
+Packages are available from the
 `project page <http://code.google.com/p/cjklib/downloads/list>`_. An Ubuntu
 package is available from a
 `personal package archive <https://launchpad.net/~cburgmer/+archive/ppa>`_.

@@ -149,8 +149,8 @@ Debian
 ------
 Create a binary package::
 
-    $ python setup.py --command-packages=stdeb.command bdist_deb \
-        --debian-version 1 --extra-cfg-file=debian_stdeb.cfg
+    $ python setup.py --command-packages=stdeb.command sdist_dsc \
+        --debian-version 1 --extra-cfg-file=debian_stdeb.cfg bdist_deb
 
 RPM
 ---
