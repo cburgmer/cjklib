@@ -29,6 +29,7 @@ import unittest
 
 from cjklib.dictionary import (getAvailableDictionaries, getDictionaryClass,
     getDictionary)
+from cjklib.dictionary import search as searchstrategy
 from cjklib.build import DatabaseBuilder
 from cjklib import util
 from cjklib.test import NeedsTemporaryDatabaseTest, attr, EngineMock
@@ -81,8 +82,16 @@ class DictionaryMetaTest(DictionaryTest):
 class DictionaryResultTest(DictionaryTest):
     """Base class for testing of dictionary return values."""
     INSTALL_CONTENT = None
+    """
+    Content the dictionary mock will include. Should follow the dictionary's
+    actual format.
+    """
 
     ACCESS_RESULTS = []
+    """List of query/result tuples."""
+
+    DICTIONARY_OPTIONS = {}
+    """Options for the dictionary instance passed when constructing object."""
 
     class _ContentGenerator(object):
         def getGenerator(self):
@@ -100,12 +109,18 @@ class DictionaryResultTest(DictionaryTest):
             (DictionaryResultTest._ContentGenerator, dictionaryBuilder),
             {'content': self.INSTALL_CONTENT})
 
-        builder = DatabaseBuilder(quiet=True, dbConnectInst=self.db,
+        self.builder = DatabaseBuilder(quiet=True, dbConnectInst=self.db,
             additionalBuilders=[contentBuilder], prefer=["SimpleDictBuilder"],
             rebuildExisting=True, noFail=False)
-        builder.build(self.DICTIONARY)
+        self.builder.build(self.DICTIONARY)
+        assert self.db.mainHasTable(self.DICTIONARY)
 
-        self.dictionary = self.dictionaryClass(dbConnectInst=self.db)
+        self.dictionary = self.dictionaryClass(dbConnectInst=self.db,
+            **self.DICTIONARY_OPTIONS)
+
+    def tearDown(self):
+        self.builder.remove(self.DICTIONARY)
+        assert not self.db.mainHasTable(self.DICTIONARY)
 
     @util.cachedproperty
     def resultIndexMap(self):
@@ -146,11 +161,14 @@ class FullDictionaryTest(DictionaryTest):
         # build dictionary
         dataPath = [util.getDataPath(), os.path.join('.', 'test'),
             os.path.join('.', 'test', 'downloads')]
-        builder = DatabaseBuilder(quiet=True, dbConnectInst=self.db,
+        self.builder = DatabaseBuilder(quiet=True, dbConnectInst=self.db,
             dataPath=dataPath, rebuildExisting=True, noFail=False)
-        builder.build(self.DICTIONARY)
+        self.builder.build(self.DICTIONARY)
 
         self.dictionary = self.dictionaryClass(dbConnectInst=self.db)
+
+    def tearDown(self):
+        self.builder.remove(self.DICTIONARY)
 
 
 class DictionaryAccessTest(FullDictionaryTest):
@@ -327,3 +345,107 @@ class CFDICTDictionaryResultTest(DictionaryResultTest, unittest.TestCase):
         ('getForTranslation', (), [(u'excusez-moi!', [0])]),
         ('getForTranslation', (), [(u'%-moi', [0])]),
         ]
+
+
+class ParameterTest(DictionaryResultTest):
+    PARAMETER_DESC = None
+
+    def shortDescription(self):
+        methodName = getattr(self, self.id().split('.')[-1])
+        # get whole doc string and remove superfluous white spaces
+        noWhitespaceDoc = re.sub('\s+', ' ', methodName.__doc__.strip())
+        # remove markup for epytext format
+        clearName = re.sub('[CLI]\{([^\}]*)}', r'\1', noWhitespaceDoc)
+        # add name of reading
+        return clearName + ' (for %s)' % self.PARAMETER_DESC
+
+
+
+class EscapeParameterTest(ParameterTest, unittest.TestCase):
+    """Test if non-standard escape will yield proper results."""
+    DICTIONARY = 'EDICT'
+    PARAMETER_DESC = 'escape'
+
+    INSTALL_CONTENT = [
+        (u'東京', u'とうきょう', u'/(n) Tokyo (current capital of Japan)/(P)/'),
+        (u'東京語', u'とうきょうご', u'/(n) Tokyo dialect (esp. historical)/'),
+        (u'東京都', u'とうきょうと', u'/(n) Tokyo Metropolitan area/'),
+        (u'頭胸部', u'とうきょうぶ', u'/(n) cephalothorax/'),
+        #(u'', u'', u''),
+        ]
+
+    ACCESS_RESULTS = [
+        ('getForHeadword', (), [(u'東京', [0])]),
+        ('getFor', (), [(u'とうきょう_', [1, 2, 3])]),
+        ('getForHeadword', (), [(u'Tokyo', [])]),
+        ('getForHeadword', (), [(u'東%', [0, 1, 2])]),
+        ('getFor', (), [(u'Tokyo', [0])]),
+        ('getForTranslation', (), [(u'Tokyyo', [0])]),
+        ('getFor', (), [(u'_Tokyo', [])]),
+        ('getForTranslation', (), [(u'tokyo%', [0, 1, 2])]),
+        ('getForTranslation', (), [(u'tokyyo%', [0, 1, 2])]),
+    ]
+
+    DICTIONARY_OPTIONS = {
+        'translationSearchStrategy': searchstrategy.SimpleWildcardTranslation(
+            escape='y'),
+        }
+
+
+class CaseInsensitiveParameterTest(ParameterTest, unittest.TestCase):
+    """
+    Test if non-default setting of caseInsensitive will yield proper results.
+    """
+    DICTIONARY = 'EDICT'
+    PARAMETER_DESC = 'caseInsensitive'
+
+    INSTALL_CONTENT = [
+        (u'東京', u'とうきょう', u'/(n) Tokyo (current capital of Japan)/(P)/'),
+        (u'東京語', u'とうきょうご', u'/(n) Tokyo dialect (esp. historical)/'),
+        (u'東京都', u'とうきょうと', u'/(n) Tokyo Metropolitan area/'),
+        (u'頭胸部', u'とうきょうぶ', u'/(n) cephalothorax/'),
+        #(u'', u'', u''),
+        ]
+
+    ACCESS_RESULTS = [
+        ('getFor', (), [(u'Tokyo', [0])]),
+        ('getFor', (), [(u'tokyo', [])]),
+        ('getForTranslation', (), [(u'tokyo%', [])]),
+        ('getForTranslation', (), [(u'Tokyo%', [0, 1, 2])]),
+    ]
+
+    DICTIONARY_OPTIONS = {
+        'translationSearchStrategy': searchstrategy.SimpleWildcardTranslation(
+            caseInsensitive=False),
+        }
+
+
+class WildcardParameterTest(ParameterTest, unittest.TestCase):
+    """
+    Test if non-default settings of wildcards will yield proper results.
+    """
+    DICTIONARY = 'EDICT'
+    PARAMETER_DESC = 'singleCharacter/multipleCharacters'
+
+    INSTALL_CONTENT = [
+        (u'東京', u'とうきょう', u'/(n) Tokyo% (current capital of Japan)/(P)/'),
+        (u'東京', u'とうきょう', u'/(n) Tokyo_ (current capital of Japan)/(P)/'),
+        (u'東京語', u'とうきょうご', u'/(n) Tokyo dialect (esp. historical)/'),
+        (u'東京都', u'とうきょうと', u'/(n) Tokyo Metropolitan area/'),
+        (u'頭胸部', u'とうきょうぶ', u'/(n) cephalothorax/'),
+        #(u'', u'', u''),
+        ]
+
+    ACCESS_RESULTS = [
+        ('getFor', (), [(u'Tokyo', [])]),
+        ('getForTranslation', (), [(u'Tokyo%', [0])]),
+        ('getForTranslation', (), [(u'tokyo%', [0])]),
+        ('getForTranslation', (), [(u'Tokyo*', [0, 1, 2, 3])]),
+        ('getForTranslation', (), [(u'Tokyo?', [0, 1])]),
+        ('getForTranslation', (), [(u'Tokyo_', [1])]),
+    ]
+
+    DICTIONARY_OPTIONS = {
+        'translationSearchStrategy': searchstrategy.SimpleWildcardTranslation(
+            singleCharacter='?', multipleCharacters='*'),
+        }

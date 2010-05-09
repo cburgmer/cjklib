@@ -42,7 +42,7 @@ class NeedsTemporaryDatabaseTest(object):
     """Base class for unit test with access to a temporary database."""
 
     def setUp(self):
-        self.db = dbconnector.getDBConnector(
+        self.db = dbconnector.DatabaseConnector(
             {'sqlalchemy.url': 'sqlite://', 'attach': ['cjklib']})
 
 

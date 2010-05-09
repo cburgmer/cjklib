@@ -48,7 +48,7 @@ from cjklib import exception
 from cjklib.util import toCodepoint, getCharacterList
 
 # Python 2.4 support
-if not hasattr(__builtins__, 'all'):
+if not hasattr(__builtins__, 'any'):
     def any(iterable):
         for element in iterable:
             if element:
@@ -76,7 +76,6 @@ _FULL_WIDTH_MAP = dict((ord(halfWidth), unichr(ord(halfWidth) + 65248))
 
 def _mapToFullwidth(string):
     u"""Maps halfwidth characters to fullwidth, e.g. ``U`` to ``Ｕ``."""
-    global _FULL_WIDTH_MAP
     if isinstance(string, str):
         return string
     else:
@@ -95,7 +94,8 @@ def setDefaultWildcards(singleCharacter='_', multipleCharacters='%'):
 
 class _CaseInsensitiveBase(object):
     """Base class providing methods for case insensitive searches."""
-    def __init__(self, caseInsensitive=False, sqlCollation=None, **options):
+    def __init__(self, caseInsensitive=False, sqlCollation=None, escape='\\',
+        **options):
         """
         :type caseInsensitive: bool
         :param caseInsensitive: if ``True``, latin characters match their
@@ -103,9 +103,12 @@ class _CaseInsensitiveBase(object):
             will be made (default)
         :type sqlCollation: str
         :param sqlCollation: optional collation to use on columns in SQL queries
+        :type escape: str
+        :param escape: character used to escape command characters
         """
         self._caseInsensitive = caseInsensitive
         self._sqlCollation = sqlCollation
+        self.__escape = escape
 
     def setDictionaryInstance(self, dictInstance):
         compatibilityUnicodeSupport = getattr(dictInstance.db,
@@ -129,28 +132,28 @@ class _CaseInsensitiveBase(object):
             return column == query
 
     def _contains(self, column, query, escape=None):
-        escape = escape or self.escape
+        escape = escape or self.__escape
         if self._sqlCollation:
             column = column.collate(self._sqlCollation)
 
         if self._needsIlike:
             # Uses ILIKE for PostgreSQL and falls back to "lower() LIKE lower()"
             #   for other engines
-            return column.ilike('%' + query + '%')
+            return column.ilike('%' + query + '%', escape=escape)
         else:
-            return column.contains(query)
+            return column.contains(query, escape=escape)
 
     def _like(self, column, query, escape=None):
-        escape = escape or self.escape
+        escape = escape or self.__escape
         if self._sqlCollation:
             column = column.collate(self._sqlCollation)
 
         if self._needsIlike:
             # Uses ILIKE for PostgreSQL and falls back to "lower() LIKE lower()"
             #   for other engines
-            return column.ilike(query)
+            return column.ilike(query, escape=escape)
         else:
-            return column.like(query)
+            return column.like(query, escape=escape)
 
     def _compileRegex(self, regexString):
         if self._caseInsensitive:
@@ -164,6 +167,13 @@ class Exact(_CaseInsensitiveBase):
     """Simple search strategy class."""
     def __init__(self, fullwidthCharacters=False, **options):
         """
+        :type caseInsensitive: bool
+        :param caseInsensitive: if ``True``, latin characters match their
+            upper/lower case equivalent, if ``False`` case sensitive matches
+            will be made (default)
+        :type sqlCollation: str
+        :param sqlCollation: optional collation to use on columns in SQL queries
+        :type fullwidthCharacters: bool
         :param fullwidthCharacters: if ``True`` alphabetic halfwidth
             characters are converted to fullwidth.
         """
@@ -190,8 +200,8 @@ class Exact(_CaseInsensitiveBase):
 
     def getMatchFunction(self, searchStr):
         """
-        Gets a function that returns ``True`` if the entry's cell content matches
-        the search string.
+        Gets a function that returns ``True`` if the entry's cell content
+        matches the search string.
 
         This method provides the sufficient condition for a match. Note that
         matches from other SQL clauses might get included which do not fulfill
@@ -236,6 +246,16 @@ class _WildcardBase(object):
 
     def __init__(self, singleCharacter=None, multipleCharacters=None,
         escape='\\', **options):
+        """
+        :type escape: str
+        :param escape: character used to escape command characters
+        :type singleCharacter: str
+        :param singleCharacter: wildcard character matching a single arbitrary
+            character
+        :type multipleCharacters: str
+        :param multipleCharacters: wildcard character matching zero, one or many
+            arbitrary characters
+        """
         self.singleCharacter = singleCharacter or defaultSingleCharacter
         self.multipleCharacters = (multipleCharacters
             or defaultMultipleCharacters)
@@ -285,6 +305,20 @@ class _WildcardBase(object):
                 return True
         return False
 
+    def _unescape(self, searchStr):
+        """
+        Removes escapes from a search string.
+        """
+        cleaned = []
+        for idx, part in enumerate(self._wildcardRegex.split(searchStr)):
+            if (idx % 2 == 1 and part[0] == self.escape
+                and part[1:] in (self.escape, self.singleCharacter,
+                    self.multipleCharacters)):
+                part = part[1:]
+            cleaned.append(part)
+
+        return ''.join(cleaned)
+
     def _getWildcardQuery(self, searchStr):
         """Joins reading entities, taking care of wildcards."""
         entityList = []
@@ -317,8 +351,23 @@ class Wildcard(Exact, _WildcardBase):
     """Basic headword search strategy with support for wildcards."""
     def __init__(self, fullwidthCharacters=False, **options):
         """
-        :param fullwidthCharacters: if ``True`` if ``True`` alphabetic halfwidth
+        :type caseInsensitive: bool
+        :param caseInsensitive: if ``True``, latin characters match their
+            upper/lower case equivalent, if ``False`` case sensitive matches
+            will be made (default)
+        :type sqlCollation: str
+        :param sqlCollation: optional collation to use on columns in SQL queries
+        :type fullwidthCharacters: bool
+        :param fullwidthCharacters: if ``True`` alphabetic halfwidth
             characters are converted to fullwidth.
+        :type escape: str
+        :param escape: character used to escape command characters
+        :type singleCharacter: str
+        :param singleCharacter: wildcard character matching a single arbitrary
+            character
+        :type multipleCharacters: str
+        :param multipleCharacters: wildcard character matching zero, one or many
+            arbitrary characters
         """
         Exact.__init__(self, fullwidthCharacters, **options)
         _WildcardBase.__init__(self, **options)
@@ -332,7 +381,7 @@ class Wildcard(Exact, _WildcardBase):
             return self._like(column, wildcardSearchStr)
         else:
             # simple routine is faster
-            return Exact.getWhereClause(self, column, searchStr)
+            return Exact.getWhereClause(self, column, self._unescape(searchStr))
 
     def getMatchFunction(self, searchStr, **options):
         if self._hasWildcardCharacters(searchStr):
@@ -344,7 +393,7 @@ class Wildcard(Exact, _WildcardBase):
                 and regex.search(headword) is not None)
         else:
             # simple routine is faster
-            return Exact.getMatchFunction(self, searchStr)
+            return Exact.getMatchFunction(self, self._unescape(searchStr))
 
 #}
 #{ Translation search strategies
@@ -390,7 +439,7 @@ class WildcardTranslation(SingleEntryTranslation,
         else:
             # simple routine is faster
             return SingleEntryTranslation.getMatchFunction(self,
-                searchStr)
+                self._unescape(searchStr))
 
 
 class SimpleTranslation(SingleEntryTranslation):
@@ -419,23 +468,23 @@ class _SimpleTranslationWildcardBase(_WildcardBase):
         REGEX_PATTERN = '(?:(?:(?<!\)) (?!\())|[^ ])'
 
 
-class SimpleWildcardTranslation(SimpleTranslation,
+class SimpleWildcardTranslation(SingleEntryTranslation,
     _SimpleTranslationWildcardBase):
     """
     Simple translation search strategy with support for wildcards. Takes into
     account additions put in parentheses.
     """
     def __init__(self, *args, **options):
-        SimpleTranslation.__init__(self, *args, **options)
+        SingleEntryTranslation.__init__(self, *args, **options)
         _SimpleTranslationWildcardBase.__init__(self, *args, **options)
 
     def _getWildcardRegex(self, searchStr):
         # TODO '* Tokyo' finds "/(n) Tokyo (current capital of Japan)/(P)/"
         #   but should probably disregard that
         regexStr = self._prepareWildcardRegex(searchStr)
-        if not searchStr.startswith('%'):
+        if not searchStr.startswith(self.multipleCharacters):
             regexStr = '(\s+|\([^\)]+\))*' + regexStr
-        if not searchStr.endswith('%'):
+        if not searchStr.endswith(self.multipleCharacters):
             regexStr = regexStr + '(\s+|\([^\)]+\))*'
 
         return self._compileRegex('/' + regexStr + '/')
@@ -445,14 +494,9 @@ class SimpleWildcardTranslation(SimpleTranslation,
         return self._contains(column, wildcardSearchStr)
 
     def getMatchFunction(self, searchStr):
-        if self._hasWildcardCharacters(searchStr):
-            regex = self._getWildcardRegex(searchStr)
-            return lambda translation: (translation is not None
-                and regex.search(translation) is not None)
-        else:
-            # simple routine is faster
-            return SimpleTranslation.getMatchFunction(self,
-                searchStr)
+        regex = self._getWildcardRegex(searchStr)
+        return lambda translation: (translation is not None
+            and regex.search(translation) is not None)
 
 
 class CEDICTTranslation(SingleEntryTranslation):
@@ -471,7 +515,7 @@ class CEDICTTranslation(SingleEntryTranslation):
             and regex.search(translation) is not None)
 
 
-class CEDICTWildcardTranslation(CEDICTTranslation,
+class CEDICTWildcardTranslation(SingleEntryTranslation,
     _SimpleTranslationWildcardBase):
     """
     CEDICT translation based search strategy with support for wildcards. Takes
@@ -479,7 +523,7 @@ class CEDICTWildcardTranslation(CEDICTTranslation,
     by a comma.
     """
     def __init__(self, *args, **options):
-        CEDICTTranslation.__init__(self, *args, **options)
+        SingleEntryTranslation.__init__(self, *args, **options)
         _SimpleTranslationWildcardBase.__init__(self, *args, **options)
 
     def _getWildcardRegex(self, searchStr):
@@ -498,14 +542,9 @@ class CEDICTWildcardTranslation(CEDICTTranslation,
         return self._contains(column, wildcardSearchStr)
 
     def getMatchFunction(self, searchStr):
-        if self._hasWildcardCharacters(searchStr):
-            regex = self._getWildcardRegex(searchStr)
-            return lambda translation: (translation is not None
-                and regex.search(translation) is not None)
-        else:
-            # simple routine is faster
-            return CEDICTTranslation.getMatchFunction(self,
-                searchStr)
+        regex = self._getWildcardRegex(searchStr)
+        return lambda translation: (translation is not None
+            and regex.search(translation) is not None)
 
 
 class HanDeDictTranslation(SingleEntryTranslation):
@@ -527,15 +566,15 @@ class HanDeDictTranslation(SingleEntryTranslation):
             and regex.search(translation) is not None)
 
 
-class HanDeDictWildcardTranslation(
-    HanDeDictTranslation, _SimpleTranslationWildcardBase):
+class HanDeDictWildcardTranslation(SingleEntryTranslation,
+    _SimpleTranslationWildcardBase):
     """
     HanDeDict translation based search strategy with support for wildcards.
     Takes into account additions put in parentheses and appended information
     separated by a comma.
     """
     def __init__(self, *args, **options):
-        HanDeDictTranslation.__init__(self, *args, **options)
+        SingleEntryTranslation.__init__(self, *args, **options)
         _SimpleTranslationWildcardBase.__init__(self, *args, **options)
 
     def _getWildcardRegex(self, searchStr):
@@ -556,14 +595,9 @@ class HanDeDictWildcardTranslation(
         return self._contains(column, wildcardSearchStr)
 
     def getMatchFunction(self, searchStr):
-        if self._hasWildcardCharacters(searchStr):
-            regex = self._getWildcardRegex(searchStr)
-            return lambda translation: (translation is not None
-                and regex.search(translation) is not None)
-        else:
-            # simple routine is faster
-            return HanDeDictTranslation.getMatchFunction(self,
-                searchStr)
+        regex = self._getWildcardRegex(searchStr)
+        return lambda translation: (translation is not None
+            and regex.search(translation) is not None)
 
 #}
 #{ Reading search strategies
@@ -823,15 +857,15 @@ class SimpleWildcardReading(SimpleReading,
         else:
             # simple routine is faster
             return SimpleReading.getWhereClause(self, column,
-                searchStr, **options)
+                self._unescape(searchStr), **options)
 
     def getMatchFunction(self, searchStr, **options):
         if self._hasWildcardCharacters(searchStr):
             return self._getWildcardMatchFunction(searchStr, **options)
         else:
             # simple routine is faster
-            return SimpleReading.getMatchFunction(self, searchStr,
-                **options)
+            return SimpleReading.getMatchFunction(self,
+                self._unescape(searchStr), **options)
 
 
 class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
@@ -929,7 +963,7 @@ class _TonelessReadingWildcardBase(_SimpleReadingWildcardBase):
                         wildcardEntities.extend(
                             self._parseWildcardString(entity))
                     else:
-                        searchEntities.extend(getCharacterList(entity))
+                        wildcardEntities.extend(getCharacterList(entity))
 
                 self._wildcardForms.append(wildcardEntities)
 
@@ -1029,6 +1063,8 @@ class _MixedReadingWildcardBase(_SimpleReadingWildcardBase):
     Wildcard search base class for readings mixed with headword characters.
     """
     class WildcardPairBase(object):
+        SQL_LIKE_STATEMENT_HEADWORD = None
+        SQL_LIKE_STATEMENT = None
         def __unicode__(self):
             return '<%s %s, %s>' % (self.__class__.__name__,
                 repr(self.SQL_LIKE_STATEMENT_HEADWORD),
@@ -1221,10 +1257,26 @@ class MixedWildcardReading(SimpleReading,
     def __init__(self, supportWildcards=True, headwordFullwidthCharacters=False,
         **options):
         """
+        :type caseInsensitive: bool
+        :param caseInsensitive: if ``True``, latin characters match their
+            upper/lower case equivalent, if ``False`` case sensitive matches
+            will be made (default)
+        :type sqlCollation: str
+        :param sqlCollation: optional collation to use on columns in SQL queries
+        :type supportWildcards: bool
         :param supportWildcards: if ``True`` wildcard characters are
             interpreted (default).
+        :type headwordFullwidthCharacters: bool
         :param headwordFullwidthCharacters: if ``True`` halfwidth characters
             are converted to fullwidth if found in headword.
+        :type escape: str
+        :param escape: character used to escape command characters
+        :type singleCharacter: str
+        :param singleCharacter: wildcard character matching a single arbitrary
+            character
+        :type multipleCharacters: str
+        :param multipleCharacters: wildcard character matching zero, one or many
+            arbitrary characters
         """
         SimpleReading.__init__(self, **options)
         _MixedReadingWildcardBase.__init__(self, supportWildcards,
@@ -1350,10 +1402,26 @@ class MixedTonelessWildcardReading(SimpleReading,
     def __init__(self, supportWildcards=True, headwordFullwidthCharacters=False,
         **options):
         """
-        :keyword supportWildcards: if ``True`` wildcard characters are
+        :type caseInsensitive: bool
+        :param caseInsensitive: if ``True``, latin characters match their
+            upper/lower case equivalent, if ``False`` case sensitive matches
+            will be made (default)
+        :type sqlCollation: str
+        :param sqlCollation: optional collation to use on columns in SQL queries
+        :type supportWildcards: bool
+        :param supportWildcards: if ``True`` wildcard characters are
             interpreted (default).
-        :keyword headwordFullwidthCharacters: if ``True`` halfwidth characters
+        :type headwordFullwidthCharacters: bool
+        :param headwordFullwidthCharacters: if ``True`` halfwidth characters
             are converted to fullwidth if found in headword.
+        :type escape: str
+        :param escape: character used to escape command characters
+        :type singleCharacter: str
+        :param singleCharacter: wildcard character matching a single arbitrary
+            character
+        :type multipleCharacters: str
+        :param multipleCharacters: wildcard character matching zero, one or many
+            arbitrary characters
         """
         SimpleReading.__init__(self, **options)
         _MixedTonelessReadingWildcardBase.__init__(self, supportWildcards,
