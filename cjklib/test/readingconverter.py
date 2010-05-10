@@ -1536,3 +1536,24 @@ class BrailleWadeGilesConsistencyTest(ReadingConverterConsistencyTest,
         #({'sourceOptions': {}, 'targetOptions': {}}, [
             #]),
         #]
+
+
+class ShanghaineseIPADialectConsistencyTest(ReadingConverterConsistencyTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('ShanghaineseIPA', 'ShanghaineseIPA')
+
+
+class ShanghaineseIPADialectReferenceTest(ReadingConverterReferenceTest,
+    unittest.TestCase):
+    CONVERSION_DIRECTION = ('ShanghaineseIPA', 'ShanghaineseIPA')
+
+    CONVERSION_REFERENCES = [
+        ({'sourceOptions': {'toneMarkType': 'superscriptChaoDigits'},
+            'targetOptions': {'toneMarkType': 'chaoDigits'}}, [
+            (u'ɦi⁵³ ɦɑ̃⁵³.ʦɤ lɛ⁵³ gəˀ¹²', u'ɦi53 ɦɑ̃53.ʦɤ lɛ53 gəˀ12'),
+            ]),
+        ({'sourceOptions': {}, 'targetOptions': {'toneMarkType': 'chaoDigits'}},
+            [
+            (u'ɦi˥˧ ɦɑ̃˥˧.ʦɤ lɛ˥˧ gəˀ˩˨', u'ɦi53 ɦɑ̃53.ʦɤ lɛ53 gəˀ12'),
+            ]),
+        ]

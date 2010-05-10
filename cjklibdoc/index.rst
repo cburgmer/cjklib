@@ -12,7 +12,7 @@ information.
 This document is about version |version|, see http://cjklib.org/ for the newest
 and http://cjklib.org/current for the current development version. The project
 is hosted on http://code.google.com/p/cjklib. See http://characterdb.cjklib.org/
-for a collaborative effort for gathering language data.
+for a collaborative effort on gathering language data for cjklib.
 
 Contents:
 
