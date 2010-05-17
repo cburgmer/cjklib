@@ -31,6 +31,7 @@ function cdbfSetupExtension() {
 	global $sfgFormPrinter; // SemanticForms
 
 	$wgHooks['OutputPageBeforeHTML'][] = 'cdbfRedirectMainSubpage';
+	$wgHooks['ArticleSaveComplete'][] = 'cdbfPurgeMainSubpage';
 	$wgHooks['LanguageGetMagic'][] = 'cdbfAddMagicWords'; // setup names for parser functions (needed here)
 	$wgHooks['ParserFirstCallInit'][] = 'CDBParserExtensions::registerParserFunctions';
        // FIXME: Can be removed when new style magic words are used (introduced in r52503)
@@ -67,21 +68,37 @@ function cdbfAddMagicWords(&$magicWords, $langCode) {
 	return true;
 }
 
-function cdbfRedirectMainSubpage(&$out, &$text) {
-	$title = $out->getTitle();
+function cdbfGetMainSubpage($title) {
 	if ($title->getNamespace() != NS_MAIN)
 		return true;
 	if (!MWNamespace::hasSubpages($title->getNamespace()))
 		return true;
 
 	$parts = explode( '/', $title->getText() );
-	$target = $parts[0];
+	return $parts[0];
+}
 
-	if ($target != '' and count($parts) > 1) {
+function cdbfRedirectMainSubpage(&$out, &$text) {
+	$title = $out->getTitle();
+	$target = cdbfGetMainSubpage($title);
+
+	if ($target != '' && $target != $title->getText()) {
 		$targetTitle=Title::newFromText($target);
 		$targetTitle->setFragment($title);
 		$out->redirect($targetTitle->getFullURL(""));
 		return false;
+	}
+	return true;
+}
+
+function cdbfPurgeMainSubpage($article, $user, $text, $summary, $isMinor, $isWatch, $section, $section, $flags, $revision, $baseRevId) {
+	$title = $article->getTitle();
+	$main = cdbfGetMainSubpage($title);
+
+	if ($main != '' && $main != $title->getText()) {
+	    $mainTitle=Title::newFromText($main);
+	    $mainArticle = MediaWiki::articleFromTitle($mainTitle);
+	    $mainArticle->doPurge();
 	}
 	return true;
 }
