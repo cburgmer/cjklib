@@ -21,6 +21,8 @@ class CDBParserExtensions {
 		$parser->setFunctionHook( 'strokecount', array('CDBParserExtensions','doStrokeCount') );
 		$parser->setFunctionHook( 'codepoint', array('CDBParserExtensions','doCodepoint') );
 		$parser->setFunctionHook( 'codepointhex', array('CDBParserExtensions','doCodepointHex') );
+		$counter = new Counter();
+		$parser->setFunctionHook( 'counter', array(&$counter, 'doCounter') );
 		return true; // always return true, in order not to stop MW's hook processing!
 	}
 
@@ -61,4 +63,16 @@ class CDBParserExtensions {
 		return dechex($value[0]);
 	}
 
+}
+
+class Counter {
+	private static $count = 0;
+
+	/**
+	 * Function for handling the {{\#counter }} parser function.
+	 */
+	public function doCounter($parser) {
+		$num = self::$count++;
+		return strval($num);
+	}
 }
