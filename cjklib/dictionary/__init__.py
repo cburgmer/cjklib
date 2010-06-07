@@ -404,7 +404,7 @@ class EDICTStyleDictionary(BaseDictionary):
             mixedClause = self.mixedReadingSearchStrategy.getWhereClause(
                 dictionaryTable.c.Headword, dictionaryTable.c.Reading,
                 readingStr, **options)
-            if mixedClause:
+            if mixedClause is not None:
                 clauses.append(mixedClause)
 
                 mixedReadingMatchFunc \
@@ -634,12 +634,12 @@ class CEDICT(EDICTStyleEnhancedReadingDictionary):
                 mixedClauseS = self.mixedReadingSearchStrategy.getWhereClause(
                     dictionaryTable.c.HeadwordSimplified,
                     dictionaryTable.c.Reading, readingStr, **options)
-                if mixedClauseS: mixedClauses.append(mixedClauseS)
+                if mixedClauseS is not None: mixedClauses.append(mixedClauseS)
             if self.headword != 's':
                 mixedClauseT = self.mixedReadingSearchStrategy.getWhereClause(
                     dictionaryTable.c.HeadwordTraditional,
                     dictionaryTable.c.Reading, readingStr, **options)
-                if mixedClauseT: mixedClauses.append(mixedClauseT)
+                if mixedClauseT is not None: mixedClauses.append(mixedClauseT)
 
             if mixedClauses:
                 clauses.extend(mixedClauses)
