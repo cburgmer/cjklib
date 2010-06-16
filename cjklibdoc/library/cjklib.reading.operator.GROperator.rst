@@ -32,11 +32,11 @@ be pronounced with either the neutral tone or the etymological one. Compared
 to other reading operators for Mandarin, special care has to be taken to
 cope with these special requirements.
 
-.. index:: Erhua, Erlhuah, R-colouring
+.. index:: Erhua, Erlhuah, R-colouring, er-ization
 
 R-colouring
 ^^^^^^^^^^^
-Gwoyeu Romatzyh renders rhotacised syllables (Erlhuah) by trying to
+Gwoyeu Romatzyh renders rhotacised syllables (Erlhuah, er-ization) by trying to
 give the actual pronunciation. As the effect of r-colouring loses the
 information of the underlying etymological syllable conversion between the
 r-coloured form back to the underlying form can not be done in an
