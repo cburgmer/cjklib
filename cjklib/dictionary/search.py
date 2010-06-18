@@ -122,6 +122,15 @@ class _CaseInsensitiveBase(object):
         self._needsIEquals = (dictInstance.db.engine.name
             not in ('sqlite', 'mysql'))
 
+        # fix escaping on MySQL under SQLAlchemy
+        from distutils import version
+        import sqlalchemy
+        self._sqlalchemyEscapeCompat = (dictInstance.db.engine.name == 'mysql'
+            and version.LooseVersion(sqlalchemy.__version__ )
+                <= version.LooseVersion('0.6.1'))
+        # TODO increase version string for every release of SQLAlchemy that
+        #   doesn't fix http://www.sqlalchemy.org/trac/ticket/1400
+
     def _equals(self, column, query):
         if self._sqlCollation:
             column = column.collate(self._sqlCollation)
@@ -136,6 +145,7 @@ class _CaseInsensitiveBase(object):
         if self._sqlCollation:
             column = column.collate(self._sqlCollation)
 
+        if (escape == '\\' and self._sqlalchemyEscapeCompat): escape = '\\\\'
         if self._needsIlike:
             # Uses ILIKE for PostgreSQL and falls back to "lower() LIKE lower()"
             #   for other engines
@@ -148,6 +158,7 @@ class _CaseInsensitiveBase(object):
         if self._sqlCollation:
             column = column.collate(self._sqlCollation)
 
+        if (escape == '\\' and self._sqlalchemyEscapeCompat): escape = '\\\\'
         if self._needsIlike:
             # Uses ILIKE for PostgreSQL and falls back to "lower() LIKE lower()"
             #   for other engines
