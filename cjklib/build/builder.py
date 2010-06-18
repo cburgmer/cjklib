@@ -86,7 +86,7 @@ from cjklib import characterlookup
 from cjklib import exception
 from cjklib.build import warn
 from cjklib.util import (UnicodeCSVFileIterator, CollationString, CollationText,
-    deprecated, fromCodepoint)
+    deprecated, fromCodepoint, getCharacterList)
 
 # pylint: disable-msg=E1101
 #  member variables are set by setattr()
@@ -1638,6 +1638,11 @@ class CSVFileLoader(TableBuilder):
         else:
             return super(CSVFileLoader, cls).getOptionMetaData(option)
 
+    ## The following method can be defined in child classes to filter entries
+    ##   read from the file.
+    #def filterEntry(self, entry):
+        #return entry
+
     def build(self):
         import codecs
 
@@ -1661,6 +1666,8 @@ class CSVFileLoader(TableBuilder):
                 + contentFile + "'")
         fileHandle = codecs.open(contentFile, 'r', 'utf-8')
 
+        doFilter = hasattr(self, 'filterEntry')
+
         if not self.entrywise:
             entries = []
             for line in UnicodeCSVFileIterator(fileHandle):
@@ -1672,7 +1679,11 @@ class CSVFileLoader(TableBuilder):
                 except IndexError:
                     raise ValueError("Invalid entry, line length mismatch: %s"
                         % repr(line))
-                entries.append(entryDict)
+
+                if doFilter:
+                    entryDict = self.filterEntry(entryDict)
+                if entryDict:
+                    entries.append(entryDict)
 
             try:
                 self.db.execute(table.insert(), entries)
@@ -1688,6 +1699,12 @@ class CSVFileLoader(TableBuilder):
                     continue
                 entryDict = dict([(column.name, line[i]) \
                     for i, column in enumerate(table.columns)])
+
+                if doFilter:
+                    entryDict = self.filterEntry(entryDict)
+                if not entryDict:
+                    continue
+
                 try:
                     table.insert(entryDict).execute()
                 except IntegrityError, e:
@@ -1948,7 +1965,37 @@ class StrokesBuilder(CSVFileLoader):
     TABLE_DECLARATION_FILE_MAPPING = 'strokes.sql'
 
 
-class StrokeOrderBuilder(CSVFileLoader):
+class NarrowBuildCSVFileLoader(CSVFileLoader):
+    """
+    A CSVFileLoader that ignores entries for Unicode characters outside the BMP.
+    """
+    @classmethod
+    def getDefaultOptions(cls):
+        options = super(NarrowBuildCSVFileLoader, cls).getDefaultOptions()
+        options.update({'wideBuild': True})
+
+        return options
+
+    @classmethod
+    def getOptionMetaData(cls, option):
+        optionsMetaData = {'wideBuild': {'type': 'bool',
+                'description': "include characters outside the Unicode BMP"}}
+
+        if option in optionsMetaData:
+            return optionsMetaData[option]
+        else:
+            return super(NarrowBuildCSVFileLoader, cls).getOptionMetaData(
+                option)
+
+    def filterEntry(self, entryDict):
+        if (entryDict and 'ChineseCharacter' in entryDict
+            and entryDict['ChineseCharacter'] > u'\U00010000'):
+            return None
+
+        return entryDict
+
+
+class StrokeOrderBuilder(NarrowBuildCSVFileLoader):
     """
     Builds a mapping between characters and their stroke order.
     """
@@ -1958,7 +2005,7 @@ class StrokeOrderBuilder(CSVFileLoader):
     TABLE_DECLARATION_FILE_MAPPING = 'strokeorder.sql'
 
 
-class CharacterDecompositionBuilder(CSVFileLoader):
+class CharacterDecompositionBuilder(NarrowBuildCSVFileLoader):
     """
     Builds a mapping between characters and their decomposition.
     """
@@ -1968,8 +2015,26 @@ class CharacterDecompositionBuilder(CSVFileLoader):
     TABLE_DECLARATION_FILE_MAPPING = 'characterdecomposition.sql'
     INDEX_KEYS = [['ChineseCharacter', 'Glyph']]
 
+    def filterEntry(self, entryDict):
+        entryDict = NarrowBuildCSVFileLoader.filterEntry(self, entryDict)
 
-class LocaleCharacterGlyphBuilder(CSVFileLoader):
+        if entryDict and 'Decomposition' in entryDict:
+            # split into characters, take care of surrogates
+            decompositionChars = getCharacterList(entryDict['Decomposition'])
+
+            for i in range(len(decompositionChars)):
+                # every char outside the BMP must be a unified ideograph
+                #   chose the placeholder
+                if decompositionChars[i] > u'\U00010000':
+                    decompositionChars[i] = u'？'
+
+            entryDict['Decomposition'] = ''.join(decompositionChars)
+
+        return entryDict
+
+
+
+class LocaleCharacterGlyphBuilder(NarrowBuildCSVFileLoader):
     """
     Builds a mapping between a character under a locale and its default glyph.
     """
