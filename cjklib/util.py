@@ -54,7 +54,7 @@ def locateProjectFile(relPath, projectName='cjklib'):
         return
     try:
         return resource_filename(Requirement.parse(projectName), relPath)
-    except DistributionNotFound:
+    except (DistributionNotFound, ValueError):
         pass
 
 def getConfigSettings(section, projectName='cjklib'):

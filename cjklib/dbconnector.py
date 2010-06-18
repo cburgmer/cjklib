@@ -121,7 +121,8 @@ def getDefaultConfiguration(projectName='cjklib'):
         configuration['sqlalchemy.url'] = 'sqlite:///%s' % dbFile
 
     if 'attach' in configuration:
-        configuration['attach'] = configuration['attach'].split('\n')
+        configuration['attach'] = [name
+            for name in configuration['attach'].split('\n') if name]
     else:
         configuration['attach'] = [projectName]
 
