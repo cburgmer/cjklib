@@ -26,15 +26,17 @@ function decompositionHTML ($cur_value, $input_name, $is_mandatory, $is_disabled
 	if (! is_null($cur_value))
 		$cur_value = htmlspecialchars($cur_value);
 
+	//        <input id="$input_id" tabindex="$sfgTabIndex" class="$className" name="$input_name" type="text" value="$cur_value" size="$size"
 	$text =<<<END
-		<input id="$input_id" tabindex="$sfgTabIndex" class="$className" name="$input_name" type="text" value="$cur_value" size="$size"
+		<textarea id="$input_id" tabindex="$sfgTabIndex" class="$className" name="$input_name"
 END;
 	if ($is_disabled)
 		$text .= " disabled";
 	if (array_key_exists('maxlength', $other_args))
 		$text .= ' maxlength="' . $other_args['maxlength'] . '"';
+// />
 	$text .=<<<END
-/>
+>$cur_value</textarea>
 	<span id="$info_id" class="errorMessage"></span>
 
 END;
@@ -96,7 +98,12 @@ function validate_decomposition_string(field_id, info_id) {
 	if (field.value == '') {
 		return true;
 	} else {
-		if (checkDecomposition(field.value)) {
+		var valid = 1;
+		var decompositions = field.value.split("\\n")
+		for (var idx in decompositions) {
+			valid = valid && checkDecomposition(decompositions[idx]);
+		}
+		if (valid) {
 			return true;
 		} else {
 			infobox = document.getElementById(info_id);
