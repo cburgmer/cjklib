@@ -62,6 +62,8 @@ in r52503)
 function cdbfAddMagicWords(&$magicWords, $langCode) {
 	$magicWords['decomposition'] = array( 0, 'decomposition' );
 	$magicWords['strokecount']   = array( 0, 'strokecount' );
+        $magicWords['strokeorder']   = array( 0, 'strokeorder' );
+        $magicWords['strokeordererror']   = array( 0, 'strokeordererror' );
 	$magicWords['codepoint']     = array( 0, 'codepoint' );
 	$magicWords['codepointhex']  = array( 0, 'codepointhex' );
 	$magicWords['counter']       = array( 0, 'counter' );

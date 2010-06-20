@@ -6,6 +6,7 @@
  */
 global $cdbgIP;
 include_once($cdbgIP . '/includes/php-utf8/utf8.inc');
+include_once($cdbgIP . '/includes/CDB_StrokeOrder.inc');
 
 /**
  * Static class to collect all functions related to parsing wiki text in
@@ -19,6 +20,8 @@ class CDBParserExtensions {
 	public static function registerParserFunctions(&$parser) {
 		$parser->setFunctionHook( 'decomposition', array('CDBParserExtensions','doDecomposition') );
 		$parser->setFunctionHook( 'strokecount', array('CDBParserExtensions','doStrokeCount') );
+		$parser->setFunctionHook( 'strokeorder', array('CDBParserExtensions','doStrokeOrder') );
+		$parser->setFunctionHook( 'strokeordererror', array('CDBParserExtensions','doStrokeOrderError') );
 		$parser->setFunctionHook( 'codepoint', array('CDBParserExtensions','doCodepoint') );
 		$parser->setFunctionHook( 'codepointhex', array('CDBParserExtensions','doCodepointHex') );
 		$counter = new Counter();
@@ -37,8 +40,51 @@ class CDBParserExtensions {
 	 * Function for handling the {{\#strokecount }} parser function.
 	 */
 	static public function doStrokeCount($parser, $strokeorder) {
+		if (preg_match('/^\w*$/', $strokeorder))
+		    return '';
+
 		$strokes = preg_split("/[ -]/", $strokeorder);
 		return strval(count($strokes));
+	}
+
+        /**
+         * Function for handling the {{\#strokeorder }} parser function.
+         */
+        static public function doStrokeOrder($parser, $decompositions) {
+		$decomp_list = explode("\n", $decompositions);
+		$strokeorder = '';
+		foreach ($decomp_list as $decomp) {
+			$so = CDBStrokeOrder::getStrokeOrder($decomp);
+
+			// check if stroke order not deducible
+			if ($so == '')
+				continue;
+			// check if decomposition was valid
+			if ($so == -1)
+				return "ERROR: invalid decomposition";
+			// check each decomposition reaches same stroke order
+			if ($strokeorder != '' && $strokeorder != $so)
+				return "ERROR: ambiguous stroke order";
+
+			$strokeorder = $so;
+		}
+		return $strokeorder;
+	}
+
+        /**
+         * Function for handling the {{\#strokeordererror }} parser function.
+         */
+        static public function doStrokeOrderError($parser, $decompositions) {
+		$decomp_list = explode("\n", $decompositions);
+		foreach ($decomp_list as $decomp) {
+		        // TODO don't stop if rule can't be found for first decomposition, the second one might hold one
+			$error = CDBStrokeOrder::getStrokeOrderError($decomp);
+
+			// check if stroke order not deducible
+			if ($error != '')
+				return $error;
+		}
+		return '';
 	}
 
 	/**
