@@ -53,6 +53,7 @@ class CDBParserExtensions {
         static public function doStrokeOrder($parser, $decompositions) {
 		$decomp_list = explode("\n", $decompositions);
 		$strokeorder = '';
+		$strokes = 0;
 		foreach ($decomp_list as $decomp) {
 			$so = CDBStrokeOrder::getStrokeOrder($decomp);
 
@@ -62,11 +63,13 @@ class CDBParserExtensions {
 			// check if decomposition was valid
 			if ($so == -1)
 				return "ERROR: invalid decomposition";
-			// check each decomposition reaches same stroke order
-			if ($strokeorder != '' && $strokeorder != $so)
+                        $s = preg_split("/[ -]/", $so);
+			// check each decomposition reaches same stroke order, compare strokes as separators might vary
+			if ($strokeorder != '' && $strokes != $s)
 				return "ERROR: ambiguous stroke order";
 
 			$strokeorder = $so;
+			$strokes = $s;
 		}
 		return $strokeorder;
 	}
