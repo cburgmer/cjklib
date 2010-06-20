@@ -40,7 +40,7 @@ class CDBParserExtensions {
 	 * Function for handling the {{\#strokecount }} parser function.
 	 */
 	static public function doStrokeCount($parser, $strokeorder) {
-		if (preg_match('/^\w*$/', $strokeorder))
+		if (preg_match('/^\s*$/', $strokeorder))
 		    return '';
 
 		$strokes = preg_split("/[ -]/", $strokeorder);
