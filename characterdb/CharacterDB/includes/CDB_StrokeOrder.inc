@@ -201,5 +201,32 @@ class CDBStrokeOrder {
 		return preg_split("/[ -]/", $value) == preg_split("/[ -]/", $strokeorder);
 	}
 
+	/**
+	 * Map stroke names to Unicode stroke forms.
+	 */
+	public static function getUnicodeFormsForStrokeNames($strokeorder) {
+		// read mapping
+		$mapping_table_content = wfMsg('cdb-stroke-mapping');
+		$entry_list = explode("\n", $mapping_table_content);
+
+		$mapping_table = array();
+		$matches = array();
+		foreach ($entry_list as $entry) {
+			if (preg_match("/^(\w+)\s*,\s*(.)$/u", $entry, $matches)) {
+				$mapping_table[$matches[1]] = $matches[2];
+			}
+		}
+
+		// apply mapping
+		$strokes = array();
+		foreach (preg_split("/[ -]/", $strokeorder) as $stroke_name)
+			if (array_key_exists($stroke_name, $mapping_table))
+				$strokes[] = $mapping_table[$stroke_name];
+			else
+				$strokes[] = $stroke_name;
+
+		return join($strokes);
+	}
+
 }
 ?>

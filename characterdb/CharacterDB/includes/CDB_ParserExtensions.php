@@ -22,6 +22,7 @@ class CDBParserExtensions {
 		$parser->setFunctionHook( 'strokecount', array('CDBParserExtensions','doStrokeCount') );
 		$parser->setFunctionHook( 'strokeorder', array('CDBParserExtensions','doStrokeOrder') );
 		$parser->setFunctionHook( 'strokeordererror', array('CDBParserExtensions','doStrokeOrderError') );
+		$parser->setFunctionHook( 'stroketoform', array('CDBParserExtensions','doStrokeToForm') );
 		$parser->setFunctionHook( 'codepoint', array('CDBParserExtensions','doCodepoint') );
 		$parser->setFunctionHook( 'codepointhex', array('CDBParserExtensions','doCodepointHex') );
 		$counter = new Counter();
@@ -47,10 +48,10 @@ class CDBParserExtensions {
 		return strval(count($strokes));
 	}
 
-        /**
-         * Function for handling the {{\#strokeorder }} parser function.
-         */
-        static public function doStrokeOrder($parser, $decompositions) {
+	/**
+	 * Function for handling the {{\#strokeorder }} parser function.
+	 */
+	static public function doStrokeOrder($parser, $decompositions) {
 		$decomp_list = explode("\n", $decompositions);
 		$strokeorder = '';
 		$strokes = 0;
@@ -74,10 +75,10 @@ class CDBParserExtensions {
 		return $strokeorder;
 	}
 
-        /**
-         * Function for handling the {{\#strokeordererror }} parser function.
-         */
-        static public function doStrokeOrderError($parser, $decompositions) {
+	/**
+	 * Function for handling the {{\#strokeordererror }} parser function.
+	 */
+	static public function doStrokeOrderError($parser, $decompositions) {
 		$decomp_list = explode("\n", $decompositions);
 		foreach ($decomp_list as $decomp) {
 		        // TODO don't stop if rule can't be found for first decomposition, the second one might hold one
@@ -88,6 +89,13 @@ class CDBParserExtensions {
 				return $error;
 		}
 		return '';
+	}
+
+	/**
+	 * Function for handling the {{\#stroketoform }} parser function.
+	 */
+	static public function doStrokeToForm($parser, $strokeorder) {
+		return CDBStrokeOrder::getUnicodeFormsForStrokeNames($strokeorder);
 	}
 
 	/**
