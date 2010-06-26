@@ -5,7 +5,7 @@
  * @author Christoph Burgmer
  */
 global $cdbgIP;
-include_once($cdbgIP . '/includes/php-utf8/utf8.inc');
+include_once($cdbgIP . '/includes/unicode.inc');
 include_once($cdbgIP . '/includes/CDB_StrokeOrder.inc');
 include_once($cdbgIP . '/includes/CDB_Decomposition.inc');
 
@@ -28,6 +28,8 @@ class CDBParserExtensions {
 		$parser->setFunctionHook( 'stroketoform', array('CDBParserExtensions','doStrokeToForm') );
 		$parser->setFunctionHook( 'codepoint', array('CDBParserExtensions','doCodepoint') );
 		$parser->setFunctionHook( 'codepointhex', array('CDBParserExtensions','doCodepointHex') );
+		$parser->setFunctionHook( 'fromcodepoint', array('CDBParserExtensions','doFromCodepoint') );
+
 		$counter = new Counter();
 		$parser->setFunctionHook( 'counter', array(&$counter, 'doCounter') );
 		return true; // always return true, in order not to stop MW's hook processing!
@@ -119,22 +121,35 @@ class CDBParserExtensions {
 	 * Function for handling the {{\#codepoint }} parser function.
 	 */
 	static public function doCodepoint($parser, $character) {
-		$value = utf8ToUnicode($character);
-		if (! $value) {
+		$value = uniord($character);
+		if ($value === -1) {
 			return "ERROR: invalid Unicode string";
 		}
-		return strval($value[0]);
+		return strval($value);
 	}
 
 	/**
 	 * Function for handling the {{\#codepointhex }} parser function.
 	 */
 	static public function doCodepointHex($parser, $character) {
-		$value = utf8ToUnicode($character);
-		if (! $value) {
+		$value = uniord($character);
+		if ($value === -1) {
 			return "ERROR: invalid Unicode string";
 		}
-		return dechex($value[0]);
+		return dechex($value);
+	}
+
+	/**
+	 * Function for handling the {{\#fromcodepoint }} parser function.
+	 */
+	static public function doFromCodepoint($parser, $codepoint, $base=10) {
+		if (!is_numeric($base))
+			$base = 10;
+		$value = intval($codepoint, $base);
+		if ($value < 1) {
+			return "ERROR: invalid codepoint";
+		}
+		return unichr($value);
 	}
 
 }

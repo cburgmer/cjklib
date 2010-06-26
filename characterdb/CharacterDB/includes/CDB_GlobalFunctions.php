@@ -69,6 +69,7 @@ function cdbfAddMagicWords(&$magicWords, $langCode) {
 	$magicWords['stroketoform']  = array( 0, 'stroketoform' );
 	$magicWords['codepoint']     = array( 0, 'codepoint' );
 	$magicWords['codepointhex']  = array( 0, 'codepointhex' );
+	$magicWords['fromcodepoint'] = array( 0, 'fromcodepoint' );
 	$magicWords['counter']       = array( 0, 'counter' );
 	return true;
 }
