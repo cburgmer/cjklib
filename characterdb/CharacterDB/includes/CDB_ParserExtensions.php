@@ -7,6 +7,7 @@
 global $cdbgIP;
 include_once($cdbgIP . '/includes/php-utf8/utf8.inc');
 include_once($cdbgIP . '/includes/CDB_StrokeOrder.inc');
+include_once($cdbgIP . '/includes/CDB_Decomposition.inc');
 
 /**
  * Static class to collect all functions related to parsing wiki text in
@@ -19,7 +20,9 @@ class CDBParserExtensions {
 	 */
 	public static function registerParserFunctions(&$parser) {
 		$parser->setFunctionHook( 'decomposition', array('CDBParserExtensions','doDecomposition') );
-		$parser->setFunctionHook( 'strokecount', array('CDBParserExtensions','doStrokeCount') );
+		$parser->setFunctionHook( 'components', array('CDBParserExtensions','doComponents') );
+		$parser->setFunctionHook( 'allcomponents', array('CDBParserExtensions','doAllComponents') );
+//		$parser->setFunctionHook( 'strokecount', array('CDBParserExtensions','doStrokeCount') );
 		$parser->setFunctionHook( 'strokeorder', array('CDBParserExtensions','doStrokeOrder') );
 		$parser->setFunctionHook( 'strokeordererror', array('CDBParserExtensions','doStrokeOrderError') );
 		$parser->setFunctionHook( 'stroketoform', array('CDBParserExtensions','doStrokeToForm') );
@@ -34,19 +37,33 @@ class CDBParserExtensions {
 	 * Function for handling the {{\#decomposition }} parser function.
 	 */
 	static public function doDecomposition($parser, $decomposition) {
-		return preg_replace('/[^⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻⿲⿳\d](\\/\d+)?/u', '[[${0}]]', $decomposition);
+		return CDBDecomposition::markupDecomposition($decomposition);
+	}
+
+	/**
+	 * Function for handling the {{\#components }} parser function.
+	 */
+	static public function doComponents($parser, $decompositions) {
+		return CDBDecomposition::getMainComponents($decompositions);
+	}
+
+	/**
+	 * Function for handling the {{\#components }} parser function.
+	 */
+	static public function doAllComponents($parser, $decompositions) {
+		return CDBDecomposition::getAllComponents($decompositions);
 	}
 
 	/**
 	 * Function for handling the {{\#strokecount }} parser function.
 	 */
-	static public function doStrokeCount($parser, $strokeorder) {
+/*	static public function doStrokeCount($parser, $strokeorder) {
 		if (preg_match('/^\s*$/', $strokeorder))
 		    return '';
 
 		$strokes = preg_split("/[ -]/", $strokeorder);
 		return strval(count($strokes));
-	}
+	}*/
 
 	/**
 	 * Function for handling the {{\#strokeorder }} parser function.
