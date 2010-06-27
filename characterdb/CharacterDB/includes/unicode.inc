@@ -24,4 +24,3 @@ function unichr($codepoint) {
 	$character = pack("V", $codepoint);
 	return iconv("UTF-32LE", "UTF-8", $character);
 }
-?>

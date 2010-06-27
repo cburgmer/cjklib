@@ -70,6 +70,7 @@ function cdbfAddMagicWords(&$magicWords, $langCode) {
 	$magicWords['codepoint']     = array( 0, 'codepoint' );
 	$magicWords['codepointhex']  = array( 0, 'codepointhex' );
 	$magicWords['fromcodepoint'] = array( 0, 'fromcodepoint' );
+	$magicWords['missingvalues'] = array( 0, 'missingvalues' );
 	$magicWords['counter']       = array( 0, 'counter' );
 	return true;
 }

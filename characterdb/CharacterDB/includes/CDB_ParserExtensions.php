@@ -29,6 +29,7 @@ class CDBParserExtensions {
 		$parser->setFunctionHook( 'codepoint', array('CDBParserExtensions','doCodepoint') );
 		$parser->setFunctionHook( 'codepointhex', array('CDBParserExtensions','doCodepointHex') );
 		$parser->setFunctionHook( 'fromcodepoint', array('CDBParserExtensions','doFromCodepoint') );
+		$parser->setFunctionHook( 'missingvalues', array('CDBParserExtensions','doMissingValues') );
 
 		$counter = new Counter();
 		$parser->setFunctionHook( 'counter', array(&$counter, 'doCounter') );
@@ -81,12 +82,16 @@ class CDBParserExtensions {
 			if ($so == '')
 				continue;
 			// check if decomposition was valid
-			if ($so == -1)
-				return "ERROR: invalid decomposition";
+			if ($so == -1) {
+				$error_msg = array('Invalid decomposition', $decompositions);
+				return smwfEncodeMessages($error_msg);
+			}
                         $s = preg_split("/[ -]/", $so);
 			// check each decomposition reaches same stroke order, compare strokes as separators might vary
-			if ($strokeorder != '' && $strokes != $s)
-				return "ERROR: ambiguous stroke order";
+			if ($strokeorder != '' && $strokes != $s) {
+				$error_msg = array('Ambiguous stroke order', $strokes, $s);
+				return smwfEncodeMessages($error_msg);
+			}
 
 			$strokeorder = $so;
 			$strokes = $s;
@@ -123,7 +128,8 @@ class CDBParserExtensions {
 	static public function doCodepoint($parser, $character) {
 		$value = uniord($character);
 		if ($value === -1) {
-			return "ERROR: invalid Unicode string";
+			$error_msg = array('Invalid character', $character);
+			return smwfEncodeMessages($error_msg);
 		}
 		return strval($value);
 	}
@@ -134,7 +140,8 @@ class CDBParserExtensions {
 	static public function doCodepointHex($parser, $character) {
 		$value = uniord($character);
 		if ($value === -1) {
-			return "ERROR: invalid Unicode string";
+			$error_msg = array('Invalid character', $character);
+			return smwfEncodeMessages($error_msg);
 		}
 		return dechex($value);
 	}
@@ -147,11 +154,48 @@ class CDBParserExtensions {
 			$base = 10;
 		$value = intval($codepoint, $base);
 		if ($value < 1) {
-			return "ERROR: invalid codepoint";
+			$error_msg = array('Invalid codepoint', $codepoint);
+			return smwfEncodeMessages($error_msg);
 		}
 		return unichr($value);
 	}
 
+	/**
+	 * Function for handling the {{\#missingvalues }} parser function.
+	 */
+	static public function doMissingValues($parser, $querystring, $propertyname, $values) {
+		$all_values = explode(',', $values);
+		$all_values_clean = array();
+		foreach ($all_values as $cur_value) {
+			// remove whitespaces
+			$cur_value = trim($cur_value);
+			// ignore a value if it's null
+			if ('' != $cur_value) {
+				$all_values_clean[] = $cur_value;
+			}
+		}
+
+		$params = array();
+		$params['format'] = 'list';
+		$params['mainlabel'] = '-';
+
+		$extraprintouts = array();
+
+		$printmode = SMWPrintRequest::PRINT_PROP;
+		$data = SMWPropertyValue::makeUserProperty(trim($propertyname));
+		$label = '';
+		$printout = new SMWPrintRequest($printmode, $label, $data);
+
+		$extraprintouts[] = $printout;
+
+		$outputmode = SMW_OUTPUT_WIKI;
+
+		$result = SMWQueryProcessor::getResultFromQueryString($querystring, $params, $extraprintouts, $outputmode);
+
+		$found_values = explode(', ', $result);
+		$missing_values = array_diff($all_values_clean, $found_values);
+		return join(', ', $missing_values);
+	}
 }
 
 class Counter {
