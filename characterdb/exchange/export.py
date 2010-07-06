@@ -51,11 +51,12 @@ def decompositionEntryPreparator(entryList):
     character, glyphIndex = entryDict['glyph'].split('/', 1)
 
     decomp = entryDict.get('decomposition', '').strip('"')
-    decompositionEntries = re.findall('([^ ]+); (\d+)', decomp)
+    decompositionEntries = re.findall('([^ ,]+); (\d+)', decomp)
 
     entries = []
     for decomposition, index in decompositionEntries:
-        entries.append((character, decomposition.replace('/', '#'),
+        entries.append((character, 
+                        re.sub(r'(\D)/(\d+)', r'\1[\2]', decomposition),
                         glyphIndex, index, ''))
 
     return entries
@@ -66,7 +67,7 @@ def strokeorderEntryPreparator(entryList):
 
     character, glyphIndex = entryDict['glyph'].split('/', 1)
     if 'strokeorder' in entryDict:
-        return [(character, entryDict['strokeorder'].strip('"'), glyphIndex)]
+        return [(character, entryDict['strokeorder'].strip('"'), glyphIndex, '')]
     else:
         return []
 
@@ -148,7 +149,7 @@ Available data sets:"""
         sys.exit(1)
 
     for a in getDataSetIterator(sys.argv[1]):
-        print ','.join(('"%s"' % cell) for cell in a)
+        print ','.join(('"%s"' % cell) for cell in a).encode('utf8')
 
 
 if __name__ == "__main__":
