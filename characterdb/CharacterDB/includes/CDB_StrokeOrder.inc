@@ -101,6 +101,8 @@ class CDBStrokeOrder {
 
 			return CDBStrokeOrder::combineStrokeOrders($ids_op, $components, $strokeorders);
 		} else {
+			if ($decomposition[$pos] == '？')
+				throw new NoInformationException('Unkown component (？)');
 			// component
 			$strokeorder = CDBStrokeOrder::lookupStrokeOrder($decomposition[$pos]);
 			$pos++;

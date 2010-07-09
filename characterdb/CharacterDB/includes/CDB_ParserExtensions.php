@@ -177,6 +177,7 @@ class CDBParserExtensions {
 
 		$params = array();
 		$params['format'] = 'list';
+		$params['link'] = 'none';
 		$params['mainlabel'] = '-';
 
 		$extraprintouts = array();
