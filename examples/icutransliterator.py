@@ -26,7 +26,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 
 import sys
-import urllib
 import PyICU as icu
 
 from cjklib.reading import ReadingFactory
