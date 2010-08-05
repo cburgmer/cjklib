@@ -120,7 +120,7 @@ class CDBStrokeOrder {
 		$title = Title::newFromText($component, $defaultNamespace=NS_MAIN);
 		$property = SMWPropertyValue::makeUserProperty('StrokeOrder');
 		$getpropval = smwfGetStore()->getPropertyValues($title, $property, $requestoptions=null, $outputformat= '');
-		if ($getpropval && count($getpropval) > 0)
+		if ($getpropval && count($getpropval) > 0 && !is_null($getpropval[0]))
 			return $getpropval[0]->getshortwikitext();
 		else
 			throw new NoInformationException('No stroke order for component ' . $component);

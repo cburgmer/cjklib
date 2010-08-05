@@ -78,9 +78,10 @@ class CDBDecomposition {
 
                 $decompositions = array();
 		foreach ($getpropval as $val) {
-			# TODO make sure property is record and getDVs() exists
-			$recordValues = $getpropval[0]->getDVs();
-			$decompositions[] = $recordValues[0]->getshortwikitext();
+			if (!is_null($val) && method_exists($val, 'getDVs')) {
+				$recordValues = $val->getDVs();
+				$decompositions[] = $recordValues[0]->getshortwikitext();
+			}
 		}
 		return $decompositions;
         }
