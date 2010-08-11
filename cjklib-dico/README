@@ -1,0 +1,28 @@
+This is an initial implementation of a dico plugin for bringing EDICT,
+CEDICT and similar dictionaries to the dict world.
+
+Howto
+-----
+
+1. Add the following lines to ``/etc/dicod.conf``:
+
+    load-module python {
+            command "python";
+    }
+    
+    database {
+            name "cedict";
+            handler "python load-path=/PATH_TO_CJKLIB/cjklib-dico init-script=dict CEDICT";
+            description "Chinese-English dictionary (CEDICT)";
+    }
+
+2. Restart dicod:
+
+    $ /etc/init.d/dicod restart
+
+
+Debugging
+---------
+
+Stop dicod and run the following to get debug information from the plugin:
+    $ /usr/bin/dicod --stderr --config /etc/dicod.conf -f
