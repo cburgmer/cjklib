@@ -29,6 +29,8 @@ THE SOFTWARE.
 
 import sys
 import types
+import itertools
+import unicodedata
 
 from cjklib.characterlookup import CharacterLookup
 from cjklib import exception
@@ -74,7 +76,10 @@ class CharacterImporter(ImporterBase):
 
     @classmethod
     def titleIterator(cls):
-        return cls._characterLookup().getDomainCharacterIterator()
+        # remove compatibility characters
+        hanScriptIterator = cjk.getDomainCharacterIterator()
+        return itertools.ifilter(lambda x: unicodedata.normalize('NFD', x) == x,
+                                 hanScriptIterator)
 
     def getRadical(self):
         # TODO what about radical forms themselvers?
@@ -199,6 +204,28 @@ class GlyphImporter(ImporterBase):
         return '\n'.join(decompositionStrings)
 
 
+class CharacterDomainImporter(ImporterBase):
+    # TODO Data Transfer cuts off values
+    TEMPLATE = "CharacterDomain"
+    FIELDS = ['Description', 'Characters']
+
+    @classmethod
+    def titleIterator(cls):
+        domains = cls._characterLookup().getAvailableCharacterDomains()
+        for exclude in ('Unicode', 'GlyphInformation'):
+            if exclude in domains:
+                domains.remove(exclude)
+
+        return domains
+
+    def getDescription(self):
+        return ''
+
+    def getCharacters(self):
+        cjk = CharacterLookup('T', self.title)
+        return ' '.join(cjk.getDomainCharacterIterator())
+
+
 def main():
     importModule = __import__("importcjklib")
     classes = dict((clss.TEMPLATE.lower(), clss)
@@ -217,7 +244,11 @@ Available templates:"""
         sys.exit(1)
 
     template = sys.argv[1].lower()
-    templateClass = classes[template]
+    try:
+        templateClass = classes[template]
+    except KeyError:
+        print >> sys.stderr, "Unknown template %r" % template
+        sys.exit(1)
 
     if len(sys.argv) > 2:
         titleList = (title.decode('utf8') for title in sys.argv[2:])
