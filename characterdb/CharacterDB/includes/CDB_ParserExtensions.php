@@ -200,13 +200,18 @@ class CDBParserExtensions {
 }
 
 class Counter {
-	private static $count = 0;
+	private static $titleCounter = array();
 
 	/**
 	 * Function for handling the {{\#counter }} parser function.
 	 */
 	public function doCounter($parser) {
-		$num = self::$count++;
+		$title = $parser->getTitle()->getText();
+		if (isset(self::$titleCounter[$title])) {
+			$num = ++self::$titleCounter[$title];
+		} else {
+			$num = self::$titleCounter[$title] = 0;
+		}
 		return strval($num);
 	}
 }
