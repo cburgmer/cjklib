@@ -39,6 +39,7 @@ from cjklib import dbconnector
 from cjklib import characterlookup
 from cjklib import reading
 from cjklib import dictionary
+from cjklib.dictionary import search
 from cjklib import exception
 from cjklib.util import (getConfigSettings, toCodepoint, isValidSurrogate,
     getCharacterList)
@@ -50,6 +51,24 @@ elif sys.version_info < (2, 6):
     getExceptionString = lambda e: unicode(e.message)
 else:
     getExceptionString = lambda e: unicode(e)
+
+class ExactMultiple(search.Exact):
+    """Exact search strategy class matching any strings from a list."""
+    @staticmethod
+    def _getSubstrings(headwordStr):
+        headwordSubstrings = []
+        for left in range(0, len(headwordStr)):
+            for right in range(len(headwordStr), left, -1):
+                headwordSubstrings.append(headwordStr[left:right])
+        return headwordSubstrings
+
+    def getWhereClause(self, column, headwordStr):
+        return column.in_(self._getSubstrings(headwordStr))
+
+    def getMatchFunction(self, headwordStr):
+        searchStrings = self._getSubstrings(headwordStr)
+        return lambda cell: cell in searchStrings
+
 
 class CharacterInfo:
     """
@@ -477,6 +496,30 @@ class CharacterInfo:
                 traditional.append(list(traditionalVariants))
         return traditional
 
+    def _createDictionaryInstance(self, **options):
+        dictObj = dictionary.getDictionaryClass(
+            self.dictionary)
+
+        # handle reading conversion
+        if (hasattr(dictObj, 'READING') and dictObj.READING
+            and self.readingFactory.isReadingConversionSupported(
+                dictObj.READING, self.reading)):
+            options['columnFormatStrategies'] = {
+                'Reading': dictionary.format.ReadingConversion(
+                    self.reading)}
+
+        # handle multiple headwords
+        if issubclass(dictObj, dictionary.CEDICT):
+            if self.locale == 'C':
+                options['entryFactory'] \
+                    = dictionary.entry.UnifiedHeadword('s')
+            else:
+                options['entryFactory'] \
+                    = dictionary.entry.UnifiedHeadword('t')
+
+        # create dictionary
+        return dictObj(dbConnectInst=self.db, **options)
+
     def searchDictionary(self, searchString, readingN=None, limit=None):
         """
         Searches the dictionary for matches of the given string.
@@ -489,34 +532,29 @@ class CharacterInfo:
         :param limit: maximum number of entries
         """
         if not hasattr(self, '_dictInstance'):
-            dictObj = dictionary.getDictionaryClass(
-                self.dictionary)
-
-            options = {}
-            # handle reading conversion
-            if (hasattr(dictObj, 'READING') and dictObj.READING
-                and self.readingFactory.isReadingConversionSupported(
-                    dictObj.READING, self.reading)):
-                options['columnFormatStrategies'] = {
-                    'Reading': dictionary.format.ReadingConversion(
-                        self.reading)}
-
-            # handle multiple headwords
-            if issubclass(dictObj, dictionary.CEDICT):
-                if self.locale == 'C':
-                    options['entryFactory'] \
-                        = dictionary.entry.UnifiedHeadword('s')
-                else:
-                    options['entryFactory'] \
-                        = dictionary.entry.UnifiedHeadword('t')
-
-            # create dictionary
-            self._dictInstance = dictObj(dbConnectInst=self.db, **options)
+            self._dictInstance = self._createDictionaryInstance()
 
         options = self.getReadingOptions(searchString, readingN)
 
         return self._dictInstance.getFor(searchString, orderBy=['Reading'],
             limit=limit, reading=readingN, **options)
+
+    def searchHeadwords(self, searchString, limit=None):
+        """
+        Searches the dictionary for substring matches in headwords of the given
+        string.
+
+        :type searchString: str
+        :param searchString: search string
+        :type limit: int
+        :param limit: maximum number of entries
+        """
+        if not hasattr(self, '_dictInstanceHeadwords'):
+            self._dictInstanceHeadwords = self._createDictionaryInstance(
+                headwordSearchStrategy=ExactMultiple())
+
+        return self._dictInstanceHeadwords.getFor(searchString,
+            orderBy=['Reading'], limit=limit)
 
     def getCharactersForComponents(self, componentList,
         includeEquivalentRadicalForms=True):
@@ -829,6 +867,7 @@ General commands:
   -h, --help                 display this help and exit
   --database=DATABASEURL     database url
   -x SEARCHSTR               searches the dictionary (wildcards '_' and '%')
+  -y SEARCHSTR               searches the dictionary for headword substrings
   -w, --set-dictionary=DICTIONARY
                              set dictionary"""
 # TODO
@@ -874,7 +913,7 @@ def main():
     # parse command line parameters
     try:
         opts, _ = getopt.getopt(sys.argv[1:],
-            "i:a:r:f:q:k:p:o:m:s:t:l:d:c:b:e:x:w:LVh", ["help", "version",
+            "i:a:r:f:q:k:p:o:m:s:t:l:d:c:b:e:x:y:w:LVh", ["help", "version",
             "locale=", "domain=", "source-reading=", "target-reading=",
             "information=", "by-reading=", "get-reading=", "convert-form=",
             "by-radicalidx=", "by-components=", "by-strokes=",
@@ -1204,6 +1243,22 @@ def main():
                 sys.exit(1)
 
             results = charInfo.searchDictionary(parameter, sourceReading)
+            for entry in results:
+                if entry.Reading:
+                    string = ("%(Headword)s %(Reading)s %(Translation)s"
+                        % entry._asdict())
+                else:
+                    string = "%(Headword)s %(Translation)s" % entry._asdict()
+                print string.encode(output_encoding, "replace")
+
+        # dictionary search
+        elif command == "-y":
+            if not charInfo.hasDictionary():
+                print >> sys.stderr, ("Error: no dictionary available"
+                    "\nInstall one by running 'installcjkdict DICTIONARY_NAME'")
+                sys.exit(1)
+
+            results = charInfo.searchHeadwords(parameter)
             for entry in results:
                 if entry.Reading:
                     string = ("%(Headword)s %(Reading)s %(Translation)s"
