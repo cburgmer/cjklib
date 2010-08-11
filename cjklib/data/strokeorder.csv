@@ -252,7 +252,7 @@
 "艮","HZ-H-H-ST-P-N",0,
 "东","H-SZ-SG P D",0,
 "東","H-S-HZ-H-H-S-P-N",0,
-"继","PZ-PZ T D P S-H P D SZ",0,"
+"继","PZ-PZ T D P S-H P D SZ",0,
 "米","D D S-H D D",0,
 "⺰","PZ-PZ T",0,
 "纟","PZ-PZ T",0,
@@ -318,7 +318,7 @@
 "厂","H-SP",0,
 "豖","H-P-WG-P-P-D-P-N",0,
 "夂","P-HP-N",0,
-"夂","P-HP-D",1,S,
+"夂","P-HP-D",1,S
 "乂","P-N",0,
 "忄","D D S",0,
 "立","D H D P H",0,
@@ -328,7 +328,7 @@
 "寸","H-SG-D",0,
 "夕","P-HP-D",0,
 "米","D P H-S-P-N",0,
-"米","D P H-S-P-D",1,S,
+"米","D P H-S-P-D",1,S
 "隹","P-S-D-H-H-H-S-H",0,
 "力","HZG-SP",0,
 "巾","S-HZG-S",0,
