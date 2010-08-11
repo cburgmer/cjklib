@@ -475,7 +475,7 @@ class DatabaseConnector(object):
         encoded in utf8. We need to fix that here.
         :param data: a tuple or scalar value
         """
-        if not isinstance(data, basestring):
+        if hasattr(data, '__iter__'):
             newData = []
             for cell in data:
                 if type(cell) == type(''):
