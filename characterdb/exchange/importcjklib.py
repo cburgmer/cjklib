@@ -32,6 +32,8 @@ import types
 import itertools
 import unicodedata
 
+from sqlalchemy import select
+
 from cjklib.characterlookup import CharacterLookup
 from cjklib import exception
 
@@ -205,7 +207,7 @@ class GlyphImporter(ImporterBase):
 
 
 class CharacterDomainImporter(ImporterBase):
-    # TODO Data Transfer cuts off values
+    # TODO memory issue with SMW
     TEMPLATE = "CharacterDomain"
     FIELDS = ['Description', 'Characters']
 
@@ -224,6 +226,36 @@ class CharacterDomainImporter(ImporterBase):
     def getCharacters(self):
         cjk = CharacterLookup('T', self.title)
         return ' '.join(cjk.getDomainCharacterIterator())
+
+
+class StrokesImporter(ImporterBase):
+    TEMPLATE = "Stroke"
+    FIELDS = ['StrokeAbbrev', 'StrokeNameChinese']
+
+    @classmethod
+    def titleIterator(cls):
+        db = cls._characterLookup().db
+        table = db.tables['Strokes']
+        return db.selectScalars(select([table.c.Stroke.distinct()]))
+
+    def getStrokeAbbrev(self):
+        db = self._characterLookup().db
+        table = db.tables['Strokes']
+        return ', '.join(db.selectScalars(select([table.c.StrokeAbbrev],
+                                                 table.c.Stroke==self.title)))
+
+    def getStrokeNameChinese(self):
+        db = self._characterLookup().db
+        table = db.tables['Strokes']
+        return ', '.join(db.selectScalars(select([table.c.Name],
+                                                 table.c.Stroke==self.title)))
+
+
+class RadicalImporter(ImporterBase):
+    # TODO locale dependent
+    TEMPLATE = "Radical"
+    FIELDS = ['MainForm', 'OtherForms']
+# TODO
 
 
 def main():
