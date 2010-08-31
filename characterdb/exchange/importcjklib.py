@@ -79,6 +79,7 @@ class CharacterImporter(ImporterBase):
     @classmethod
     def titleIterator(cls):
         # remove compatibility characters
+        cjk = cls._characterLookup()
         hanScriptIterator = cjk.getDomainCharacterIterator()
         return itertools.ifilter(lambda x: unicodedata.normalize('NFD', x) == x,
                                  hanScriptIterator)
