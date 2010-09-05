@@ -26,6 +26,8 @@ class CDBStrokeOrder {
 	 * Main function.
 	 */
 	public static function getStrokeOrder($decomposition) {
+		if (trim($decomposition) == '')
+			return '';
 		$matches = array();
 		preg_match_all('/[⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻⿲⿳]|[^⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻⿲⿳\d](?:\\/\d+)?/u', $decomposition, $matches);
 		$decomp = $matches[0];
@@ -46,6 +48,8 @@ class CDBStrokeOrder {
 	 * Get reason why stroke order cannot be calulated, similar to getStrokeOrder().
 	 */
 	public static function getStrokeOrderError($decomposition) {
+		if (trim($decomposition) == '')
+			return '';
 		$matches = array();
 		preg_match_all('/[⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻⿲⿳]|[^⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻⿲⿳\d](?:\\/\d+)?/u', $decomposition, $matches);
 		$decomp = $matches[0];
