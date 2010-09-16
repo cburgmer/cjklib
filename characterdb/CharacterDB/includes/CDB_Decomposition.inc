@@ -68,7 +68,7 @@ class CDBDecomposition {
 	/**
 	 * Lookup decompositions of character.
 	 */
-        private static function lookupDecomposition($character) {
+        public static function lookupDecomposition($character) {
 		if (!preg_match('/^.\\/\d+$/u', $character))
 			throw new InvalidGlyphException('Invalid glyph at for ' . $character);
 

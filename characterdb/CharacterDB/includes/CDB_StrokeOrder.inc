@@ -25,7 +25,34 @@ class CDBStrokeOrder {
 	/**
 	 * Main function.
 	 */
-	public static function getStrokeOrder($decomposition) {
+	public static function getStrokeOrder($decompositions) {
+		$strokeorder = '';
+		$strokes = 0;
+		foreach ($decompositions as $decomp) {
+			$so = CDBStrokeOrder::getStrokeOrderForDecomposition($decomp);
+
+			// check if stroke order not deducible
+			if ($so == '')
+				continue;
+			// check if decomposition was valid
+			if ($so == -1) {
+				$error_msg = array('Invalid decomposition', $decompositions);
+				return smwfEncodeMessages($error_msg);
+			}
+                        $s = preg_split("/[ -]/", $so);
+			// check each decomposition reaches same stroke order, compare strokes as separators might vary
+			if ($strokeorder != '' && $strokes != $s) {
+				$error_msg = array('Ambiguous stroke order', $strokes, $s);
+				return smwfEncodeMessages($error_msg);
+			}
+
+			$strokeorder = $so;
+			$strokes = $s;
+		}
+		return $strokeorder;
+	}
+
+	private static function getStrokeOrderForDecomposition($decomposition) {
 		if (trim($decomposition) == '')
 			return '';
 		$matches = array();
@@ -122,12 +149,20 @@ class CDBStrokeOrder {
 			throw new InvalidIDSException('Invalid glyph at for ' . $component);
 
 		$title = Title::newFromText($component, $defaultNamespace=NS_MAIN);
-		$property = SMWPropertyValue::makeUserProperty('StrokeOrder');
+		$property = SMWPropertyValue::makeUserProperty('ManualStrokeOrder');
 		$getpropval = smwfGetStore()->getPropertyValues($title, $property, $requestoptions=null, $outputformat= '');
-		if ($getpropval && count($getpropval) > 0 && !is_null($getpropval[0]))
+		if ($getpropval && count($getpropval) > 0 && !is_null($getpropval[0])) {
+			// found manual stroke order entry
 			return $getpropval[0]->getshortwikitext();
-		else
-			throw new NoInformationException('No stroke order for component ' . $component);
+		} else {
+			// try to build stroke order from decomposition
+			$decompositions = CDBDecomposition::lookupDecomposition($component);
+			if ($decompositions) {
+				return CDBStrokeOrder::getStrokeOrder($decompositions);
+			} else {
+				throw new NoInformationException('No stroke order for component ' . $component);
+			}
+		}
 
 	}
 

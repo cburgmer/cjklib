@@ -73,30 +73,7 @@ class CDBParserExtensions {
 	 */
 	static public function doStrokeOrder($parser, $decompositions) {
 		$decomp_list = explode("\n", $decompositions);
-		$strokeorder = '';
-		$strokes = 0;
-		foreach ($decomp_list as $decomp) {
-			$so = CDBStrokeOrder::getStrokeOrder($decomp);
-
-			// check if stroke order not deducible
-			if ($so == '')
-				continue;
-			// check if decomposition was valid
-			if ($so == -1) {
-				$error_msg = array('Invalid decomposition', $decompositions);
-				return smwfEncodeMessages($error_msg);
-			}
-                        $s = preg_split("/[ -]/", $so);
-			// check each decomposition reaches same stroke order, compare strokes as separators might vary
-			if ($strokeorder != '' && $strokes != $s) {
-				$error_msg = array('Ambiguous stroke order', $strokes, $s);
-				return smwfEncodeMessages($error_msg);
-			}
-
-			$strokeorder = $so;
-			$strokes = $s;
-		}
-		return $strokeorder;
+		return CDBStrokeOrder::getStrokeOrder($decomp_list);
 	}
 
 	/**
