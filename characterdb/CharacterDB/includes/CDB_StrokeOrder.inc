@@ -158,12 +158,13 @@ class CDBStrokeOrder {
 			// try to build stroke order from decomposition
 			$decompositions = CDBDecomposition::lookupDecomposition($component);
 			if ($decompositions) {
-				return CDBStrokeOrder::getStrokeOrder($decompositions);
-			} else {
-				throw new NoInformationException('No stroke order for component ' . $component);
+				$strokeorder = CDBStrokeOrder::getStrokeOrder($decompositions);
+				if ($strokeorder != '')
+					return $strokeorder;
 			}
 		}
 
+		throw new NoInformationException('No stroke order for component ' . $component);
 	}
 
 	/**
