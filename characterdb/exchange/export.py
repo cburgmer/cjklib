@@ -30,13 +30,14 @@ import urllib
 import codecs
 import sys
 import re
+import logging
 
 QUERY_URL = ("http://characterdb.cjklib.org/wiki/Special:Ask/"
              "%(query)s/%(properties)s/format=csv/sep=,/headers=hide/"
              "limit=%(limit)d/offset=%(offset)d")
 """Basic query URL."""
 
-MAX_ENTRIES = 500
+MAX_ENTRIES = 100
 """Maximum entries per GET request."""
 
 #class AppURLopener(urllib.FancyURLopener):
@@ -86,14 +87,14 @@ def localeEntryPreparator(entryList):
         return []
 
 DATA_SETS = {'characterdecomposition':
-                ({'query': '[[Category:Glyph]]',
+                ({'query': '[[Category:Glyph]] [[Decomposition::!]]',
                   'properties': ['Decomposition']},
                  decompositionEntryPreparator),
              'strokeorder':
-                ({'query': '[[Category:Glyph]]', 'properties': ['StrokeOrder']},
+                ({'query': '[[Category:Glyph]] [[ManualStrokeOrder::!]]', 'properties': ['ManualStrokeOrder']},
                  strokeorderEntryPreparator),
              'localecharacterglyph':
-                ({'query': '[[Category:Glyph]]', 'properties': ['Locale']},
+                ({'query': '[[Category:Glyph]] [[ManualLocale::!]]', 'properties': ['Locale']},
                  localeEntryPreparator),
             }
 """Defined download sets."""
@@ -117,7 +118,12 @@ def getDataSetIterator(name):
 
         query = QUERY_URL % queryDict
         query = urllib.quote(query, safe='/:=').replace('%', '-')
-        f = codecReader(urllib.urlopen(query))
+        logging.info("Opening %r" % query)
+        try:
+            f = codecReader(urllib.urlopen(query))
+        except IOError:
+            # Try to catch time out
+            f = codecReader(urllib.urlopen(query))
 
         lineCount = 0
         line = f.readline()
@@ -134,12 +140,15 @@ def getDataSetIterator(name):
             line = f.readline()
 
         f.close()
+        logging.info("  read %d/%d entries" % (lineCount, MAX_ENTRIES))
         if lineCount < MAX_ENTRIES:
             break
         run += 1
 
 
 def main():
+    logging.basicConfig(level=logging.DEBUG)
+
     if len(sys.argv) != 2:
         print """usage: python export.py DATA_SET
 Exports a data set from characterdb.cjklib.org and prints a CSV list to stdout.
