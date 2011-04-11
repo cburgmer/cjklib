@@ -93,6 +93,9 @@ DATA_SETS = {'characterdecomposition':
              'strokeorder':
                 ({'query': '[[Category:Glyph]] [[ManualStrokeOrder::!]]', 'properties': ['ManualStrokeOrder']},
                  strokeorderEntryPreparator),
+             'strokeorder_all':
+                ({'query': '[[Category:Glyph]] [[StrokeOrder::!]]', 'properties': ['StrokeOrder']},
+                 strokeorderEntryPreparator),
              'localecharacterglyph':
                 ({'query': '[[Category:Glyph]] [[ManualLocale::!]]', 'properties': ['Locale']},
                  localeEntryPreparator),
@@ -157,7 +160,7 @@ Available data sets:"""
         print "\n".join(('  ' + name) for name in DATA_SETS.keys())
         sys.exit(1)
 
-    for a in getDataSetIterator(sys.argv[1]):
+    for a in getDataSetIterator(sys.argv[1].lower()):
         print ','.join(('"%s"' % cell) for cell in a).encode('utf8')
 
 
