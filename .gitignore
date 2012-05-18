@@ -1,0 +1,5 @@
+*~
+*.pyc
+test/downloads
+*.egg-info
+env
