@@ -80,7 +80,7 @@ from sqlalchemy import Table, Column, Integer, String, DateTime, Text, Index
 from sqlalchemy import select, union
 from sqlalchemy.sql import text, func
 from sqlalchemy.sql import or_
-from sqlalchemy.exceptions import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from cjklib import characterlookup
 from cjklib import exception
@@ -3701,16 +3701,16 @@ class HanDeDictWordIndexBuilder(WordIndexBuilder):
     HEADWORD_SOURCE = 'HeadwordTraditional'
 
 
-class CFDICTBuilder(TimestampedCEDICTFormatBuilder):
+class CFDICTBuilder(CEDICTFormatBuilder):
     """
     Builds the CFDICT dictionary.
     """
     PROVIDES = 'CFDICT'
-    FILE_NAMES = ['cfdict-*.zip', 'cfdict-*.tar.bz2', 'cfdict.u8']
+    FILE_NAMES = ['cfdict.zip', 'cfdict.u8']
     ENCODING = 'utf-8'
 
-    EXTRACT_TIMESTAMP = r'cfdict-(\d{8})\.'
-    ARCHIVE_CONTENT_PATTERN = r'cfdict-(\d{8})/cfdict.u8'
+    def getArchiveContentName(self, nameList, filePath):
+        return 'cfdict.u8'
 
 
 class CFDICTWordIndexBuilder(WordIndexBuilder):

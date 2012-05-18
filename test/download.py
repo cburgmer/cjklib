@@ -20,6 +20,7 @@ Automatically downloads external files to test against the build process.
 """
 
 import urllib
+import sys
 
 try:
     from progressbar import *

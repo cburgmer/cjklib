@@ -26,7 +26,7 @@ import locale
 import sys
 import os.path
 
-from sqlalchemy.exceptions import OperationalError
+from sqlalchemy.exc import OperationalError
 
 from cjklib import dbconnector
 from cjklib import exception

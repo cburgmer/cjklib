@@ -282,7 +282,7 @@ class HanDeDictBuilderTest(TableBuilderTest, unittest.TestCase):
 class CFDICTBuilderTest(TableBuilderTest, unittest.TestCase):
     BUILDER = builder.CFDICTBuilder
     OPTIONS = [{'enableFTS3': False},
-        {'filePath': './test/downloads/CFDICT', 'fileType': '.tar.bz2'}]
+        {'filePath': './test/downloads/CFDICT', 'fileType': '.zip'}]
 
 
 # Generate default test classes for TableBuilder without special definitions

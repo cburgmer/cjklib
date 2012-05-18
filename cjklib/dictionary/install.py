@@ -153,6 +153,10 @@ def getDownloader(dictionaryName, **options):
     downloaderCls = getDownloaderClass(dictionaryName)
     return downloaderCls(**options)
 
+
+class UserAgentURLOpener(urllib.FancyURLopener):
+    version="Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)"
+
 #}
 #{ Dictionary classes
 
@@ -220,6 +224,9 @@ class DownloaderBase(object):
             fileName = os.path.join(targetPath, originalFileName)
         else:
             fileName = originalFileName
+
+        # Fake browser to cheat bad webservers
+        urllib._urlopener = UserAgentURLOpener()
 
         if not self.quiet:
             version = self.getVersion()
@@ -307,20 +314,20 @@ class HanDeDictDownloader(PageDownloaderBase):
     """Downloader for the HanDeDict dictionary."""
     PROVIDES = 'HanDeDict'
     DEFAULT_DOWNLOAD_PAGE \
-        = u'http://www.chinaboard.de/chinesisch_deutsch.php?mode=dl'
+        = u'http://www.handedict.de/chinesisch_deutsch.php?mode=dl'
     DOWNLOAD_REGEX = re.compile(
         u'<a href="(handedict/handedict-(?:\d+).tar.bz2)">')
     DATE_REGEX = re.compile(u'<a href="handedict/handedict-(\d+).tar.bz2">')
     DATE_FMT = '%Y%m%d'
 
 
-class CFDICTDownloader(PageDownloaderBase):
+class CFDICTDownloader(DownloaderBase):
     """Downloader for the CFDICT dictionary."""
     PROVIDES = 'CFDICT'
-    DEFAULT_DOWNLOAD_PAGE = u'http://www.chinaboard.de/cfdict.php?mode=dl'
-    DOWNLOAD_REGEX = re.compile(u'<a href="(cfdict/cfdict-(?:\d+).tar.bz2)">')
-    DATE_REGEX = re.compile(u'<a href="cfdict/cfdict-(\d+).tar.bz2">')
-    DATE_FMT = '%Y%m%d'
+    DOWNLOAD_LINK = u'http://www.chine-informations.com/chinois/open/CFDICT/cfdict.zip'
+
+    def getDownloadLink(self):
+        return self.DOWNLOAD_LINK
 
 
 class DictionaryInstaller(object):

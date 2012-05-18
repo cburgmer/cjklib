@@ -38,7 +38,7 @@ downloads/CFDICT:
 	mkdir -p downloads
 	rm -f downloads/cfdict-????????.tar.bz2
 	python -m cjklib.dictionary.install --download CFDICT --targetPath=downloads
-	cd downloads && ln -s cfdict-????????.tar.bz2 CFDICT
+	cd downloads && ln -s cfdict.zip CFDICT
 
 downloads/Unihan.zip:
 	mkdir -p downloads
