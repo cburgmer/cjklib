@@ -41,17 +41,8 @@ the directory given by the ``APPDATA`` environment variable, e.g.
 ``CEDICT`` for any other supported dictionary (i.e. EDICT, CEDICT, HanDeDict,
 CFDICT, CEDICTGR).
 
-DEB or RPM based systems
-------------------------
-Packages are available from the
-`project page <http://code.google.com/p/cjklib/downloads/list>`_. An Ubuntu
-package is available from a
-`personal package archive <https://launchpad.net/~cburgmer/+archive/ppa>`_.
-Install from the provided .deb or .rpm package. See below for installing
-dictionaries.
-
-Linux
------
+Unix
+----
 Get the source package from the
 `Python package index <http://pypi.python.org/pypi/cjklib/>`_ and deploy the
 library on your system::
@@ -72,7 +63,7 @@ Development version
 
 The development version is available from svn::
 
-    $ svn checkout http://cjklib.googlecode.com/svn/trunk/ cjklib
+    $ git clone git://github.com/cburgmer/cjklib.git
 
 You now need to generate the database. Download the Unihan database and call
 the build CLI (which is not yet installed as executable)::

@@ -115,8 +115,8 @@ Quick step to provide own packages.
 First get a clean checkout::
 
     $ cd /tmp
-    $ svn checkout http://cjklib.googlecode.com/svn/trunk/ cjklib-read-only
-    $ cd cjklib-read-only
+    $ git clone git://github.com/cburgmer/cjklib.git
+    $ cd cjklib
 
 Create the database::
 

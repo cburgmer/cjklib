@@ -54,7 +54,7 @@ Access a dictionary (here using Jim Breen's EDICT):
 Copyright & License
 ===================
 
-Copyright (C) 2006-2010 cjklib developers
+Copyright (C) 2006-2012 cjklib developers
 
 cjklib comes with absolutely no warranty; for details see License.
 

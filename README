@@ -17,7 +17,7 @@ Dependencies
 ============
 - Python_ 2.4 or above (currently no support for Python3)
 - SQLite_ 3+
-- SQLAlchemy_ 0.4.8+
+- SQLAlchemy_ 0.5+
 - pysqlite2_ (already ships with Python 2.5 and above)
 
 Alternatively for MySQL as backend:
@@ -57,17 +57,8 @@ the directory given by the ``APPDATA`` environment variable, e.g.
 ``CEDICT`` for any other supported dictionary (i.e. EDICT, CEDICT, HanDeDict,
 CFDICT, CEDICTGR).
 
-DEB or RPM based systems
-------------------------
-Packages are available from the
-`project's download page <http://code.google.com/p/cjklib/downloads/list>`_.
-An Ubuntu package is available from a
-`personal package archive <https://launchpad.net/~cburgmer/+archive/ppa>`_.
-Install from the provided .deb or .rpm package. See below for installing
-dictionaries.
-
-Linux
------
+Unix
+----
 If you are installing from the source package you need to deploy the library on
 your system::
 

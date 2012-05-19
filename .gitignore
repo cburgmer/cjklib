@@ -3,3 +3,4 @@
 test/downloads
 *.egg-info
 env
+.noseids

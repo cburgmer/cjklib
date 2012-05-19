@@ -1,5 +1,19 @@
 Changes
 
+0.3.1 release
+=============
+- follow up on changes to the HanDeDict & CFDICT download
+- fix issues with MySQL
+- work with SQLAlchemy >= 0.6.0
+- updates glyph data: decomposition, stroke order, locale mapping
+  (Uriah Eisenstein)
+- augment glyph entries with locale dependent decompositions, so that for
+  each locale the locale-specific component is used in a decomposition
+- add script to produce locale dependent decomposition entries (see above)
+- add option "-y" to cjknife to search the dictionary for headword
+  substrings (annotation of text)
+- initial support for dico, exposing supported dictionaries to a dict server
+
 0.3 release
 ===========
 - easy dictionary access for EDICT, CEDICT and others

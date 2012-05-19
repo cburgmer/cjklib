@@ -61,7 +61,7 @@ u'\u31d0', u'\u31d3', u'\u31df']
 Copyright
 =========
 
-Copyright (C) 2006-2010 cjklib developers
+Copyright (C) 2006-2012 cjklib developers
 
 cjklib comes with absolutely no warranty; for details see B{License}.
 
