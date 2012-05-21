@@ -93,7 +93,7 @@ The library and all parts are distributed under the terms of the LGPL
 Version 3, 29 June 2007 (http://www.gnu.org/licenses/lgpl.html) if not
 otherwise noted.
 """
-__version__ = '0.3.1'
+__version__ = '0.3.2'
 """The version of cjklib"""
 
 __author__ = 'Christoph Burgmer <cburgmer@ira.uka.de>'
