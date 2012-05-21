@@ -7,6 +7,7 @@ include cjklib/build/*.py
 include cjklib/test/*.py
 include cjklib/cjklib.db
 include cjklib/cjklib.conf
+include ez_setup.py
 include setup.py
 include setup.cfg
 include cjklibdoc/*.rst
